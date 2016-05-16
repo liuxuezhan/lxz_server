@@ -1,0 +1,312 @@
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+    <title></title>
+    <script src="/jquery.js"></script>
+    <script src="/json2.js"></script>
+    <script type="text/javascript">
+      
+        var gRole = false;
+      var websocket;
+      $(document).ready(init);
+      
+      function init() {
+          if(!("WebSocket" in window)){  
+              $('#status').append('<p><span style="color: red;">websockets are not supported </span></p>');
+              $("#navigation").hide();  
+          } else {
+              $('#status').append('<p><span style="color: green;">websockets are supported </span></p>');
+              connect();
+          };
+              $("#connected").hide(); 	
+              $("#content").hide(); 	
+      };
+
+      function connect()
+      {
+          wsHost = $("#server").val()
+          websocket = new WebSocket(wsHost);
+          showScreen('<b>Connecting to: ' +  wsHost + '</b>'); 
+          websocket.onopen = function(evt) { onOpen(evt) }; 
+          websocket.onclose = function(evt) { onClose(evt) }; 
+          websocket.onmessage = function(evt) { onMessage(evt) }; 
+          websocket.onerror = function(evt) { onError(evt) }; 
+      };  
+      
+      function disconnect() {
+          websocket.close();
+      }; 
+
+      function toggle_connection(){
+          if(websocket.readyState == websocket.OPEN){
+              disconnect();
+          } else {
+              connect();
+          };
+      };
+
+      function sendTxt() {
+          if(websocket.readyState == websocket.OPEN){
+              txt = $("#send_txt").val();
+              websocket.send(txt);
+              showScreen('sending: ' + txt); 
+          } else {
+               showScreen('websocket is not connected'); 
+          };
+      };
+
+      function onOpen(evt) { 
+          showScreen('<span style="color: green;">CONNECTED </span>'); 
+          $("#connected").fadeIn('slow');
+          $("#content").fadeIn('slow');
+      };  
+
+      function onClose(evt) { 
+          showScreen('<span style="color: red;">DISCONNECTED </span>');
+      };  
+    
+ 
+    function add(str) {
+        showScreen('<span style="color: blue;">' + str + '</span>'); 
+    }
+
+    function handle(t) {
+        if (t.Recv == "qryInfo") {
+            var obj = t.info;
+            add("name: " + obj.name);
+            add("pid: " + obj.pid);
+            add("x: " + obj.x);
+            add("y: " + obj.y);
+            add("food, have : " + obj.food);
+            add("food, consume per houre : " + obj.foodUse);
+
+            var dateObj=new Date(obj.foodTm * 1000);
+            var tstr = dateObj.toTimeString();
+            add("food, action start at : " + tstr);
+
+            add("wood : " + obj.wood);
+            add("genius : " + obj.genius);
+            add("tech : " + obj.tech);
+
+            if (obj.pid == gPid) {
+                alert("qryInfo");
+                $("input[name='s_troops']").val(JSON.stringify(obj.arms));
+                gRole = obj;
+                for (var key in obj.build) {
+                    var v = obj.build[ key ];
+                    var dateObj=new Date(v._pro.tmStart * 1000);
+                    var tstr = dateObj.toTimeString();
+                    v.startTime = tstr;
+                    add("build: [" + key +  "] = { propid :" + v._pro.propid + ",  state: " + v._pro.state + ", tmStart :" + v.startTime + ", name: " + v.name + "}");
+                }
+
+            } else {
+                var x = gRole.x;
+                var y = gRole.y;
+                var sx = obj.x;
+                var sy = obj.y;
+                var dis = Math.round(Math.pow(Math.pow(x-sx, 2) + Math.pow(y-sy, 2), 0.5));
+                add("distance: " + dis);
+            }
+        } else if (t.Recv == "loadData") {
+            var info = t.info;
+            if (info.key == "build") {
+                var build = info.val;
+                for (var key in build) {
+                    var v = build[ key ];
+                    var dateObj=new Date(v.tmStart * 1000);
+                    var tstr = dateObj.toTimeString();
+                    v.startTime = tstr;
+                    add("build: [" + v._id +  "] = { propid :" + v.propid + ",  state: " + v.state + ", tmStart :" + v.startTime + ", name: " + v.name + "}");
+                }
+            }
+        } else if (t.Recv == "onlogin") {
+            gPid = t.pid;
+            var cmd = {};
+
+            //cmd.what = "pro";
+            //var str = JSON.stringify(cmd);
+            //websocket.send(str);
+
+            //cmd.what = "build";
+            //var str = JSON.stringify(cmd);
+            //websocket.send(str);
+            //
+            //cmd.what = "troop";
+            //var str = JSON.stringify(cmd);
+            //websocket.send(str);
+
+            //cmd.what = "mail";
+            //var str = JSON.stringify(cmd);
+            //websocket.send(str);
+
+        } else if ( t.Recv == "qryAround") {
+            var objs = t.info;
+            for ( var i=1 ; i < objs.length ; ++i )  {
+                var obj = objs[i];
+                add("class:" + obj[2] + ", pid:" + obj[3] + ", x:" + obj[0] + ", y:" + obj[1]);
+
+                //if (gRole) {
+                //    var x = obj[0];
+                //    var y = obj[1];
+                //    var sx = gRole.x;
+                //    var sy = gRole.y;
+                //    var dis = Math.round(Math.pow(Math.pow(x-sx, 2) + Math.pow(y-sy, 2), 0.5));
+                //    add("distance: " + dis);
+                //}
+                //add("=================");
+            }
+        }
+    }
+
+      function onMessage(evt) { 
+          add(evt.data);
+          var t = JSON.parse(evt.data);
+          handle(t);
+          //showScreen('<span style="color: blue;">recv: ' + evt.data+ '</span>'); 
+      };  
+
+      function showScreen(txt) { 
+          $('#output').prepend('<p>' + txt + '</p>');
+      };
+
+      function clearScreen() 
+      { 
+          $('#output').html("");
+      };
+    
+    function send_cmd(cmd)
+    {
+        var objs = $("#" + cmd + ":first").children("input");
+        var go = new Object();
+        for ( var i=0 ; i < objs.length ; ++i ) 
+        {
+            var obj = objs[i];
+            var varname = obj.name;
+            var name = varname.substr(2);
+
+            if (varname.charAt(0) == "i") {
+                go[ name ] = Number(obj.value);
+            } else {
+                go[ name ] = obj.value;
+            }
+        }
+        go._CMD_ = cmd.substr(4);
+        var str = JSON.stringify(go, function (key, val) {return val;});
+
+        if(websocket.readyState == websocket.OPEN){
+              websocket.send(str);
+              if (cmd == "cmd_login") {
+				go.pasw = "helloworld";
+				str = JSON.stringify(go, function (key, val) {return val;});
+				}
+                showScreen('send: ' + str); 
+
+        } else {
+               showScreen('websocket is not connected'); 
+        };
+    };
+
+    </script>
+  </head>
+
+  <body>
+    <div id="header">
+      <div id="status"></div>
+    </div>
+        
+      <div id="mycmd">
+      </div>
+
+    <div id="navigation">
+
+      <p id="connecting">
+	<input type='text' id="server" value="ws://192.168.0.4:8003/ws"></input>
+	<button type="button" onclick="toggle_connection()">connection</button>
+      </p>
+      <div id="connected">				
+	<p>
+	  <input type='text' id="send_txt" value=></input>
+	  <button type="button" onclick="sendTxt();">send</button>
+	</p>
+      </div>
+
+      <div id="content">						
+	<button id="clear" onclick="clearScreen()" >Clear text</button>
+	<div id="output"></div>
+      </div>
+    </div>
+
+    <script>
+        var cmds = new Array(
+		{cmd:"firstPacket", uid:1, name:"No.1", pasw:"pass_1" },
+        {cmd:"hashStr", strs:'["command", "hello"]'},
+        {cmd:"loadData", what:"pro"},
+        {cmd:"construct", x:5, y:5, buildid:2001001},
+        {cmd:"upgrade", build:1},
+        {cmd:"train", build:5, arm:1001001, num:100},
+        {cmd:"seige", deid:2, troops:"[[1001,10000],[2001,10000],[3001,10000],[4001,10000]]"},
+        {cmd:"gather", deid:2, troops:"[[1001,10000],[2001,10000],[3001,10000],[4001,10000]]"},
+        {cmd:"addEye"},
+        {cmd:"remEye"},
+        {cmd:"movEye", x:30, y:30},
+
+		{cmd:"say", word:"hello", nouse:1 },
+        {cmd:"qryInfo", pid:0},
+        {cmd:"chat", channel:0, word:"hello", sn:0},
+        {cmd:"qryAround"},
+        {cmd:"reap", build:2},
+        {cmd:"draft", build:5},
+        {cmd:"geniusDo", id:1001001},
+        {cmd:"techDo", id:1001001},
+        {cmd:"mailLoad", sn:0},
+
+        {cmd:"addArm"},
+        {cmd:"addRes"},
+        {cmd:"addItem", id:1001001, num:100},
+
+        {cmd:"use_item", idx:1, num:1},
+
+
+        {cmd:"makeHero", propid:1, quality:1, personality:1 },
+        {cmd:"gmCmd", time:1, checksum:1, command:"{cmd=1}"},
+        {cmd:"testFight", an1:10000, an2:10000, an3:10000, an4:10000, ah1:1, ah2:0, ah3:0, ah4:0, dn1:10000, dn2:10000, dn3:10000, dn4:10000, dh1:1, dh2:0, dh3:0, dh4:0},
+        {cmd:"mail_send", mode:1, to:30000, title:"hello", content:"world"},
+        {cmd:"mail_load_new"},
+        {cmd:"mail_load_old", tag:10010},
+        {cmd:"test_mail_all", mode:1, title:"hello", content:"world"},
+        {cmd:"mail_read", sn:10000},
+        {cmd:"mail_drop", sn:10000},
+        {cmd:"mail_fetch", sn:10000},
+
+        {cmd:"item_acc_build", bidx:1, tidx:1, num:1},
+
+        {cmd:"Restart"}
+
+        );
+
+        for ( var i=0 ; i < cmds.length ; ++i ) 
+        {
+            var obj = cmds[i]
+            var divname = 'cmd_' + obj['cmd'];
+            var str = '<div id="' + divname + '">';
+            var cmd = "send_cmd(" + "'" + divname + "'" + ")";
+            str = str + '<button type="button" onclick="' + cmd + '" >' + obj['cmd'] + '</button>';
+            for (var p in obj)
+            {
+                if (p != 'cmd') {
+                    if (typeof(obj[p]) != "number") {
+                        str = str + p + ':<input type="text" name = "s_' + p + '" value="' + obj[p] + '"></input>';
+                    } else {
+                        str = str + p + ':<input type="text" name = "i_' + p + '" value="' + obj[p] + '"></input>';
+                    }
+                }
+            }
+            str = str + '</div>';
+            $('#mycmd').append(str);
+        }
+
+    </script>
+
+  </body>
+</html>
