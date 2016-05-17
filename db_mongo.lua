@@ -1,15 +1,10 @@
 local skynet = require "skynet"
 local mongo = require "mongo"
 local bson = require "bson"
+local json = require "json"
 
-lxz(...)
-local db_name,host,port,user,pwd = ...
-local conf ={
-        host=host,
-        port=port,
-        username=user,
-        password=pwd,
-        }
+local db_name,db = ...
+local conf = json.decode(db)
 local _d={}
 function test_insert_without_index(db)
 	db[db_name].testdb:dropIndex("*")
@@ -225,7 +220,6 @@ skynet.start(function()
     skynet.register(db_name) --注册服务名字便于其他服务调用
 
     skynet.dispatch("lua", function(session, source, t,data,...)
-        local json = require "json"
         data = json.decode(data)
         gPendingSave[t][data._id] =data
         global_save(db)

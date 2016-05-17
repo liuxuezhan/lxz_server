@@ -82,7 +82,7 @@ skynet.register_protocol {
 	id = skynet.PTYPE_CLIENT,
 }
 
-local user_online = {}
+local user_online = {}--玩家在线列表
 local handshake = {}
 local connection = {}
 
