@@ -126,10 +126,6 @@ skynet.start(function()
     skynet.register(db_name) --注册服务名字便于其他服务调用
 
     skynet.dispatch("lua", function(session, source, t,data,...)
-        lxz()
-        if t then
-        lxz(t)
-        end
         local json = require "json"
         data = json.decode(data)
         if not _d[t] then _d[t]={} end
