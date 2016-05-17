@@ -19,6 +19,8 @@ local users = {}
 local username_map = {}
 local room= {all=0,}          --集体服务 
 local user_online = {}--玩家在线列表
+local handshake = {}
+local pwd_connection = {}
 
 local server = {}
 function server.userid(username)
@@ -35,32 +37,14 @@ function server.ip(username)
 end
 
 
-local connection = {}
 function closeclient(fd)
-	local c = connection[fd]
+	local c = pwd_connection[fd]
 	if c then
-		connection[fd] = false
+		pwd_connection[fd] = false
 		socketdriver.close(fd)
 	end
 end
 
-
-
-local handshake = {}
-local msg_connection = {}
-
-function disconnect(fd)
-    handshake[fd] = nil
-    local c = msg_connection[fd]
-    if c then
-        c.fd = nil
-        msg_connection[fd] = nil
-	local u = username_map[c.username]
-	if u then
-		skynet.call(u.agent, "lua", "afk")
-	end
-    end
-end
 
 local function auth(fd, addr, msg, sz)
     local message = netpack.tostring(msg, sz)
@@ -106,12 +90,12 @@ local function retire_response(u)
 end
 
 local function do_request(fd, message)
-    local u = assert(msg_connection[fd], "invalid fd")
+    local u = assert(pwd_connection[fd], "invalid fd")
     local session = string.unpack(">I4", message, -4)
     message = message:sub(1,-5)
     local p = u.response[session]
     if p then
-        -- session can be reuse in the same connection
+        -- session can be reuse in the same 
         if p[3] == u.version then
             local last = u.response[session]
             u.response[session] = nil
@@ -154,7 +138,7 @@ local function do_request(fd, message)
     u.index = u.index + 1
     -- the return fd is p[1] (fd may change by multi request) check connect
     fd = p[1]
-    if msg_connection[fd] then
+    if pwd_connection[fd] then
         socketdriver.send(fd, p[2])
     end
     p[1] = nil
@@ -182,7 +166,7 @@ local function do_auth(fd, message, addr)
     u.version = idx
     u.fd = fd
     u.ip = addr
-    msg_connection[fd] = u
+    pwd_connection[fd] = u
 end
 
 
@@ -198,7 +182,7 @@ local function old_request(fd, msg, sz)
     -- not atomic, may yield
     if not ok then
         skynet.error(string.format("Invalid package %s : %s", err, message))
-        if msg_connection[fd] then
+        if pwd_connection[fd] then
             closeclient(fd)
         end
     end
@@ -228,7 +212,7 @@ function message(fd, msg, sz)
 end
 local MSG = {}
 function MSG.data(fd, msg, sz)
-    if connection[fd] then
+    if pwd_connection[fd] then
         message(fd, msg, sz)
     else
         skynet.error(string.format("Drop message from fd (%d) : %s", fd, netpack.tostring(msg,sz)))
@@ -257,25 +241,32 @@ function MSG.open(fd, msg)
     if nodelay then
         socketdriver.nodelay(fd)
     end
-    connection[fd] = true
+    pwd_connection[fd] = true
     client_number = client_number + 1
     handshake[fd] = msg
-	if connection[fd] then
+	if pwd_connection[fd] then
 		socketdriver.start(fd)
 	end
 end
 
 function close_fd(fd)
-    local c = connection[fd]
-    if c ~= nil then
-        connection[fd] = nil
+    handshake[fd] = nil
+    local c = pwd_connection[fd]
+    if c then
         client_number = client_number - 1
+        --[[
+        local u = username_map[c.username]
+        if u then
+            skynet.call(u.agent, "lua", "afk")
+        end
+        --]]
+        pwd_connection[fd] = nil
     end
+
 end
 
 function MSG.close(fd)
     if fd ~= socket then
-        disconnect(fd)
         close_fd(fd)
     else
         socket = nil
@@ -287,7 +278,6 @@ function MSG.error(fd, msg)
         socketdriver.close(fd)
         skynet.error(msg)
     else
-        disconnect(fd, msg)
         close_fd(fd)
     end
 end
@@ -376,7 +366,7 @@ function CMD.logout(uid, subid)
 	user_online[u.username] = nil
 	if u.fd then
 		closeclient(u.fd)
-		msg_connection[u.fd] = nil
+		pwd_connection[u.fd] = nil
 	end
 		users[uid] = nil
 		username_map[u.username] = nil
