@@ -96,27 +96,126 @@ function test_expire_index(db)
 	assert(false, "test expire index failed");
 end
 
-function save(db)
-    for t,v in pairs(_d) do
-        lxz(t)
-        for id,d in pairs(v) do
-            if d.op == "add" or "up" then
-                    db[db_name][t]:update({_id=d._id},{["$set"]=d },true)
-            elseif d.op == "del" then
 
-                    db[db_name][t]:delete({_id=d._id})
+function check_save(db, frame)
+    local f = function()
+        local info = db:runCommand("getLastError")
+        --dumpTab(info, "check_save")
+        if info.ok then
+            local code = info.code
+            for tab, doc in pairs(gPendingSave) do
+                local cache = doc.__cache
+                local dels = {}
+                for id, chgs in pairs(cache) do
+                    if chgs._n_ == frame then
+                        --print("ack", id, frame, gFrame)
+                        table.insert(dels, id)
+                        if code then dumpTab(chgs, "maybe error") end
+                    elseif chgs._n_ < frame - 10 then
+                        chgs._n_ = nil
+                        doc[ id ] = chgs
+                        print("retry", id, frame, gFrame)
+                        table.insert(dels, id)
+                    end
+                end
+                if #dels > 0 then
+                    for _, v in pairs(dels) do
+                        cache[ v ] = nil
+                    end
+                end
+            end
+
+            if info.code then
+                dumpTab(info, "check_save")
             end
         end
     end
+    return coroutine.wrap(f)
 end
+
+function global_save(db)
+    local gFrame = (gFrame or 0) + 1
+    if db then
+        local update = false
+        for tab, doc in pairs(gPendingSave) do
+            local cache = doc.__cache
+            for id, chgs in pairs(doc) do
+                if chgs ~= cache then
+                    if not chgs._a_ then
+                        db[db_name][tab]:update({_id=id}, {["$set"] = chgs }, true) if tab ~= "status" then print("update", tab, id) end
+                    else
+                        if chgs._a_ == 0 then
+                            print("delete", tab, id)
+                            db[db_name][ tab ]:delete({_id=id})
+                        else
+                            print("insert", tab, id)
+                            chgs._a_ = nil
+                            db[db_name][ tab ]:update({_id=id}, chgs, true)
+                            chgs._a_ = 1
+                        end
+                    end
+                    update = true
+                    chgs._n_ = gFrame
+                    doc[ id ] = nil
+                    cache[ id ] = chgs
+                end
+            end
+        end
+        if update then check_save(db, gFrame)() end
+    end
+end
+
+function init_pending()
+    __mt_rec = {
+        __index = function (self, recid)
+            local t = self.__cache[ recid ]
+            if t then
+                self.__cache[ recid ] = nil
+                t._n_ = nil
+            else
+                t = {}
+            end
+            self[ recid ] = t
+            return t
+        end
+    }
+    __mt_tab = {
+        __index = function (self, tab)
+            local t = { __cache={} }
+            setmetatable(t, __mt_rec)
+            self[ tab ] = t
+            return t
+        end
+    }
+    setmetatable(gPendingSave, __mt_tab)
+
+
+    __mt_del_rec = {
+        __newindex = function (t, k, v)
+            gPendingSave[ t.tab_name ][ k ]._a_ = 0
+        end
+    }
+    __mt_del_tab = {
+        __index = function (self, tab)
+            local t = {tab_name=tab}
+            setmetatable(t, __mt_del_rec)
+            self[ tab ] = t
+            return t
+        end
+    }
+    setmetatable(gPendingDelete, __mt_del_tab)
+
+end
+
+gPendingSave = {}
+gPendingDelete = {}
+init_pending()
+
 skynet.start(function()
-    package.path = package.path..";/root/skynet/lib/?.lua"
-    lxz(conf)
-	local db = mongo.client(conf)
-    lxz()
+    local db = mongo.client(conf)
     --[[
     test_insert_without_index(db)
-	test_insert_with_index(db)
+    test_insert_with_index(db)
 	test_find_and_remove(db)
 	test_expire_index(db)
    -- db.union:update({_id=self._id}, {["$addToSet"]={log=log}}) 
@@ -128,9 +227,7 @@ skynet.start(function()
     skynet.dispatch("lua", function(session, source, t,data,...)
         local json = require "json"
         data = json.decode(data)
-        if not _d[t] then _d[t]={} end
-        if not _d[t][data._id] then _d[t][data._id]={} end
-        _d[t][data._id]=data
-        save(db)
+        gPendingSave[t][data._id] =data
+        global_save(db)
     end)
 end)
