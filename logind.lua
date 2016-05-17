@@ -1,12 +1,11 @@
-
 local login = require "snax.loginserver"
 local crypt = require "crypt"
 local skynet = require "skynet"
 
 local server = {
 	host = "127.0.0.1",
-    port = 80010,
-	multilogin = true,	-- disallow multilogin
+	port = 8001,
+	multilogin = false,	-- disallow multilogin
 	name = "login_master",
 }
 
@@ -17,12 +16,10 @@ local user_login = {}
 function server.auth_handler(token)
 	-- the token is base64(user)@base64(server):base64(password)
 	local user, server, password = token:match("([^@]+)@([^:]+):(.+)")
-    print("-------------------------------")
-    print(token)
 	user = crypt.base64decode(user)
 	server = crypt.base64decode(server)
 	password = crypt.base64decode(password)
-	assert(password == "password")
+	assert(password == "password", "Invalid password")
 	return server, user
 end
 
