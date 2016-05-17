@@ -1,3 +1,4 @@
+package.path = package.path..";./?.lua"
 local skynet = require "skynet"
 local gateserver = require "gateserver"
 local netpack = require "netpack"
@@ -8,26 +9,20 @@ local b64encode = crypt.base64encode
 local b64decode = crypt.base64decode
 
 --[[
-
 Protocol:
-
 	All the number type is big-endian
-
 	Shakehands (The first package)
 
 	Client -> Server :
-
 	base64(uid)@base64(server)#base64(subid):index:base64(hmac)
 
 	Server -> Client
-
 	XXX ErrorCode
 		404 User Not Found
 		403 Index Expired
 		401 Unauthorized
 		400 Bad Request
 		200 OK
-
 	Req-Resp
 
 	Client -> Server : Request
@@ -66,13 +61,13 @@ Supported skynet command:
 	logout username (used by agent)
 
 Config for server.start:
-	conf.expired_number : the number of the response message cached after sending out (default is 128)
-	conf.login_handler(uid, secret) -> subid : the function when a new user login, alloc a subid for it. (may call by login server)
-	conf.logout_handler(uid, subid) : the functon when a user logout. (may call by agent)
-	conf.kick_handler(uid, subid) : the functon when a user logout. (may call by login server)
-	conf.request_handler(username, session, msg) : the function when recv a new request.
-	conf.register_handler(servername) : call when gate open
-	conf.disconnect_handler(username) : call when a connection disconnect (afk)
+	expired_number : the number of the response message cached after sending out (default is 128)
+	login(uid, secret) -> subid : the function when a new user login, alloc a subid for it. (may call by login server)
+	logout(uid, subid) : the functon when a user logout. (may call by agent)
+	kick(uid, subid) : the functon when a user logout. (may call by login server)
+	request(username, session, msg) : the function when recv a new request.
+	register(servername) : call when gate open
+	disconnect(username) : call when a connection disconnect (afk)
 ]]
 
 local server = {}
@@ -123,14 +118,102 @@ function server.ip(username)
 	end
 end
 
-function server.start(conf)
-	local expired_number = conf.expired_number or 128
+local internal_id = 0
+local users = {}
+local username_map = {}
+local json = require "json"
+local loginservicea     --登录服务
+local room= {all=0,}          --集体服务 
+function login(uid, secret)
+	if users[uid] then
+		error(string.format("%s is already login", uid))
+	end
+
+	internal_id = internal_id + 1
+	local id = internal_id	-- don't use internal_id directly
+	local username = server.username(uid, id, servername)
+
+	local u = {
+		username = username,
+		uid = uid,
+		subid = id,
+	}
+
+	-- trash subid (no used)
+	skynet.call(agent, "lua", "login", uid, id, secret)
+	users[uid] = u
+	username_map[username] = u
+	server.login(username, secret)
+	-- you should return unique subid
+	return id
+end
+
+-- call by agent
+function logout(uid, subid)
+	local u = users[uid]
+	if u then
+		local username = server.username(uid, subid, servername)
+		assert(u.username == username)
+		server.logout(u.username)
+		users[uid] = nil
+		username_map[u.username] = nil
+		skynet.call(loginservice, "lua", "logout",uid, subid)
+	end
+end
+
+-- call by login server
+function kick(uid, subid)
+	local u = users[uid]
+	if u then
+		local username = server.username(uid, subid, servername)
+		assert(u.username == username)
+		-- NOTICE: logout may call skynet.exit, so you should use pcall.
+		pcall(skynet.call, u.agent, "lua", "logout")
+	end
+end
+    --[[
+	local function request(fd, msg, sz)
+		local message = netpack.tostring(msg, sz)
+		local ok, err = pcall(do_request, fd, message)
+		-- not atomic, may yield
+		if not ok then
+			skynet.error(string.format("Invalid package %s : %s", err, message))
+			if connection[fd] then
+				gateserver.closeclient(fd)
+			end
+		end
+	end
+    -]]
+function request(fd,name, msg)
+    msg = json.decode(msg)
+    msg = skynet.call("room.all", "lua", "client",fd,table.unpack(msg))
+    return json.encode(msg)
+    --return skynet.tostring(skynet.rawcall("room.all", "client",msg))
+end
+
+function register(name)
+    servername = name
+    loginservice = skynet.newservice("logind")--加密登录
+    room.all = skynet.newservice("room","room.all")
+    skynet.call("room.all", "lua", "start")
+	skynet.call(loginservice, "lua", "register_gate", servername, skynet.self())
+end
+
+function disconnect(username)
+	local u = username_map[username]
+	if u then
+		skynet.call(u.agent, "lua", "afk")
+	end
+end
+
+function server.start()
+	local expired_number = expired_number or 128
 	local handler = {}
 
 	local CMD = {
-		login = assert(conf.login_handler),
-		logout = assert(conf.logout_handler),
-		kick = assert(conf.kick_handler),
+		login = assert(login),
+		logout = assert(logout),
+		kick = assert(kick),
 	}
 
 	function handler.command(cmd, source, ...)
@@ -140,7 +223,7 @@ function server.start(conf)
 
 	function handler.open(source, gateconf)
 		local servername = assert(gateconf.servername)
-		return conf.register_handler(servername)
+		return register(servername)
 	end
 
 	function handler.connect(fd, addr)
@@ -154,8 +237,8 @@ function server.start(conf)
 		if c then
 			c.fd = nil
 			connection[fd] = nil
-			if conf.disconnect_handler then
-				conf.disconnect_handler(c.username)
+			if disconnect then
+				disconnect(c.username)
 			end
 		end
 	end
@@ -209,7 +292,7 @@ function server.start(conf)
 		end
 	end
 
-	local request_handler = assert(conf.request_handler)
+	local request_handler = assert(request)
 
 	-- u.response is a struct { return_fd , response, version, index }
 	local function retire_response(u)
@@ -255,7 +338,7 @@ function server.start(conf)
 		if p == nil then
 			p = { fd }
 			u.response[session] = p
-			local ok, result = pcall(conf.request_handler, fd,u.username, message)
+			local ok, result = pcall(request, fd,u.username, message)
 			-- NOTICE: YIELD here, socket may close.
 			result = result or ""
 			if not ok then
@@ -289,22 +372,11 @@ function server.start(conf)
 		retire_response(u)
 	end
 
-	local function request(fd, msg, sz)
-		local message = netpack.tostring(msg, sz)
-		local ok, err = pcall(do_request, fd, message)
-		-- not atomic, may yield
-		if not ok then
-			skynet.error(string.format("Invalid package %s : %s", err, message))
-			if connection[fd] then
-				gateserver.closeclient(fd)
-			end
-		end
-	end
 
 	function handler.message(fd, msg, sz)
         local m = netpack.tostring(msg,sz)
 		lxz(fd, m)
-		local ok, res = pcall(conf.request_handler, fd,0, m )
+		local ok, res = pcall(request, fd,0, m )
 		socketdriver.send(fd, netpack.pack(res))
         --socket.write(fd, res)
         --[[
@@ -321,4 +393,4 @@ function server.start(conf)
 	return gateserver.start(handler)
 end
 
-return server
+server.start()
