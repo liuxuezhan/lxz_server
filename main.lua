@@ -7,7 +7,7 @@ skynet.start(function()
     local console = skynet.newservice("console")
     skynet.newservice("debug_console",80000)
 
-    local login = "loginserver1"
+    local login = "ssss"
     skynet.newservice("logind",login)
 
     local server1 = "server1"

@@ -316,6 +316,7 @@ function CMD.open( source, conf )
     socketdriver.start(socket)
     room.all = skynet.newservice("room","room.all")
     skynet.call("room.all", "lua", "start")
+    lxz()
 	skynet.call(loginservice, "lua", "register_gate", servername, skynet.self())
 end
 
@@ -369,6 +370,7 @@ function CMD.logout(uid, subid)
 	end
 		users[uid] = nil
 		username_map[u.username] = nil
+        lxz()
 		skynet.call(loginservice, "lua", "logout",uid, subid)
 	end
 end
@@ -385,6 +387,7 @@ end
 skynet.start(function()
     require "skynet.manager"	-- import skynet.register
     skynet.register(servername) --注册服务名字便于其他服务调用
+    lxz(SERVICE_NAME)
     skynet.dispatch("lua", function (_, address, cmd, ...)
         local f = assert(CMD[cmd])
         skynet.ret(skynet.pack(f(address, ...)))
