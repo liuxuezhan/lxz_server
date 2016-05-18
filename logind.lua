@@ -2,11 +2,14 @@ local login = require "snax.loginserver"
 local crypt = require "crypt"
 local skynet = require "skynet"
 
+lxz(...)
+local servername = ...
+lxz(servername)
 local server = {
 	host = "127.0.0.1",
 	port = 8001,
 	multilogin = false,	-- disallow multilogin
-	name = "login_master",
+	name = "ssss",
 }
 
 local server_list = {}
@@ -41,11 +44,9 @@ function server.login_handler(server, uid, secret)
 end
 
 local CMD = {}
-
 function CMD.register_gate(server, address)
 	server_list[server] = address
 end
-
 function CMD.logout(uid, subid)
 	local u = user_online[uid]
 	if u then
@@ -58,5 +59,5 @@ function server.command_handler(command, ...)
 	local f = assert(CMD[command])
 	return f(...)
 end
-
+lxz(server.servername)
 login(server)
