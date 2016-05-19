@@ -15,26 +15,6 @@ local server_list = {}
 local user_online = {}
 local user_login = {}
 
-local CMD = {}
-
-local function register_gate(server, address)--注册分区
-	server_list[server] = address
-end
-CMD.register_gate=register_gate
-
-local function logout(uid, subid)
-	local u = user_online[uid]
-	if u then
-		print(string.format("%s@%s is logout", uid, u.server))
-		user_online[uid] = nil
-	end
-end
-CMD.logout=logout
-
-local function command_handler(command, ...)
-	local f = assert(CMD[command])
-	return f(...)
-end
 --[[
 
 Protocol:
@@ -61,6 +41,25 @@ Error Code:
 Success:
 	200 base64(subid)
 ]]
+local CMD = {}
+local function register_gate(server, address)--注册分区
+	server_list[server] = address
+end
+CMD.register_gate=register_gate
+
+local function logout(uid, subid)
+	local u = user_online[uid]
+	if u then
+		print(string.format("%s@%s is logout", uid, u.server))
+		user_online[uid] = nil
+	end
+end
+CMD.logout=logout
+
+local function command_handler(command, ...)
+	local f = assert(CMD[command])
+	return f(...)
+end
 
 local socket_error = {}
 local function assert_socket(service, v, fd)
@@ -76,7 +75,7 @@ local function write(service, fd, text)
 	assert_socket(service, socket.write(fd, text), fd)
 end
 
-local function launch_slave()
+local function launch_slave()--客户端通信
 	local function auth(fd, addr)
 		-- set socket buffer limit (8K)
 		-- If the attacker send large package, close the socket
@@ -179,13 +178,13 @@ local function accept( server_handle, fd, addr)
 end
 
 local function launch_master()
-	local instance = conf.instance or 8--多个登录服务器
+	local instance = conf.instance or 1--多个登录服务器
 	assert(instance > 0)
 	local host = conf.host or "0.0.0.0"
 	local port = assert(tonumber(conf.port))
 	local slave = {}
 
-	skynet.dispatch("lua", function(_,source,command, ...)
+	skynet.dispatch("lua", function(_,source,command, ...)--服务器间通信
 		skynet.ret(skynet.pack(command_handler(command, ...)))
 	end)
 
@@ -195,7 +194,7 @@ local function launch_master()
 
 	skynet.error(string.format("login server listen at : %s %d", host, port))
 	local balance = 1
-	local id = socket.listen(host, port)
+	local id = socket.listen(host, port)--客户端通信
 	socket.start(id , function(fd, addr)
 		local server_handle = slave[balance]
 		balance = balance + 1
@@ -240,9 +239,9 @@ local function login_handler(server, uid, secret)--通知分区验证通过
 end
 
 
-
-local function log(server, uid, secret)
+--local function log(nnnnn)
 skynet.start(function()
+    lxz()
     conf=_conf.login[1]
     local master = skynet.localname(conf.name)
     if master then
@@ -254,6 +253,6 @@ skynet.start(function()
         launch_master()
     end
 end)
-end
-return log
+--end
+--return log
 
