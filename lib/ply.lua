@@ -1,8 +1,10 @@
 module(..., package.seeall)
 _id= 1000--当前最大id
 _d= {}--数据
-function load(db_conf ,...)
+function load(db_conf,...)
+    lxz(db_conf)
     local mongo = require "mongo"
+    lxz()
 	local db = mongo.client(db_conf)
 
     local info = db[db_conf.name].ply:find({})

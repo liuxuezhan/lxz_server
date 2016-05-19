@@ -4,6 +4,7 @@ local netpack = require "netpack"
 local socketdriver = require "socketdriver"
 local crypt = require "crypt"
 local json = require "json"
+require "ply"
 local assert = assert
 local b64encode = crypt.base64encode
 local b64decode = crypt.base64decode
@@ -17,7 +18,6 @@ local nodelay = false
 local internal_id = 0
 local users = {}
 local username_map = {}
-local room= {all=0,}          --集体服务 
 local user_online = {}--玩家在线列表
 local handshake = {}
 local pwd_connection = {}
@@ -189,11 +189,31 @@ local function old_request(fd, msg, sz)
     end
 end
 
+function go_db(table,data)
+    skynet.send(_conf.db[1].name, "lua", table,json.encode(data))--不需要返回
+end
+
+function save(ret,data)
+    go_db(table.unpack(data))
+
+    if type(ret) == "table" then
+        skynet.ret(skynet.pack(ret))
+    else
+        skynet.error(ret)
+    end
+end
+
 function request(fd,name, msg)
     msg = json.decode(msg)
+
+    
+    --[[
+    local ret = ply.dispath(fd,table.unpack(msg))
+    save( table.unpack(ret))--返回必须是一个表
+    return json.encode(ret)
+    --]]
     msg = skynet.call("room.all", "lua", "client",fd,table.unpack(msg))
     return json.encode(msg)
-    --return skynet.tostring(skynet.rawcall("room.all", "client",msg))
 end
 
 function message(fd, msg, sz)
@@ -384,8 +404,14 @@ skynet.start(function()
     socketdriver.start(socket)
 	skynet.call(_conf.login[1].name, "lua", "register_gate", conf.name, skynet.self())
 
-    room.all = skynet.newservice("room","room.all")
+    --[
+    skynet.newservice("room","room.all")
     skynet.call("room.all", "lua", "start")
+    --]]
+--[[
+    ply.load(_conf.db[1])--本线程加载
+    skynet.newservice("db_mongo",json.encode(_conf.db[1]))--数据库写中心
+    --]]
 
     lxz(SERVICE_NAME)
     skynet.dispatch("lua", function (_, address, cmd, ...)

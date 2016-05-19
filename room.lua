@@ -31,6 +31,7 @@ skynet.start(function()
             load()
         else
             local ret = ply.dispath(...)--返回必须是一个表
+            lxz(ret)
             save( table.unpack(ret))--返回必须是一个表
         end
 
