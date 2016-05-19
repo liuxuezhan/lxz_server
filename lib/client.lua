@@ -1,7 +1,7 @@
 local socket = require "socket"
 local json = require "json"
 --require "debugger"
-dofile("../data/tool.lua")
+dofile("../data/define.lua")
 
 dofile("client_conf.lua")
 

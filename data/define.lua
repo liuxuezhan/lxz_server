@@ -13,7 +13,7 @@ _conf = {
                 name="server1", 
                 host = "0.0.0.0",
                 port = 8888, 
-                maxclient=64,
+                maxclient=3000,
             }, 
     },
 
