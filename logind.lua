@@ -5,15 +5,16 @@ local crypt = require "crypt"
 local table = table
 local string = string
 local assert = assert
+local json = require "json"
 
-local server_name = ... 
-local conf = {
-	host = "127.0.0.1",
-	port = 8001,
-	multilogin = false,	-- disallow multilogin
-}
+local conf = json.decode(...)
+local server_list = {}
+local user_online = {}
+local user_login = {}
 local CMD = {}
 function CMD.register_gate(server, address)--注册分区
+    lxz(server)
+    lxz(address)
 	server_list[server] = address
 end
 function CMD.logout(uid, subid)
@@ -208,9 +209,6 @@ local function launch_master()
 	end)
 end
 
-local server_list = {}
-local user_online = {}
-local user_login = {}
 function auth_handler(token)--第三方平台token校验
 	-- the token is base64(user)@base64(server):base64(password)
 	local user, server, password = token:match("([^@]+)@([^:]+):(.+)")
@@ -241,13 +239,13 @@ end
 
 
 skynet.start(function()
-    local master = skynet.localname(server_name)
+    local master = skynet.localname(conf.name)
     if master then
         launch_master = nil
         launch_slave()
     else
         launch_slave = nil
-        skynet.register(server_name)
+        skynet.register(conf.name)
         launch_master()
     end
 end)

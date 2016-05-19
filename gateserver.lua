@@ -382,7 +382,7 @@ skynet.start(function()
     skynet.error(string.format("Listen on %s:%d", address, port))
     socket = socketdriver.listen(address, port)
     socketdriver.start(socket)
-	skynet.call(loginservice, "lua", "register_gate", servername, skynet.self())
+	skynet.call(_conf.login[1].name, "lua", "register_gate", conf.name, skynet.self())
 
     room.all = skynet.newservice("room","room.all")
     skynet.call("room.all", "lua", "start")
