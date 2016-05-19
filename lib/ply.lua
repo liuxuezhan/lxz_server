@@ -1,11 +1,11 @@
 module(..., package.seeall)
 _id= 1000--当前最大id
 _d= {}--数据
-function load(name,db ,...)
+function load(db_conf ,...)
     local mongo = require "mongo"
-	local db = mongo.client(db)
+	local db = mongo.client(db_conf)
 
-    local info = db[name].ply:find({})
+    local info = db[db_conf.name].ply:find({})
     while info:hasNext() do
         local v = info:next()
         _d[v._id]=v

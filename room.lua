@@ -3,21 +3,13 @@ local json = require "json"
 require "ply"
 
 local my_name,other = ...
-local db={
-    all={
-        host="127.0.0.1",
-        port=27017,
-       -- username="admin",
-       -- password="admin",
-    }
-}
 function load()
-    ply.load("all",db.all)--本线程加载
-    skynet.newservice("db_mongo","all",json.encode(db.all))--数据库写中心
+    ply.load(_conf.db[1])--本线程加载
+    skynet.newservice("db_mongo",json.encode(_conf.db[1]))--数据库写中心
 end
 
 function go_db(table,data)
-    skynet.send("all", "lua", table,json.encode(data))--不需要返回
+    skynet.send(_conf.db[1].name, "lua", table,json.encode(data))--不需要返回
 end
 
 function save(ret,data)

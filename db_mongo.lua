@@ -3,8 +3,8 @@ local mongo = require "mongo"
 local bson = require "bson"
 local json = require "json"
 
-local db_name,db = ...
-local conf = json.decode(db)
+local conf = json.decode(...)
+db_name = conf.name 
 local _d={}
 function test_insert_without_index(db)
 	db[db_name].testdb:dropIndex("*")
