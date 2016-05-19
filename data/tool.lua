@@ -4,9 +4,14 @@ _conf = {
         [1]={ name="login1",host = "127.0.0.1", port = 8001, multilogin = false,},
     },
 
-    --逻辑服务器
+    --分区服务器
     server ={ 
         [1]={ name="server1", host = "0.0.0.0", port = 8888, maxclient=64,}, 
+    },
+
+    --逻辑服务器
+    room ={ 
+        [1]={ name="room1", }, 
     },
 
     --数据服务器

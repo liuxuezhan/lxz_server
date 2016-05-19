@@ -10,6 +10,11 @@ skynet.start(function()
     skynet.newservice("logind",json.encode(_conf.login[1]))
 
 	skynet.newservice("gateserver",json.encode(_conf.server[1]))
+
+    skynet.newservice("room",json.encode(_conf.room[1]))
+
+    skynet.newservice("db_mongo",json.encode(_conf.db[1]))--数据库写中心
+
     skynet.exit()
 end)
 

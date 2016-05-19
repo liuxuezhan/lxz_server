@@ -189,30 +189,10 @@ local function old_request(fd, msg, sz)
     end
 end
 
-function go_db(table,data)
-    skynet.send(_conf.db[1].name, "lua", table,json.encode(data))--不需要返回
-end
-
-function save(ret,data)
-    go_db(table.unpack(data))
-
-    if type(ret) == "table" then
-        skynet.ret(skynet.pack(ret))
-    else
-        skynet.error(ret)
-    end
-end
-
 function request(fd,name, msg)
     msg = json.decode(msg)
 
-    
-    --[[
-    local ret = ply.dispath(fd,table.unpack(msg))
-    save( table.unpack(ret))--返回必须是一个表
-    return json.encode(ret)
-    --]]
-    msg = skynet.call("room.all", "lua", "client",fd,table.unpack(msg))
+    msg = skynet.call(_conf.room[1].name, "lua", "client",fd,table.unpack(msg))
     return json.encode(msg)
 end
 
@@ -404,14 +384,6 @@ skynet.start(function()
     socketdriver.start(socket)
 	skynet.call(_conf.login[1].name, "lua", "register_gate", conf.name, skynet.self())
 
-    --[
-    skynet.newservice("room","room.all")
-    skynet.call("room.all", "lua", "start")
-    --]]
---[[
-    ply.load(_conf.db[1])--本线程加载
-    skynet.newservice("db_mongo",json.encode(_conf.db[1]))--数据库写中心
-    --]]
 
     lxz(SERVICE_NAME)
     skynet.dispatch("lua", function (_, address, cmd, ...)
