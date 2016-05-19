@@ -174,7 +174,7 @@ local function accept( server_handle, fd, addr)
 end
 
 local function launch_master()
-	local instance = conf.instance or 8--多个登录服务器
+	local instance = conf.instance or 1--多个登录服务器
 	assert(instance > 0)
 	local host = conf.host or "0.0.0.0"
 	local port = assert(tonumber(conf.port))

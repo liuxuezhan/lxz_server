@@ -22,14 +22,6 @@ _conf = {
 _cluster={
 }
 
-local db={
-    all={
-        host="127.0.0.1",
-        port=27017,
-        -- username="admin",
-        -- password="admin",
-    }
-}
 --基础库
 function split(str, reps)  --分割字符串
     local resultStrsList = {};
