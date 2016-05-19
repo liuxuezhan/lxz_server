@@ -7,14 +7,15 @@ local string = string
 local assert = assert
 local json = require "json"
 
-local conf = json.decode(...)
+local id = ...
+id = tonumber(id)
+local conf = _conf.login[id] 
+
 local server_list = {}
 local user_online = {}
 local user_login = {}
 local CMD = {}
 function CMD.register_gate(server, address)--注册分区
-    lxz(server)
-    lxz(address)
 	server_list[server] = address
 end
 function CMD.logout(uid, subid)

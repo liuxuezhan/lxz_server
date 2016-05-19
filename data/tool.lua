@@ -6,19 +6,17 @@ _conf = {
 
     --分区服务器
     server ={ 
-        [1]={ name="server1", host = "0.0.0.0", port = 8888, maxclient=64,}, 
+        [1]={   room ={ [1]={ name="room1", }, },
+                db ={ [1]={ name="db1", host = "127.0.0.1", port = 27017, }, 
+                        -- [2]={ name="db2", host = "127.0.0.1", port = 27017,username="admin",password="admin" }, 
+                    },
+                name="server1", 
+                host = "0.0.0.0",
+                port = 8888, 
+                maxclient=64,
+            }, 
     },
 
-    --逻辑服务器
-    room ={ 
-        [1]={ name="room1", }, 
-    },
-
-    --数据服务器
-    db ={ 
-        [1]={ name="db1", host = "127.0.0.1", port = 27017, }, 
-        --    [2]={ name="db2", host = "127.0.0.1", port = 27017,username="admin",password="admin" }, 
-    },
 } 
 
 _cluster={

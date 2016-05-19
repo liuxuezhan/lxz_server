@@ -22,7 +22,10 @@ local user_online = {}--玩家在线列表
 local handshake = {}
 local pwd_connection = {}
 
-local conf = json.decode(...)
+local id = ...
+id = tonumber(id)--分区id
+local conf =_conf.server[id] 
+
 local server = {}
 function server.userid(username)
 	-- base64(uid)@base64(server)#base64(subid)
@@ -192,7 +195,7 @@ end
 function request(fd,name, msg)
     msg = json.decode(msg)
 
-    msg = skynet.call(_conf.room[1].name, "lua", "client",fd,table.unpack(msg))
+    msg = skynet.call(conf.room[1].name, "lua", "client",fd,table.unpack(msg))
     return json.encode(msg)
 end
 
@@ -384,6 +387,8 @@ skynet.start(function()
     socketdriver.start(socket)
 	skynet.call(_conf.login[1].name, "lua", "register_gate", conf.name, skynet.self())
 
+    skynet.newservice("room",id,1)
+    skynet.newservice("db_mongo",id,1)--数据库写中心
 
     lxz(SERVICE_NAME)
     skynet.dispatch("lua", function (_, address, cmd, ...)
