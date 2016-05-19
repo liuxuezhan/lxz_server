@@ -1,8 +1,32 @@
-conf = {
-    login ={ [1]={ name= "login1", host = "127.0.0.1", port = 8001, multilogin = false,} , },
-    server ={ [1]={ name= "server1", host = "0.0.0.0", port = 8888, maxclient=64,} , },
-    db ={ [1]={ name= "db1", host = "0.0.0.0", port = 8888, maxclient=64,} , },
+_conf = {
+    --登录服务器
+    login ={ 
+        [1]={ name="login1",host = "127.0.0.1", port = 8001, multilogin = false,},
+    },
+
+    --逻辑服务器
+    server ={ 
+        [1]={ name="server1", host = "0.0.0.0", port = 8888, maxclient=64,}, 
+    },
+
+    --数据服务器
+    db ={ 
+        [1]={ name="db1", host = "127.0.0.1", port = 27017, }, 
+        --    [2]={ name="db2", host = "127.0.0.1", port = 27017,username="admin",password="admin" }, 
+    },
 } 
+
+_cluster={
+}
+
+local db={
+    all={
+        host="127.0.0.1",
+        port=27017,
+        -- username="admin",
+        -- password="admin",
+    }
+}
 --基础库
 function split(str, reps)  --分割字符串
     local resultStrsList = {};

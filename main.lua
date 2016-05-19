@@ -1,5 +1,5 @@
-
 local skynet = require "skynet"
+local json = require "json"
 
 --pause("debug in main_loop")
 
@@ -7,15 +7,9 @@ skynet.start(function()
     local console = skynet.newservice("console")
     skynet.newservice("debug_console",80000)
 
-    local login = "ssss"
-    skynet.newservice("logind",login)
+    skynet.newservice("logind",_conf.login[1].name)
 
-    local server1 = "server1"
-	skynet.newservice("gateserver",login,server1)
-	skynet.call(server1, "lua", "open" , {
-		port = 8888,
-		maxclient = 64,
-	})
+	skynet.newservice("gateserver",json.encode(_conf.server[1]))
     skynet.exit()
 end)
 

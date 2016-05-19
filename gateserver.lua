@@ -22,7 +22,7 @@ local user_online = {}--玩家在线列表
 local handshake = {}
 local pwd_connection = {}
 
-local loginservice,servername = ...
+local conf = json.decode(...)
 local server = {}
 function server.userid(username)
 	-- base64(uid)@base64(server)#base64(subid)
@@ -195,6 +195,7 @@ function request(fd,name, msg)
     return json.encode(msg)
     --return skynet.tostring(skynet.rawcall("room.all", "client",msg))
 end
+
 function message(fd, msg, sz)
     local m = netpack.tostring(msg,sz)
     lxz(fd, m)
@@ -305,21 +306,6 @@ skynet.register_protocol {
 
 
 local CMD = setmetatable({}, { __gc = function() netpack.clear(queue) end })
-function CMD.open( source, conf )
-    assert(not socket)
-    local address = conf.address or "0.0.0.0"
-    local port = assert(conf.port)
-    maxclient = conf.maxclient or 1024
-    nodelay = conf.nodelay
-    skynet.error(string.format("Listen on %s:%d", address, port))
-    socket = socketdriver.listen(address, port)
-    socketdriver.start(socket)
-    room.all = skynet.newservice("room","room.all")
-    skynet.call("room.all", "lua", "start")
-    lxz()
-	skynet.call(loginservice, "lua", "register_gate", servername, skynet.self())
-end
-
 function CMD.close()
     assert(socket)
     socketdriver.close(socket)
@@ -384,9 +370,23 @@ function CMD.kick(uid, subid)
 		pcall(skynet.call, u.agent, "lua", "logout")
 	end
 end
+
 skynet.start(function()
     require "skynet.manager"	-- import skynet.register
-    skynet.register(servername) --注册服务名字便于其他服务调用
+    skynet.register(conf.name) --注册服务名字便于其他服务调用
+    assert(not socket)
+    local address = conf.host or "0.0.0.0"
+    local port = assert(conf.port)
+    maxclient = conf.maxclient or 1024
+    nodelay = conf.nodelay
+    skynet.error(string.format("Listen on %s:%d", address, port))
+    socket = socketdriver.listen(address, port)
+    socketdriver.start(socket)
+	skynet.call(loginservice, "lua", "register_gate", servername, skynet.self())
+
+    room.all = skynet.newservice("room","room.all")
+    skynet.call("room.all", "lua", "start")
+
     lxz(SERVICE_NAME)
     skynet.dispatch("lua", function (_, address, cmd, ...)
         local f = assert(CMD[cmd])
