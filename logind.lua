@@ -13,7 +13,7 @@ local conf = {
 	multilogin = false,	-- disallow multilogin
 }
 local CMD = {}
-function CMD.register_gate(server, address)
+function CMD.register_gate(server, address)--注册分区
 	server_list[server] = address
 end
 function CMD.logout(uid, subid)
@@ -25,7 +25,6 @@ function CMD.logout(uid, subid)
 end
 
 function command_handler(command, ...)
-    lxz()
 	local f = assert(CMD[command])
 	return f(...)
 end
@@ -212,7 +211,7 @@ end
 local server_list = {}
 local user_online = {}
 local user_login = {}
-function auth_handler(token)
+function auth_handler(token)--第三方平台token校验
 	-- the token is base64(user)@base64(server):base64(password)
 	local user, server, password = token:match("([^@]+)@([^:]+):(.+)")
 	user = crypt.base64decode(user)
@@ -222,7 +221,7 @@ function auth_handler(token)
 	return server, user
 end
 
-function login_handler(server, uid, secret)
+function login_handler(server, uid, secret)--通知分区验证通过
 	print(string.format("%s@%s is login, secret is %s", uid, server, crypt.hexencode(secret)))
 	local gameserver = assert(server_list[server], "Unknown server")
 	-- only one can login, because disallow multilogin

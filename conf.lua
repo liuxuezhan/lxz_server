@@ -1,12 +1,14 @@
--- This file will execute before every lua service start
--- See config
+conf = {
+    login ={ [1]={ name= "login1", host = "127.0.0.1", port = 8001, multilogin = false,} , },
+    server ={ [1]={ name= "server1", host = "0.0.0.0", port = 8888, maxclient=64,} , },
+    db ={ [1]={ name= "db1", host = "0.0.0.0", port = 8888, maxclient=64,} , },
+} 
 --基础库
 function split(str, reps)  --分割字符串
     local resultStrsList = {};
     string.gsub(str, '[^' .. reps ..']+', function(w) table.insert(resultStrsList, w) end );
     return resultStrsList;
 end
-
 function load_file (path)--读取csv文件数据为lua表
     local file = io.open(path,"r")
     for line in file:lines() do
@@ -70,6 +72,7 @@ function lxz(...)--打印lua变量数据到日志文件
     for _,v in pairs({...}) do
         print_r(v)
     end
+    print("\n")
 end
 
 getfenv = getfenv or function(f)
