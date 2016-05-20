@@ -1,7 +1,7 @@
 _conf = {
     --登录服务器
     login ={ 
-        [1]={ name="login1",host = "127.0.0.1", port = 8001, multilogin = false,},
+        [1]={ name="login1",host = "127.0.0.1", port = 8001, multilogin = true,},
     },
 
     --分区服务器

@@ -371,10 +371,10 @@ end
 function CMD.kick(uid, subid)
 	local u = users[uid]
 	if u then
-		local username = string.format("%s@%s#%s", b64encode(uid), b64encode(servername), b64encode(tostring(subid)))
+		local username = string.format("%s@%s#%s", b64encode(uid), b64encode(conf.name), b64encode(tostring(subid)))
 		assert(u.username == username)
 		-- NOTICE: logout may call skynet.exit, so you should use pcall.
-		pcall(skynet.call, u.agent, "lua", "logout")
+	--	pcall(skynet.call, u.agent, "lua", "logout")
 	end
 end
 

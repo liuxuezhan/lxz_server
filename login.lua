@@ -15,34 +15,8 @@ local server_list = {}
 local user_online = {}
 local user_login = {}
 
---[[
-
-Protocol:
-
-	line (\n) based text protocol
-
-	1. Server->Client : base64(8bytes random challenge)
-	2. Client->Server : base64(8bytes handshake client key)
-	3. Server: Gen a 8bytes handshake server key
-	4. Server->Client : base64(DH-Exchange(server key))
-	5. Server/Client secret := DH-Secret(client key/server key)
-	6. Client->Server : base64(HMAC(challenge, secret))
-	7. Client->Server : DES(secret, base64(token))
-	8. Server : call auth_handler(token) -> server, uid (A user defined method)
-	9. Server : call login_handler(server, uid, secret) ->subid (A user defined method)
-	10. Server->Client : 200 base64(subid)
-
-Error Code:
-	400 Bad Request . challenge failed
-	401 Unauthorized . unauthorized by auth_handler
-	403 Forbidden . login_handler failed
-	406 Not Acceptable . already in login (disallow multi login)
-
-Success:
-	200 base64(subid)
-]]
 local CMD = {}
---function CMD.register_gate(server, address)--注册分区
+
 function CMD.register_gate(server, host,port)--注册分区
 	server_list[server] = {host=host,port=port} 
 end
@@ -144,7 +118,6 @@ local function server_login(server, uid, secret)--通知分区验证通过
 	local last = user_online[uid]
 	if last then
 		skynet.call(server, "lua", "kick", uid, last.subid)
-		--skynet.call(last.address, "lua", "kick", uid, last.subid)
 	end
 	if user_online[uid] then
 		error(string.format("user %s is already online", uid))

@@ -8,7 +8,6 @@ skynet.start(function()
     skynet.newservice("debug_console",80000)
 
     skynet.newservice("login",1)
-    --skynet.newservice("logind")
 
 	skynet.newservice("gateserver",1)
 
