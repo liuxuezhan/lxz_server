@@ -86,6 +86,7 @@ local function client_auth(fd, addr)
 
     local key = crypt.randomkey()
     key = crypt.base64encode(key).."\n"
+    key = "hero".."\n"
     write( fd, key)
     lxz(key)
 

@@ -108,6 +108,7 @@ local function unpack_old(f,fd)
 	local function try_recv(fd, last)
 		local result
 		result, last = f(last)
+       -- lxz(result,last)
 		if result then
 			return result, last
 		end
@@ -132,7 +133,7 @@ local function unpack_old(f,fd)
 		end
 	end
 end
-local function unpack_line(text)
+local function unpack_line(text)--返回换行前后两个字符串
 	local from = text:find("\n", 1, true)
 	if from then
 		return text:sub(1, from-1), text:sub(from+1)
@@ -148,8 +149,8 @@ function send(i)
 			return 1
 		end
         local readline = unpack_old(unpack_line,robot[i].fd)
+        lxz(readline())
         local ch = crypt.base64decode(readline())
-        lxz(ch)
         
 	end
 
