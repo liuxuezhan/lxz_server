@@ -60,50 +60,54 @@ local function command_handler(command, ...)
 end
 
 local socket_error = {}
-local function assert_socket(service, v, fd)
-	if v then
-		return v
-	else
-		skynet.error(string.format("%s failed: socket (fd = %d) closed", service, fd))
+
+local function write( fd, text)
+    local ok  = pcall(socket.write,fd, text)
+    if not ok then
+		skynet.error(string.format("socket(%d) write fail", fd))
 		error(socket_error)
-	end
+    end
 end
 
-local function write(service, fd, text)
-	assert_socket(service, socket.write(fd, text), fd)
+local function read(fd)
+    local ok ,ret = pcall(socket.readline,fd)
+    if not ok then
+		skynet.error(string.format("socket(%d) read fail", fd))
+		error(socket_error)
+    end
+    return ret
 end
 
 local function client_auth(fd, addr)
-
-    skynet.error(string.format("connect from %s (fd = %d)", addr, fd))
+    lxz(string.format("connect from %s (fd = %d)", addr, fd))
     socket.start(fd)	-- may raise error here
 
-    -- set socket buffer limit (8K)
-    -- If the attacker send large package, close the socket
-    socket.limit(fd, 8192)
+    socket.limit(fd, 8192) -- set socket buffer limit (8K),If the attacker send large package, close the socket
 
-    local challenge = crypt.randomkey()
-    write("auth", fd, crypt.base64encode(challenge).."\n")
+    local key = crypt.randomkey()
+    key = crypt.base64encode(key).."\n"
+    write( fd, key)
+    lxz(key)
 
-    local handshake = assert_socket("auth", socket.readline(fd), fd)
+    local handshake = read( fd)
     local clientkey = crypt.base64decode(handshake)
     if #clientkey ~= 8 then
         error "Invalid client key"
     end
     local serverkey = crypt.randomkey()
-    write("auth", fd, crypt.base64encode(crypt.dhexchange(serverkey)).."\n")
+    write( fd, crypt.base64encode(crypt.dhexchange(serverkey)).."\n")
 
     local secret = crypt.dhsecret(clientkey, serverkey)
 
-    local response = assert_socket("auth", socket.readline(fd), fd)
+    local response = read( fd)
     local hmac = crypt.hmac64(challenge, secret)
 
     if hmac ~= crypt.base64decode(response) then
-        write("auth", fd, "400 Bad Request\n")
+        write( fd, "400 Bad Request\n")
         error "challenge failed"
     end
 
-    local etoken = assert_socket("auth", socket.readline(fd),fd)
+    local etoken = read( fd)
 
     local token = crypt.desdecode(secret, crypt.base64decode(etoken))
 
@@ -113,23 +117,22 @@ local function client_auth(fd, addr)
     return ok, server, uid, secret
 end
 
+local user_login = {}--玩家登陆状态
 
-local user_login = {}
-local function accept(  fd, addr)
-	-- call slave auth
+local function accept(fd, addr)
+
 	local ok, server, uid, secret = client_auth(fd, addr)
-	-- slave will accept(start) fd, so we can write to fd later
 
 	if not ok then
 		if ok ~= nil then
-			write("response 401", fd, "401 Unauthorized\n")
+			write( fd, "401 Unauthorized\n")
 		end
 		error(server)
 	end
 
 	if not conf.multilogin then
 		if user_login[uid] then
-			write("response 406", fd, "406 Not Acceptable\n")
+			write( fd, "406 Not Acceptable\n")
 			error(string.format("User %s is already login", uid))
 		end
 
@@ -142,9 +145,9 @@ local function accept(  fd, addr)
 
 	if ok then
 		err = err or ""
-		write("response 200",fd,  "200 "..crypt.base64encode(err).."\n")
+		write(fd,  "200 "..crypt.base64encode(err).."\n")
 	else
-		write("response 403",fd,  "403 Forbidden\n")
+		write(fd,  "403 Forbidden\n")
 		error(err)
 	end
 end
@@ -178,28 +181,33 @@ local function server_login(server, uid, secret)--通知分区验证通过
 end
 
 
-skynet.start(function()
-    lxz()
+skynet.start (
+function()
+
     skynet.register(conf.name)
-	local host = conf.host or "0.0.0.0"
-	local port = assert(tonumber(conf.port))
-	local slave = {}
+    local host = conf.host or "0.0.0.0"
+    local port = assert(tonumber(conf.port))
+    local slave = {}
 
-	skynet.dispatch("lua", function(_,source,command, ...)--服务器间通信
-		skynet.ret(skynet.pack(command_handler(command, ...)))
-	end)
+    skynet.dispatch("lua", function(_,source,command, ...)--服务器间通信
+        skynet.ret(skynet.pack(command_handler(command, ...)))
+    end)
 
-	skynet.error(string.format("login server listen at : %s %d", host, port))
+    skynet.error(string.format("login server listen at : %s %d", host, port))
 
-	local id = socket.listen(host, port)--客户端通信
-	socket.start(id , function(fd, addr)
-		local ok, err = pcall(accept, fd, addr)
-		if not ok then
-			if err ~= socket_error then
-				skynet.error(string.format("invalid client (fd = %d) error = %s", fd, err))
-			end
-		end
-		socket.close_fd(fd)	-- We haven't call socket.start, so use socket.close_fd rather than socket.close.
-	end)
-end)
+    local id = socket.listen(host, port)--客户端通信
+    socket.start ( 
+    id , 
+    function(fd, addr)
+        local ok, err = pcall(accept, fd, addr)
+        if not ok then
+            if err ~= socket_error then
+                skynet.error(string.format("invalid client (fd = %d) error = %s", fd, err))
+            end
+        end
+        socket.close_fd(fd)	-- We haven't call socket.start, so use socket.close_fd rather than socket.close.
+    end
+    )
+end
+)
 

@@ -1,5 +1,7 @@
 local socket = require "socket"
 local json = require "json"
+package.cpath =package.cpath..";/root/skynet/skynet/luaclib/?.so"
+local crypt = require "crypt"
 --require "debugger"
 dofile("../data/define.lua")
 
@@ -101,15 +103,54 @@ function robot_init(id)
 end
 
 
-function send(i)
+local last = ""
+local function unpack_old(f,fd)
+	local function try_recv(fd, last)
+		local result
+		result, last = f(last)
+		if result then
+			return result, last
+		end
+		local r = socket.recv(fd)
+		if not r then
+			return nil, last
+		end
+		if r == "" then
+			error "Server closed"
+		end
+		return f(last .. r)
+	end
 
+	return function()
+		while true do
+			local result
+			result, last = try_recv(fd, last)
+			if result then
+				return result
+			end
+			socket.usleep(100)
+		end
+	end
+end
+local function unpack_line(text)
+	local from = text:find("\n", 1, true)
+	if from then
+		return text:sub(1, from-1), text:sub(from+1)
+	end
+	return nil, text
+end
+
+function send(i)
     if robot[i][cur].open then
         robot[i].fd = socket.connect( table.unpack(robot[i][cur].open))
         if robot[i].fd == 0 then
             lxz("connect fail["..i.."]\n")
 			return 1
 		end
-
+        local readline = unpack_old(unpack_line,robot[i].fd)
+        local ch = crypt.base64decode(readline())
+        lxz(ch)
+        
 	end
 
 	if robot[i][cur].send then
