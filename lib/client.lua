@@ -144,26 +144,49 @@ local function writeline(fd, text)
 	socket.send(fd, text .. "\n")
 end
 
+local function encode_token(token)
+	return string.format("%s@%s:%s",
+		crypt.base64encode(token.user),
+		crypt.base64encode(token.server),
+		crypt.base64encode(token.pass))
+end
+
 function send(i)
     if robot[i][cur].open then
-        robot[i].fd = socket.connect( table.unpack(robot[i][cur].open))
-        if robot[i].fd == 0 then
+        local fd = socket.connect( table.unpack(robot[i][cur].open))
+        robot[i].fd = fd 
+        if fd == 0 then
             lxz("connect fail["..i.."]\n")
 			return 1
 		end
 
-        local readline = unpack_old(read_line,robot[i].fd)
-        local ch = crypt.base64decode(readline())
-        lxz(ch)
+        local readline = unpack_old(read_line,fd)
+        local base_key = crypt.base64decode(readline())
 
         local clientkey = crypt.randomkey()
-        --writeline(robot[i].fd, crypt.base64encode("word"))
-        writeline(robot[i].fd, crypt.base64encode(crypt.dhexchange(clientkey)))
+        writeline(fd, crypt.base64encode(crypt.dhexchange(clientkey)))
         local secret = crypt.dhsecret(crypt.base64decode(readline()), clientkey)
-        lxz("sceret is ", crypt.hexencode(secret))
 
-        local hmac = crypt.hmac64(ch, secret)
-        writeline(robot[i].fd, crypt.base64encode(hmac))
+        local hmac = crypt.hmac64(base_key, secret)
+        writeline(fd, crypt.base64encode(hmac))
+
+        --开始登陆
+        local token = {
+            server = "server1",
+            user = "hello",
+            pass = "password",
+        }
+
+        local etoken = crypt.desencode(secret, encode_token(token))
+        local b = crypt.base64encode(etoken)
+        writeline(fd, crypt.base64encode(etoken))
+
+        local result = readline()
+        print(result)
+        local code = tonumber(string.sub(result, 1, 3))
+        assert(code == 200)
+        socket.close(fd)
+
 	end
 
 	if robot[i][cur].send then

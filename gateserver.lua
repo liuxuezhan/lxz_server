@@ -33,6 +33,10 @@ function server.userid(username)
 	return b64decode(uid), b64decode(subid), b64decode(servername)
 end
 
+function server.username(uid, subid, servername)
+	return string.format("%s@%s#%s", b64encode(uid), b64encode(servername), b64encode(tostring(subid)))
+end
+
 function server.ip(username)
 	local u = user_online[username]
 	if u and u.fd then
@@ -321,7 +325,7 @@ function CMD.login(uid, secret)
 
 	internal_id = internal_id + 1
 	local id = internal_id	-- don't use internal_id directly
-	local username = server.username(uid, id, servername)
+	local username = server.username(uid, id, conf.name)
 
 	local u = {
 		username = username,
@@ -330,7 +334,7 @@ function CMD.login(uid, secret)
 	}
 
 	-- trash subid (no used)
-	skynet.call(agent, "lua", "login", uid, id, secret)
+	--skynet.call(agent, "lua", "login", uid, id, secret)
 	users[uid] = u
 	username_map[username] = u
 	assert(user_online[username] == nil)

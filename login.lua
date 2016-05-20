@@ -78,6 +78,17 @@ local function read(fd)
     return ret
 end
 
+local function server_auth(token)
+	-- the token is base64(user)@base64(server):base64(password)
+	local user, server, password = token:match("([^@]+)@([^:]+):(.+)")
+	user = crypt.base64decode(user)
+	server = crypt.base64decode(server)
+	password = crypt.base64decode(password)
+    lxz(user,server,password)
+	assert(password == "password", "Invalid password")
+	return server, user
+end
+
 local function client_auth(fd, addr)--加密认证
     lxz(string.format("connect from %s (fd = %d)", addr, fd))
     socket.start(fd)	-- may raise error here
@@ -85,10 +96,8 @@ local function client_auth(fd, addr)--加密认证
     socket.limit(fd, 8192) -- set socket buffer limit (8K),If the attacker send large package, close the socket
 
     -- 发送基础key给客户端
-    local key = crypt.randomkey()
-    --key = "hero".."\n"
-    lxz(key)
-    write( fd,crypt.base64encode(key).."\n")
+    local base_key = crypt.randomkey()
+    write( fd,crypt.base64encode(base_key).."\n")
     
     --接收客户端key
     local ret = read(fd)
@@ -100,27 +109,49 @@ local function client_auth(fd, addr)--加密认证
     --发送服务器key
     local serverkey = crypt.randomkey()
     write( fd, crypt.base64encode(crypt.dhexchange(serverkey)).."\n")
-    local secret = crypt.dhsecret(clientkey, serverkey)
 
+    --计算密匙
+    local secret = crypt.dhsecret(clientkey, serverkey)
+    local hmac = crypt.hmac64(base_key, secret)
+
+    --接收客户端计算结果
     local ret = read(fd)
-    local hmac = crypt.hmac64(key, secret)
     ret = crypt.base64decode(ret) 
+
     if hmac ~= ret then
         write( fd, "400 Bad Request\n")
         error "challenge failed"
     end
-    lxz()
+    lxz("认证通过")
 
-    local etoken = read( fd)
+    local etoken = read(fd)
     local token = crypt.desdecode(secret, crypt.base64decode(etoken))
-
     local ok, server, uid =  pcall(server_auth,token)
+
+
     socket.abandon(fd)	-- never raise error here
 
     return ok, server, uid, secret
 end
 
 local user_login = {}--玩家登陆状态
+
+local function server_login(server, uid, secret)--通知分区验证通过
+	print(string.format("%s@%s is login, secret is %s", uid, server, crypt.hexencode(secret)))
+	local gameserver = assert(server_list[server], "Unknown server")
+	-- only one can login, because disallow multilogin
+	local last = user_online[uid]
+	if last then
+		skynet.call(last.address, "lua", "kick", uid, last.subid)
+	end
+	if user_online[uid] then
+		error(string.format("user %s is already online", uid))
+	end
+
+	local subid = tostring(skynet.call(gameserver, "lua", "login", uid, secret))
+	user_online[uid] = { address = gameserver, subid = subid , server = server}
+	return subid
+end
 
 local function accept(fd, addr)
 
@@ -147,6 +178,8 @@ local function accept(fd, addr)
 	user_login[uid] = nil
 
 	if ok then
+        --返回分区服务器地址
+        lxz()
 		err = err or ""
 		write(fd,  "200 "..crypt.base64encode(err).."\n")
 	else
@@ -156,32 +189,7 @@ local function accept(fd, addr)
 end
 
 
-local function server_auth(token)--第三方平台token校验
-	-- the token is base64(user)@base64(server):base64(password)
-	local user, server, password = token:match("([^@]+)@([^:]+):(.+)")
-	user = crypt.base64decode(user)
-	server = crypt.base64decode(server)
-	password = crypt.base64decode(password)
-	assert(password == "password", "Invalid password")
-	return server, user
-end
 
-local function server_login(server, uid, secret)--通知分区验证通过
-	print(string.format("%s@%s is login, secret is %s", uid, server, crypt.hexencode(secret)))
-	local gameserver = assert(server_list[server], "Unknown server")
-	-- only one can login, because disallow multilogin
-	local last = user_online[uid]
-	if last then
-		skynet.call(last.address, "lua", "kick", uid, last.subid)
-	end
-	if user_online[uid] then
-		error(string.format("user %s is already online", uid))
-	end
-
-	local subid = tostring(skynet.call(gameserver, "lua", "login", uid, secret))
-	user_online[uid] = { address = gameserver, subid = subid , server = server}
-	return subid
-end
 
 
 skynet.start (
