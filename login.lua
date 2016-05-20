@@ -42,8 +42,9 @@ Success:
 	200 base64(subid)
 ]]
 local CMD = {}
-function CMD.register_gate(server, address)--注册分区
-	server_list[server] = address
+--function CMD.register_gate(server, address)--注册分区
+function CMD.register_gate(server, host,port)--注册分区
+	server_list[server] = {host=host,port=port} 
 end
 
 function CMD.logout(uid, subid)
@@ -85,7 +86,7 @@ local function server_auth(token)
 	server = crypt.base64decode(server)
 	password = crypt.base64decode(password)
     lxz(user,server,password)
-	assert(password == "password", "Invalid password")
+	assert(password == "pwd", "Invalid password")
 	return server, user
 end
 
@@ -98,7 +99,7 @@ local function client_auth(fd, addr)--加密认证
     -- 发送基础key给客户端
     local base_key = crypt.randomkey()
     write( fd,crypt.base64encode(base_key).."\n")
-    
+
     --接收客户端key
     local ret = read(fd)
     local clientkey = crypt.base64decode(ret)
@@ -138,19 +139,20 @@ local user_login = {}--玩家登陆状态
 
 local function server_login(server, uid, secret)--通知分区验证通过
 	print(string.format("%s@%s is login, secret is %s", uid, server, crypt.hexencode(secret)))
-	local gameserver = assert(server_list[server], "Unknown server")
+	local s = assert(server_list[server], "Unknown server")
 	-- only one can login, because disallow multilogin
 	local last = user_online[uid]
 	if last then
-		skynet.call(last.address, "lua", "kick", uid, last.subid)
+		skynet.call(server, "lua", "kick", uid, last.subid)
+		--skynet.call(last.address, "lua", "kick", uid, last.subid)
 	end
 	if user_online[uid] then
 		error(string.format("user %s is already online", uid))
 	end
 
-	local subid = tostring(skynet.call(gameserver, "lua", "login", uid, secret))
-	user_online[uid] = { address = gameserver, subid = subid , server = server}
-	return subid
+	local subid = tostring(skynet.call(server, "lua", "login", uid, secret))
+	user_online[uid] = { subid = subid , server = server}
+	return {name=server,subid=subid,host=s.host,port=s.port}
 end
 
 local function accept(fd, addr)
@@ -169,7 +171,6 @@ local function accept(fd, addr)
 			write( fd, "406 Not Acceptable\n")
 			error(string.format("User %s is already login", uid))
 		end
-
 		user_login[uid] = true
 	end
 
@@ -179,22 +180,17 @@ local function accept(fd, addr)
 
 	if ok then
         --返回分区服务器地址
-        lxz()
-		err = err or ""
-		write(fd,  "200 "..crypt.base64encode(err).."\n")
+        lxz(err)
+		err = json.encode(err) 
+		write(fd,  crypt.base64encode(err).."\n")
 	else
 		write(fd,  "403 Forbidden\n")
 		error(err)
 	end
 end
 
-
-
-
-
 skynet.start (
 function()
-
     skynet.register(conf.name)
     local host = conf.host or "0.0.0.0"
     local port = assert(tonumber(conf.port))
@@ -207,9 +203,7 @@ function()
     skynet.error(string.format("login server listen at : %s %d", host, port))
 
     local id = socket.listen(host, port)--客户端通信
-    socket.start ( 
-    id , 
-    function(fd, addr)
+    socket.start ( id , function(fd, addr)
         local ok, err = pcall(accept, fd, addr)
         if not ok then
             if err ~= socket_error then

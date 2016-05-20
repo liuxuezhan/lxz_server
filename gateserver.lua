@@ -389,7 +389,8 @@ skynet.start(function()
     skynet.error(string.format("Listen on %s:%d", address, port))
     socket = socketdriver.listen(address, port)
     socketdriver.start(socket)
-	skynet.call(_conf.login[1].name, "lua", "register_gate", conf.name, skynet.self())
+	--skynet.call(_conf.login[1].name, "lua", "register_gate", conf.name, skynet.self())
+	skynet.call(_conf.login[1].name, "lua", "register_gate", conf.name, conf.host,conf.port)
 
     skynet.newservice("room",id,1)
     skynet.newservice("db_mongo",id,1)--数据库写中心

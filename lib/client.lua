@@ -153,7 +153,8 @@ end
 
 function send(i)
     if robot[i][cur].open then
-        local fd = socket.connect( table.unpack(robot[i][cur].open))
+        conf = robot[i][cur].open 
+        local fd = socket.connect( conf[1],conf[2])
         robot[i].fd = fd 
         if fd == 0 then
             lxz("connect fail["..i.."]\n")
@@ -172,26 +173,31 @@ function send(i)
 
         --开始登陆
         local token = {
-            server = "server1",
-            user = "hello",
-            pass = "password",
+            user = conf[3],
+            pass =  conf[4],
+            server = conf[5],
         }
+        lxz(token)
 
         local etoken = crypt.desencode(secret, encode_token(token))
         local b = crypt.base64encode(etoken)
         writeline(fd, crypt.base64encode(etoken))
 
         local result = readline()
-        print(result)
-        local code = tonumber(string.sub(result, 1, 3))
-        assert(code == 200)
+        local info  = crypt.base64decode(result)
+        info = json.decode(info)
         socket.close(fd)
 
+        fd = socket.connect( info.host,info.port)
+        robot[i].fd = fd 
+        if fd == 0 then
+            lxz("connect fail["..i.."]\n")
+			return 1
+		end
 	end
 
 	if robot[i][cur].send then
        local msg = json.encode(robot[i][cur].send) 
-		lxz(cur,i,robot[i][cur].send)
 		send_pack(robot[i].fd, msg,0 )
         lxz(recv_response(unpack_f(i)))
 	end

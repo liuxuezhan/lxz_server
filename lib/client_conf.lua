@@ -1,7 +1,6 @@
 _num = 1
 _conf = {
-			--{"open","127.0.0.1",8888},
-			{"open","127.0.0.1",8001},
+			{"open","127.0.0.1",8001,"user","pwd","server1"},
 			{"send","login","user","pwd"},
 			{"close"},
 	}
