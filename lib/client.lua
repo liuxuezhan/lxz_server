@@ -108,7 +108,6 @@ local function unpack_old(f,fd)
 	local function try_recv(fd, last)
 		local result
 		result, last = f(last)
-       -- lxz(result,last)
 		if result then
 			return result, last
 		end
@@ -133,12 +132,16 @@ local function unpack_old(f,fd)
 		end
 	end
 end
-local function unpack_line(text)--返回换行前后两个字符串
+local function read_line(text)--返回换行前后两个字符串
 	local from = text:find("\n", 1, true)
 	if from then
 		return text:sub(1, from-1), text:sub(from+1)
 	end
 	return nil, text
+end
+
+local function writeline(fd, text)
+	socket.send(fd, text .. "\n")
 end
 
 function send(i)
@@ -148,10 +151,19 @@ function send(i)
             lxz("connect fail["..i.."]\n")
 			return 1
 		end
-        local readline = unpack_old(unpack_line,robot[i].fd)
-        lxz(readline())
+
+        local readline = unpack_old(read_line,robot[i].fd)
         local ch = crypt.base64decode(readline())
-        
+        lxz(ch)
+
+        local clientkey = crypt.randomkey()
+        --writeline(robot[i].fd, crypt.base64encode("word"))
+        writeline(robot[i].fd, crypt.base64encode(crypt.dhexchange(clientkey)))
+        local secret = crypt.dhsecret(crypt.base64decode(readline()), clientkey)
+        lxz("sceret is ", crypt.hexencode(secret))
+
+        local hmac = crypt.hmac64(ch, secret)
+        writeline(robot[i].fd, crypt.base64encode(hmac))
 	end
 
 	if robot[i][cur].send then

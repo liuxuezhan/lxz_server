@@ -78,38 +78,40 @@ local function read(fd)
     return ret
 end
 
-local function client_auth(fd, addr)
+local function client_auth(fd, addr)--加密认证
     lxz(string.format("connect from %s (fd = %d)", addr, fd))
     socket.start(fd)	-- may raise error here
 
     socket.limit(fd, 8192) -- set socket buffer limit (8K),If the attacker send large package, close the socket
 
+    -- 发送基础key给客户端
     local key = crypt.randomkey()
-    key = crypt.base64encode(key).."\n"
-    key = "hero".."\n"
-    write( fd, key)
+    --key = "hero".."\n"
     lxz(key)
-
-    local handshake = read( fd)
-    local clientkey = crypt.base64decode(handshake)
+    write( fd,crypt.base64encode(key).."\n")
+    
+    --接收客户端key
+    local ret = read(fd)
+    local clientkey = crypt.base64decode(ret)
     if #clientkey ~= 8 then
         error "Invalid client key"
     end
+
+    --发送服务器key
     local serverkey = crypt.randomkey()
     write( fd, crypt.base64encode(crypt.dhexchange(serverkey)).."\n")
-
     local secret = crypt.dhsecret(clientkey, serverkey)
 
-    local response = read( fd)
-    local hmac = crypt.hmac64(challenge, secret)
-
-    if hmac ~= crypt.base64decode(response) then
+    local ret = read(fd)
+    local hmac = crypt.hmac64(key, secret)
+    ret = crypt.base64decode(ret) 
+    if hmac ~= ret then
         write( fd, "400 Bad Request\n")
         error "challenge failed"
     end
+    lxz()
 
     local etoken = read( fd)
-
     local token = crypt.desdecode(secret, crypt.base64decode(etoken))
 
     local ok, server, uid =  pcall(server_auth,token)
