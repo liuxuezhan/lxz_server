@@ -4,7 +4,6 @@ _d= {}--数据
 function load(db_conf,...)
     lxz(db_conf)
     local mongo = require "mongo"
-    lxz()
 	local db = mongo.client(db_conf)
 
     local info = db[db_conf.name].ply:find({})

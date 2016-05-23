@@ -52,20 +52,10 @@ local function read(fd)
     return ret
 end
 
-local function server_auth(token)
-	-- the token is base64(user)@base64(server):base64(password)
-	local user, server, password = token:match("([^@]+)@([^:]+):(.+)")
-	user = crypt.base64decode(user)
-	server = crypt.base64decode(server)
-	password = crypt.base64decode(password)
-    lxz(user,server,password)
-	assert(password == "pwd", "Invalid password")
-	return server, user
-end
+local function accept(fd, addr)
+    lxz(string.format("connect from %s (fd = %d)", addr, fd))
 
-local function client_auth(fd )--加密认证
     socket.start(fd)	-- may raise error here
-
     socket.limit(fd, 8192) -- set socket buffer limit (8K),If the attacker send large package, close the socket
 
     -- 发送基础key给客户端
@@ -99,12 +89,37 @@ local function client_auth(fd )--加密认证
 
     local etoken = read(fd)
     local token = crypt.desdecode(secret, crypt.base64decode(etoken))
-    local ok, server, pid =  pcall(server_auth,token)
 
+	local pid, server, pwd = token:match("([^@]+)@([^:]+):(.+)")
+	pid = crypt.base64decode(pid)
+	server = crypt.base64decode(server)
+	pwd = crypt.base64decode(pwd)
+
+    local p =_ply[pid]
+	if p then
+		if pwd == p.pwd then
+	        local s = assert(server_list[server], "Unknown server")
+            if p.server then
+		        skynet.call(p.server, "lua", "kick", pid )
+                p.server = server
+            end
+	        local subid = tostring(skynet.call(server, "lua", "login", pid, secret))
+        else
+			write( fd, "401 Unauthorized\n")
+            return
+		end
+    else
+        _ply[pid]={_id=pid,pwd=pwd }
+        skynet.send(conf.db.name, "lua","ply" ,json.encode(_ply[pid]))--不需要返回
+	end
+
+	local s = assert(server_list[server], "Unknown server")
+	local ret = json.encode({name=server,host=s.host,port=s.port})
+	write(fd,  crypt.base64encode(ret).."\n")
+    _ply[pid].server=server
+    _ply[pid].addr=addr
 
     socket.abandon(fd)	-- never raise error here
-
-    return ok, server, pid, secret
 end
 
 
@@ -113,51 +128,17 @@ local function tm()
     return _tm
 end
 
-local function server_login(server, pid, secret,addr)--通知分区验证通过
-	print(string.format("%s@%s is login, secret is %s", pid, server, crypt.hexencode(secret)))
-	local s = assert(server_list[server], "Unknown server")
-	-- only one can login, because disallow multilogin
-	local last = user_login[pid]
-	if last then
-		skynet.call(server, "lua", "kick", pid, last.subid)
-	end
-	if user_login[pid] then
-		error(string.format("user %s is already online", pid))
-	end
 
-	local subid = tostring(skynet.call(server, "lua", "login", pid, secret))
-	user_login[pid] = { addr=adr,server = server,tm=tm()}
-	return {name=server,subid=subid,host=s.host,port=s.port}
-end
+_ply = {}
+function load(db_conf)
+    local mongo = require "mongo"
+	local db = mongo.client(db_conf)
 
-local function accept(fd, addr)
-    lxz(string.format("connect from %s (fd = %d)", addr, fd))
-	local ok, server, pid, secret = client_auth(fd )
-	if not ok then
-		if ok ~= nil then
-			write( fd, "401 Unauthorized\n")
-		end
-		error(server)
-	end
-
-	if not conf.multilogin then
-		if user_login[pid] then
-			lxz(string.format("User %s is already login", pid))
-		    user_login[pid] = nil
-		end
-	end
-
-	local ok, err = pcall(server_login, server, pid, secret,addr)
-
-	if ok then
-        --返回分区服务器地址
-        lxz(err)
-		err = json.encode(err) 
-		write(fd,  crypt.base64encode(err).."\n")
-	else
-		write(fd,  "403 Forbidden\n")
-		error(err)
-	end
+    local info = db[db_conf.name].ply:find({})
+    while info:hasNext() do
+        local v = info:next()
+        _ply[v._id]=v
+    end
 end
 
 skynet.start (
@@ -166,6 +147,7 @@ function()
     local host = conf.host or "0.0.0.0"
     local port = assert(tonumber(conf.port))
     local slave = {}
+    load(conf.db)
     skynet.newservice("db_mongo",json.encode(conf.db))--数据库写中心
 
     skynet.dispatch("lua", function(_,source,command, ...)--服务器间通信
