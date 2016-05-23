@@ -13,6 +13,10 @@ local conf = _conf.login[id]
 local server_list = {}
 local user_login = {}--玩家登陆状态
 
+local function tm()
+    local _tm = os.time()
+    return _tm
+end
 local CMD = {}
 
 function CMD.register_gate(server, host,port)--注册分区
@@ -102,7 +106,7 @@ local function accept(fd, addr)
 		        skynet.call(p.server, "lua", "kick", pid )
                 p.server = server
             end
-	        local subid = tostring(skynet.call(server, "lua", "login", pid, secret))
+	        skynet.call(server, "lua", "login", pid, secret)
         else
 			write( fd, "401 Unauthorized\n")
             return
@@ -123,10 +127,6 @@ local function accept(fd, addr)
 end
 
 
-local function tm()
-    local _tm = os.time()
-    return _tm
-end
 
 
 _ply = {}
@@ -160,7 +160,7 @@ function()
     socket.start ( id , function(fd, addr)
         local ok, err = pcall(accept, fd, addr)
         if not ok then
-            if err ~= socket_error then
+            if err then
                 skynet.error(string.format("invalid client (fd = %d) error = %s", fd, err))
             end
         end

@@ -57,28 +57,17 @@ end
 
 local function recv_response(v)
     return v
-    --[[
-	local size = #v - 5
-	local content, ok, session = string.unpack("c"..tostring(size).."B>I4", v)
-	return ok ~=0 , content, session
-    --]]
 end
 
 
+local function writeline(fd, text)
+	socket.send(fd, text .. "\n")
+end
 
 local function send_pack(fd,v, session)
-	local size = #v + 4
-	local package = string.pack(">I2", size)..v..string.pack(">I4", session)
-	socket.send(fd, package)
+	writeline(fd, v)
 	return v, session
 end
-
-local function send_package(fd, pack)
-	local package = string.pack(">s2", pack)
-	socket.send(fd, package)
-end
-
-
 
 function dispath(r,type,...)
     if type == "open" then
@@ -140,9 +129,6 @@ local function read_line(text)--返回换行前后两个字符串
 	return nil, text
 end
 
-local function writeline(fd, text)
-	socket.send(fd, text .. "\n")
-end
 
 local function encode_token(token)
 	return string.format("%s@%s:%s",
@@ -156,6 +142,7 @@ function send(i)
         conf = robot[i][cur].open 
         local fd = socket.connect( conf[1],conf[2])
         robot[i].fd = fd 
+        robot[i].pid = conf[3] 
         if fd == 0 then
             lxz("connect fail["..i.."]\n")
 			return 1
@@ -186,7 +173,9 @@ function send(i)
         local result = readline()
         local info  = crypt.base64decode(result)
         info = json.decode(info)
+
         socket.close(fd)
+
 
         fd = socket.connect( info.host,info.port)
         robot[i].fd = fd 
