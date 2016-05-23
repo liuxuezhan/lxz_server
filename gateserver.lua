@@ -318,24 +318,21 @@ function CMD.close()
     socketdriver.close(socket)
 end
 
-function CMD.login(uid, secret)
-	if users[uid] then
-		error(string.format("%s is already login", uid))
-	end
+function CMD.login(pid, secret)
 
 	internal_id = internal_id + 1
 	local id = internal_id	-- don't use internal_id directly
-	local username = server.username(uid, id, conf.name)
+	local username = server.username(pid, id, conf.name)
 
 	local u = {
 		username = username,
-		uid = uid,
+		pid = pid,
 		subid = id,
 	}
 
 	-- trash subid (no used)
 	--skynet.call(agent, "lua", "login", uid, id, secret)
-	users[uid] = u
+	users[pid] = u
 	username_map[username] = u
 	assert(user_online[username] == nil)
 	user_online[username] = {
@@ -350,10 +347,10 @@ function CMD.login(uid, secret)
 end
 
 -- call by agent
-function CMD.logout(uid, subid)
-	local u = users[uid]
+function CMD.logout(pid )
+	local u = users[pid]
 	if u then
-		local username = server.username(uid, subid, servername)
+		local username = server.username(pid, servername)
 		assert(u.username == username)
 	local u = user_online[u.username]
 	user_online[u.username] = nil
@@ -361,17 +358,17 @@ function CMD.logout(uid, subid)
 		closeclient(u.fd)
 		pwd_connection[u.fd] = nil
 	end
-		users[uid] = nil
+		users[pid] = nil
 		username_map[u.username] = nil
         lxz()
-		skynet.call(loginservice, "lua", "logout",uid, subid)
+		skynet.call(loginservice, "lua", "logout",pid )
 	end
 end
 
 function CMD.kick(pid )
 	local u = users[pid]
 	if u then
-        u.users[pid].online = false
+        users[pid].online = false
 	end
 end
 

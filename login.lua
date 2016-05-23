@@ -2,7 +2,6 @@ local skynet = require "skynet"
 require "skynet.manager"
 local socket = require "socket"
 local crypt = require "crypt"
-local table = table
 local string = string
 local assert = assert
 local json = require "json"
@@ -20,7 +19,7 @@ function CMD.register_gate(server, host,port)--注册分区
 	server_list[server] = {host=host,port=port} 
 end
 
-function CMD.logout(pid, subid)
+function CMD.logout(pid)
 	local u = user_login[pid]
 	if u then
 		print(string.format("%s@%s is logout", pid, u.server))
@@ -118,6 +117,7 @@ local function accept(fd, addr)
 	write(fd,  crypt.base64encode(ret).."\n")
     _ply[pid].server=server
     _ply[pid].addr=addr
+    _ply[pid].tm=tm()
 
     socket.abandon(fd)	-- never raise error here
 end
