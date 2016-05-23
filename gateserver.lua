@@ -393,7 +393,7 @@ skynet.start(function()
 	skynet.call(_conf.login[1].name, "lua", "register_gate", conf.name, conf.host,conf.port)
 
     skynet.newservice("room",id,1)
-    skynet.newservice("db_mongo",id,1)--数据库写中心
+    skynet.newservice("db_mongo",json.encode(conf.db[1]))--数据库写中心
 
     lxz(SERVICE_NAME)
     skynet.dispatch("lua", function (_, address, cmd, ...)

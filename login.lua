@@ -12,8 +12,7 @@ id = tonumber(id)
 local conf = _conf.login[id] 
 
 local server_list = {}
-local user_online = {}
-local user_login = {}
+local user_login = {}--玩家登陆状态
 
 local CMD = {}
 
@@ -21,11 +20,11 @@ function CMD.register_gate(server, host,port)--注册分区
 	server_list[server] = {host=host,port=port} 
 end
 
-function CMD.logout(uid, subid)
-	local u = user_online[uid]
+function CMD.logout(pid, subid)
+	local u = user_login[pid]
 	if u then
-		print(string.format("%s@%s is logout", uid, u.server))
-		user_online[uid] = nil
+		print(string.format("%s@%s is logout", pid, u.server))
+		user_login[pid] = nil
 	end
 end
 
@@ -64,8 +63,7 @@ local function server_auth(token)
 	return server, user
 end
 
-local function client_auth(fd, addr)--加密认证
-    lxz(string.format("connect from %s (fd = %d)", addr, fd))
+local function client_auth(fd )--加密认证
     socket.start(fd)	-- may raise error here
 
     socket.limit(fd, 8192) -- set socket buffer limit (8K),If the attacker send large package, close the socket
@@ -101,37 +99,40 @@ local function client_auth(fd, addr)--加密认证
 
     local etoken = read(fd)
     local token = crypt.desdecode(secret, crypt.base64decode(etoken))
-    local ok, server, uid =  pcall(server_auth,token)
+    local ok, server, pid =  pcall(server_auth,token)
 
 
     socket.abandon(fd)	-- never raise error here
 
-    return ok, server, uid, secret
+    return ok, server, pid, secret
 end
 
-local user_login = {}--玩家登陆状态
 
-local function server_login(server, uid, secret)--通知分区验证通过
-	print(string.format("%s@%s is login, secret is %s", uid, server, crypt.hexencode(secret)))
+local function tm()
+    local _tm = os.time()
+    return _tm
+end
+
+local function server_login(server, pid, secret,addr)--通知分区验证通过
+	print(string.format("%s@%s is login, secret is %s", pid, server, crypt.hexencode(secret)))
 	local s = assert(server_list[server], "Unknown server")
 	-- only one can login, because disallow multilogin
-	local last = user_online[uid]
+	local last = user_login[pid]
 	if last then
-		skynet.call(server, "lua", "kick", uid, last.subid)
+		skynet.call(server, "lua", "kick", pid, last.subid)
 	end
-	if user_online[uid] then
-		error(string.format("user %s is already online", uid))
+	if user_login[pid] then
+		error(string.format("user %s is already online", pid))
 	end
 
-	local subid = tostring(skynet.call(server, "lua", "login", uid, secret))
-	user_online[uid] = { subid = subid , server = server}
+	local subid = tostring(skynet.call(server, "lua", "login", pid, secret))
+	user_login[pid] = { addr=adr,server = server,tm=tm()}
 	return {name=server,subid=subid,host=s.host,port=s.port}
 end
 
 local function accept(fd, addr)
-
-	local ok, server, uid, secret = client_auth(fd, addr)
-
+    lxz(string.format("connect from %s (fd = %d)", addr, fd))
+	local ok, server, pid, secret = client_auth(fd )
 	if not ok then
 		if ok ~= nil then
 			write( fd, "401 Unauthorized\n")
@@ -140,16 +141,13 @@ local function accept(fd, addr)
 	end
 
 	if not conf.multilogin then
-		if user_login[uid] then
-			write( fd, "406 Not Acceptable\n")
-			error(string.format("User %s is already login", uid))
+		if user_login[pid] then
+			lxz(string.format("User %s is already login", pid))
+		    user_login[pid] = nil
 		end
-		user_login[uid] = true
 	end
 
-	local ok, err = pcall(server_login, server, uid, secret)
-	-- unlock login
-	user_login[uid] = nil
+	local ok, err = pcall(server_login, server, pid, secret,addr)
 
 	if ok then
         --返回分区服务器地址
@@ -168,6 +166,7 @@ function()
     local host = conf.host or "0.0.0.0"
     local port = assert(tonumber(conf.port))
     local slave = {}
+    skynet.newservice("db_mongo",json.encode(conf.db))--数据库写中心
 
     skynet.dispatch("lua", function(_,source,command, ...)--服务器间通信
         skynet.ret(skynet.pack(command_handler(command, ...)))

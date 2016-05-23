@@ -4,11 +4,8 @@ local bson = require "bson"
 local json = require "json"
 local _d={}
 
-local server_id,id = ...
-server_id = tonumber(server_id)--分区id
-id = tonumber(id)--数据库id
-local conf=_conf.server[server_id] 
-local db_name = conf.db[id].name 
+local conf= json.decode(...) 
+local db_name = conf.name 
 
 function test_insert_without_index(db)
 	db[db_name].testdb:dropIndex("*")
@@ -211,7 +208,7 @@ gPendingDelete = {}
 init_pending()
 
 skynet.start(function()
-    local db = mongo.client(conf.db[id])
+    local db = mongo.client(conf)
     --[[
     test_insert_without_index(db)
     test_insert_with_index(db)
