@@ -40,7 +40,7 @@ local socket_error = {}
 
 local function write( fd, text)
     lxz(text)
-    local ok  = pcall(socket.write,fd, text)
+    local ok  = pcall(socket.write,fd, text.."\n")
     if not ok then
 		skynet.error(string.format("socket(%d) write fail", fd))
 		error(socket_error)
@@ -64,7 +64,7 @@ local function accept(fd, addr)
 
     -- 发送基础key给客户端
     local base_key = crypt.randomkey()
-    write( fd,crypt.base64encode(base_key).."\n")
+    write( fd,crypt.base64encode(base_key))
 
     --接收客户端key
     local ret = read(fd)
@@ -75,7 +75,7 @@ local function accept(fd, addr)
 
     --发送服务器key
     local serverkey = crypt.randomkey()
-    write( fd, crypt.base64encode(crypt.dhexchange(serverkey)).."\n")
+    write( fd, crypt.base64encode(crypt.dhexchange(serverkey)))
 
     --计算密匙
     local secret = crypt.dhsecret(clientkey, serverkey)
@@ -86,7 +86,7 @@ local function accept(fd, addr)
     ret = crypt.base64decode(ret) 
 
     if hmac ~= ret then
-        write( fd, "400 Bad Request\n")
+        write( fd, "400 Bad Request")
         error "challenge failed"
     end
     lxz("认证通过")
@@ -109,7 +109,7 @@ local function accept(fd, addr)
             end
 	        skynet.call(server, "lua", "login", pid, addr,secret)
         else
-			write( fd, "401 Unauthorized\n")
+			write( fd, "401 Unauthorized")
             return
 		end
     else
@@ -119,7 +119,7 @@ local function accept(fd, addr)
 
 	local s = assert(server_list[server], "Unknown server")
 	local ret = json.encode({name=server,host=s.host,port=s.port})
-	write(fd,  crypt.base64encode(ret).."\n")
+	write(fd,  crypt.base64encode(ret))
     _ply[pid].server=server
     _ply[pid].addr=addr
     _ply[pid].tm=tm()
