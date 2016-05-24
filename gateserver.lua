@@ -20,14 +20,6 @@ id = tonumber(id)--分区id
 local conf =_conf.server[id] 
 local server = {}
 
-local function write( fd, text)
-    lxz(text)
-    local ok  = pcall(socket.write,fd, json.encode(text).."\n")
-    if not ok then
-		skynet.error(string.format("socket(%d) write fail", fd))
-    end
-end
-
 local function read(fd)
     local ok ,ret = pcall(socket.readline,fd)
     if not ok then
@@ -41,12 +33,9 @@ function server.username(uid, servername)
 end
 
 
-function dispatch_msg(fd, msg)
-    msg = skynet.call(conf.room[1].name, "lua", "client",fd,table.unpack(msg))
-    if msg then
-     --write(fd, "sssss")
-        write(fd, msg)
-    end
+function dispatch_msg(fd, pid,msg)--分发消息，不返回
+    local msg_id,msg = table.unpack(msg)
+    skynet.send(conf.room[1].name, "lua", fd,pid,msg_id,msg)
 end
 
 
@@ -62,8 +51,6 @@ function close_fd(fd)
     client_number = client_number - 1
     socket.close(fd)
 end
-
-
 
 local CMD = {} 
 function CMD.close()
@@ -106,7 +93,7 @@ local function accept(fd, addr)
     if pid then
         if _ply[pid] then
             _ply[pid].fd = fd
-            dispatch_msg(fd, d[2])
+            dispatch_msg(fd, pid,d[2])
         end
     end
 end
@@ -118,7 +105,7 @@ skynet.start(function()
     nodelay = conf.nodelay
 	skynet.call(_conf.login[1].name, "lua", "register_gate", conf.name, conf.host,conf.port)
 
-    skynet.newservice("room",id,1)
+    skynet.newservice("room",id,1)--模块服务器
     skynet.newservice("db_mongo",json.encode(conf.db[1]))--数据库写中心
 
     local address = conf.host or "0.0.0.0"

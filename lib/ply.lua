@@ -25,6 +25,7 @@ end
 function dispath(id,type,...)
     local ret 
     if type == "login" then
+        lxz(...)
         ret = first(...)
     end
     return ret
