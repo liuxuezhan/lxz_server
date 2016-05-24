@@ -26,6 +26,25 @@ _cluster={
 }
 
 --基础库
+function copy(object)
+    local lookup_table = {}
+    local function _copy(object)
+        if type(object) ~= "table" then
+            return object
+        elseif lookup_table[object] then
+            return lookup_table[object]
+        end  -- if
+        local new_table = {}
+        lookup_table[object] = new_table
+        for index, value in pairs(object) do
+            new_table[_copy(index)] = _copy(value)
+        end  -- for
+        return new_table
+        --return setmetatable(new_table, getmetatable(object))
+    end  -- function _copy
+    return _copy(object)
+end  -- function deepcopy
+
 function split(str, reps)  --分割字符串
     local resultStrsList = {};
     string.gsub(str, '[^' .. reps ..']+', function(w) table.insert(resultStrsList, w) end );

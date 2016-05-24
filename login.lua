@@ -39,6 +39,7 @@ end
 local socket_error = {}
 
 local function write( fd, text)
+    lxz(text)
     local ok  = pcall(socket.write,fd, text)
     if not ok then
 		skynet.error(string.format("socket(%d) write fail", fd))
@@ -106,7 +107,7 @@ local function accept(fd, addr)
 		        skynet.call(p.server, "lua", "kick", pid )
                 p.server = server
             end
-	        skynet.call(server, "lua", "login", pid, secret)
+	        skynet.call(server, "lua", "login", pid, addr,secret)
         else
 			write( fd, "401 Unauthorized\n")
             return

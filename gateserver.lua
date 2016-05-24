@@ -1,6 +1,5 @@
 package.path = package.path..";./?.lua"
 local skynet = require "skynet"
-local netpack = require "netpack"
 local socket = require "socket"
 local crypt = require "crypt"
 local json = require "json"
@@ -14,11 +13,7 @@ local maxclient	-- max client
 local client_number = 0
 local nodelay = false
 
-local users = {}
-local username_map = {}
-local user_online = {}--玩家在线列表
-local handshake = {}
-local pwd_connection = {}
+local _ply = {}
 
 local id = ...
 id = tonumber(id)--分区id
@@ -26,10 +21,10 @@ local conf =_conf.server[id]
 local server = {}
 
 local function write( fd, text)
-    local ok  = pcall(socket.write,fd, text)
+    lxz(text)
+    local ok  = pcall(socket.write,fd, json.encode(text).."\n")
     if not ok then
 		skynet.error(string.format("socket(%d) write fail", fd))
-		error(socket_error)
     end
 end
 
@@ -37,7 +32,6 @@ local function read(fd)
     local ok ,ret = pcall(socket.readline,fd)
     if not ok then
 		skynet.error(string.format("socket(%d) read fail", fd))
-		error(socket_error)
     end
     return ret
 end
@@ -47,27 +41,12 @@ function server.username(uid, servername)
 end
 
 
-function closeclient(fd)
-	local c = pwd_connection[fd]
-	if c then
-		pwd_connection[fd] = false
-		socket.close(fd)
-	end
-end
-
-skynet.register_protocol {
-	name = "client",
-	id = skynet.PTYPE_CLIENT,
-}
-
-function request(fd,name, msg)
+function dispatch_msg(fd, msg)
     msg = skynet.call(conf.room[1].name, "lua", "client",fd,table.unpack(msg))
-    return json.encode(msg)
-end
-
-function message(fd, msg)
-    local ok, res = pcall(request, fd,0, msg )
-    write(fd, json.encode(res))
+    if msg then
+     --write(fd, "sssss")
+        write(fd, msg)
+    end
 end
 
 
@@ -92,40 +71,27 @@ function CMD.close()
     socket.close(socket_id)
 end
 
-function CMD.login(pid, secret)
-    if not users[pid] then
+function CMD.login(pid, addr,secret)
+    lxz(pid)
+    if not _ply[pid] then
         local u = {
             pid = pid,
         }
-        users[pid] = u
+        _ply[pid] = u
     end
-    users[pid].secret = secret
+    _ply[pid].addr = addr
+    _ply[pid].secret = secret
 end
 
 -- call by agent
 function CMD.logout(pid )
-	local u = users[pid]
-	if u then
-		local username = server.username(pid, servername)
-		assert(u.username == username)
-	local u = user_online[u.username]
-	user_online[u.username] = nil
-	if u.fd then
-		closeclient(u.fd)
-		pwd_connection[u.fd] = nil
-	end
-		users[pid] = nil
-		username_map[u.username] = nil
-        lxz()
-		skynet.call(loginservice, "lua", "logout",pid )
-	end
+    close_fd(_ply[pid].fd)
+    _ply[pid]=nil
+    skynet.call(loginservice, "lua", "logout",pid )
 end
 
 function CMD.kick(pid )
-	local u = users[pid]
-	if u then
-        users[pid].online = false
-	end
+    _ply[pid]=nil
 end
 
 
@@ -133,12 +99,16 @@ local function accept(fd, addr)
     lxz(string.format("connect from %s (fd = %d)", addr, fd))
 
     open_fd(fd)	-- may raise error here
-    socket.limit(fd, 8192) -- set socket buffer limit (8K),If the attacker send large package, close the socket
+    --socket.limit(fd, 8192) -- set socket buffer limit (8K),If the attacker send large package, close the socket
 
-    local d = json.decode(read(fd))
-    lxz(d)
-    message(fd, d)
-
+    local d = json.decode(copy(read(fd)))
+    local pid = d[1] 
+    if pid then
+        if _ply[pid] then
+            _ply[pid].fd = fd
+            dispatch_msg(fd, d[2])
+        end
+    end
 end
 
 skynet.start(function()
@@ -150,7 +120,6 @@ skynet.start(function()
 
     skynet.newservice("room",id,1)
     skynet.newservice("db_mongo",json.encode(conf.db[1]))--数据库写中心
-
 
     local address = conf.host or "0.0.0.0"
     local port = assert(conf.port)
@@ -167,7 +136,7 @@ skynet.start(function()
     )
     skynet.dispatch("lua", function (_, addr, cmd, ...)
         local f = assert(CMD[cmd])
-        skynet.ret(skynet.pack(f(address, ...)))
+        skynet.ret(skynet.pack(f( ...)))
     end)
 end)
 

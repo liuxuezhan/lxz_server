@@ -1,7 +1,7 @@
-local socket = require "socket"
 local json = require "json"
 package.cpath =package.cpath..";/root/skynet/skynet/luaclib/?.so"
 local crypt = require "crypt"
+local socket = require "socket"
 --require "debugger"
 dofile("../data/define.lua")
 
@@ -9,51 +9,6 @@ dofile("client_conf.lua")
 
 local robot ={}
 local cur = 1
-
-local function unpack_package(text)
-    if not text  then
-		return nil, ""
-    end
-
-	local size = #text
-	if size < 2 then
-		return nil, text
-	end
-	local s = text:byte(1) * 256 + text:byte(2)
-	if size < s+2 then
-		return nil, text
-	end
-
-	return text:sub(3,2+s), text:sub(3+s)
-end
-
-local function unpack_f(i)
-	local function try_recv(i)
-		local result
-		result, robot[i].last = unpack_package(robot[i].last)
-		if result then
-			return result, robot[i].last
-		end
-
-		local r = socket.recv(robot[i].fd)
-		if not r then
-			return nil, robot[i].last
-		end
-		if r == "" then
-			error "Server closed"
-		end
-		return unpack_package(robot[i].last .. r)
-	end
-
-		while true do
-			local result
-			result, robot[i].last = try_recv(i)
-			if result then
-				return result
-			end
-			socket.usleep(100)
-		end
-end
 
 local function recv_response(v)
     return v
@@ -83,7 +38,7 @@ end
 
 function robot_init(id)
     for i=1,_num do
-        robot[i]={}
+        robot[i]={last="",}
         for k,v in pairs(_conf) do
             robot[i][k]={}
             dispath(robot[i][k],table.unpack(v))
@@ -92,14 +47,24 @@ function robot_init(id)
 end
 
 
-local last = ""
-local function unpack_old(f,fd)
+
+local function read_line(text)--返回换行前后两个字符串
+    lxz(text)
+	local from = text:find("\n", 1, true)
+	if from then
+		return text:sub(1, from-1), text:sub(from+1)
+	end
+	return nil, text
+end
+
+local function unpack(f,i)
 	local function try_recv(fd, last)
 		local result
 		result, last = f(last)
 		if result then
 			return result, last
 		end
+
 		local r = socket.recv(fd)
 		if not r then
 			return nil, last
@@ -110,23 +75,15 @@ local function unpack_old(f,fd)
 		return f(last .. r)
 	end
 
-	return function()
-		while true do
-			local result
-			result, last = try_recv(fd, last)
-			if result then
-				return result
-			end
-			socket.usleep(100)
-		end
-	end
-end
-local function read_line(text)--返回换行前后两个字符串
-	local from = text:find("\n", 1, true)
-	if from then
-		return text:sub(1, from-1), text:sub(from+1)
-	end
-	return nil, text
+    while true do
+        local result
+        lxz(robot[i])
+        result, robot[i].last = try_recv(robot[i].fd, robot[i].last)
+        if result then
+            return result
+        end
+        socket.usleep(100)
+    end
 end
 
 
@@ -148,12 +105,11 @@ function send(i)
 			return 1
 		end
 
-        local readline = unpack_old(read_line,fd)
-        local base_key = crypt.base64decode(readline())
+        local base_key = crypt.base64decode(unpack(read_line,i))
 
         local clientkey = crypt.randomkey()
         writeline(fd, crypt.base64encode(crypt.dhexchange(clientkey)))
-        local secret = crypt.dhsecret(crypt.base64decode(readline()), clientkey)
+        local secret = crypt.dhsecret(crypt.base64decode(unpack(read_line,i)), clientkey)
 
         local hmac = crypt.hmac64(base_key, secret)
         writeline(fd, crypt.base64encode(hmac))
@@ -170,13 +126,13 @@ function send(i)
         local b = crypt.base64encode(etoken)
         writeline(fd, crypt.base64encode(etoken))
 
-        local result = readline()
+        local result = unpack(read_line,i)
+
         local info  = crypt.base64decode(result)
         info = json.decode(info)
-
         socket.close(fd)
 
-
+        lxz(info)
         fd = socket.connect( info.host,info.port)
         robot[i].fd = fd 
         if fd == 0 then
@@ -186,9 +142,14 @@ function send(i)
 	end
 
 	if robot[i][cur].send then
-       local msg = json.encode(robot[i][cur].send) 
+       local msg = json.encode({robot[i].pid,robot[i][cur].send})
+        lxz(robot[i].fd)
 		send_pack(robot[i].fd, msg,0 )
-        lxz(recv_response(unpack_f(i)))
+        lxz(robot[i].fd)
+        local ret = unpack(read_line,i)
+		--local ret = socket.recv(robot[i].fd)
+        lxz(ret)
+        --lxz(json.decode(ret))
 	end
 
 	if robot[i][cur].close then

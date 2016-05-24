@@ -27,14 +27,8 @@ skynet.start(function()
     ply.load(conf.db[1])--本线程加载
     -- If you want to fork a work thread , you MUST do it in CMD.login
     skynet.dispatch("lua", function(session, source, cmd,...)
-        if cmd == "start" then
-            load()
-        else
             local ret = ply.dispath(...)--返回必须是一个表
-            lxz(ret)
             save( table.unpack(ret))--返回必须是一个表
-        end
-
     end)
 
 end)

@@ -59,7 +59,7 @@ void dump(void* src, int len, const char *tip )
         printf("%s | %s\n", tip, val);
         line++;
 
-        //return; // extra, kill dump
+        //return; // extra, kill 
     }
 }
 
@@ -152,6 +152,7 @@ lrecv(lua_State *L) {
 
 	char buffer[1024];
 	int r = recv(fd, buffer, 1024, 0);
+    dump(buffer,r,"recv");
 	if (r < 0) {
 		if (errno == EAGAIN || errno == EINTR) {
 			return 0;
