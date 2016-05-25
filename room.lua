@@ -71,12 +71,11 @@ end
 local  function save_db()
     skynet.timeout(10, function() 
         if next(data) then
+            lxz(data)
             skynet.send(conf.db[1].name, "lua", json.encode(data))--不需要返回
-            --[[
             for k, v in pairs(data) do
-                rawset(data, k, v)
+                rawset(data, k,nil )
             end
-            --]]
             lxz(data)
         end
         save_db()
