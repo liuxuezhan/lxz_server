@@ -114,7 +114,8 @@ local function accept(fd, addr)
 		end
     else
         _ply[pid]={_id=pid,pwd=pwd }
-        skynet.send(conf.db.name, "lua","ply" ,json.encode(_ply[pid]))--不需要返回
+        --skynet.send(conf.db.name, "lua","ply" ,json.encode({add={ply={_ply[pid]}}}))--不需要返回
+	    skynet.call(server, "lua", "login", pid, addr,secret)
 	end
 
 	local s = assert(server_list[server], "Unknown server")

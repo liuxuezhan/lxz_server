@@ -35,6 +35,7 @@ end
 
 function dispatch_msg(fd, pid,msg)--分发消息，不返回
     local msg_id,msg = table.unpack(msg)
+    lxz(msg)
     skynet.send(conf.room[1].name, "lua", fd,pid,msg_id,msg)
 end
 
@@ -91,6 +92,7 @@ local function accept(fd, addr)
     local d = json.decode(copy(read(fd)))
     local pid = d[1] 
     if pid then
+        lxz(_ply,pid)
         if _ply[pid] then
             _ply[pid].fd = fd
             dispatch_msg(fd, pid,d[2])

@@ -93,20 +93,19 @@ function test_expire_index(db)
 end
 
 
-function check_save(db, frame)
+function check_save(db,data, frame)
     local f = function()
         local info = db:runCommand("getLastError")
-        --dumpTab(info, "check_save")
         if info.ok then
             local code = info.code
-            for tab, doc in pairs(gPendingSave) do
+            for tab, doc in pairs(data) do
                 local cache = doc.__cache
                 local dels = {}
                 for id, chgs in pairs(cache) do
                     if chgs._n_ == frame then
                         --print("ack", id, frame, gFrame)
                         table.insert(dels, id)
-                        if code then dumpTab(chgs, "maybe error") end
+                        if code then lxz(chgs, "maybe error") end
                     elseif chgs._n_ < frame - 10 then
                         chgs._n_ = nil
                         doc[ id ] = chgs
@@ -122,23 +121,25 @@ function check_save(db, frame)
             end
 
             if info.code then
-                dumpTab(info, "check_save")
+                lxz(info, "check_save")
             end
         end
     end
     return coroutine.wrap(f)
 end
 
-function global_save(db)
+function global_save(db,data)
     local gFrame = (gFrame or 0) + 1
     if db then
         local update = false
-        for tab, doc in pairs(gPendingSave) do
+        for tab, doc in pairs(data) do
             local cache = doc.__cache
             for id, chgs in pairs(doc) do
+                 id = tonumber(id)
                 if chgs ~= cache then
                     if not chgs._a_ then
-                        db[db_name][tab]:update({_id=id}, {["$set"] = chgs }, true) if tab ~= "status" then print("update", tab, id) end
+                        db[db_name][tab]:update({_id=id}, {["$set"] = chgs }, true) 
+                        if tab ~= "status" then print("update", tab, id) end
                     else
                         if chgs._a_ == 0 then
                             print("delete", tab, id)
@@ -157,55 +158,9 @@ function global_save(db)
                 end
             end
         end
-        if update then check_save(db, gFrame)() end
+        if update then check_save(db, data,gFrame)() end
     end
 end
-
-function init_pending()
-    __mt_rec = {
-        __index = function (self, recid)
-            local t = self.__cache[ recid ]
-            if t then
-                self.__cache[ recid ] = nil
-                t._n_ = nil
-            else
-                t = {}
-            end
-            self[ recid ] = t
-            return t
-        end
-    }
-    __mt_tab = {
-        __index = function (self, tab)
-            local t = { __cache={} }
-            setmetatable(t, __mt_rec)
-            self[ tab ] = t
-            return t
-        end
-    }
-    setmetatable(gPendingSave, __mt_tab)
-
-
-    __mt_del_rec = {
-        __newindex = function (t, k, v)
-            gPendingSave[ t.tab_name ][ k ]._a_ = 0
-        end
-    }
-    __mt_del_tab = {
-        __index = function (self, tab)
-            local t = {tab_name=tab}
-            setmetatable(t, __mt_del_rec)
-            self[ tab ] = t
-            return t
-        end
-    }
-    setmetatable(gPendingDelete, __mt_del_tab)
-
-end
-
-gPendingSave = {}
-gPendingDelete = {}
-init_pending()
 
 skynet.start(function()
     local db = mongo.client(conf)
@@ -222,12 +177,6 @@ skynet.start(function()
 
     skynet.dispatch("lua", function(session, source, data,...)
         data = json.decode(data)
-        local type,t,d = table.unpack(data)
-        if type == "del" then
-            gPendingDelete[t][d._id] = 0
-        else
-            gPendingSave[t][d._id] =d
-        end
-        global_save(db)
+        global_save(db,data)
     end)
 end)

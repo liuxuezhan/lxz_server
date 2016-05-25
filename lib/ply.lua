@@ -1,6 +1,7 @@
 module(..., package.seeall)
 _id= 1000--当前最大id
 _d= {}--数据
+
 function load(db_conf,...)
     lxz(db_conf)
     local mongo = require "mongo"
@@ -16,17 +17,15 @@ function load(db_conf,...)
     end
 end
 
-function first(name,...)
+function first(pid,name,...)
     _id = _id + 1
     _d[_id]={_id=_id,name=name,}
-    return {"del","ply",_d[_id] }
+    data.ply[_id]=_d[_id] 
+    return {[pid]={"ssss"}}
 end
 
-function dispath(id,type,...)
-    local ret 
+function dispath(pid,type,...)
     if type == "login" then
-        lxz(...)
-        ret = first(...)
+       return first(pid,...)
     end
-    return ret
 end
