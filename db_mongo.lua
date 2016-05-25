@@ -220,9 +220,14 @@ skynet.start(function()
     require "skynet.manager"	-- import skynet.register
     skynet.register(db_name) --注册服务名字便于其他服务调用
 
-    skynet.dispatch("lua", function(session, source, t,data,...)
+    skynet.dispatch("lua", function(session, source, data,...)
         data = json.decode(data)
-        gPendingSave[t][data._id] =data
+        local type,t,d = table.unpack(data)
+        if type == "del" then
+            gPendingDelete[t][d._id] = 0
+        else
+            gPendingSave[t][d._id] =d
+        end
         global_save(db)
     end)
 end)

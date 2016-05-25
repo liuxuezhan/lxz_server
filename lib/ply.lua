@@ -19,7 +19,7 @@ end
 function first(name,...)
     _id = _id + 1
     _d[_id]={_id=_id,name=name,}
-    return {{},{"ply",_d[_id]}}
+    return {"del","ply",_d[_id] }
 end
 
 function dispath(id,type,...)
