@@ -94,6 +94,7 @@ end
 
 
 function check_save(db,data, frame)
+    lxz(data)
     local info = db:runCommand("getLastError")
     if info.ok then
         local code = info.code
@@ -123,11 +124,13 @@ function check_save(db,data, frame)
             lxz(info, "check_save")
         end
     end
+    lxz(data)
 end
 
 function global_save(id,data)
+    lxz(data)
     local gFrame = (gFrame or 0) + 1
-    db = db[id].fd
+    db = _db[id].fd
     local db_name = id 
     if db then
         local update = false
@@ -174,17 +177,16 @@ skynet.start(function()
             table.insert(_db[id].list,data)
         end
 
-        lxz(_db[id])
-        for _, v in pairs(_db[id].list) do
+        for k, v in pairs(_db[id].list) do
+            lxz(_db[id].list[k])
             global_save(id,v)
+            lxz(_db[id].list[k])
         end
-        lxz(_db[id])
         --[[
         test_insert_without_index(db)
         test_insert_with_index(db)
         test_find_and_remove(db)
         test_expire_index(db)
-        -- db.union:update({_id=self._id}, {["$addToSet"]={log=log}}) 
    --]]
     end)
 end)
