@@ -15,9 +15,9 @@ local nodelay = false
 
 local _ply = {}
 
-local id = ...
-id = tonumber(id)--分区id
-local conf =_conf.server[id] 
+local server_name = ...
+local conf =_list.game[server_name] 
+lxz(conf)
 local server = {}
 
 local function read(fd)
@@ -36,7 +36,7 @@ end
 function dispatch_msg(fd, pid,msg)--分发消息，不返回
     local msg_id,msg = table.unpack(msg)
     lxz(msg)
-    skynet.send(conf.room[1].name, "lua", fd,pid,msg_id,msg)
+    skynet.send(conf.room, "lua", fd,pid,msg_id,msg)
 end
 
 
@@ -101,12 +101,14 @@ end
 
 skynet.start(function()
     require "skynet.manager"	-- import skynet.register
-    skynet.register(conf.name) --注册服务名字便于其他服务调用
+    skynet.register(server_name) --注册服务名字便于其他服务调用
     maxclient = conf.maxclient or 1024
     nodelay = conf.nodelay
-	skynet.call(_conf.login[1].name, "lua", "register_gate", conf.name, conf.host,conf.port)
+    lxz(server_name,_conf,conf)
+	skynet.call(_conf.login1,"lua", "register_gate", server_name, conf.host,conf.port)
+    lxz()
 
-    skynet.newservice("room",id,1)--模块服务器
+    skynet.newservice("room",conf.room)--模块服务器
 
     local address = conf.host or "0.0.0.0"
     local port = assert(conf.port)

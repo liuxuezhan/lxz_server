@@ -8,9 +8,8 @@ local json = require "json"
 require "save"	
 require "ply"	
 
-local id = ...
-id = tonumber(id)
-local conf = _conf.login[id] 
+local server_name = ...
+local conf = _list.login[server_name] 
 
 local server_list = {}
 local user_login = {}--玩家登陆状态
@@ -62,7 +61,7 @@ local  function save_db()
     skynet.timeout(3*100, function() 
         if next(save.data) then
             lxz(save.data)
-            skynet.send("db_login", "lua","db1",json.encode(save.data))--不需要返回
+            skynet.send(_conf.db1, "lua","db1",json.encode(save.data))--不需要返回
             save.clear()
         end
         save_db()
@@ -116,6 +115,7 @@ local function accept(fd, addr)
     local p =ply._d[name]
 	if p then
 		if pwd == p.pwd then
+            lxz(server_list)
 	        local s = assert(server_list[server], "Unknown server")
             if p.server then
 		        skynet.call(p.server, "lua", "kick", p._id )
@@ -143,16 +143,17 @@ end
 
 skynet.start (
 function()
-    skynet.register(conf.name)
-    ply.load(_conf.db.db_login)
+    skynet.register(server_name)
+    lxz(_conf.db1,_list.db)
+    ply.load((_list.db[_conf.db1]))
 
     skynet.dispatch("lua", function(_,source,command, ...)--服务器间通信
         skynet.ret(skynet.pack(command_handler(command, ...)))
     end)
 
     skynet.error(string.format("login server listen at : %s %d", conf.host, conf.port))
-    local id = socket.listen(conf.host, conf.port)--客户端通信
-    socket.start ( id , function(fd, addr)
+    local s = socket.listen(conf.host, conf.port)--客户端通信
+    socket.start ( s , function(fd, addr)
         lxz()
         local ok, err = pcall(accept, fd, addr)
         if not ok then

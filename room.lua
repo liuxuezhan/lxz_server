@@ -2,10 +2,7 @@ local skynet = require "skynet"
 local json = require "json"
 local socket = require "socket"
 
-local server_id,id = ...
-server_id = tonumber(server_id)--分区id
-id = tonumber(id)--房间号id
-conf=_conf.server[server_id] 
+local server_name = ...
 
 local _online={}--玩家在线列表
 
@@ -23,7 +20,7 @@ local  function save_db()
     skynet.timeout(3*100, function() 
         if next(save.data) then
             lxz(save.data)
-            skynet.send(_conf.db[1].name, "lua", json.encode(save.data))--不需要返回
+            skynet.send(_conf.db1, "lua", json.encode(save.data))--不需要返回
             save.clear()
         end
         save_db()
@@ -33,7 +30,7 @@ save_db()
 
 skynet.start(function()
     require "skynet.manager"	-- import skynet.register
-    skynet.register(conf.room[id].name) --注册服务名字便于其他服务调用
+    skynet.register(server_name) --注册服务名字便于其他服务调用
     --ply.load({conf.db[1]})
 
     skynet.dispatch("lua", function(session, source, fd,pid,msg_id,...)

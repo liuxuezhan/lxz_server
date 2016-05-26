@@ -3,8 +3,8 @@ local mongo = require "mongo"
 local bson = require "bson"
 local json = require "json"
 
-local db_server = ...
-local conf = _conf.db[db_server] 
+local server_name = ...
+local conf = _list.db[server_name] 
 db = {}
 
 function test_insert_without_index(db)
@@ -164,13 +164,13 @@ end
 skynet.start(function()
 
     require "skynet.manager"	-- import skynet.register
-    skynet.register(db_server) --注册服务名字便于其他服务调用
+    skynet.register(server_name) --注册服务名字便于其他服务调用
 
     skynet.dispatch("lua", function(session, source, id,data,...)
         data = json.decode(data)
         lxz(id,_conf.db)
         if not db[id] then
-            db[id]={fd = mongo.client(_conf.db[db_server][id]),list={data} }
+            db[id]={fd = mongo.client(conf[id]),list={data} }
         else
             table.insert(db[id].list,data)
         end

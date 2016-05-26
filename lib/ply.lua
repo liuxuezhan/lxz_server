@@ -3,6 +3,7 @@ cur= 1000--当前最大id
 _d= {}--数据
 
 function load(conf)
+    lxz(conf)
     local mongo = require "mongo"
     for name,v  in pairs(conf) do
         local db = mongo.client(v)

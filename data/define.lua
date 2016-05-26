@@ -1,29 +1,32 @@
 _conf = {
-    --登录服务器
-    login ={ 
-        [1]={ name="login1",host = "127.0.0.1", port = 8001, multilogin = true, },
-    },
-
-    db ={ 
-          db_login={
-                    db1={ host = "127.0.0.1", port = 27017, },
-                 },
-    -- [2]={ name="db2", host = "127.0.0.1", port = 27017,username="admin",password="admin" },
-    },
-    --分区服务器
-    server ={ 
-        [1]={   room ={ [1]={ name="room1", }, },
-                name="server1", 
-                host = "127.0.0.1",
-                --host = "0.0.0.0",
-                port = 8888, 
-                maxclient=3000,
-            }, 
-    },
+    login1 = "login_server1",
+    game1 = "game_server1",   
+    db1 = "db_server1", 
 
 } 
 
-_cluster={
+_list={
+    --登录服务器
+    login ={ 
+        login_server1={host = "127.0.0.1", port = 8001, multilogin = true, },
+    },
+
+    --数据库服务器
+    db ={ 
+          db_server1={
+                    db1={ host = "127.0.0.1", port = 27017, },
+                    -- db2={  host = "127.0.0.1", port = 27017,username="admin",password="admin" },
+                 },
+    },
+    --分区服务器
+    game ={ 
+        game_server1={   
+                host = "127.0.0.1",
+                port = 8888, 
+                maxclient=3000,
+                room ="room1",
+            }, 
+    },
 }
 
 --基础库
