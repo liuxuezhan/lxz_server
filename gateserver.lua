@@ -30,10 +30,9 @@ function server.username(uid, servername)
 end
 
 
-function dispatch_msg(fd, pid,msg)--分发消息，不返回
+function dispatch_msg(fd, name,msg)--分发消息，不返回
     local msg_id,msg = table.unpack(msg)
-    lxz(msg)
-    skynet.send(conf.room, "lua", fd,pid,msg_id,msg)
+    skynet.send(conf.room, "lua", fd,name,msg_id,msg)
 end
 
 
@@ -57,20 +56,20 @@ function CMD.close()
 end
 
 function CMD.login(data)
-    lxz(data)
     data = json.decode(data) 
+    ply._d[data.name]=data
     save.data.ply[data._id]=data
 end
 
 -- call by agent
-function CMD.logout(pid )
-    close_fd(ply._d[pid].fd)
-    ply._d[pid]=nil
-    skynet.call(loginservice, "lua", "logout",pid )
+function CMD.logout(name )
+    close_fd(ply._d[name].fd)
+    ply._d[name].online=0
+    skynet.call(loginservice, "lua", "logout",name )
 end
 
-function CMD.kick(pid )
-    ply._d[pid]=nil
+function CMD.kick(name )
+    ply._d[name].online=0
 end
 
 
@@ -78,14 +77,14 @@ local function accept(fd, addr)
     lxz(string.format("connect from %s (fd = %d)", addr, fd))
 
     open_fd(fd)	-- may raise error here
-    --socket.limit(fd, 8192) -- set socket buffer limit (8K),If the attacker send large package, close the socket
+    --socket.limit(fd, 8192) -- set socket buffer limit (8K),Ifthe attacker send large package, close the socket
 
     local d = json.decode(copy(read(fd)))
-    local pid = d[1] 
-    if pid then
-        if ply._d[pid] then
-            ply._d[pid].fd = fd
-            dispatch_msg(fd, pid,d[2])
+    local name = d[1] 
+    if name then
+        if ply._d[name] then
+            ply._d[name].fd = fd
+            dispatch_msg(fd, name,d[2])
         end
     end
 end
@@ -93,7 +92,6 @@ end
 local  function save_db()
     skynet.timeout(3*100, function() 
         if next(save.data) then
-            lxz(save.data)
             skynet.send(_conf.db1, "lua","db1", json.encode(save.data))--不需要返回
             save.clear()
         end

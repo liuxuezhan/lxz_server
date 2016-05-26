@@ -11,7 +11,6 @@ local server_name = ...
 local conf = _list.login[server_name] 
 
 local server_list = {}
-local user_login = {}--玩家登陆状态
 
 local function tm()
     local _tm = os.time()
@@ -23,11 +22,11 @@ function CMD.register_gate(server, host,port)--注册分区
 	server_list[server] = {host=host,port=port} 
 end
 
-function CMD.logout(pid)
-	local u = user_login[pid]
+function CMD.logout(name)
+    u = ply._d[name]
 	if u then
-		print(string.format("%s@%s is logout", pid, u.server))
-		user_login[pid] = nil
+		print(string.format("%s is logout",name))
+        ply._d[name].online=0
 	end
 end
 
@@ -39,7 +38,6 @@ end
 local socket_error = {}
 
 local function write( fd, text)
-    lxz(text)
     local ok  = pcall(socket.write,fd, text.."\n")
     if not ok then
 		skynet.error(string.format("socket(%d) write fail", fd))
@@ -102,10 +100,9 @@ local function accept(fd, addr)
     local p =ply._d[name]
 	if p then
 		if pwd == p.pwd then
-            lxz(server_list)
 	        local s = assert(server_list[server], "Unknown server")
             if p.server then
-		        skynet.call(p.server, "lua", "kick", p._id )
+		        skynet.call(p.server, "lua", "kick", p.name )
                 p.server = server
             end
         else
@@ -121,9 +118,9 @@ local function accept(fd, addr)
 	write(fd,  crypt.base64encode(ret))
     ply._d[name].server = server
     ply._d[name].addr = addr
+    ply._d[name].online = 1
     ply._d[name].tm = tm()
 
-    lxz(p)
 	skynet.send(server, "lua", "login", json.encode(p))
     socket.abandon(fd)	-- never raise error here
 end
@@ -132,7 +129,6 @@ end
 skynet.start (
 function()
     skynet.register(server_name)
-    lxz(_conf.db1,_list.db)
     ply.load(_list.db[_conf.db1])
 
     skynet.dispatch("lua", function(_,source,command, ...)--服务器间通信
@@ -142,7 +138,6 @@ function()
     skynet.error(string.format("login server listen at : %s %d", conf.host, conf.port))
     local s = socket.listen(conf.host, conf.port)--客户端通信
     socket.start ( s , function(fd, addr)
-        lxz()
         local ok, err = pcall(accept, fd, addr)
         if not ok then
             if err then

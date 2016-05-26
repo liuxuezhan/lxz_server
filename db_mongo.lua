@@ -179,6 +179,7 @@ skynet.start(function()
             end
         end
 
+        lxz(_db[id].list)
         global_save(id,_db[id].list)
         --[[
         test_insert_without_index(db)
