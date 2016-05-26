@@ -78,7 +78,6 @@ function test_expire_index(db)
 
 	local ret = db[db_name].testdb:findOne({test_key = 1})
 	assert(ret and ret.test_key == 1)
-	lxz(ret)
 
 	for i = 1, 1000 do
 		skynet.sleep(11);
@@ -94,12 +93,11 @@ end
 
 
 function check_save(db,data, frame)
-    lxz(data)
     local info = db:runCommand("getLastError")
     if info.ok then
         local code = info.code
         for tab, doc in pairs(data) do
-            local cache = doc.__cache
+            local cache = doc._bak
             local dels = {}
             for id, chgs in pairs(cache) do
                 if chgs._n_ == frame then
@@ -124,18 +122,16 @@ function check_save(db,data, frame)
             lxz(info, "check_save")
         end
     end
-    lxz(data)
 end
 
 function global_save(id,data)
-    lxz(data)
     local gFrame = (gFrame or 0) + 1
     db = _db[id].fd
     local db_name = id 
     if db then
         local update = false
         for tab, doc in pairs(data) do
-            local cache = doc.__cache
+            local cache = doc._bak
             for id, chgs in pairs(doc) do
                 if chgs ~= cache then
                     if not chgs._a_ then
@@ -172,16 +168,18 @@ skynet.start(function()
     skynet.dispatch("lua", function(session, source, id,data,...)
         data = json.decode(data)
         if not _db[id] then
-            _db[id]={fd = mongo.client(conf[id]),list={data} }
+            _db[id]={fd = mongo.client(conf[id]),list=data }
         else
-            table.insert(_db[id].list,data)
+            for tab, v in pairs(data) do
+                for k, d in pairs(v) do
+                    if k ~= "_bak" then
+                        _db[id].list[tab][k] = d 
+                    end
+                end
+            end
         end
 
-        for k, v in pairs(_db[id].list) do
-            lxz(_db[id].list[k])
-            global_save(id,v)
-            lxz(_db[id].list[k])
-        end
+        global_save(id,_db[id].list)
         --[[
         test_insert_without_index(db)
         test_insert_with_index(db)

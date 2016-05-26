@@ -10,44 +10,44 @@ function clear()
 end
 
 function init()
-    __mt_rec = {
-        __index = function (self, recid)
-            local t = self.__cache[ recid ]
-            if t then
-                self.__cache[ recid ] = nil
-                t._n_ = nil
+    mt_data = {
+        __index = function (t, k)
+            local tmp = t._bak[ k ]
+            if tmp then
+                t._bak[ k ] = nil
+                tmp._n_ = nil
             else
-                t = {}
+                tmp = {}
             end
-            self[ recid ] = t
-            return t
+            t[ k ] = tmp
+            return tmp
         end
     }
-    __mt_tab = {
-        __index = function (self, tab)
-            local t = { __cache={} }
-            setmetatable(t, __mt_rec)
-            self[ tab ] = t
-            return t
+    mt_table = {
+        __index = function (t, k)
+            local tmp = { _bak={} }
+            setmetatable(tmp, mt_data)
+            t[ k ] = tmp
+            return tmp
         end
     }
-    setmetatable(data, __mt_tab)
+    setmetatable(data, mt_table)
 
 
-    __mt_del_rec = {
+    mt_del_data = {
         __newindex = function (t, k, v)
             data[ t.tab_name ][ k ]._a_ = 0
         end
     }
-    __mt_del_tab = {
-        __index = function (self, tab)
-            local t = {tab_name=tab}
-            setmetatable(t, __mt_del_rec)
-            self[ tab ] = t
-            return t
+    mt_del_table = {
+        __index = function (t, k)
+            local tmp = {tab_name=k}
+            setmetatable(tmp, mt_del_data)
+            t[ k ] = tmp
+            return tmp
         end
     }
-    setmetatable(del, __mt_del_tab)
+    setmetatable(del, mt_del_table)
 
 end
 
