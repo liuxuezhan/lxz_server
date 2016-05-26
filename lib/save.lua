@@ -3,6 +3,12 @@ module(..., package.seeall)
 data = {}
 del = {}
 
+function clear()
+    for k, v in pairs(data) do
+        rawset(data, k,nil )
+    end
+end
+
 function init()
     __mt_rec = {
         __index = function (self, recid)
@@ -46,5 +52,4 @@ function init()
 end
 
 init()
-lxz(data)
 

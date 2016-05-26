@@ -1,17 +1,18 @@
 _conf = {
     --登录服务器
     login ={ 
-        [1]={ name="login1",host = "127.0.0.1", port = 8001, multilogin = true,
-              db ={ name="db_login", host = "127.0.0.1", port = 27017, },
-        },
+        [1]={ name="login1",host = "127.0.0.1", port = 8001, multilogin = true, },
     },
 
+    db ={ 
+          db_login={
+                    db1={ host = "127.0.0.1", port = 27017, },
+                 },
+    -- [2]={ name="db2", host = "127.0.0.1", port = 27017,username="admin",password="admin" },
+    },
     --分区服务器
     server ={ 
         [1]={   room ={ [1]={ name="room1", }, },
-                db ={ [1]={ name="db1", host = "127.0.0.1", port = 27017, }, 
-                        -- [2]={ name="db2", host = "127.0.0.1", port = 27017,username="admin",password="admin" }, 
-                    },
                 name="server1", 
                 host = "127.0.0.1",
                 --host = "0.0.0.0",

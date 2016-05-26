@@ -92,7 +92,6 @@ local function accept(fd, addr)
     local d = json.decode(copy(read(fd)))
     local pid = d[1] 
     if pid then
-        lxz(_ply,pid)
         if _ply[pid] then
             _ply[pid].fd = fd
             dispatch_msg(fd, pid,d[2])
@@ -108,7 +107,6 @@ skynet.start(function()
 	skynet.call(_conf.login[1].name, "lua", "register_gate", conf.name, conf.host,conf.port)
 
     skynet.newservice("room",id,1)--模块服务器
-    skynet.newservice("db_mongo",json.encode(conf.db[1]))--数据库写中心
 
     local address = conf.host or "0.0.0.0"
     local port = assert(conf.port)

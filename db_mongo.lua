@@ -2,10 +2,10 @@ local skynet = require "skynet"
 local mongo = require "mongo"
 local bson = require "bson"
 local json = require "json"
-local _d={}
 
-local conf= json.decode(...) 
-local db_name = conf.name 
+local db_server = ...
+local conf = _conf.db[db_server] 
+db = {}
 
 function test_insert_without_index(db)
 	db[db_name].testdb:dropIndex("*")
@@ -94,48 +94,46 @@ end
 
 
 function check_save(db,data, frame)
-    local f = function()
-        local info = db:runCommand("getLastError")
-        if info.ok then
-            local code = info.code
-            for tab, doc in pairs(data) do
-                local cache = doc.__cache
-                local dels = {}
-                for id, chgs in pairs(cache) do
-                    if chgs._n_ == frame then
-                        --print("ack", id, frame, gFrame)
-                        table.insert(dels, id)
-                        if code then lxz(chgs, "maybe error") end
-                    elseif chgs._n_ < frame - 10 then
-                        chgs._n_ = nil
-                        doc[ id ] = chgs
-                        print("retry", id, frame, gFrame)
-                        table.insert(dels, id)
-                    end
-                end
-                if #dels > 0 then
-                    for _, v in pairs(dels) do
-                        cache[ v ] = nil
-                    end
+    local info = db:runCommand("getLastError")
+    if info.ok then
+        local code = info.code
+        for tab, doc in pairs(data) do
+            local cache = doc.__cache
+            local dels = {}
+            for id, chgs in pairs(cache) do
+                if chgs._n_ == frame then
+                    --print("ack", id, frame, gFrame)
+                    table.insert(dels, id)
+                    if code then lxz(chgs, "maybe error") end
+                elseif chgs._n_ < frame - 10 then
+                    chgs._n_ = nil
+                    doc[ id ] = chgs
+                    print("retry", id, frame, gFrame)
+                    table.insert(dels, id)
                 end
             end
-
-            if info.code then
-                lxz(info, "check_save")
+            if #dels > 0 then
+                for _, v in pairs(dels) do
+                    cache[ v ] = nil
+                end
             end
         end
+
+        if info.code then
+            lxz(info, "check_save")
+        end
     end
-    return coroutine.wrap(f)
 end
 
-function global_save(db,data)
+function global_save(id,data)
     local gFrame = (gFrame or 0) + 1
+    db = db[id].fd
+    local db_name = id 
     if db then
         local update = false
         for tab, doc in pairs(data) do
             local cache = doc.__cache
             for id, chgs in pairs(doc) do
-                 id = tonumber(id)
                 if chgs ~= cache then
                     if not chgs._a_ then
                         db[db_name][tab]:update({_id=id}, {["$set"] = chgs }, true) 
@@ -158,25 +156,34 @@ function global_save(db,data)
                 end
             end
         end
-        if update then check_save(db, data,gFrame)() end
+
+        if update then check_save(db, data,gFrame) end
     end
 end
 
 skynet.start(function()
-    local db = mongo.client(conf)
-    --[[
-    test_insert_without_index(db)
-    test_insert_with_index(db)
-	test_find_and_remove(db)
-	test_expire_index(db)
-   -- db.union:update({_id=self._id}, {["$addToSet"]={log=log}}) 
-   --]]
 
     require "skynet.manager"	-- import skynet.register
-    skynet.register(db_name) --注册服务名字便于其他服务调用
+    skynet.register(db_server) --注册服务名字便于其他服务调用
 
-    skynet.dispatch("lua", function(session, source, data,...)
+    skynet.dispatch("lua", function(session, source, id,data,...)
         data = json.decode(data)
-        global_save(db,data)
+        lxz(id,_conf.db)
+        if not db[id] then
+            db[id]={fd = mongo.client(_conf.db[db_server][id]),list={data} }
+        else
+            table.insert(db[id].list,data)
+        end
+
+        for _, v in pairs(db[id].list) do
+            global_save(id,v)
+        end
+        --[[
+        test_insert_without_index(db)
+        test_insert_with_index(db)
+        test_find_and_remove(db)
+        test_expire_index(db)
+        -- db.union:update({_id=self._id}, {["$addToSet"]={log=log}}) 
+   --]]
     end)
 end)

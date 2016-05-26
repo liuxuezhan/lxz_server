@@ -5,6 +5,8 @@ local crypt = require "crypt"
 local string = string
 local assert = assert
 local json = require "json"
+require "save"	
+require "ply"	
 
 local id = ...
 id = tonumber(id)
@@ -56,6 +58,18 @@ local function read(fd)
     return ret
 end
 
+local  function save_db()
+    skynet.timeout(3*100, function() 
+        if next(save.data) then
+            lxz(save.data)
+            skynet.send("db_login", "lua","db1",json.encode(save.data))--不需要返回
+            save.clear()
+        end
+        save_db()
+    end)
+end
+save_db()
+
 local function accept(fd, addr)
     lxz(string.format("connect from %s (fd = %d)", addr, fd))
 
@@ -94,72 +108,52 @@ local function accept(fd, addr)
     local etoken = read(fd)
     local token = crypt.desdecode(secret, crypt.base64decode(etoken))
 
-	local pid, server, pwd = token:match("([^@]+)@([^:]+):(.+)")
-	pid = crypt.base64decode(pid)
+	local name, server, pwd = token:match("([^@]+)@([^:]+):(.+)")
+	name = crypt.base64decode(name)
 	server = crypt.base64decode(server)
 	pwd = crypt.base64decode(pwd)
 
-    local p =_ply[pid]
+    local p =ply._d[name]
 	if p then
 		if pwd == p.pwd then
 	        local s = assert(server_list[server], "Unknown server")
             if p.server then
-		        skynet.call(p.server, "lua", "kick", pid )
+		        skynet.call(p.server, "lua", "kick", p._id )
                 p.server = server
             end
-	        skynet.call(server, "lua", "login", pid, addr,secret)
         else
 			write( fd, "401 Unauthorized")
             return
 		end
     else
-        _ply[pid]={_id=pid,pwd=pwd }
-        --skynet.send(conf.db.name, "lua","ply" ,json.encode({add={ply={_ply[pid]}}}))--不需要返回
-	    skynet.call(server, "lua", "login", pid, addr,secret)
+        p = ply.new(server,name,pwd) 
 	end
 
 	local s = assert(server_list[server], "Unknown server")
 	local ret = json.encode({name=server,host=s.host,port=s.port})
 	write(fd,  crypt.base64encode(ret))
-    _ply[pid].server=server
-    _ply[pid].addr=addr
-    _ply[pid].tm=tm()
+    ply._d[name].server = server
+    ply._d[name].addr = addr
+    ply._d[name].tm = tm()
 
+	skynet.call(server, "lua", "login", p._id, addr,secret)
     socket.abandon(fd)	-- never raise error here
 end
 
 
-
-
-_ply = {}
-function load(db_conf)
-    local mongo = require "mongo"
-	local db = mongo.client(db_conf)
-
-    local info = db[db_conf.name].ply:find({})
-    while info:hasNext() do
-        local v = info:next()
-        _ply[v._id]=v
-    end
-end
-
 skynet.start (
 function()
     skynet.register(conf.name)
-    local host = conf.host or "0.0.0.0"
-    local port = assert(tonumber(conf.port))
-    local slave = {}
-    load(conf.db)
-    skynet.newservice("db_mongo",json.encode(conf.db))--数据库写中心
+    ply.load(_conf.db.db_login)
 
     skynet.dispatch("lua", function(_,source,command, ...)--服务器间通信
         skynet.ret(skynet.pack(command_handler(command, ...)))
     end)
 
-    skynet.error(string.format("login server listen at : %s %d", host, port))
-
-    local id = socket.listen(host, port)--客户端通信
+    skynet.error(string.format("login server listen at : %s %d", conf.host, conf.port))
+    local id = socket.listen(conf.host, conf.port)--客户端通信
     socket.start ( id , function(fd, addr)
+        lxz()
         local ok, err = pcall(accept, fd, addr)
         if not ok then
             if err then
@@ -167,8 +161,7 @@ function()
             end
         end
         socket.close_fd(fd)	-- We haven't call socket.start, so use socket.close_fd rather than socket.close.
-    end
-    )
+    end)
 end
 )
 
