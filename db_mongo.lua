@@ -5,7 +5,7 @@ local json = require "json"
 
 local server_name = ...
 local conf = _list.db[server_name] 
-db = {}
+_db = {}
 
 function test_insert_without_index(db)
 	db[db_name].testdb:dropIndex("*")
@@ -168,16 +168,17 @@ skynet.start(function()
 
     skynet.dispatch("lua", function(session, source, id,data,...)
         data = json.decode(data)
-        lxz(id,_conf.db)
-        if not db[id] then
-            db[id]={fd = mongo.client(conf[id]),list={data} }
+        if not _db[id] then
+            _db[id]={fd = mongo.client(conf[id]),list={data} }
         else
-            table.insert(db[id].list,data)
+            table.insert(_db[id].list,data)
         end
 
-        for _, v in pairs(db[id].list) do
+        lxz(_db[id])
+        for _, v in pairs(_db[id].list) do
             global_save(id,v)
         end
+        lxz(_db[id])
         --[[
         test_insert_without_index(db)
         test_insert_with_index(db)

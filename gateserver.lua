@@ -4,20 +4,17 @@ local socket = require "socket"
 local crypt = require "crypt"
 local json = require "json"
 require "ply"
+require "save"	
 local assert = assert
 local b64encode = crypt.base64encode
 local b64decode = crypt.base64decode
 
 local socket_id	-- listen socket
-local maxclient	-- max client
 local client_number = 0
-local nodelay = false
 
-local _ply = {}
 
 local server_name = ...
 local conf =_list.game[server_name] 
-lxz(conf)
 local server = {}
 
 local function read(fd)
@@ -41,7 +38,7 @@ end
 
 
 function open_fd(fd)
-    if client_number >= maxclient then
+    if client_number >= conf.maxclient then
         return
     end
     client_number = client_number + 1
@@ -59,27 +56,21 @@ function CMD.close()
     socket.close(socket_id)
 end
 
-function CMD.login(pid, addr,secret)
-    lxz(pid)
-    if not _ply[pid] then
-        local u = {
-            pid = pid,
-        }
-        _ply[pid] = u
-    end
-    _ply[pid].addr = addr
-    _ply[pid].secret = secret
+function CMD.login(data)
+    lxz(data)
+    data = json.decode(data) 
+    save.data.ply[data._id]=data
 end
 
 -- call by agent
 function CMD.logout(pid )
-    close_fd(_ply[pid].fd)
-    _ply[pid]=nil
+    close_fd(ply._d[pid].fd)
+    ply._d[pid]=nil
     skynet.call(loginservice, "lua", "logout",pid )
 end
 
 function CMD.kick(pid )
-    _ply[pid]=nil
+    ply._d[pid]=nil
 end
 
 
@@ -92,27 +83,34 @@ local function accept(fd, addr)
     local d = json.decode(copy(read(fd)))
     local pid = d[1] 
     if pid then
-        if _ply[pid] then
-            _ply[pid].fd = fd
+        if ply._d[pid] then
+            ply._d[pid].fd = fd
             dispatch_msg(fd, pid,d[2])
         end
     end
 end
 
+local  function save_db()
+    skynet.timeout(3*100, function() 
+        if next(save.data) then
+            lxz(save.data)
+            skynet.send(_conf.db1, "lua","db1", json.encode(save.data))--不需要返回
+            save.clear()
+        end
+        save_db()
+    end)
+end
+save_db()
+
 skynet.start(function()
     require "skynet.manager"	-- import skynet.register
     skynet.register(server_name) --注册服务名字便于其他服务调用
-    maxclient = conf.maxclient or 1024
-    nodelay = conf.nodelay
-    lxz(server_name,_conf,conf)
 	skynet.call(_conf.login1,"lua", "register_gate", server_name, conf.host,conf.port)
-    lxz()
+    ply.load(_list.db[_conf.db1])
 
     skynet.newservice("room",conf.room)--模块服务器
 
-    local address = conf.host or "0.0.0.0"
-    local port = assert(conf.port)
-    socket_id = socket.listen(address, port)
+    socket_id = socket.listen(conf.host, conf.port)
     socket.start ( socket_id , function(fd, addr)
         local ok, err = pcall(accept, fd, addr)
         if not ok then
@@ -125,7 +123,11 @@ skynet.start(function()
     )
     skynet.dispatch("lua", function (_, addr, cmd, ...)
         local f = assert(CMD[cmd])
-        skynet.ret(skynet.pack(f( ...)))
+         local ret =  f( ...)
+        if cmd == "login" then
+        else
+            skynet.ret(skynet.pack(ret))
+        end
     end)
 end)
 

@@ -5,7 +5,6 @@ local crypt = require "crypt"
 local string = string
 local assert = assert
 local json = require "json"
-require "save"	
 require "ply"	
 
 local server_name = ...
@@ -56,18 +55,6 @@ local function read(fd)
     end
     return ret
 end
-
-local  function save_db()
-    skynet.timeout(3*100, function() 
-        if next(save.data) then
-            lxz(save.data)
-            skynet.send(_conf.db1, "lua","db1",json.encode(save.data))--不需要返回
-            save.clear()
-        end
-        save_db()
-    end)
-end
-save_db()
 
 local function accept(fd, addr)
     lxz(string.format("connect from %s (fd = %d)", addr, fd))
@@ -136,7 +123,8 @@ local function accept(fd, addr)
     ply._d[name].addr = addr
     ply._d[name].tm = tm()
 
-	skynet.call(server, "lua", "login", p._id, addr,secret)
+    lxz(p)
+	skynet.send(server, "lua", "login", json.encode(p))
     socket.abandon(fd)	-- never raise error here
 end
 
@@ -145,7 +133,7 @@ skynet.start (
 function()
     skynet.register(server_name)
     lxz(_conf.db1,_list.db)
-    ply.load((_list.db[_conf.db1]))
+    ply.load(_list.db[_conf.db1])
 
     skynet.dispatch("lua", function(_,source,command, ...)--服务器间通信
         skynet.ret(skynet.pack(command_handler(command, ...)))

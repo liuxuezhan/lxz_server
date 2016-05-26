@@ -35,12 +35,14 @@ skynet.start(function()
 
     skynet.dispatch("lua", function(session, source, fd,pid,msg_id,...)
             _online[pid]=fd
---            local ret = ply.dispath(pid,msg_id,...)
+            --[[
+            local ret = ply.dispath(pid,msg_id,...)
             if ret ~=0 then
                 for pid, d in pairs(ret) do
                     write(_online[pid],d)
                 end
             end
+            --]]
 
     end)
 
