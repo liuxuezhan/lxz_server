@@ -6,7 +6,7 @@ local server_name = ...
 
 local _online={}--玩家在线列表
 
-require "save"	
+local save = require "save"	
 require "ply"	
 
 local function write( fd, text)

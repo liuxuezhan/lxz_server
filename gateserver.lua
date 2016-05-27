@@ -4,7 +4,7 @@ local socket = require "socket"
 local crypt = require "crypt"
 local json = require "json"
 require "ply"
-require "save"	
+local save = require "save"	
 local assert = assert
 local b64encode = crypt.base64encode
 local b64decode = crypt.base64decode
