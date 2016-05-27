@@ -2,6 +2,7 @@ package.path = package.path..";./?.lua"
 local skynet = require "skynet"
 local socket = require "socket"
 local crypt = require "crypt"
+local cluster = require "cluster"
 local json = require "json"
 require "ply"
 local save = require "save"	
@@ -56,6 +57,7 @@ function CMD.close()
 end
 
 function CMD.login(data)
+    lxz()
     data = json.decode(data) 
     ply._d[data.name]=data
     save.data.ply[data._id]=data
@@ -103,7 +105,9 @@ save_db()
 skynet.start(function()
     require "skynet.manager"	-- import skynet.register
     skynet.register(server_name) --注册服务名字便于其他服务调用
-	skynet.call(_conf.login1,"lua", "register_gate", server_name, conf.host,conf.port)
+
+	local s = cluster.query("login1", "login1_1")
+	cluster.call("login1",s, "register_gate", server_name, conf.host,conf.port)
     ply.load(_list.db[_conf.db1])
 
     skynet.newservice("room",conf.room)--模块服务器

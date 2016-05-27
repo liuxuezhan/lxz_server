@@ -2,6 +2,7 @@ local skynet = require "skynet"
 require "skynet.manager"
 local socket = require "socket"
 local crypt = require "crypt"
+local cluster = require "cluster"
 local string = string
 local assert = assert
 local json = require "json"
@@ -19,6 +20,7 @@ end
 local CMD = {}
 
 function CMD.register_gate(server, host,port)--注册分区
+    lxz(server,host,port)
 	server_list[server] = {host=host,port=port} 
 end
 
@@ -100,11 +102,15 @@ local function accept(fd, addr)
     local p =ply._d[name]
 	if p then
 		if pwd == p.pwd then
+            lxz()
 	        local s = assert(server_list[server], "Unknown server")
+            lxz()
             if p.server then
-		        skynet.call(p.server, "lua", "kick", p.name )
+	            local s = cluster.query("game1", "game1_1")
+	            cluster.call("game1",s, "kick", p.name)
                 p.server = server
             end
+            lxz()
         else
 			write( fd, "401 Unauthorized")
             return
@@ -121,7 +127,10 @@ local function accept(fd, addr)
     ply._d[name].online = 1
     ply._d[name].tm = tm()
 
-	skynet.send(server, "lua", "login", json.encode(p))
+    lxz()
+	local s = cluster.query("game1", "game1_1")
+	cluster.call("game1",s, "login", json.encode(p))
+	--skynet.send(server, "lua", "login", json.encode(p))
     socket.abandon(fd)	-- never raise error here
 end
 
@@ -131,7 +140,7 @@ function()
     skynet.register(server_name)
     ply.load(_list.db[_conf.db1])
 
-    skynet.dispatch("lua", function(_,source,command, ...)--服务器间通信
+    skynet.dispatch("lua", function(_,source,command, ...)--服务器间通信,包括集群
         skynet.ret(skynet.pack(command_handler(command, ...)))
     end)
 
