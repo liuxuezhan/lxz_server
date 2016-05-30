@@ -8,9 +8,8 @@ local assert = assert
 local json = require "json"
 require "ply"	
 
---local server_name = ...
 local server_name = "login_server1"
-local conf = _list.login[server_name] 
+local conf = _list[server_name] 
 
 local server_list = {}
 

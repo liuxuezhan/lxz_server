@@ -15,7 +15,7 @@ local client_number = 0
 
 
 local server_name = "game_server1" 
-local conf =_list.game[server_name] 
+local conf =_list[server_name] 
 local server = {}
 
 local function read(fd)

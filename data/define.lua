@@ -1,24 +1,15 @@
 _list={
-    --登录服务器
-    login ={ 
-        login_server1={ host = "127.0.0.1", port = 8001, multilogin = true, db_name="db_server1"  },
-    },
-
     db_server1 ={ 
         db1={ host = "127.0.0.1", port = 27017, },
         -- db={  host = "127.0.0.1", port = 27017,username="admin",password="admin" },
     },
 
+    --登录服务器
+    login_server1={ host = "127.0.0.1", port = 8001, multilogin = true, db_name="db_server1"  },
+
+
     --分区服务器
-    game ={ 
-        game_server1={   
-                host = "127.0.0.1",
-                port = 8888, 
-                maxclient=3000,
-                room ="room1",
-                db_name = "db_server1"
-            }, 
-    },
+    game_server1={   host = "127.0.0.1", port = 8888, maxclient=3000, room ="room1", db_name = "db_server1" }, 
 }
 
 --基础库
