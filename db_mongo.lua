@@ -3,8 +3,9 @@ local mongo = require "mongo"
 local bson = require "bson"
 local json = require "json"
 
+lxz(...)
 local server_name = ...
-local conf = _list.db[server_name] 
+local conf = _list[server_name] 
 _db = {}
 
 function test_insert_without_index(db)
@@ -163,6 +164,7 @@ end
 skynet.start(function()
 
     require "skynet.manager"	-- import skynet.register
+    lxz(server_name)
     skynet.register(server_name) --注册服务名字便于其他服务调用
 
     skynet.dispatch("lua", function(session, source, id,data,...)

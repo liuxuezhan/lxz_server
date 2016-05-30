@@ -1,23 +1,14 @@
-_conf = {
-    login1 = "login_server1",
-    game1 = "game_server1",   
-    db1 = "db_server1", 
-
-} 
-
 _list={
     --登录服务器
     login ={ 
-        login_server1={host = "127.0.0.1", port = 8001, multilogin = true, },
+        login_server1={ host = "127.0.0.1", port = 8001, multilogin = true, db_name="db_server1"  },
     },
 
-    --数据库服务器
-    db ={ 
-          db_server1={
-                    db1={ host = "127.0.0.1", port = 27017, },
-                    -- db2={  host = "127.0.0.1", port = 27017,username="admin",password="admin" },
-                 },
+    db_server1 ={ 
+        db1={ host = "127.0.0.1", port = 27017, },
+        -- db={  host = "127.0.0.1", port = 27017,username="admin",password="admin" },
     },
+
     --分区服务器
     game ={ 
         game_server1={   
@@ -25,6 +16,7 @@ _list={
                 port = 8888, 
                 maxclient=3000,
                 room ="room1",
+                db_name = "db_server1"
             }, 
     },
 }

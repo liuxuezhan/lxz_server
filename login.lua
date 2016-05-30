@@ -8,7 +8,8 @@ local assert = assert
 local json = require "json"
 require "ply"	
 
-local server_name = ...
+--local server_name = ...
+local server_name = "login_server1"
 local conf = _list.login[server_name] 
 
 local server_list = {}
@@ -137,8 +138,12 @@ end
 
 skynet.start (
 function()
+--    local console = skynet.newservice("console")
+ --   skynet.newservice("debug_console",80000)
+	cluster.register("login1_1", SERVERNAME)
+	cluster.open "login1"
     skynet.register(server_name)
-    ply.load(_list.db[_conf.db1])
+    ply.load(_list[conf.db_name])
 
     skynet.dispatch("lua", function(_,source,command, ...)--服务器间通信,包括集群
         skynet.ret(skynet.pack(command_handler(command, ...)))
