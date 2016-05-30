@@ -1,5 +1,4 @@
 local skynet = require "skynet"
-require "skynet.manager"
 local socket = require "socket"
 local crypt = require "crypt"
 local cluster = require "cluster"
@@ -130,8 +129,11 @@ local function accept(fd, addr)
     lxz()
 	local s = cluster.query("game1", "game1_1")
 	cluster.call("game1",s, "login", json.encode(p))
-	--skynet.send(server, "lua", "login", json.encode(p))
     socket.abandon(fd)	-- never raise error here
+end
+
+local function log(...)
+	skynet.send("log_server", "lua", ...)
 end
 
 
@@ -139,10 +141,14 @@ skynet.start (
 function()
 --    local console = skynet.newservice("console")
  --   skynet.newservice("debug_console",80000)
+
+    skynet.newservice("log")--数据库写中心
+
+    require "skynet.manager"
 	cluster.register("login1_1", SERVERNAME)
 	cluster.open "login1"
     skynet.register(server_name)
-    ply.load(_list[conf.db_name])
+    ply.load(_list[conf.db_read])
 
     skynet.dispatch("lua", function(_,source,command, ...)--服务器间通信,包括集群
         skynet.ret(skynet.pack(command_handler(command, ...)))

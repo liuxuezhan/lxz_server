@@ -1,11 +1,12 @@
 _list={
+
     db_server1 ={ 
         db1={ host = "127.0.0.1", port = 27017, },
         -- db={  host = "127.0.0.1", port = 27017,username="admin",password="admin" },
     },
 
     --登录服务器
-    login_server1={ host = "127.0.0.1", port = 8001, multilogin = true, db_name="db_server1"  },
+    login_server1={ host = "127.0.0.1", port = 8001, multilogin = true, db_read="db_server1"  },
 
 
     --分区服务器
@@ -96,11 +97,13 @@ end
 
 
 function lxz(...)--打印lua变量数据到日志文件
-  cprint("["..os.date("%Y-%m-%d %H:%M:%S").."]--------------------------------------"..debug.traceback(),"echo -e \"\\033[40;34;2m")
+  local info = debug.getinfo(2)
+  local head = "["..os.date("%Y-%m-%d %H:%M:%S").."]["..(info.short_src or "FILE")..":"..(info.name or "")..":"..(info.currentline or 0).."]"
+  cprint(head,"echo -e \"\\033[40;34;2m")
     for _,v in pairs({...}) do
         print_r(v)
     end
-    print("\n")
+  --cprint(debug.traceback(),"echo -e \"\\033[40;34;2m")
 end
 
 getfenv = getfenv or function(f)
