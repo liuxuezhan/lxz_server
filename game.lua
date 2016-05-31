@@ -3,7 +3,6 @@ local skynet = require "skynet"
 local socket = require "socket"
 local crypt = require "crypt"
 local cluster = require "cluster"
-local json = require "json"
 require "ply"
 local save = require "save"	
 local assert = assert

@@ -4,7 +4,6 @@ local crypt = require "crypt"
 local cluster = require "cluster"
 local string = string
 local assert = assert
-local json = require "json"
 require "ply"	
 
 local server_name = "login_server1"
@@ -88,7 +87,6 @@ local function accept(fd, addr)
         write( fd, "400 Bad Request")
         error "challenge failed"
     end
-    lxz("认证通过")
 
     local etoken = read(fd)
     local token = crypt.desdecode(secret, crypt.base64decode(etoken))
@@ -126,23 +124,16 @@ local function accept(fd, addr)
     ply._d[name].online = 1
     ply._d[name].tm = tm()
 
-    lxz()
+    log(ply._d[name]._id,"认证通过")
 	local s = cluster.query("game1", "game1_1")
 	cluster.call("game1",s, "login", json.encode(p))
     socket.abandon(fd)	-- never raise error here
 end
 
-local function log(...)
-	skynet.send("log_server", "lua", ...)
-end
-
-
 skynet.start (
 function()
 --    local console = skynet.newservice("console")
  --   skynet.newservice("debug_console",80000)
-
-    skynet.newservice("log")--数据库写中心
 
     require "skynet.manager"
 	cluster.register("login1_1", SERVERNAME)

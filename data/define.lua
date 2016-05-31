@@ -1,3 +1,5 @@
+json = require "json"
+
 _list={
 
     db_server1 ={ 
@@ -38,6 +40,7 @@ function split(str, reps)  --分割字符串
     string.gsub(str, '[^' .. reps ..']+', function(w) table.insert(resultStrsList, w) end );
     return resultStrsList;
 end
+
 function load_file (path)--读取csv文件数据为lua表
     local file = io.open(path,"r")
     for line in file:lines() do
@@ -95,15 +98,31 @@ function cprint(s,color)--颜色答应
     os.execute(cool) 
 end
 
+function log(...)
+    lxz(...)
+    local info = debug.getinfo(2)
+    local d = "["..(info.short_src or "FILE")..":"..(info.currentline or 0).."]"..":"
+    for _,v in pairs({...}) do
+        d = d..json.encode(v).."@"
+    end
+    os.execute("logger -p local0.info "..d )
+end
 
 function lxz(...)--打印lua变量数据到日志文件
   local info = debug.getinfo(2)
-  local head = "["..os.date("%Y-%m-%d %H:%M:%S").."]["..(info.short_src or "FILE")..":"..(info.name or "")..":"..(info.currentline or 0).."]"
+  local head = "["..(info.short_src or "FILE")..":"..(info.name or "")..":"..(info.currentline or 0).."]"
   cprint(head,"echo -e \"\\033[40;34;2m")
     for _,v in pairs({...}) do
         print_r(v)
     end
-  --cprint(debug.traceback(),"echo -e \"\\033[40;34;2m")
+end
+
+function lxz1(...)--打印lua变量数据到日志文件
+  local info = debug.getinfo(2)
+  cprint(debug.traceback(),"echo -e \"\\033[40;34;2m")
+  for _,v in pairs({...}) do
+        print_r(v)
+  end
 end
 
 getfenv = getfenv or function(f)

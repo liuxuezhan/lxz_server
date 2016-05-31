@@ -1,5 +1,4 @@
 local skynet = require "skynet"
-local json = require "json"
 local socket = require "socket"
 
 local server_name = ...

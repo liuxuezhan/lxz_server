@@ -1,7 +1,6 @@
 local skynet = require "skynet"
 local mongo = require "mongo"
 local bson = require "bson"
-local json = require "json"
 
 lxz(...)
 local server_name = ...
