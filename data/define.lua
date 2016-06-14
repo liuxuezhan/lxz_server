@@ -124,7 +124,6 @@ function lxz1(...)--打印lua变量数据到日志文件
   end
 end
 
-if _VERSION == "Lua 5.3" then
     getfenv = getfenv or function(f)
         f = (type(f) == 'function' and f or debug.getinfo(f + 1, 'f').func)
         local name, val
@@ -156,5 +155,4 @@ if _VERSION == "Lua 5.3" then
         setmetatable(_ENV[mname], {__index = _ENV})
         setfenv(2, _ENV[mname])
     end
-end
 
