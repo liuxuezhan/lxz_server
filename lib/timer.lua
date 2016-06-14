@@ -10,10 +10,9 @@ end
 function mark(node)
     if node.what ~= "cron" then
         if node.delete then
-            return 0, { del={timer={node._id}}, } 
+            save.del.timer[node._id]=0
         else
-            gPendingSave.timer[ node._id ] = node
-            return 0, { update={timer={node._id}}, } 
+            save.data.timer[node._id]=node
         end
     end
 end
@@ -87,7 +86,7 @@ function callback(id, tag)
     end
 end
 
-function restore_timer2()--推动时间
+function load()--推动时间
     local db = dbmng:getOne()
     db.timer:delete({delete=true})
 
