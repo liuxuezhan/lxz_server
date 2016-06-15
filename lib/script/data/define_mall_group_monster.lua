@@ -1,0 +1,15 @@
+--
+-- $Id$
+--
+
+module( "resmng" )
+svnnum("$Id$")
+
+MALL_GROUP__SHELF_1 = 1
+MALL_GROUP__SHELF_2 = 2
+MALL_GROUP__SHELF_3 = 3
+MALL_GROUP__SHELF_4 = 4
+MALL_GROUP__SHELF_5 = 5
+MALL_GROUP__SHELF_6 = 6
+MALL_GROUP__SHELF_7 = 7
+MALL_GROUP__SHELF_8 = 8

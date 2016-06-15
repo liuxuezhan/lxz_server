@@ -1,0 +1,15 @@
+--
+-- $Id$
+--
+
+module( "resmng" )
+svnnum("$Id$")
+
+MANOR_MAL_SHELF_1 = 1
+MANOR_MAL_SHELF_2 = 2
+MANOR_MAL_SHELF_3 = 3
+MANOR_MAL_SHELF_4 = 4
+MANOR_MAL_SHELF_5 = 5
+MANOR_MAL_SHELF_6 = 6
+MANOR_MAL_SHELF_7 = 7
+MANOR_MAL_SHELF_8 = 8
