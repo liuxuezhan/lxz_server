@@ -1,6 +1,6 @@
-#include "lua.h"
-#include "lauxlib.h"
-#include "lualib.h"
+#include <lua.h>
+#include <lauxlib.h>
+#include <lualib.h>
 #include <string.h>
 #include <stdint.h>
 #include <pthread.h>
@@ -59,12 +59,13 @@ void dump(void* src, int len, const char *tip )
         printf("%s | %s\n", tip, val);
         line++;
 
-        //return; // extra, kill 
+        //return; // extra, kill dump
     }
 }
 
 //----------------------------------socker处理--------------------------------------
 
+#define CACHE_SIZE 0x1000
 
 static int
 lconnect(lua_State *L) {
@@ -125,7 +126,7 @@ lsend(lua_State *L) {
 	int fd = luaL_checkinteger(L,1);
 	const char * msg = luaL_checklstring(L, 2, &sz);
 
-    dump(msg,sz,"send");
+    //dump(msg,sz,"send");
 	block_send(L, fd, msg, (int)sz);
 
 	return 0;
@@ -150,14 +151,40 @@ static int
 lrecv(lua_State *L) {
 	int fd = luaL_checkinteger(L,1);
 
-	char buffer[1024];
-	int r = recv(fd, buffer, 1024, 0);
-    dump(buffer,r,"recv");
+   // printf("rev fd %d\n",fd);
+	char len[4]={0};
+	int r = recv(fd, len, 4, 0);
+   // printf("rev head len %d\n",r);
+   // dump(len,4,"head");
 	if (r < 0) {
 		if (errno == EAGAIN || errno == EINTR) {
 			return 0;
 		}
 		luaL_error(L, "socket error: %s", strerror(errno));
+	}
+	if (r != 4) {
+		luaL_error(L, "head len error: %s", r);
+		lua_pushliteral(L, "");
+		return 1;
+	}
+
+    int l = ntohl(*(int*)len);
+    //printf("rev head len2 %d\n",l);
+
+	char buffer[l];
+	r = recv(fd, buffer, l, 0);
+   // printf("rev head len3 %d\n",r);
+   // dump(buffer,l,"data");
+	if (r < 0) {
+		if (errno == EAGAIN || errno == EINTR) {
+			return 0;
+		}
+		luaL_error(L, "socket error: %s", strerror(errno));
+	}
+	if (r != l) {
+		luaL_error(L, "data len error: %s", r);
+		lua_pushliteral(L, "");
+		return 1;
 	}
 
 	lua_pushlstring(L, buffer, r);
@@ -233,7 +260,7 @@ lreadstdin(lua_State *L) {
 //----------------------------------二进制流处理--------------------------------------
 
 int
-luaopen_client_socket(lua_State *L) {
+luaopen_socket(lua_State *L) {
 
 
 	 luaL_Reg s[] ={
@@ -244,7 +271,8 @@ luaopen_client_socket(lua_State *L) {
 				{ "usleep", lusleep },
 				{ NULL, NULL },
 	 };
-    luaL_newlib(L,s);
+
+     luaL_register(L, "socket",s);
 
 	struct queue * q = lua_newuserdata(L, sizeof(*q));
 	memset(q, 0, sizeof(*q));

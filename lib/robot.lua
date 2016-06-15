@@ -5,7 +5,7 @@ module(..., package.seeall)
 local json = require "json"
 package.cpath =package.cpath..";/www/lualib/skynet/skynet/luaclib/?.so"
 local crypt = require "crypt"
-local socket = require "socket"
+local socket = require "client_socket"
 --require "debugger"
 
 local _r ={}--机器人列表

@@ -25,6 +25,22 @@ local function read(fd)
     return ret
 end
 
+local function slg_read(fd)
+    local ok ,ret = pcall(socket.read,fd,4)
+    if not ok then
+		skynet.error(string.format("socket(%d) read fail", fd))
+    end
+    lxz(ret)
+
+    ok ,ret = pcall(socket.read,fd,tonumber(ret))
+    if not ok then
+		skynet.error(string.format("socket(%d) read fail", fd))
+    end
+    lxz(ret)
+	ret = Rpc:parseRpc( ret )
+    lxz(ret)
+end
+
 function server.username(uid, servername)
 	return string.format("%s_%s", b64encode(servername) ,b64encode(uid))
 end
@@ -80,6 +96,7 @@ local function accept(fd, addr)
     open_fd(fd)	-- may raise error here
     --socket.limit(fd, 8192) -- set socket buffer limit (8K),Ifthe attacker send large package, close the socket
 
+--    slg_read(fd)
     local d = json.decode(copy(read(fd)))
     local name = d[1] 
     if name then
@@ -99,13 +116,44 @@ local  function save_db()
         save_db()
     end)
 end
-save_db()
+
+function doLoadMod(name, mod)
+    mod = mod or name
+    if name == "debugger" then
+        if not _G[ name ] then
+            _G[ name ] = require( mod )
+        end
+    else
+        package.loaded[ name ] = nil
+        _G[ name ] = require( mod )
+    end
+end
+
+function do_load(mod)
+    package.loaded[ mod ] = nil
+    require( mod )
+  --  LOG("load module %s", mod)
+end
+
+function slg_init()
+    do_load("protocol")
+    doLoadMod("packet", "packet")
+    doLoadMod("MsgPack","MessagePack")
+    doLoadMod("Array",  "array")
+    doLoadMod("Struct", "struct")
+    doLoadMod("RpcType","rpctype")
+    doLoadMod("pack","slg_pack")
+    iopack = pack
+    doLoadMod("Rpc",    "rpc")
+    Rpc:init()
+end
 
 skynet.start(function()
 --    local console = skynet.newservice("console")
  --   skynet.newservice("debug_console",80000)
     skynet.newservice("db_mongo",conf.db_name)--数据库写中心
-
+    save_db()
+    slg_init()
 	cluster.register("game1_1", SERVERNAME)
 	cluster.open "game1"
 
