@@ -750,7 +750,7 @@ function set_tower_range()
         local city = get_ety(v) 
         if city then
             if (get_city_type(city) or 0) == CITY_TYPE.TOWER then
-                c_add_scan(city.eid, 5)
+                --c_add_scan(city.eid, 5)
                 print("add_scan", city.x, city.y)
             end
             if (get_city_type(city) or 0) == CITY_TYPE.FORT then

@@ -28,8 +28,8 @@ local type = type
 local char = string.char
 local floor = math.floor
 local tointeger = math.tointeger or floor
-local frexp = math.frexp or mathx.frexp
-local ldexp = math.ldexp or mathx.ldexp
+local frexp = math.frexp 
+local ldexp = math.ldexp 
 local huge = math.huge
 local tconcat = table.concat
 

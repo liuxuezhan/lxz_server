@@ -93,6 +93,7 @@ skynet.start(function()
  
     skynet.newservice("db_mongo",conf.db_name)--数据库写中心
     save_db()
+    warx_init()
 
     lxz(conf)
     socket_id = socket.listen(conf.host, conf.port)

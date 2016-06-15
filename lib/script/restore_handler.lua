@@ -368,7 +368,7 @@ function restore_timer2()
         return "Compensation"
     else
         for k, node in pairs(timer._sns) do
-            addTimer(node._id, (node.over-real)*1000, node.tag or 0)
+            --addTimer(node._id, (node.over-real)*1000, node.tag or 0)
         end
     end
 end
@@ -479,7 +479,7 @@ function renewTimer()
 end
 
 function post_init()
-    c_roi_view_start()
+    --c_roi_view_start()
 end
 
 function action()

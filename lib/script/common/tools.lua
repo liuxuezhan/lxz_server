@@ -275,7 +275,7 @@ function etypipe.pack(filter, xs)
         assert(xs[v], "ety add lack key: ".. v)
         val[k] = xs[v]
     end
-    return cmsgpack.pack(val)
+    --return cmsgpack.pack(val)
 end
 
 function etypipe.unpack(filter, data)
@@ -309,24 +309,13 @@ function etypipe.add(data)
 
     if is_troop(data.eid) then 
         data.be_atk_list = data.be_atk_list or {}
-        c_add_troop(data.eid, data.sx, data.sy, data.dx, data.dy, etypipe.pack(node, data))
+        --c_add_troop(data.eid, data.sx, data.sy, data.dx, data.dy, etypipe.pack(node, data))
     else
         if not data.size then WARN("no size, ") end
         data.size = data.size or 4
-        c_add_ety(data.eid, data.x, data.y, data.size, 0, etypipe.pack(node, data))
+        --c_add_ety(data.eid, data.x, data.y, data.size, 0, etypipe.pack(node, data))
     end
 
-    --if is_monster(data.eid) then c_add_ety(data.eid, data.x, data.y, data.size, 1, etypipe.pack(node, data))
-    --elseif is_ply(data.eid) then c_add_ety(data.eid, data.x, data.y, data.size, 1, etypipe.pack(node, data))
-    --elseif is_res(data.eid) then c_add_ety(data.eid, data.x, data.y, data.size, 0, etypipe.pack(node, data))
-    --elseif is_troop(data.eid) then c_add_troop(data.eid, data.sx, data.sy, data.dx, data.dy, etypipe.pack(node, data))
-    --elseif is_union_building(data.eid) then c_add_ety(data.eid, data.x, data.y, data.size, 0, etypipe.pack(node, data))
-    --elseif is_npc_city(data.eid) then c_add_ety(data.eid, data.x, data.y, data.size, 0, etypipe.pack(node, data))
-    --elseif is_king_city(data.eid) then c_add_ety(data.eid, data.x, data.y, data.size, 0, etypipe.pack(node, data))
-    --else
-    --    c_add_ety(data.eid, data.x, data.y, data.size, 0, etypipe.pack(node, data))
-    --    WARN("what type, etypipe.add??")
-    --end
 end
 
 function get_val_by(what, ...)

@@ -48,28 +48,11 @@ function LOG(fmt, ...)
     if SHOW_DEBUG_INFO then
         local info = debug.getinfo(2)
         local extra_info = "["..(info.short_src or "FILE").."]["..(info.name or "").."]["..(info.currentline or 0).."]"
-        llog(string.format("%s%s", extra_info, s))
+        log(string.format("%s%s", extra_info, s))
     else
-        llog(s)
+        log(s)
     end
 
-    --local flag, info = pcall(string.format, fmt, ...)
-    --if flag then
-    --    local extra_info = ""
-    --    if SHOW_DEBUG_INFO then
-    --        local info = debug.getinfo(2)
-    --        extra_info = "["..(info.short_src or "FILE").."]["..(info.name or "").."]["..(info.currentline or 0).."]"
-    --    end
-
-    --    llog(extra_info .. info)
-    --else
-    --    local co = coroutine.running()
-    --    if co then gCoroBad[ co ] = 1 end
-
-    --    llog(info)
-    --    local s = debug.traceback()
-    --    llog(s)
-    --end
 end
 
 function INFO(fmt, ...)
@@ -77,29 +60,12 @@ function INFO(fmt, ...)
     if SHOW_DEBUG_INFO then
         local info = debug.getinfo(2)
         local extra_info = "["..(info.short_src or "FILE").."]["..(info.name or "").."]["..(info.currentline or 0).."]"
-        linfo(string.format("%s%s", extra_info, s))
+        log(string.format("%s%s", extra_info, s))
     else
-        linfo(s)
+        log(s)
     end
 
 
-    --local flag, info = pcall(string.format, fmt, ...)
-    --if flag then
-    --    local extra_info = ""
-    --    if SHOW_DEBUG_INFO then
-    --        local info = debug.getinfo(2)
-    --        extra_info = "["..(info.short_src or "FILE").."]["..(info.name or "").."]["..(info.currentline or 0).."]"
-    --    end
-
-    --    linfo(extra_info .. info)
-    --else
-    --    local co = coroutine.running()
-    --    if co then gCoroBad[ co ] = 1 end
-
-    --    linfo(info)
-    --    local s = debug.traceback()
-    --    linfo(s)
-    --end
 end
 
 function WARN(fmt, ...)
@@ -107,28 +73,11 @@ function WARN(fmt, ...)
     if SHOW_DEBUG_INFO then
         local info = debug.getinfo(2)
         local extra_info = "["..(info.short_src or "FILE").."]["..(info.name or "").."]["..(info.currentline or 0).."]"
-        lwarn(string.format("%s%s", extra_info, s))
+        log(string.format("%s%s", extra_info, s))
     else
-        lwarn(s)
+        log(s)
     end
 
-    --local flag, info = pcall(string.format, fmt, ...)
-    --if flag then
-    --    local extra_info = ""
-    --    if SHOW_DEBUG_INFO then
-    --        local info = debug.getinfo(2)
-    --        extra_info = "["..(info.short_src or "FILE").."]["..(info.name or "").."]["..(info.currentline or 0).."]"
-    --    end
-
-    --    lwarn(extra_info .. info)
-    --else
-    --    local co = coroutine.running()
-    --    if co then gCoroBad[ co ] = 1 end
-    --    --local s = debug.traceback()
-    --    local s = debug.stack()
-    --    lwarn(s)
-    --    error(s)
-    --end
 end
 
 
@@ -137,25 +86,11 @@ function ERROR(fmt, ...)
     if SHOW_DEBUG_INFO then
         local info = debug.getinfo(2)
         local extra_info = "["..(info.short_src or "FILE").."]["..(info.name or "").."]["..(info.currentline or 0).."]"
-        lwarn(string.format("%s%s", extra_info, s))
+        log(string.format("%s%s", extra_info, s))
     else
-        lwarn(s)
+        log(s)
     end
 
-    --local flag, info = pcall(string.format, fmt, ...)
-    --if flag then
-    --    local extra_info = ""
-    --    if SHOW_DEBUG_INFO then
-    --        local info = debug.getinfo(2)
-    --        extra_info = "["..(info.short_src or "FILE").."]["..(info.name or "").."]["..(info.currentline or 0).."]"
-    --    end
-
-    --    lwarn(extra_info .. info)
-    --else
-    --    local s = debug.traceback()
-    --    lwarn(s)
-    --    error(s)
-    --end
 end
 
 

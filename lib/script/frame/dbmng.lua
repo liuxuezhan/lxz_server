@@ -21,17 +21,11 @@ function conn_new(self, host, port, dbname, sock, db, tips)
 end
 
 function getOne(self, policy)
-    if self.num < 1 then
-        local co = coroutine.running()
-        table.insert(dbmng.pending, co)
-        return coroutine.yield("waitdb")
+    local mongo = require "mongo"
+    for name,v  in pairs(_list.db_server1) do
+        local db = mongo.client(v)
+        return db[name]
     end
-
-    policy = policy or math.random(64)
-
-    local idx = (policy % #self.idxMap) + 1
-    local t = self.idxMap[ idx ]
-    return t.db
 end
 
 function tryOne(self, policy)

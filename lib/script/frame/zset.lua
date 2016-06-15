@@ -102,7 +102,8 @@ end
 local M = {}
 function M.new()
     local obj = {}
-    obj.sl = skiplist()
+    --obj.sl = skiplist()
+    obj.sl =1 
     obj.tbl = {}
     return setmetatable(obj, mt)
 end

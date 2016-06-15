@@ -218,9 +218,9 @@ function init_pending()
 
 end
 
-function init_warx()
+function warx_init()
     gTime = os.time() 
-    gMapID = getMap()
+    gMapID=1 
     gMapNew = 1
 
     gActions = {}
@@ -239,22 +239,27 @@ function init_warx()
 
     gInit = "StateBeginInit"
     require("frame/tools")
-    require("frame/debugger")
+    --require("frame/debugger")
     require("frame/conn")
     require("frame/crontab")
     require("frame/dbmng")
     require("frame/timer")
     require("frame/socket")
     require("frame/class")
+    doLoadMod("packet", "frame/rpc/packet")
+    doLoadMod("MsgPack", "frame/MessagePack")
+    doLoadMod("Array", "frame/rpc/array")
+    doLoadMod("Struct", "frame/rpc/struct")
+    doLoadMod("RpcType", "frame/rpc/rpctype")
     doLoadMod("Rpc", "frame/rpc/rpc")
     require("frame/player_t")
 
-    gMapID = getMap()
     gSysMailSn = 0
     gSysMail = {}
     gSysStatus = {}
 
     do_load("resmng")
+    do_load("game")
     do_load("common/define")
     do_load("common/tools")
     do_load("common/protocol")
