@@ -13,14 +13,14 @@ local conf =_list[server_name]
 
 
 local function slg_read(fd)
-    --require "debugger"
     local ok ,ret = pcall(socket.readline,fd)
     if not ok then
 		skynet.error(string.format("socket(%d) read fail", fd))
     end
 
-    lxz(ret)
     ret = json.decode(ret) 
+    lxz(ret)
+    player_t[ ret[1] ](_G.gAgent, unpack(ret[2]) ) 
 end
 
 
@@ -91,6 +91,7 @@ skynet.start(function()
 --    local console = skynet.newservice("console")
  --   skynet.newservice("debug_console",80000)
  
+    require "debugger"
     skynet.newservice("db_mongo",conf.db_name)--数据库写中心
     save_db()
     warx_init()

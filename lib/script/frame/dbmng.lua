@@ -22,10 +22,9 @@ end
 
 function getOne(self, policy)
     local mongo = require "mongo"
-    for name,v  in pairs(_list.db_server1) do
+    local name,v  = "warx",_list.db_server1.db1 
         local db = mongo.client(v)
         return db[name]
-    end
 end
 
 function tryOne(self, policy)
@@ -43,7 +42,10 @@ function getByTips(self, tips)
 end
 
 function getGlobal(self)
-    return getByTips(self, "Global")
+    local mongo = require "mongo"
+    local name,v  = "warx",_list.db_server1.db1 
+    local db = mongo.client(v)
+    return db[name]
 end
 
 function conn_close(self, sock)

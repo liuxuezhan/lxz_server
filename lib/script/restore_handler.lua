@@ -21,6 +21,9 @@ function load_player()
         data.hurts = hurts
 
         local p = player_t.new(data)
+        if p.pid > (gPid or 0 ) then
+            gPid = p.pid
+        end
         rawset(p, "eid", data.eid)
         rawset(p, "propid", resmng.PLY_CITY_WEST_1)
         rawset(p, "size", 4)

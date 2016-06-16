@@ -112,8 +112,8 @@ function create(account, map, pid)
     local eid = get_eid_ply()
     if not eid then return end
 
-    pid = pid or getId("pid")
-    local x, y = c_get_pos_by_lv(1,4,4)
+    pid = (gPid or 0 ) + 1 
+    local x, y = pid*5,pid*5 
     if not x then return INFO("!!!! NO ROOM FOR NEW PLAYER") end
 
     local p = copyTab(player_t._example)
@@ -269,12 +269,9 @@ end
 function firstPacket(self, uid, account, pasw)
     print("firstPacket", uid, account, pasw)
 
-    local process = pullString()
+    local process = "???" 
     if self.pid ~= 0 then return LOG("duplicate firstPacket, uid=%d, account=%s, process=%s", uid, account, process) end
 
-    local magic = pullInt()
-    LOG("firstPacket, account=%s, pid=%d, process=%s, magic=%d", account, self.pid, process, magic)
-    if magic ~= 20100731 then return end
     local gateid = self.gid
 
     local p = gAccs[ account ]

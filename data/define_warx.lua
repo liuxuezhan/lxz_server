@@ -218,9 +218,33 @@ function init_pending()
 
 end
 
+function load_sys_config()
+    local db = dbmng:getOne()
+    local info = db.config:findOne({_id=gMapID})
+    if info then
+        gSysConfig = info
+    else
+        gSysConfig = {_id=gMapID, create=gTime}
+        db.config:insert(gSysConfig)
+    end
+end
+
+function load_uniq()
+    local db = dbmng:getOne()
+    local info = db.uniq:find({})
+    gUniqs = {}
+    if info then
+        while info:hasNext() do
+            local b = info:next()
+            gUniqs[ b._id ] = b
+        end
+    end
+end
+
 function warx_init()
+    _G.GateSid = 1 
+    _G.gAgent = {pid=0, account="@ConGate", gid=_G.gGateSid}
     gTime = os.time() 
-    gMapID=1 
     gMapNew = 1
 
     gActions = {}
@@ -334,5 +358,9 @@ function warx_init()
     else
         gInit = "InitGameDone"
     end
+
+    gMapID=1 
+    load_sys_config()
+    load_uniq()
 
 end
