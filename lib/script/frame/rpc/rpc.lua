@@ -119,7 +119,8 @@ end
 local function parseRpc( rpc, packet, rfid)
 	local rf = rpc.localF[rfid]
 	if not rf then
-		error(string.format("rfid(%d) not found in LocalF", rfid))
+        WARN( "RPC, rfid=%d, not found in localF", rfid )
+        return
 	end
 
 	local args={}
@@ -279,6 +280,34 @@ local function around1( rpc, eid, name, ... )
     do_around(1, rpc, eid, name, ... )
 end
 
+local function callAgent( rpc, map, name, ... )
+    local rf = rpc.localF[name]
+   	if not rf then
+		error(string.format("can't find remote function named %s",name))
+		return nil 
+	end
+	
+	local arg={...}
+	if #arg ~= #rf.args then
+		for i,v in ipairs(arg) do print(i,v) end
+		error(string.format("expected %d arguments, but passed in %d",#rf.args,#arg))
+	end
+
+    pushHead(_G.GateSid, map, rf.id)
+    for i, v in ipairs(arg) do
+        local t = rf.args[i].t
+		if t and isTypeOf(i,t,v) then
+			RpcType[t]._write( packet, v )
+		else
+			error(string.format("bad argument %d, expected %s, but a %s",i,t,type(v)))
+		end
+    end
+    pushOver()
+
+    LOG("RpcA, pid=%d, func=%s", map, name)
+end
+
+
 local function callRpc( rpc, name, plA, ... )
     local rf = rpc.remoteF[name]
    	if not rf then
@@ -309,14 +338,6 @@ local function callRpc( rpc, name, plA, ... )
                 num = num + 1
             end
 
-            if not g_warx then
-                if #pids == num then
-                    pushHead(_G.GateSid, 0, 15) --gNetPt.NET_SEND_MUL
-                    local s = MsgPack.pack(pids)
-                    pushPack(s)
-                    pushInt(rf.id)
-                end
-            else
                 if #pids == num then
                     pushHead(_G.GateSid, 0, 15) --gNetPt.NET_SEND_MUL
                     pushInt( num )
@@ -325,10 +346,8 @@ local function callRpc( rpc, name, plA, ... )
                     end
                     pushInt(rf.id)
                 end
-            end
         end
     else
-        --pushHead2s(_G.GateSid, rf.id)
         pushHead2s(plA.gid or _G.GateSid, rf.id)
     end
 
@@ -364,6 +383,7 @@ local function new()
     ins.parseRpc = parseRpc
     ins.around0 = around0
     ins.around1 = around1
+    ins.callAgent = callAgent
     ins.debugListAllRpc = debugListAllRpc
     setmetatable(ins, mt)
     return ins

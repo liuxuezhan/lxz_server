@@ -21,3 +21,7 @@ end
 
 -------------------------------------------
 --the above should be here
+
+Rpc:xxx( self, ... )
+Rpc:xxx( {pid1,pid2} , ... )
+

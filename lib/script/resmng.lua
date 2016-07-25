@@ -1,10 +1,7 @@
 module("resmng", package.seeall)
 
-
 local BasePath = "data/"
 do_load("reschk")
-
-
 --------------------------------------------------------------------------------
 do_load(BasePath .. "prop_cron")
 
@@ -69,7 +66,27 @@ do_load(BasePath .. "define_mall_refresh")
 do_load(BasePath .. "define_mall_group_manor")
 do_load(BasePath .. "define_mall_group_monster")
 do_load(BasePath .. "define_mall_group_relic")
+do_load(BasePath .. "define_month_award")
+do_load(BasePath .. "define_achievement_var")
+do_load(BasePath .. "define_achievement")
+do_load(BasePath .. "define_rank")
+do_load(BasePath .. "define_mail")
+do_load(BasePath .. "define_title")
+do_load(BasePath .. "define_sacrifice_hero")
+do_load(BasePath .. "define_kw_notify")
+do_load(BasePath .. "define_boss_hero")
+do_load(BasePath .. "define_language_cfg")
+do_load(BasePath .. "define_lt_rank_award")
+do_load(BasePath .. "define_lt_union_award")
+do_load(BasePath .. "define_tw_union_rank_award")
+do_load(BasePath .. "define_tw_person_rank_award")
+do_load(BasePath .. "define_mc_union_rank_award")
+do_load(BasePath .. "define_mc_person_rank_award")
+do_load(BasePath .. "define_mc_rank_award")
+do_load(BasePath .. "define_boss_rank_award")
+do_load(BasePath .. "define_tw_union_consume")
 
+do_load(BasePath .. "prop_language_cfg")
 do_load(BasePath .. "prop_arm")
 do_load(BasePath .. "prop_build")
 do_load(BasePath .. "prop_world_unit")
@@ -116,6 +133,15 @@ do_load(BasePath .. "prop_monster_city")
 do_load(BasePath .. "prop_mc_stage")
 do_load(BasePath .. "prop_lt_stage")
 do_load(BasePath .. "prop_lt_reward")
+do_load(BasePath .. "prop_lt_union_award")
+do_load(BasePath .. "prop_lt_rank_award")
+do_load(BasePath .. "prop_tw_union_rank_award")
+do_load(BasePath .. "prop_tw_person_rank_award")
+do_load(BasePath .. "prop_mc_union_rank_award")
+do_load(BasePath .. "prop_mc_person_rank_award")
+do_load(BasePath .. "prop_mc_rank_award")
+do_load(BasePath .. "prop_boss_rank_award")
+do_load(BasePath .. "prop_tw_union_consume")
 
 do_load(BasePath .. "prop_black_market")
 do_load(BasePath .. "prop_black_market_hot")
@@ -134,6 +160,16 @@ do_load(BasePath .. "prop_mall_refresh")
 do_load(BasePath .. "prop_mall_group_manor")
 do_load(BasePath .. "prop_mall_group_monster")
 do_load(BasePath .. "prop_mall_group_relic")
+do_load(BasePath .. "prop_month_award")
+
+do_load(BasePath .. "prop_achievement_var")
+do_load(BasePath .. "prop_achievement")
+do_load(BasePath .. "prop_rank")
+do_load(BasePath .. "prop_mail")
+do_load(BasePath .. "prop_title")
+do_load(BasePath .. "prop_sacrifice_hero")
+do_load(BasePath .. "prop_kw_notify")
+do_load(BasePath .. "prop_boss_hero")
 
 do_check("prop_arm")
 do_check("prop_build")
@@ -160,7 +196,8 @@ do_check("prop_gacha_group")
 do_check("prop_gacha_piont")
 do_check("prop_gacha_gacha")
 do_check("prop_gacha_world_limit")
-
+do_check("prop_mail")
+do_check("prop_sacrifice_hero")
 --------------------------------------------------------------------------------
 do_load("common/define")
 
@@ -186,5 +223,61 @@ function get_conf(prop_name, index)
         return conf
     end
 end
+
+
+function init_prop_monster()
+    --local ret = {
+    --    ["id"]    = hero.propid,
+    --    ["num"]    = hero.hp / hero.max_hp,
+    --    ["hero"]   = hero._id,
+    --    ["skill"]  = hero.talent_skill,
+    --    ["skills"] = {},
+    --    ["cul"] = hero.culture,
+    --    ["per"] = hero.personality,
+    --    ["prop"]   = {
+    --        ["Atk"] = hero.atk,
+    --        ["Hp"]  = hero.max_hp,
+    --        ["Imm"] = hero:calc_imm(),
+    --        ["Pow"] = hero:calc_fight_power(),
+    --        ["Lv"] = hero.lv
+    --    }
+    --}
+    --resmng.prop_boss_monster = {
+    --    { ID=1, Propid=1, Lv=2, Quality=2, Star=2, Skill=20001001, Effect={Atk_R=1000, Def_R=1000}},
+    --    { ID=2, Propid=2, Lv=2, Quality=2, Star=2, Skill=20001001, Effect={Atk_R=1000, Def_R=1000}},
+    --    { ID=3, Propid=3, Lv=2, Quality=2, Star=2, Skill=20001001, Effect={Atk_R=1000, Def_R=1000}},
+    --    { ID=4, Propid=4, Lv=2, Quality=2, Star=2, Skill=20001001, Effect={Atk_R=1000, Def_R=1000}},
+    --}
+
+    local skills = {}
+    local heros = {}
+    for k, v in pairs( resmng.prop_boss_hero ) do
+        local basic_conf   = resmng.get_conf("prop_hero_basic", v.PropID)
+        local quality_conf = resmng.get_conf("prop_hero_quality", v.Quality)
+        local star_up_conf = resmng.get_conf("prop_hero_star_up", v.Star)
+
+        if basic_conf and quality_conf and star_up_conf then
+            local basic_delta = basic_conf.GrowDelta
+            local quality_rate = quality_conf.GrowRate and quality_conf.GrowRate[basic_conf.Type]
+            local star_up_rate = star_up_conf.GrowRate and star_up_conf.GrowRate[basic_conf.Type]
+            if basic_delta and quality_rate and star_up_rate then
+                local hero = { id=basic_conf.ID, num=1, hero=k, skill=v.Skill, skills=skills, cul=basic_conf.Culture, per=basic_conf.Nature, ef=v.Effect }
+                local info = {}
+                info.Lv = v.Lv
+                info.Atk =      math.ceil((basic_conf.Atk + basic_delta[1] * (info.Lv - 1)) * quality_rate[1] * star_up_rate[1])
+                info.Def =      math.ceil((basic_conf.Def + basic_delta[2] * (info.Lv - 1)) * quality_rate[2] * star_up_rate[2])
+                info.Hp =       math.ceil((basic_conf.HP +  basic_delta[3] * (info.Lv - 1)) * quality_rate[3] * star_up_rate[3])
+                info.Imm =      info.Def / ( info.Def + info.Lv * basic_conf.LevelParam1 + basic_conf.LevelParam2 )
+                info.Pow =      math.floor( math.sqrt( info.Hp * info.Atk / ( 1 - info.Imm )) / math.sqrt( 2550 ) )
+
+                hero.prop = info
+                heros[ k ] = hero
+            end
+        end
+    end
+    resmng.prop_hero = heros
+end
+
+init_prop_monster()
 
 

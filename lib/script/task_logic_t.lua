@@ -113,10 +113,7 @@ do_task[TASK_ACTION.ATTACK_SPECIAL_MONSTER] = function(player, task_data, con_mi
 end
 
 --攻击等级怪物
-do_task[TASK_ACTION.ATTACK_LEVEL_MONSTER] = function(player, task_data, con_type, con_level, con_num, con_acc, real_mid, real_num)
-    if con_acc == 1 then
-        --sanshimark判断成就
-    end
+do_task[TASK_ACTION.ATTACK_LEVEL_MONSTER] = function(player, task_data, con_type, con_level, con_num, real_mid, real_num)
     if real_mid == nil or real_num == nil then
         return false
     end
@@ -138,16 +135,11 @@ do_task[TASK_ACTION.ATTACK_LEVEL_MONSTER] = function(player, task_data, con_type
 end
 
 --单场战斗进行联动
-do_task[TASK_ACTION.BATTLE_LIANGDONG] = function(player, task_data, con_num, real_num)
+do_task[TASK_ACTION.BATTLE_LIANDONG] = function(player, task_data, con_num, real_num)
     if real_num == nil then
         return false
     end
 
-    --临时通过
-    if task_warning("do_task[TASK_ACTION.BATTLE_LIANGDONG]") == false then
-        add_task_process(player, task_data, con_num, con_num)
-    end
-    --------------
     add_task_process(player, task_data, con_num, real_num)
     return true
 end
@@ -158,11 +150,6 @@ do_task[TASK_ACTION.BATTLE_DAMAGE] = function(player, task_data, con_ratio, real
         return false
     end
 
-    --临时通过
-    if task_warning("do_task[TASK_ACTION.BATTLE_DAMAGE]") == false then
-        add_task_process(player, task_data, 1, 1)
-    end
-    --------------
     if real_ratio > con_ratio then
         return false
     end
@@ -173,7 +160,9 @@ end
 --侦查玩家城堡
 do_task[TASK_ACTION.SPY_PLAYER_CITY] = function(player, task_data, con_num, con_acc, real_num)
     if con_acc == 1 then
-        --sanshimark判断成就
+        local cur = player:get_count(resmng.ACH_TASK_SPY_PLAYER)
+        update_task_process(task_data, con_num, cur)
+        return true
     end
     if real_num == nil or real_num == 0 then
         return false
@@ -203,7 +192,15 @@ end
 --攻击玩家城堡
 do_task[TASK_ACTION.ATTACK_PLAYER_CITY] = function(player, task_data, con_num, con_win, con_acc, real_num, real_win)
     if con_acc == 1 then
-        --sanshimark判断成就
+        local cur = 0
+        if con_win == 0 then
+            cur = player:get_count(resmng.ACH_TASK_ATK_PLAYER_WIN) + player:get_count(resmng.ACH_TASK_ATK_PLAYER_FAIL)
+        else
+            cur = player:get_count(resmng.ACH_TASK_ATK_PLAYER_WIN)
+        end
+
+        update_task_process(task_data, con_num, cur)
+        return true
     end
 
     if real_num == nil or real_win == nil then
@@ -221,7 +218,10 @@ end
 --抢夺资源数量
 do_task[TASK_ACTION.LOOT_RES] = function(player, task_data, con_type, con_num, con_acc, real_type, real_num)
     if con_acc == 1 then
-        --sanshimark判断成就
+        local ach_index = "ACH_TASK_ATK_RES"..con_type
+        local cur = player:get_count(resmng[ach_index])
+        update_task_process(task_data, con_num, cur)
+        return true
     end
 
     if real_type == nil or real_num == nil then
@@ -252,17 +252,15 @@ end
 --攻击系统城市
 do_task[TASK_ACTION.ATTACK_NPC_CITY] = function(player, task_data, con_type, con_num, con_acc, real_type, real_num)
     if con_acc == 1 then
-        --sanshimark判断成就
+        local ach_index = "ACH_TASK_ATK_NPC"..con_type
+        local cur = player:get_count(resmng[ach_index])
+        update_task_process(task_data, con_num, cur)
+        return true
     end
     if real_type == nil or real_num == nil then
         return false
     end
 
-    --临时通过
-    if task_warning("do_task[TASK_ACTION.ATTACK_NPC_CITY]") == false then
-        add_task_process(player, task_data, con_num, real_num)
-    end
-    --------------
     if con_type ~= real_type then
         return false
     end
@@ -276,11 +274,6 @@ do_task[TASK_ACTION.OCC_NPC_CITY] = function(player, task_data, con_type, real_t
         return false
     end
 
-    --临时通过
-    if task_warning("do_task[TASK_ACTION.OCC_NPC_CITY]") == false then
-        add_task_process(player, task_data, 1, 1)
-    end
-    --------------
     if con_type ~= real_type then
         return false
     end
@@ -383,10 +376,7 @@ do_task[TASK_ACTION.JOIN_PLAYER_UNION] = function(player, task_data)
 end
 
 --参与军团集结
-do_task[TASK_ACTION.JOIN_MASS] = function(player, task_data, con_type, con_num, con_acc, real_type, real_num)
-    if con_acc == 1 then
-        --sanshimark判断成就
-    end
+do_task[TASK_ACTION.JOIN_MASS] = function(player, task_data, con_type, con_num, real_type, real_num)
     if real_type == nil or real_num == nil then
         return false
     end
@@ -402,7 +392,9 @@ end
 --军团科技捐献
 do_task[TASK_ACTION.UNION_TECH_DONATE] = function(player, task_data, con_num, con_acc, real_num)
     if con_acc == 1 then
-        --sanshimark判断成就
+        local cur = player:get_count(resmng.ACH_TASK_TECH_DONATE)
+        update_task_process(task_data, con_num, cur)
+        return true
     end
 
     if real_num == nil then
@@ -414,18 +406,15 @@ end
 
 --军团设施捐献
 do_task[TASK_ACTION.UNION_SHESHI_DONATE] = function(player, task_data, con_num, con_acc, real_num)
-    if con_acc == 1 then
-        --sanshimark判断成就
+    if con_acc == 0 then
+        local cur = player:get_count(resmng.ACH_TASK_SHESHI_DONATE)
+        update_task_process(task_data, con_num, cur)
+        return true
     end
     if real_num == nil then
         return false
     end
 
-    --临时通过
-    if task_warning("do_task[TASK_ACTION.UNION_SHESHI_DONATE]") == false then
-        add_task_process(player, task_data, con_num, real_num)
-    end
-    --------------
     add_task_process(player, task_data, con_num, real_num)
     return true
 end
@@ -436,11 +425,6 @@ do_task[TASK_ACTION.UNION_HELP_NUM] = function(player, task_data, con_num, real_
         return false
     end
 
-    --临时通过
-    if task_warning("do_task[TASK_ACTION.UNION_HELP_NUM]") == false then
-        add_task_process(player, task_data, con_num, real_num)
-    end
-    --------------
     add_task_process(player, task_data, con_num, real_num)
     return true   
 end
@@ -461,7 +445,13 @@ end
 --采集资源
 do_task[TASK_ACTION.GATHER] = function(player, task_data, con_type, con_num, con_acc, real_type, real_num)
     if con_acc == 1 then
-        --sanshimark判断成就
+        local ach_index = "ACH_TASK_GATHER_RES"..con_type
+        if con_type == 0 then
+            ach_index = "ACH_COUNT_GATHER"
+        end
+        local cur = player:get_count(resmng[ach_index])
+        update_task_process(task_data, con_num, cur)
+        return true
     end
     if real_type == nil or real_num == nil then
         return false
@@ -525,19 +515,24 @@ do_task[TASK_ACTION.GET_EQUIP] = function(player, task_data, con_grade, con_num,
 end
 
 --使用道具
-do_task[TASK_ACTION.USE_ITEM] = function(player, task_data, con_type, con_id, con_num, real_id, real_num)
+do_task[TASK_ACTION.USE_ITEM] = function(player, task_data, con_class, con_mode, con_id, con_num, real_id, real_num)
     if real_id == nil or real_num == nil then
         return false
     end
 
-    local real_type = 0
-    if con_id ~= 0 and con_id ~= real_id then
-        return false
+    if con_id == 0 then
+        --比较类别
+        local prop_tab = resmng.get_conf("prop_item", real_id)
+        if prop_tab ~= nil and prop_tab.Class == con_class and prop_tab.Mode == con_mode then
+            add_task_process(player, task_data, con_num, real_num)
+        end
+    else
+        --比较ID
+        if con_id == real_id then
+            add_task_process(player, task_data, con_num, real_num)
+        end
     end
-    if con_type ~= real_type then
-        return false
-    end
-    add_task_process(player, task_data, con_num, real_num)
+    
     return true
 end
 
@@ -585,17 +580,7 @@ end
 
 --开启野地
 do_task[TASK_ACTION.OPEN_RES_BUILD] = function(player, task_data, con_pos, real_pos)
-    if real_pos == nil then
-        return false
-    end
-
-    --临时通过
-    if task_warning("do_task[TASK_ACTION.OPEN_RES_BUILD]") == false then
-        add_task_process(player, task_data, 1, 1)
-    end
-    --------------
-
-    if con_pos ~= real_pos then
+    if (player.field - 2) < con_pos then
         return false
     end
     add_task_process(player, task_data, 1, 1)
@@ -652,7 +637,25 @@ end
 --招募士兵
 do_task[TASK_ACTION.RECRUIT_SOLDIER] = function(player, task_data, con_type, con_level, con_num, con_acc, real_type, real_level, real_num)
     if con_acc == 1 then
-        --sanshimark判断成就
+        if con_type == 0 then
+            ach_index = "ACH_COUNT_TRAIN"
+        elseif con_level == 0 then
+            local total = 0
+            for i = 1, 10, 1 do
+                local id = con_type * 1000 + i
+                total = total + player:get_count(resmng["ACH_TASK_RECRUIT_SOLDIER"..id])
+            end
+                    
+            update_task_process(task_data, con_num, total)
+            return true
+        else
+            local id = con_type * 1000 + con_level
+            local ach_index = "ACH_TASK_RECRUIT_SOLDIER"..id
+        end
+
+        local cur = player:get_count(resmng[ach_index])
+        update_task_process(task_data, con_num, cur)
+        return true
     end
     if real_type == nil or real_level == nil or real_num == nil then
         return false
@@ -718,12 +721,11 @@ do_task[TASK_ACTION.SYN_MATERIAL] = function(player, task_data, con_grade, con_n
 end
 
 --签到
-do_task[TASK_ACTION.MONTH_AWARD] = function(player, task_data)
-    if player:month_award_is_checked() == true then
+do_task[TASK_ACTION.MONTH_AWARD] = function(player, task_data, real_num)
+    if get_diff_days( gTime, player.month_award_cur ) == 0 then
         add_task_process(player, task_data, 1, 1)
-        return true
     end
-    return false
+    return true
 end
 
 --飞艇（码头）领取
@@ -849,10 +851,7 @@ do_task[TASK_ACTION.CITY_BUILD_MUB] = function(player, task_data, con_num, real_
 end
 
 --击杀士兵数量
-do_task[TASK_ACTION.KILL_SOLDIER] = function(player, task_data, con_level, con_num, con_acc, real_level, real_num)
-    if con_acc == 1 then
-        --sanshimark判断成就
-    end
+do_task[TASK_ACTION.KILL_SOLDIER] = function(player, task_data, con_level, con_num, real_level, real_num)
     if real_level == nil or real_num == nil then
         return false
     end

@@ -188,9 +188,14 @@ end
 -- Others   : NULL
 --------------------------------------------------------------------------------
 function get_fight_attr(hero_id)
-        --do
-        --    return {id=1, num=1, hero="1_10000", skill=1001001, skills={}, prop={Atk=100, Imm=0.2, Hp=2000, Pow=100, Lv=11}}
-        --end
+    if type( hero_id ) == "number" then
+        local hero = resmng.prop_hero[ hero_id ]
+        if hero then
+            hero.num = 1
+            return hero
+        end
+    end
+
     local hero = get_hero_by_uniq_id(hero_id)
     if not hero then
         ERROR("get_fight_attr: get_hero_by_uniq_id(hero_id = %d) failed.", hero_id or -1)
@@ -202,9 +207,11 @@ function get_fight_attr(hero_id)
             ["hero"]   = hero._id,
             ["skill"]  = hero.talent_skill,
             ["skills"] = {},
+            ["cul"] = hero.culture,
+            ["per"] = hero.personality,
             ["prop"]   = {
                 ["Atk"] = hero.atk,
-                ["Hp"]  = hero.hp,
+                ["Hp"]  = hero.max_hp,
                 ["Imm"] = hero:calc_imm(),
                 ["Pow"] = hero:calc_fight_power(),
                 ["Lv"] = hero.lv
@@ -223,7 +230,6 @@ function get_fight_attr(hero_id)
         return ret
     end
 end
-
 
 --------------------------------------------------------------------------------
 -- Function : 英雄获得经验

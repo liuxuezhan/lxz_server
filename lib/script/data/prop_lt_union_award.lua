@@ -1,0 +1,50 @@
+--
+-- $Id$
+--
+
+module( "resmng" )
+svnnum("$Id$")
+
+prop_lt_union_award = {
+
+	[LT_UNION_AWARD_1] = { ID = LT_UNION_AWARD_1, Cond = {3000,6000,100}, Award = {{"res",6,50,10000},{"res",19,300,10000},{"item",1002003,0.5,10000}},},
+	[LT_UNION_AWARD_2] = { ID = LT_UNION_AWARD_2, Cond = {6000,9000,200}, Award = {{"res",6,50,10000},{"res",19,315,10000},{"item",1002003,1,10000}},},
+	[LT_UNION_AWARD_3] = { ID = LT_UNION_AWARD_3, Cond = {9000,12000,300}, Award = {{"res",6,50,10000},{"res",19,330,10000},{"item",1002003,1.5,10000}},},
+	[LT_UNION_AWARD_4] = { ID = LT_UNION_AWARD_4, Cond = {12000,15000,400}, Award = {{"res",6,50,10000},{"res",19,345,10000},{"item",1002003,2,10000}},},
+	[LT_UNION_AWARD_5] = { ID = LT_UNION_AWARD_5, Cond = {15000,21000,500}, Award = {{"res",6,100,10000},{"res",19,360,10000},{"item",1002003,2.5,10000}},},
+	[LT_UNION_AWARD_6] = { ID = LT_UNION_AWARD_6, Cond = {21000,27000,700}, Award = {{"res",6,100,10000},{"res",19,375,10000},{"item",1002003,3,10000}},},
+	[LT_UNION_AWARD_7] = { ID = LT_UNION_AWARD_7, Cond = {27000,33000,900}, Award = {{"res",6,100,10000},{"res",19,390,10000},{"item",1002003,3.5,10000}},},
+	[LT_UNION_AWARD_8] = { ID = LT_UNION_AWARD_8, Cond = {33000,39000,1100}, Award = {{"res",6,100,10000},{"res",19,405,10000},{"item",1002003,4,10000}},},
+	[LT_UNION_AWARD_9] = { ID = LT_UNION_AWARD_9, Cond = {39000,45000,1300}, Award = {{"res",6,150,10000},{"res",19,420,10000},{"item",1002003,4.5,10000}},},
+	[LT_UNION_AWARD_10] = { ID = LT_UNION_AWARD_10, Cond = {45000,57000,1500}, Award = {{"res",6,150,10000},{"res",19,435,10000},{"item",1002003,5,10000}},},
+	[LT_UNION_AWARD_11] = { ID = LT_UNION_AWARD_11, Cond = {57000,69000,1900}, Award = {{"res",6,150,10000},{"res",19,450,10000},{"item",1002003,5.5,10000}},},
+	[LT_UNION_AWARD_12] = { ID = LT_UNION_AWARD_12, Cond = {69000,81000,2300}, Award = {{"res",6,150,10000},{"res",19,465,10000},{"item",1002003,6,10000}},},
+	[LT_UNION_AWARD_13] = { ID = LT_UNION_AWARD_13, Cond = {81000,93000,2700}, Award = {{"res",6,200,10000},{"res",19,480,10000},{"item",1002003,6.5,10000}},},
+	[LT_UNION_AWARD_14] = { ID = LT_UNION_AWARD_14, Cond = {93000,105000,3100}, Award = {{"res",6,200,10000},{"res",19,495,10000},{"item",1002003,7,10000}},},
+	[LT_UNION_AWARD_15] = { ID = LT_UNION_AWARD_15, Cond = {105000,129000,3500}, Award = {{"res",6,200,10000},{"res",19,510,10000},{"item",1002003,7.5,10000}},},
+	[LT_UNION_AWARD_16] = { ID = LT_UNION_AWARD_16, Cond = {129000,153000,4300}, Award = {{"res",6,200,10000},{"res",19,525,10000},{"item",1002003,8,10000}},},
+	[LT_UNION_AWARD_17] = { ID = LT_UNION_AWARD_17, Cond = {153000,177000,5100}, Award = {{"res",6,250,10000},{"res",19,540,10000},{"item",1002003,8.5,10000}},},
+	[LT_UNION_AWARD_18] = { ID = LT_UNION_AWARD_18, Cond = {177000,201000,5900}, Award = {{"res",6,250,10000},{"res",19,555,10000},{"item",1002003,9,10000}},},
+	[LT_UNION_AWARD_19] = { ID = LT_UNION_AWARD_19, Cond = {201000,225000,6700}, Award = {{"res",6,250,10000},{"res",19,570,10000},{"item",1002003,9.5,10000}},},
+	[LT_UNION_AWARD_20] = { ID = LT_UNION_AWARD_20, Cond = {225000,273000,7500}, Award = {{"res",6,250,10000},{"res",19,585,10000},{"item",1002003,10,10000}},},
+	[LT_UNION_AWARD_21] = { ID = LT_UNION_AWARD_21, Cond = {273000,321000,9100}, Award = {{"res",6,300,10000},{"res",19,600,10000},{"item",1002003,10.5,10000}},},
+	[LT_UNION_AWARD_22] = { ID = LT_UNION_AWARD_22, Cond = {321000,369000,10700}, Award = {{"res",6,300,10000},{"res",19,615,10000},{"item",1002003,11,10000}},},
+	[LT_UNION_AWARD_23] = { ID = LT_UNION_AWARD_23, Cond = {369000,417000,12300}, Award = {{"res",6,300,10000},{"res",19,630,10000},{"item",1002003,11.5,10000}},},
+	[LT_UNION_AWARD_24] = { ID = LT_UNION_AWARD_24, Cond = {417000,465000,13900}, Award = {{"res",6,300,10000},{"res",19,645,10000},{"item",1002003,12,10000}},},
+	[LT_UNION_AWARD_25] = { ID = LT_UNION_AWARD_25, Cond = {465000,561000,15500}, Award = {{"res",6,350,10000},{"res",19,660,10000},{"item",1002003,12.5,10000}},},
+	[LT_UNION_AWARD_26] = { ID = LT_UNION_AWARD_26, Cond = {561000,657000,18700}, Award = {{"res",6,350,10000},{"res",19,675,10000},{"item",1002003,13,10000}},},
+	[LT_UNION_AWARD_27] = { ID = LT_UNION_AWARD_27, Cond = {657000,753000,21900}, Award = {{"res",6,350,10000},{"res",19,690,10000},{"item",1002003,13.5,10000}},},
+	[LT_UNION_AWARD_28] = { ID = LT_UNION_AWARD_28, Cond = {753000,849000,25100}, Award = {{"res",6,350,10000},{"res",19,705,10000},{"item",1002003,14,10000}},},
+	[LT_UNION_AWARD_29] = { ID = LT_UNION_AWARD_29, Cond = {849000,945000,28300}, Award = {{"res",6,400,10000},{"res",19,720,10000},{"item",1002003,14.5,10000}},},
+	[LT_UNION_AWARD_30] = { ID = LT_UNION_AWARD_30, Cond = {945000,1137000,31500}, Award = {{"res",6,400,10000},{"res",19,735,10000},{"item",1002003,15,10000}},},
+	[LT_UNION_AWARD_31] = { ID = LT_UNION_AWARD_31, Cond = {1137000,1329000,37900}, Award = {{"res",6,400,10000},{"res",19,750,10000},{"item",1002003,15.5,10000}},},
+	[LT_UNION_AWARD_32] = { ID = LT_UNION_AWARD_32, Cond = {1329000,1521000,44300}, Award = {{"res",6,400,10000},{"res",19,765,10000},{"item",1002003,16,10000}},},
+	[LT_UNION_AWARD_33] = { ID = LT_UNION_AWARD_33, Cond = {1521000,1713000,50700}, Award = {{"res",6,450,10000},{"res",19,780,10000},{"item",1002003,16.5,10000}},},
+	[LT_UNION_AWARD_34] = { ID = LT_UNION_AWARD_34, Cond = {1713000,1905000,57100}, Award = {{"res",6,450,10000},{"res",19,795,10000},{"item",1002003,17,10000}},},
+	[LT_UNION_AWARD_35] = { ID = LT_UNION_AWARD_35, Cond = {1905000,2289000,63500}, Award = {{"res",6,450,10000},{"res",19,810,10000},{"item",1002003,17.5,10000}},},
+	[LT_UNION_AWARD_36] = { ID = LT_UNION_AWARD_36, Cond = {2289000,2673000,76300}, Award = {{"res",6,450,10000},{"res",19,825,10000},{"item",1002003,18,10000}},},
+	[LT_UNION_AWARD_37] = { ID = LT_UNION_AWARD_37, Cond = {2673000,3057000,89100}, Award = {{"res",6,500,10000},{"res",19,840,10000},{"item",1002003,18.5,10000}},},
+	[LT_UNION_AWARD_38] = { ID = LT_UNION_AWARD_38, Cond = {3057000,3441000,101900}, Award = {{"res",6,500,10000},{"res",19,855,10000},{"item",1002003,19,10000}},},
+	[LT_UNION_AWARD_39] = { ID = LT_UNION_AWARD_39, Cond = {3441000,3825000,114700}, Award = {{"res",6,500,10000},{"res",19,870,10000},{"item",1002003,19.5,10000}},},
+	[LT_UNION_AWARD_40] = { ID = LT_UNION_AWARD_40, Cond = {3825000,99999999999,127500}, Award = {{"res",6,500,10000},{"res",19,885,10000},{"item",1002003,20,10000}},},
+}

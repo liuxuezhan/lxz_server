@@ -26,6 +26,7 @@ VALUE_CHANGE_REASON = {
     FORGE = 14,
     SPLIT = 15,
     CURE = 16,
+    FORGE_CANCEL=17,
     
 
     -- [20, 29] Build
@@ -46,6 +47,7 @@ VALUE_CHANGE_REASON = {
     CURE_HERO         = 36,
     CANCEL_CURE_HERO  = 37,
     RELIVE_HERO       = 38,
+    HERO_DESTORY      = 39,
 
 
     -- [50, 79] Play
@@ -59,6 +61,7 @@ VALUE_CHANGE_REASON = {
     BLACK_MARKET_BUY = 62,
     BLACK_MARKET_REFRESH = 63,
 
+
     RESOURCE_MARKET_PAY = 71,
     RESOURCE_MARKET_BUY = 72,
 
@@ -66,6 +69,10 @@ VALUE_CHANGE_REASON = {
     MALL_BUY = 74,
 
     VIP_BUY = 75,
+
+    PT_MALL_BUY = 76,
+    PT_MALL_REFRESH = 77,
+    KW_MALL_BUY = 78,
 
 
     -- [100, 200] Union
@@ -79,6 +86,7 @@ VALUE_CHANGE_REASON = {
     UNION_TASK      = 108,
     UNION_BUILDLV   = 109,
     UNION_GOD       = 110,
+    UNION_RANK      = 111,
 
     --加奖励
     REASON_ADD_BONUS = 1000,
@@ -94,6 +102,13 @@ VALUE_CHANGE_REASON = {
     REASON_GACHA_AWARD_HUNXIA_TEN   = 1010,          --魂匣十连抽
     REASON_GACHA_GIFT_BOX           = 1011,          --抽卡箱子奖励
     REASON_TASK_NPC_AWARD           = 1012,          --打任务怪获得奖励
+    REASON_ACHE                     = 1013,          --成就领奖
+    REASON_MAIL_AWARD               = 1014,          --邮件领奖
+    REASON_NPC                      = 1015,          --NPC奖励
+    REASON_MONSTER                  = 1016,          --世界boss奖励
+    REASON_MC                       = 1017,          --怪物攻城奖励
+    REASON_LT                       = 1018,          --遗迹塔奖励
+    REASON_KING                     = 1019,          --王城奖励
 
     --扣除资源
     REASON_DEC_RES = 2000,
@@ -106,6 +121,7 @@ VALUE_CHANGE_REASON = {
     REASON_GACHA_JINBI_TEN          = 2007,          --金币十连抽
     REASON_GACHA_HUNXIA_ONE         = 2008,          --魂匣单抽
     REASON_GACHA_HUNXIA_TEN         = 2009,          --魂匣十连抽
+    REASON_DEC_RES_RESET_SKILL      = 2010,          --重置技能
 
     --增加资源
     REASON_ADD_RES = 3000,
@@ -116,6 +132,7 @@ VALUE_CHANGE_REASON = {
     REASON_DEC_ITEM = 4000,
     REASON_TASK_DEC_ITEM            = 4001,          --任务扣除任务物品
     REASON_GACHA_DEC_ITEM           = 4002,          --魂匣单抽扣物品
+    REASON_DEC_ITEM_RESET_SKILL     = 4003,          --重置技能
 }
 
 RES_RATE = { 1, 1, 5, 20 } 
@@ -222,6 +239,22 @@ CLASS_UNIT = {
     LOST_TEMPLE = 7,
 }
 
+
+ACT_TYPE ={
+    BOSS = 1,
+    NPC = 2,
+    MC = 3,
+    KING = 4,
+    LT = 5,
+}
+
+OPT_TYPE = {
+    EQ = 1, 
+    UE = 2,
+    LT = 3,
+    GT = 4
+}
+
 BOSS_TYPE = {
     NORMAL = 1,
     ELITE = 2,
@@ -311,13 +344,24 @@ MAIL_FIGHT_MODE = {
     DEFEND_MASS_SUCCESS = 9,  -- 防守集结成功
     DEFEND_MASS_FAIL = 10,  -- 防守集结失败
 }
+MAIL_SYSTEM_MODE = {
+    NORMAL = 1,  -- 普通系统邮件
+}
 MAIL_REPORT_MODE = {
     GATHER = 1,  -- 采集
     JUNGLE = 2,  -- 打怪
-    UNION_TASK = 3,  -- 军团悬赏任务
-    UNION_INVITE = 4,  -- 军团邀请
-    ACTIVITY = 5,  -- 活动奖励
-    DECLARE = 6,  -- npc 宣战成功
+    PANJUN = 3,  --叛军突袭活动 攻击NPC城市
+    PANJUN2 = 4,  --叛军突袭活动 攻击玩家城堡
+    GONGCHENG = 5, --攻城掠地活动
+}
+
+--系统邮件界面元素
+MAIL_SYSTEM_SEQ = {
+    NOTICE = 1,         --公告标题
+    PRESENT = 2,        --奖励标题
+    CONTENT = 3,        -- 内容文字
+    AWARD = 4,          -- 奖励
+    RESPONSE = 5,       -- 应答按钮
 }
 
 -- Zhao@2015年12月3日 ：Language
@@ -368,14 +412,20 @@ UNION_MASS_STATE = {
 
 --- Zhao@2016年4月14日：军团创建条件
 CREATEUNION = {
-    condition = {{2,2}},
-    consume = {{1,resmng.DEF_RES_GOLD,1000}}
+    lv = 5,
+    cost = 1000
 }
+
+--- 军团科技捐献清除cd价格表
+CLEAR_DONATE_COST = {100,250,250,350,350,600}
+
+---弹劾军团长价格
+UNION_IMPEACH_PRICE = 1000
 
 ---军团建筑受成员数量控制配置表 
 -- [1] = 基础值，达到这个值可以获得2个联盟奇迹 
 -- [2] = 步进值，每满足一个步进值，奇迹数+1
-UNION_CASTALCOUNT_LIMIT = {40,10}
+UNION_CASTALCOUNT_LIMIT = {1,1}
 
 ---军团设施类别，决定了会在军团设施页面显示多少种类别
 UNION_CONSTRUCT_TYPE = 
@@ -383,7 +433,7 @@ UNION_CONSTRUCT_TYPE =
     MIRACAL = 1,    --奇迹
     RESTORE = 2,    --仓库
     SUPERRES = 3,   --超级矿
-    TUTTER = 4,     --箭塔
+--    TUTTER = 4,     --箭塔
     MARCKET = 5     --市场
 }
 
@@ -428,10 +478,14 @@ UNION_POWER =
     MEMMARK = "MemMark",                    ---人员标注    
     ADDITEM = "AddItem",                    ---采购军团道具  
     MISSION = "Mission",                    ---军团任务
-    WITHDRAW = "Withdraw ",                 ---领地争夺弃城
+    WITHDRAW = "Withdraw",                 ---领地争夺弃城
     WRITEINWORDS = "Writeinwords",          ---写军团内部留言
     UPDATEINWORDS = "Updateinwords",        ---管理军团留言   
     APPOINT = "Appoint",                    ---王城战任命国王  
+    MONSTERCITY = "MonsterCity",            ---设置怪物攻城时间
+    IMPEACH = "Impeach",                    ---弹劾军团长的权限
+    GLOBAL = "Global",                      ---军团全局权限：军团长才有权限
+    GLOBAL2 = "Global2",                    ---军团全局权限：只有R4,R5才有权限
 }
 
 TroopStatus = {
@@ -454,70 +508,6 @@ SPEED_GATHER = {
 -- action   = V + 200
 -- back     = V + 300
 
-TroopAction2 = {
-    DefultFollow    = 1,   --默认玩家身上额troop
-    SiegePlayer     = 9,
-    MassPlayer      = 1,
-    SiegeMonster    = 9,
-    MassMonster     = 1,
-    JoinMass        = 1,
-    Gather          = 1,
-    Spy             = 1,
-    UnionBuild      = 1,
-    UnionFix        = 1,
-    UnionUpgrade    = 1,
-    SupportArm      = 1,
-    SupportRes      = 1,
-    Camp            = 1,
-    HeroBack        = 1,
-    MonsterAtkPly   = 1,
-    SiegeMonsterCity= 1,
-    SiegeNpc        = 1,
-    
-
-
-
-    Wait            = 2,   --等待
-    WaitMass        = 17,  --集结中
-    SiegePlayer     = 2,   --单独攻击玩家城堡
-    JoinMass        = 5,   --参加集结
-    HoldDefense     = 6,   --驻守
-    MassPlayer      = 7,   --集结攻击玩家城堡
-    Gather          = 8,   --采集
-    SiegeMonster    = 9,   --单独攻击Monster
-    Monster         = 10,  --怪物部队
-    Spy             = 11,  --侦查
-    Back            = 4,   --通常返回
-
-    Gathering       = 208,  --采集中
-    SaveRes         = 13,  --盟仓库存资源
-    GetRes          = 14,  --盟仓库取资源
-    UnionFixBuild   = 16,  --修联盟建筑
-    MassMonster     = 18,  --集结攻击Monster
-    BuySpecialty    = 19,  --买特产
-    ConfirmSpecialty = 20, --上架特产
-    CancleSpecialty = 21,  --下架特产
-
-    UnionBuild      = 15,  --建造联盟建筑
-    UnionBuilding   = 215,  --建造联盟建筑ing
-
-    UnionUpgradeBuild = 23,  --升级建筑
-    Declare         = 24,  --领土争夺宣战
-    SupportArm      = 25,    -- 士兵援助
-    SupportRes      = 26,    -- 士兵援助
-    Camp            = 27,   -- 野外帐篷
-
-    Camping         = 227,   -- 野外帐篷
-
-    MonsterAtkPly   = 29,    -- 怪物攻打玩家
-    SiegeMonsterCity   = 30,    -- 玩家攻打怪物城市
-    SiegeNpc        = 31,  --单独攻击NPC city
-    Tower           = 32,  --箭塔攻击为 模拟部队攻击
-    King            = 33,  --攻击王城相关建筑
-    HeroBack        = 34,  --英雄逃回家
-}
-
-
 
 TroopAction = {
     DefultFollow    = 1,   --默认玩家身上额troop
@@ -531,7 +521,7 @@ TroopAction = {
     SiegeMonster    = 9,   --单独攻击Monster
     Monster         = 10,  --怪物部队
     Spy             = 11,  --侦查
-    Gathering       = 12,  --采集中
+    SiegeCamp       = 12,  --攻击帐篷
     SaveRes         = 13,  --盟仓库存资源
     GetRes          = 14,  --盟仓库取资源
     UnionBuild      = 15,  --建造联盟建筑
@@ -546,16 +536,16 @@ TroopAction = {
     SupportArm      = 35,    -- 士兵援助
     SupportRes      = 36,    -- 士兵援助
     Camp            = 37,   -- 野外帐篷
-    Camping         = 38,   -- 野外帐篷
     Declare         = 24,  --领土争夺宣战
-    SiegeNpc        = 25,  --单独攻击NPC city
+    SiegeNpc        = 25,  --单独攻击NPC city               -- 领地争夺
     Tower           = 26,  --箭塔攻击为 模拟部队攻击
     King            = 27,  --攻击王城相关建筑
     HeroBack        = 28,  --英雄逃回家
-    MonsterAtkPly   = 29,    -- 怪物攻打玩家
-    SiegeMonsterCity   = 30,    -- 怪物攻打玩家占领NPC
+    MonsterAtkPly   = 29,    -- 怪物攻打玩家                --叛军突袭
+    SiegeMonsterCity= 30,    -- 怪物攻打玩家占领NPC      --叛军突袭 
     SiegeTaskNpc    = 31,   --攻击任务怪
-    AtkMC    = 32,   --玩家攻打怪物城市
+    AtkMC           = 32,   --玩家攻打怪物城市                     --叛军突袭
+    SiegeUnion      = 33,   
 }
 
 TroopTimerCallBack = {
@@ -572,22 +562,15 @@ MassTime = {
 }
 
 --特殊情况固定行军速度，每分钟的速度
-FixTroopSpeed = {
-    Spy          = 100,    --侦查
-    Declare      = 100,    --领土争夺宣战：
-    Runaway      = 100,    --侦查
-    ResHelp      = 10,     --资源帮助
-    Restore      = 5,      --仓库存取
-    HeroBack     = 5,      --hero release
-    Environment  = 1,      --固定环境
-}
 
 TroopSpeed = {
     [ TroopAction.Spy ] = 100,
-    [ TroopAction.SaveRes ] = 5,
-    [ TroopAction.SupportRes ] = 5,
-    [ TroopAction.GetRes ] = 5,
+    [ TroopAction.SaveRes ] = 10,
+    [ TroopAction.SupportRes ] = 10,
+    [ TroopAction.GetRes ] = 10,
     [ TroopAction.Declare ] = 100,
+    [ TroopAction.SiegeMonsterCity ] = 11,
+    [ TroopAction.MonsterAtkPly ] = 11,
 }
 
 
@@ -596,17 +579,32 @@ BigMapState = {
     war = 2,
 }
 
+Gather_Level = { 1, 1, 10, 15 }
+
+--EidType = {
+--    Player = 0,
+--    Res = 1,
+--    Troop = 2,
+--    Monster = 3,
+--    UnionBuild = 4,
+--    NpcCity = 5,
+--    KingCity = 6,
+--    Camp = 7,
+--    MonsterCity = 8, 
+--    LostTemple = 9, 
+--}
+
 EidType = {
     Player = 0,
     Res = 1,
-    Troop = 2,
-    Monster = 3,
-    UnionBuild = 4,
-    NpcCity = 5,
-    KingCity = 6,
-    Camp = 7,
-    MonsterCity = 8, 
-    LostTemple = 9, 
+    Troop = 11,
+    Monster = 2,
+    UnionBuild = 10,
+    NpcCity = 3,
+    KingCity = 4,
+    Camp = 5,
+    MonsterCity = 6, 
+    LostTemple = 7, 
 }
 
 --聊天频道枚举
@@ -629,7 +627,8 @@ DONATE_RANKING_TYPE = {
     ALL = 4,
 }
 
-TechValidCond = {0,18,137,242}
+---军团科技层级开放配置，必须比最后一层配置多一个值，不可达到的极限值
+TechValidCond = {0,18,137,242,1000}
 -- 资源田加速
 ACC_RES_COST = {30,30,50,70}  -- 金币消耗
 ACC_RES_ITEM = {resmng.ITEM_8009002, resmng.ITEM_8009001, resmng.ITEM_8009003, resmng.ITEM_8009004}
@@ -670,8 +669,8 @@ BUILD_FUNCTION_MODE = {
     TUTTER_RIGHT    = 20,    -- 右箭塔
     SHIPYARD        = 21,    -- 飞艇
     MASCOTPLAT      = 22,    -- 吉祥物
-    MONSTERMALL     = 23,    -- 怪物攻城商店 
-    MANORMALL       = 24,    -- 领地争夺商店
+    MANORMALL       = 23,    -- 领地争夺商店
+    MONSTERMALL     = 24,    -- 怪物攻城商店 
     RELICMALL       = 25,    -- 遗迹塔商店
 }
 
@@ -750,6 +749,7 @@ BUILD_STATE = {
     WAIT    = 2,   -- 待机状态
     WORK    = 3,   -- 生效中/训练中/治疗中/科技研究/锻造
     UPGRADE = 4,   -- 升级中
+    FIX     = 5,   -- 修理中 
 }
 CANCEL_BUILD_FACTOR = 0.6  -- 取消建筑操作返还的资源比率(向上取整)
 DESTROY_FIELD_FACTOR = 20  -- 拆除野地耗时:Lv*20
@@ -777,6 +777,7 @@ ITEM_CLASS = {
     HERO  = 4,  -- 英雄道具
     SKILL = 5,  -- 技能道具
     MATERIAL = 6, -- 材料
+    TRIBUTE = 7,  --名产
     BUFF = 8, -- buff类
     GLOBUFF = 9, -- 全服buff类
     UNION = 10, -- 军团
@@ -822,7 +823,31 @@ ITEM_SKILL_MODE = {
     RESET_BOOK   = 3,  -- 重置技能书
 }
 
--- Hx@2015-12-28 : 事件类型
+UNION_MODE = {--军团事件操作
+    ADD = 1,        --增
+    UPDATE = 2,     --改
+    DELETE = 3,     --删
+    OK = 4,         --完成 
+    GET = 5,        --接受
+    WIN = 6,
+    FAIL = 7,
+    RANK_UP = 8,
+    RANK_DOWN = 9,
+    TITLE = 10,
+}
+
+UNION_EVENT = { --  军团事件类型
+    TECH = "tech_up",
+    MEMBER = "member",
+    INFO = "info",
+    BUILDLV = "buildlv",
+    BUILD_SET  = "build_set",
+    MISSION  = "mission",
+    TASK  = "task",
+    FIGHT = "fight",
+    REJECT = "union_reject",
+}
+
 EVENT_TYPE = {
     UNION_CREATE = 1,
     UNION_DESTORY = 2,
@@ -830,6 +855,8 @@ EVENT_TYPE = {
     UNION_QUIT = 4,
     UNION_KICK = 5,
     SET_NOTE_IN = 6,
+    SET_RANK = 7,
+    SET_TECH = 8,
     FIGHT = 10,
 }
 
@@ -928,6 +955,7 @@ E_CONSUME_FAIL = 1017
 E_DUP_ALIAS = 1018
 E_HP = 1019
 E_NO_BUILD = 1020
+E_NO_VIP = 1021
 
 
 -- overflow
@@ -938,6 +966,9 @@ E_ALREADY_CURE = 2003
 E_NO_HURT = 2004
 E_NO_RES = 2005
 E_NO_COUNT = 2006
+
+
+E_DUP = 3001
 
 
 
@@ -970,9 +1001,9 @@ CULTURE_TYPE = {
 -- 状态
 HERO_STATUS_TYPE = {
     FREE             = 1,    -- 待机
-    MOVING           = 2,    -- 行军中
+    BUILDING         = 2,    -- 城建中
     -- DEFENDING        = 3,    -- 驻守中
-    BUILDING         = 4,    -- 城建中
+    MOVING           = 4,    -- 行军中
     -- GATHER           = 5,    -- 采集中
     BEING_CURED      = 6,    -- 治疗中
     BEING_CAPTURED   = 7,    -- 被俘虏
@@ -1071,18 +1102,17 @@ UNION_MISSION_CLASS = {
     HELP        =2,
     DONATE      =3,
     ACTIVE      =4,
-    ENTER       =5,
-    GATHER      =6,
-    POW         =7,
-    MARKET      =8,
-    COST        =9,
+    GATHER      =5,
+    POW         =6,
+    GOD         =7,
+    COST        =8,
 }
 
 TASK_ACTION = {
     INVALID                         = 0,    
     ATTACK_SPECIAL_MONSTER          = 1,    --攻击特定怪物
     ATTACK_LEVEL_MONSTER            = 2,    --攻击等级怪物
-    BATTLE_LIANGDONG                = 3,    --单场战斗进行联动
+    BATTLE_LIANDONG                 = 3,    --单场战斗进行联动
     BATTLE_DAMAGE                   = 4,    --单场战斗战损比
     SPY_PLAYER_CITY                 = 5,    --侦查玩家城堡
     SLOW_SPEED                      = 6,    --单次行军加速减少时间
@@ -1144,7 +1174,7 @@ TASK_UI_ID = {
 g_task_func_relation = {
 ["attack_special_monster"] = TASK_ACTION.ATTACK_SPECIAL_MONSTER,   --攻击特定怪物                 
 ["attack_level_monster"] = TASK_ACTION.ATTACK_LEVEL_MONSTER,       --攻击等级怪物             
-["battle_liandong"] = TASK_ACTION.BATTLE_LIANGDONG,                --单场战斗进行联动        
+["battle_liandong"] = TASK_ACTION.BATTLE_LIANDONG,                --单场战斗进行联动        
 ["battle_damage"] = TASK_ACTION.BATTLE_DAMAGE,                     --单场战斗战损比      
 ["spy_player_city"] = TASK_ACTION.SPY_PLAYER_CITY,                 --侦查玩家城堡        
 ["slow_speed"] = TASK_ACTION.SLOW_SPEED,                           --单次行军加速减少时   
@@ -1262,114 +1292,182 @@ GACHA_TYPE = {
     HUNXIA_ONE = 5, --魂匣单抽
     HUNXIA_TEN = 6, --魂匣十连抽
 }
+
+-- LOST_TEMPLE
+LT_STATE =
+{
+    ACTIVE = 1,
+    DOWN = 2,
+}
+
+-- 建筑上部队绑定的类型 来攻击部队，出发部队
+ETY_TROOP =
+{
+    ATK = "atk_troop_tag",
+    LEAVE = "leave_troop_tag",
+}
+
 -- 积分商城类型
 POINT_MALL = {
     MONSTER = 1,    --怪物
-    MANOR = 2,      --领地
+    MANOR = 2,      --领地 
     RELIC = 3,      --遗迹塔
     KING = 4,       --国王
 }
+
+MALL_PAY_TYPE =
+{
+    "PayMonster",
+    "PayManor",
+    "PayRelic",
+}
+
+POINT_MALL_TYPE = {
+    "monster_gold",
+    "manor_gold",
+    "relic_gold",
+    "kw_gold",
+}
+
+
+--key, value:len
+CLIENT_PARM = {
+    ["report_lock_1"] = 2,
+    ["report_read_1"] = 2,
+
+    ["report_lock_2"] = 2,
+    ["report_read_2"] = 2,
+
+    ["report_lock_3"] = 2,
+    ["report_read_3"] = 2,
+}
+
+--重置技能消耗的金币
+RESET_SKILL_GOLD = 250
+--重置技能消耗的道具ID
+RESET_SKILL_ITME = 5003001
+
 -- 天赋end
-function is_ply(ety)
-    if ety then
-        if type(ety) == "table" then
-            if ety and ety.eid then return (math.floor(ety.eid / 0x010000)) == EidType.Player end
-        else
-            return (math.floor(ety / 0x010000)) == EidType.Player
-        end
+--function is_ply(ety)
+--    if ety then
+--        if type(ety) == "table" then
+--            if ety and ety.eid then return (math.floor(ety.eid / 0x010000)) == EidType.Player end
+--        else
+--            return (math.floor(ety / 0x010000)) == EidType.Player
+--        end
+--    end
+--end
+--
+--function is_res(ety)
+--    if ety then
+--        if type(ety) == "table" then
+--            if ety and ety.eid then return (math.floor(ety.eid / 0x010000)) == EidType.Res end
+--        else
+--            return (math.floor(ety / 0x010000)) == EidType.Res
+--        end
+--    end
+--end
+--
+--function is_camp(ety)
+--    if ety then
+--        if type(ety) == "table" then
+--            if ety and ety.eid then return (math.floor(ety.eid / 0x010000)) == EidType.Camp end
+--        else
+--            return (math.floor(ety / 0x010000)) == EidType.Camp
+--        end
+--    end
+--end
+--
+--
+--function is_troop(ety)
+--    if ety then
+--        if type(ety) == "table" then
+--            if ety and ety.eid then return (math.floor(ety.eid / 0x010000)) == EidType.Troop end
+--        else
+--            return (math.floor(ety / 0x010000)) == EidType.Troop
+--        end
+--    end
+--end
+--
+--function is_monster(ety)
+--    if ety then
+--        if type(ety) == "table" then
+--            if ety and ety.eid then return (math.floor(ety.eid / 0x010000)) == EidType.Monster end
+--        else
+--            return (math.floor(ety / 0x010000)) == EidType.Monster
+--        end
+--    end
+--end
+--
+--function is_monster_city(ety)
+--    if ety then
+--        if type(ety) == "table" then
+--            if ety and ety.eid then return (math.floor(ety.eid / 0x010000)) == EidType.MonsterCity end
+--        else
+--            return (math.floor(ety / 0x010000)) == EidType.MonsterCity
+--        end
+--    end
+--end
+--
+--function is_king_city(ety)
+--    if ety then
+--        if type(ety) == "table" then
+--            if ety and ety.eid then return (math.floor(ety.eid / 0x010000)) == EidType.KingCity end
+--        else
+--            return (math.floor(ety / 0x010000)) == EidType.KingCity
+--        end
+--    end
+--end
+--
+--function is_lost_temple(ety)
+--    if ety then
+--        if type(ety) == "table" then
+--            if ety and ety.eid then return (math.floor(ety.eid / 0x010000)) == EidType.LostTemple end
+--        else
+--            return (math.floor(ety / 0x010000)) == EidType.LostTemple
+--        end
+--    end
+--end
+--
+--function is_union_building(ety)
+--    if ety then
+--        if type(ety) == "table" then
+--            if ety and ety.eid then return (math.floor(ety.eid / 0x010000)) == EidType.UnionBuild end
+--        else
+--            return (math.floor(ety / 0x010000)) == EidType.UnionBuild
+--        end
+--    end
+--end
+--
+--function is_npc_city(ety)
+--    if ety then
+--        if type(ety) == "table" then
+--            if ety and ety.eid then return (math.floor(ety.eid / 0x010000)) == EidType.NpcCity end
+--        else
+--            return (math.floor(ety / 0x010000)) == EidType.NpcCity
+--        end
+--    end
+--end
+
+function is_type( ety, typeid )
+    if not ety then return end
+    if type( ety ) == "number" then
+        ety = gEtys[ ety ]
+        if not ety then return end
     end
+    return math.floor( ety.propid / 1000000 ) == typeid
 end
 
-function is_res(ety)
-    if ety then
-        if type(ety) == "table" then
-            if ety and ety.eid then return (math.floor(ety.eid / 0x010000)) == EidType.Res end
-        else
-            return (math.floor(ety / 0x010000)) == EidType.Res
-        end
-    end
-end
-
-function is_camp(ety)
-    if ety then
-        if type(ety) == "table" then
-            if ety and ety.eid then return (math.floor(ety.eid / 0x010000)) == EidType.Camp end
-        else
-            return (math.floor(ety / 0x010000)) == EidType.Camp
-        end
-    end
-end
-
-
-function is_troop(ety)
-    if ety then
-        if type(ety) == "table" then
-            if ety and ety.eid then return (math.floor(ety.eid / 0x010000)) == EidType.Troop end
-        else
-            return (math.floor(ety / 0x010000)) == EidType.Troop
-        end
-    end
-end
-
-function is_monster(ety)
-    if ety then
-        if type(ety) == "table" then
-            if ety and ety.eid then return (math.floor(ety.eid / 0x010000)) == EidType.Monster end
-        else
-            return (math.floor(ety / 0x010000)) == EidType.Monster
-        end
-    end
-end
-
-function is_monster_city(ety)
-    if ety then
-        if type(ety) == "table" then
-            if ety and ety.eid then return (math.floor(ety.eid / 0x010000)) == EidType.MonsterCity end
-        else
-            return (math.floor(ety / 0x010000)) == EidType.MonsterCity
-        end
-    end
-end
-
-function is_king_city(ety)
-    if ety then
-        if type(ety) == "table" then
-            if ety and ety.eid then return (math.floor(ety.eid / 0x010000)) == EidType.KingCity end
-        else
-            return (math.floor(ety / 0x010000)) == EidType.KingCity
-        end
-    end
-end
-
-function is_lost_temple(ety)
-    if ety then
-        if type(ety) == "table" then
-            if ety and ety.eid then return (math.floor(ety.eid / 0x010000)) == EidType.LostTemple end
-        else
-            return (math.floor(ety / 0x010000)) == EidType.LostTemple
-        end
-    end
-end
-
-function is_union_building(ety)
-    if ety then
-        if type(ety) == "table" then
-            if ety and ety.eid then return (math.floor(ety.eid / 0x010000)) == EidType.UnionBuild end
-        else
-            return (math.floor(ety / 0x010000)) == EidType.UnionBuild
-        end
-    end
-end
-
-function is_npc_city(ety)
-    if ety then
-        if type(ety) == "table" then
-            if ety and ety.eid then return (math.floor(ety.eid / 0x010000)) == EidType.NpcCity end
-        else
-            return (math.floor(ety / 0x010000)) == EidType.NpcCity
-        end
-    end
-end
+function is_ply(ety) return is_type( ety, EidType.Player ) end
+function is_res(ety) return is_type( ety, EidType.Res ) end
+function is_camp(ety) return is_type( ety, EidType.Camp ) end
+function is_troop(ety) return is_type( ety, EidType.Troop ) end
+function is_monster(ety) return is_type( ety, EidType.Monster ) end
+function is_monster_city(ety) return is_type( ety, EidType.MonsterCity ) end
+function is_king_city(ety) return is_type( ety, EidType.KingCity ) end
+function is_lost_temple(ety) return is_type( ety, EidType.LostTemple ) end
+function is_union_building(ety) return is_type( ety, EidType.UnionBuild ) end
+function is_npc_city(ety) return is_type( ety, EidType.NpcCity ) end
 
 function can_attack(ety)
     if is_ply(ety) then return true end

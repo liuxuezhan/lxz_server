@@ -79,7 +79,7 @@ function add(p,type,eid,hero_id,num,mode,res,res_num) --发布悬赏任务
         end
     end
 
-    if not p:doUpdateRes(resmng.DEF_RES_GOLD, UNION_TASK_CONFIG.PRICE, VALUE_CHANGE_REASON.UNION_TASK) then 
+    if not p:do_dec_res(resmng.DEF_RES_GOLD, UNION_TASK_CONFIG.PRICE, VALUE_CHANGE_REASON.UNION_TASK) then 
         return
     end
 
@@ -166,8 +166,8 @@ function del(id)
     local c = _d[id]
     if c then
         local o = getPlayer(c.pid)
-        local mail = {class=MAIL_CLASS.REPORT, mode=MAIL_REPORT_MODE.UNION_TASK, its={{c.res,c.res_num}},content={type=_d[id].type,own_name=o.name }}
-        o:mail_new(mail)
+        -- local mail = {class=MAIL_CLASS.REPORT, mode=MAIL_REPORT_MODE.UNION_TASK, its={{c.res,c.res_num}},content={type=_d[id].type,own_name=o.name }}
+        -- o:mail_new(mail)
         dbmng:getOne().union_task:delete({_id=id})
         local u = unionmng.get_union(c.uid)
         if u then
@@ -231,8 +231,8 @@ function ok(p,obj,type) --完成悬赏任务
                 table.insert(_d[id].log,{name=p.name,num = r,tm=gTime})
                 r = math.floor(r * (100-_d[id].tax_rate)/100)
                 p:do_inc_res_normal(_d[id].res, r, VALUE_CHANGE_REASON.UNION_TASK)
-                local mail = {class=MAIL_CLASS.REPORT, mode=MAIL_REPORT_MODE.UNION_TASK, its={{_d[id].res,r}},content={type=_d[id].type,own_name=o.name }}
-                p:mail_new(mail)
+                -- local mail = {class=MAIL_CLASS.REPORT, mode=MAIL_REPORT_MODE.UNION_TASK, its={{_d[id].res,r}},content={type=_d[id].type,own_name=o.name }}
+                -- p:mail_new(mail)
                 if num+1 == _d[id].num  then
                     del(id)
                 else

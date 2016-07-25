@@ -10,7 +10,7 @@ function use_item(self, idx, num)
     if use_item_logic[prop_tab.Action] == nil then
         return
     end
-    if self:use_item_check(prop_tab) == false then
+    if self:do_item_check(prop_tab) == false then
     	return
     end
     if self:dec_item(idx, num, VALUE_CHANGE_REASON.USE_ITEM) == true then
@@ -46,10 +46,25 @@ use_item_check.vip = function(player, lv)
 	return true
 end
 
-function use_item_check(self, prop_item)
+use_item_check.buy_res = function(player, count)
+    local market = player:get_resource_market()
+    if not market then return false end
+
+    local extra = market.extra
+    if not extra then 
+        player:refresh_res_market() 
+        extra = market.extra
+    end
+
+    if extra[ 2 ] < count then return true end
+	return true
+end
+
+
+function do_item_check(self, prop_item)
 	local con = prop_item.Check
 	for k, v in pairs(con or {}) do
-		if use_item_check[v[1]](self, v[2]) == false then
+		if not use_item_check[v[1]](self, v[2]) then
 			return false
 		end
 	end
@@ -113,13 +128,35 @@ end
 use_item_logic.AddBuf = function(player, id, num, prop_item)
     local buff = prop_item.Param
     local buff_id = buff[1]
-    local dura = buff[2]
+    local dura = buff[2] * num
 	player:add_buf(buff_id, dura)
+end
+
+--获得globe_buff加成
+use_item_logic.AddBufKw = function(player, id, num, prop_item)
+    local buff = prop_item.Param
+    local buff_id = buff[1]
+    local dura = buff[2] * num
+	kw_mall:add_buf(buff_id, dura)
 end
 
 
 use_item_logic.VipEnable = function(player, id, num, prop_item)
     local dura = prop_item.Param
     player:vip_enable( dura * num )
+end
+
+use_item_logic.VipExp = function(player, id, num, prop_item)
+    local count = prop_item.Param
+    player:vip_add_exp( count * num )
+end
+
+use_item_logic.BuyRes = function(player, id, num, prop_item)
+    local market = player:get_resource_market()
+    local extra = market.extra
+    local count = extra[2] + prop_item.Param * num
+    if count > 999 then count = 999 end
+    extra[2] = count
+    market.extra = extra
 end
 

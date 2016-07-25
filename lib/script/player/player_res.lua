@@ -14,10 +14,9 @@ function refresh_res_market(self)
     local market = self:get_resource_market()
     if not market then return end
     local info = market.extra
-    --if info[2] then t[2] = info[2] end -- count free
     if info[2] and type(info[2]) == "number" then t[2] = info[2] end -- count free
     --todo just for test
-    t[2] = 5
+    --t[2] = 5
     market.extra = t
 end
 
@@ -98,6 +97,8 @@ function buy_res(self, id)
             end
         end
     end
+
+    self:add_count( resmng.ACH_COUNT_BUY_RES, 1 )
 
     dumpTab(extra, "resource_buy")
     market.extra = extra

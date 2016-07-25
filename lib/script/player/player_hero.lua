@@ -107,7 +107,7 @@ function call_hero_by_piece(self, hero_propid)
             self:make_hero(hero_propid)
         else
             local piece_have = self:get_item_num(conf.PieceID)
-            ERROR("call_hero_by_piece: pid = %d, hero_propid = %d, conf.PieceID = %d, piece_have = %d < conf.CallPrice = %d",
+            self:add_debug("call_hero_by_piece: pid = %d, hero_propid = %d, conf.PieceID = %d, piece_have = %d < conf.CallPrice = %d",
                    self.pid, hero_propid, conf.PieceID, piece_have, conf.CallPrice)
             return
         end
@@ -304,6 +304,8 @@ function destroy_hero(self, hero_idx)
         return
     end
 
+    if hero.quality >= HERO_QUALITY_TYPE.EPIC then return end
+
     -- 解除派遣
     self:hero_offduty(hero)
 
@@ -341,7 +343,7 @@ function return_exp_item(self, exp, reason)
     else
         for item_id, info in pairs(resmng.prop_item) do
             if info.Class == ITEM_CLASS.HERO and info.Mode == ITEM_HERO_MODE.EXP_BOOK then
-                table.insert(exp_item, {["item_id"] = item_id, ["exp"] = info.Param[1]})
+                table.insert(exp_item, {["item_id"] = item_id, ["exp"] = info.Param})
             end
         end
     end
@@ -366,7 +368,9 @@ function return_exp_item(self, exp, reason)
 
     -- 发放道具
     for _, v in pairs(item_list) do
-        self:inc_item(v.item_id, v.num, reason)
+        --self:inc_item(v.item_id, v.num, reason)
+        self:add_bonus("mutex_award", {{"item", v.item_id, v.num, 10000}}, reason)
+        print( "add_item", v.item_id, v.num )
     end
     dumpTab(item_list, string.format("return_exp_item: pid = %d, item_list = ", self.pid))
 end
@@ -716,6 +720,9 @@ end
 function hero_cure_quick(self, hidx)
     local hero = self:get_hero( hidx )
     if not hero then return ack( self, "hero_cure", E_NO_HERO, 0) end
+
+    if hero.status ~= HERO_STATUS_TYPE.FREE then return ack( self, "cure_hero_quick", resmng.E_HERO_BUSY, mode) end
+
     local tohp = hero.max_hp
     local dura, res = self:do_calc_hero_cure( hero, tohp )
     if not dura then return  ack( self, "hero_cure", E_HP, 0 )  end
@@ -885,7 +892,7 @@ function return_skill_exp_item(self, hero, reason)
     for k, v in pairs(skills) do
         local skill_id = v[1]
         local skill_exp = v[2]
-        if skill_id ~= 0 and skill_exp ~= 0 then
+        if skill_id ~= 0 then
             local cur_lv = resmng.prop_skill[skill_id].Lv
             local exp_array = resmng.prop_hero_skill_exp[cur_lv].TotalExp
             total_exp = total_exp + (exp_array[k] + skill_exp)  --k是技能槽位
@@ -894,14 +901,18 @@ function return_skill_exp_item(self, hero, reason)
 
     local ratio = 0.8
     local return_exp = math.floor(total_exp * ratio)
-    for i = 1, 4 do
+    for i = 10, 1, -1 do
         local item_id = ITEM_CLASS.SKILL * 1000000 + ITEM_SKILL_MODE.COMMON_BOOK * 1000 + i
-        local grade = resmng.prop_item[item_id].Param[2]
-        local book_num = math.floor(return_exp / grade)
-        if book_num > 0 then
-            self:inc_item(item_id, book_num, reason)
-            return_exp = return_exp - book_num * grade
-            if return_exp <= 0 then break end
+        local item = resmng.prop_item[ item_id ]
+        if item then
+            local grade = item.Param[2]
+            local book_num = math.floor(return_exp / grade)
+            if book_num > 0 then
+                --self:inc_item(item_id, book_num, reason)
+                self:add_bonus("mutex_award", {{"item", item_id, book_num, 10000}}, reason)
+                return_exp = return_exp - book_num * grade
+                if return_exp <= 0 then break end
+            end
         end
     end
 end
@@ -920,7 +931,8 @@ function release_all_prisoner(self)
     if prison then
         if prison.extra and prison.extra.prisoners_info then
             for _, prisoner in pairs(prison.extra.prisoners_info) do
-                self:release_prisoner(prisoner.hero_id)
+                self:release_prisoner(prisoner.id)
+                print( "release hero", prisoner.id )
                 flag = true
             end
         end
@@ -929,9 +941,9 @@ function release_all_prisoner(self)
     -- 祭坛
     local altar = self:get_altar()
     if altar then
-        if altar.extra and altar.extra.hero_id then
+        if altar.extra and altar.extra.kill then
             -- 释放hero
-            self:let_prison_back_home(altar.extra.hero_id)
+            self:let_prison_back_home(altar.extra.kill.id)
 
             -- 清理祭坛
             altar.state   = BUILD_STATE.WAIT
@@ -942,7 +954,6 @@ function release_all_prisoner(self)
             flag = true
         end
     end
-
     -- notify client.
     self:get_prisoners_info()
     return flag
@@ -957,6 +968,19 @@ end
 --------------------------------------------------------------------------------
 
 function get_defense_heros(self)
+    local soldier = {0,0,0,0}
+    local troop = self:get_my_troop()
+    if troop then
+        for _, arm in pairs( troop.arms or {} ) do
+            for k, v in pairs( arm.live_soldier or {} ) do
+                if v > 0 then
+                    local mode = math.floor( k / 1000 )
+                    soldier[ mode ] = soldier[ mode ] + v
+                end
+            end
+        end
+    end
+
     local ret = {0, 0, 0, 0}
     local count = 0
     local wall = self:get_wall()
@@ -964,19 +988,26 @@ function get_defense_heros(self)
         local hs = wall:get_extra( "hero" )
         if hs then
             for k, v in ipairs( hs ) do
-                if v ~= 0 then
-                    local hero = self:get_hero( v )
-                    if hero and hero:can_def() then
-                        ret[ k ] = hero._id 
-                        count = count + 1
+                if soldier[ k ] > 0 then
+                    if v ~= 0 then
+                        local hero = self:get_hero( v )
+                        if hero and hero:can_def() then
+                            ret[ k ] = hero._id 
+                            count = count + 1
+                        end
                     end
                 end
             end
         end
     end
 
-    -- 空缺位置，按照步、骑、弓、车顺序，选取战力高的英雄依次补齐
-    if count < 4 then
+    local count_soldier = 0
+    for k, v in pairs( soldier ) do
+        if v > 0 then count_soldier = count_soldier + 1 end
+    end
+
+    if count < count_soldier then
+        -- 空缺位置，按照步、骑、弓、车顺序，选取战力高的英雄依次补齐
         count = 0
         local can_def_heros = {}
         for hero_idx, hero in pairs(self:get_hero()) do
@@ -986,14 +1017,17 @@ function get_defense_heros(self)
             end
         end
 
-        local func_sort = function (node_1, node_2) return node_1.fight_power > node_2.fight_power end
-        table.sort(can_def_heros, func_sort)
+        if count > 0 then
+            local func_sort = function (node_1, node_2) return node_1.fight_power > node_2.fight_power end
+            table.sort(can_def_heros, func_sort)
 
-        for k = 1, 4 do
-            if count > 0 and ret[ k ] == 0 then
-                local t = table.remove(can_def_heros, 1)
-                ret[ k ] = t.hero_id
-                count = count - 1
+            for mode = 1, 4, 1 do 
+                if ret[ mode ] == 0 and soldier[ mode ] > 0 then
+                    local t = table.remove(can_def_heros, 1)
+                    ret[ mode ] = t.hero_id
+                    count = count - 1
+                    if count == 0 then break end
+                end
             end
         end
     end
@@ -1105,11 +1139,15 @@ function imprison(self, hero)
     local time = prison:get_param("time")
     if not count or not time  then return Mark("imprison_captive") end
 
+    local prisoners_info = prison.extra.prisoners_info
+
     -- 达到容量上限，释放最早俘虏的hero
-    if #prison.extra.prisoners_info >= count then
-        local h = prison:pullone()
-        if h then
-            self:release(h)
+    if prisoners_info then
+        if #prisoners_info >= count then
+            local h = prison:pullone()
+            if h then
+                self:release(h)
+            end
         end
     end
     prison:imprison(hero, time * 60)
@@ -1165,10 +1203,6 @@ function get_prisoners_info(self)
                     player_name     = ply.name,
                     union_name      = "",
                     player_id       = ply._id,
-
-                    --prison_start_tm = info.prison_start_tm,
-                    --kill_start_tm   = info.kill_start_tm,
-                    --kill_over_tm    = info.kill_over_tm,
                     tmStart         = info.start,
                     tmOver          = info.over,
                     status          = hero.status
@@ -1180,6 +1214,7 @@ function get_prisoners_info(self)
         end
     end
 
+    local count = 0
     local prison = self:get_prison()
     if prison then
         local ts = prison:get_extra("prisoners_info")
@@ -1189,6 +1224,7 @@ function get_prisoners_info(self)
                 if info then
                     info.status = HERO_STATUS_TYPE.BEING_IMPRISONED
                     table.insert(infos, info)
+                    count = count + 1
                 end
             end
         end
@@ -1202,10 +1238,36 @@ function get_prisoners_info(self)
             if info then 
                 info.status = HERO_STATUS_TYPE.BEING_EXECUTED
                 table.insert(infos, info) 
+                count = count + 1
             end
         end
     end
+    if count ~= self.nprison then
+        self.nprison = count
+        etypipe.add( self )
+    end
     Rpc:on_get_prisoners_info(self, infos)
+end
+
+function get_prison_count( self )
+    local count = 0
+    local prison = self:get_prison()
+    if prison then
+        local ts = prison:get_extra("prisoners_info")
+        if ts then
+            for _, v in pairs(ts) do
+                count = count + 1
+            end
+        end
+    end
+    local altar = self:get_altar()
+    if altar then
+        local info = altar:get_extra("kill")
+        if info then
+            count = count + 1
+        end
+    end
+    return count
 end
 
 
@@ -1230,9 +1292,9 @@ function kill_hero(self, hero_id, buff_idx)
     if fpow < 1 then fpow = hero:calc_fight_power() end
 
     local buff_id = false
-    for k, v in ipairs( resmng.prop_altar_buff ) do
-        if fpow <= v.Power then
-            buff_id = v.Buffs[ buff_idx ]
+    for k, v in ipairs( resmng.prop_sacrifice_hero ) do
+        if fpow <= v.FightCapacity then
+            buff_id = v.Buff[ buff_idx ]
             break
         end
     end
@@ -1265,7 +1327,7 @@ end
 
 
 --------------------------------------------------------------------------------
--- Function : 使用英雄技能物品(特定技能书、通用技能书、技能重置书)
+-- Function : 使用英雄技能物品(特定技能书、通用技能书)
 -- Argument : self, hero_idx, item_idx, num
 -- Return   : NULL
 -- Others   : NULL
@@ -1310,9 +1372,6 @@ function use_hero_skill_item(self, hero_idx, skill_idx, item_idx, num)
 
         elseif conf.Mode == ITEM_SKILL_MODE.COMMON_BOOK then
             self:use_skill_common_book( hero_idx, skill_idx, item_idx, num, unpack( conf.Param or {} ) )
-
-        elseif conf.Mode == ITEM_SKILL_MODE.RESET_BOOK then
-            self:use_skill_reset_book( hero_idx, skill_idx, item_idx, num, unpack( conf.Param or {} ) )
 
         end
 
@@ -1411,39 +1470,6 @@ function use_skill_common_book(self, hero_idx, skill_idx, item_idx, num, skill_i
     end
 end
 
--- 使用英雄技能重置书
-function use_skill_reset_book(self, hero_idx, skill_idx, item_idx, num)
-    if num ~= 1 then
-        ERROR("item_func.useHeroSkillResetBook: pid = %d, num = %d ~= 1", self.pid or -1, num)
-        return
-    end
-
-    local hero = self:get_hero(hero_idx)
-    if not hero then
-        ERROR("item_func.useHeroSkillResetBook: get_hero() failed. pid = %d, hero_idx = %d", self.pid or -1, hero_idx)
-        return
-    else
-        local skill = hero.basic_skill[skill_idx]
-        if not skill then
-            ERROR("item_func.useHeroSkillResetBook: hero._id = %s, basic_skill[%d] is still locked.", hero._id or "nil", skill_idx)
-            return
-        else
-            if skill[1] == 0 then
-                -- 尚无: 不能使用
-                ERROR("item_func.useHeroSkillResetBook: hero._id = %s, basic_skill[%d] is empty.", hero._id or "nil", skill_idx)
-                return
-            else
-                -- 已有: 重置技能
-                if self:dec_item(item_idx, num, VALUE_CHANGE_REASON.USE_ITEM) then
-                    hero:reset_skill(skill_idx)
-                    return
-                end
-            end
-        end
-    end
-end
-
-
 function set_def_hero( self, h1, h2, h3, h4 )
     local t = { h1, h2, h3, h4 }
     local hs = {}
@@ -1459,5 +1485,35 @@ function set_def_hero( self, h1, h2, h3, h4 )
     local wall = self:get_wall()
     if not wall then return end
     wall:set_extra( "hero", t )
+end
+
+
+
+-- 重置技能
+function reset_skill(self, hero_idx, skill_idx)
+    local hero = self:get_hero(hero_idx)
+    if hero == nil then
+        return
+    end
+
+    local skill = hero.basic_skill[skill_idx]
+    if skill == nil or skill[1] == 0 then
+        return
+    end
+
+    --使用物品
+    local num = self:get_item_num(RESET_SKILL_ITME)
+    if num ~= 0 then
+        self:dec_item(item_idx, num, VALUE_CHANGE_REASON.REASON_DEC_ITEM_RESET_SKILL)
+        hero:reset_skill(skill_idx)
+        return
+    end
+
+    --使用金币
+    local gold = self:get_res_num(resmng.DEF_RES_GOLD)
+    if gold >= RESET_SKILL_GOLD then
+        self:do_dec_res(resmng.DEF_RES_GOLD, RESET_SKILL_GOLD, VALUE_CHANGE_REASON.REASON_DEC_RES_RESET_SKILL)
+        hero:reset_skill(skill_idx)
+    end
 end
 

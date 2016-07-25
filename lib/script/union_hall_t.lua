@@ -89,6 +89,9 @@ end
 
 
 function battle_room_update_ety(mode, ety)
+
+    if not ety then return end
+
     for _, rid in pairs(ety.rooms or {}) do
         local troop = troop_mng.get_troop(rid) 
         if troop then

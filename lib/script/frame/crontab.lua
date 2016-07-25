@@ -130,13 +130,6 @@ end
 
 
 
-function start_tw()
-    npc_city.start_tw()
-end
-
-function end_tw()
-    npc_city.end_tw()
-end
 
 --------------------
 --crontab function--

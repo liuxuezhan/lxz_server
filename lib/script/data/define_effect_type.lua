@@ -33,10 +33,14 @@ svnnum("$Id$")
 "SpeedTrain" = 24
 "SpeedConsume" = 25
 "SpeedMarch" = 26
-"peedMarchPvE" = 27
+"SpeedMarchPvE" = 27
 "SpeedRecover" = 28
 "SpeedBuild" = 29
 "SpeedTech" = 30
+"BuildFreeTime" = 115
+"CountBuild" = 116
+"SpeedForge" = 117
+"SilverCoinConsume" = 118
 "Atk" = 31
 "Atk1" = 32
 "Atk2" = 33
@@ -101,8 +105,13 @@ svnnum("$Id$")
 "TacticsBlock" = 92
 "TacticsAll" = 93
 "TacticsMore" = 94
+"ExtraAtk" = 119
+"DmgToHp0" = 120
+"CounterAtk" = 121
+"Damage" = 122
 "Captive" = 95
 "CounterCaptive" = 96
+"HeroPveExp" = 114
 "SiegeWounded" = 97
 "SiegeKillArmy" = 98
 "CountMember" = 99
@@ -118,3 +127,6 @@ svnnum("$Id$")
 "TimeHelp" = 109
 "CountGarrison" = 110
 "Vip10" = 113
+"SilverGachaCount" = 116
+"HotGachaOpen" = 117
+"PlunderCount" = 118

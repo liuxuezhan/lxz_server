@@ -8,7 +8,9 @@ function load()--启动加载
     while info:hasNext() do
         local data = info:next()
         local u = unionmng.get_union(data._id)
-        u.god = data
+        if u then
+            u.god = data
+        end
     end
 end
 
@@ -35,13 +37,14 @@ function add(p,mode)--膜拜
     local c = resmng.get_conf("prop_union_god",u.god.propid )
     if not c  then return end
 
-    if not p:doUpdateRes(c.Cons[mode][1], -c.Cons[mode][2], VALUE_CHANGE_REASON.UNION_GOD) then
+    if not p:do_dec_res(c.Cons[mode][1], c.Cons[mode][2], VALUE_CHANGE_REASON.UNION_GOD) then
         return 
     end
     p._union.god_log.tm = gTime 
     gPendingSave.union_member[p.pid] = p._union 
 
     p:add_bonus(c.WorshipItem[mode][1], c.WorshipItem[mode][2],VALUE_CHANGE_REASON.UNION_GOD)
+    union_mission.ok(p,UNION_MISSION_CLASS.GOD,1)
 end
 
 function add_exp(p,num)--战神经验
@@ -56,6 +59,7 @@ function add_exp(p,num)--战神经验
     if u.god.exp > c.Exp  then
         u.god.propid =  u.god.propid + 1  
         u.god.exp = u.god.exp - c.Exp  
+        u._ef = nil
     end
     gPendingSave.union_god[u.uid] = u.god
     p:union_load("mars")

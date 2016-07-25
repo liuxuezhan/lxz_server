@@ -3,7 +3,7 @@ _sns = _sns or {}
 _funs = _funs or {}
 
 function newTimer(node)
-    --addTimer(node._id, (node.over-gTime)*1000, node.tag or 0)
+    addTimer(node._id, (node.over-gTime)*1000, node.tag or 0)
 end
 
 function get(id)
@@ -11,7 +11,7 @@ function get(id)
 end
 
 function mark(node)
-    local ignore = {cron=1, toGate=1, toMongo=1}
+    local ignore = {cron=1, toGate=1, toMongo=1, check=1, check_frame=1}
     if not ignore[ node.what ] then
         if node.delete then
             gPendingDelete.timer[ node._id ] = 0
@@ -22,6 +22,7 @@ function mark(node)
 end
 
 function new(what, sec, ...)
+    if what == "tlog" then pause() end
     if sec >= 0 and _funs[ what ] then
         sec = math.ceil( sec )
         local id = false
@@ -77,9 +78,10 @@ function callback(id, tag)
         _sns[id] = nil
         if t.delete then return end
         t.delete = true
+        mark(t)
 
         local fun = _funs[ t.what ]
-        LOG("_timer_,  do, %s, %d, over:%s ", t.what, gTime, os.date("%y-%m-%d %H:%M:%S", t.over))
+        --LOG("_timer_,  do, %s, %d, over:%s ", t.what, gTime, os.date("%y-%m-%d %H:%M:%S", t.over))
         if fun then
             local rt =  fun(id, unpack(t.param))
             if rt == 1 and t.cycle then
@@ -89,9 +91,9 @@ function callback(id, tag)
                 _sns[ id ] = t
                 timer.newTimer(t)
                 t.delete = nil
+                mark(t)
             end
         end
-        mark(t)
     end
 end
 

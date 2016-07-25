@@ -4,8 +4,9 @@ _funs["toGate"] = function(sn, ip, port)
         conn.toGate(ip, port)
     end
 
-_funs["toMongo"] = function(sn, host, port, db)
+_funs["toMongo"] = function(sn, host, port, db, sid)
         conn.toMongo(host, port, db)
+        if sid then gConns[ sid ] = nil end
     end
 
 _funs["cron"] = function(sn)
@@ -20,21 +21,26 @@ _funs["cron"] = function(sn)
 
         _G.gSysStatus.tick = gTime
         gPendingSave.status[ gMapID ].tick = gTime
-        
-        --print("crontab, gTime = ", gTime)
     end
 
 _funs["cure"] = function(sn, pid)
     local p = getPlayer(pid)
     if p then
-        p:addTips("timeout cure")
         p.tm_cure = 0
         p.cure_start = 0
         p.cure_over = 0
         p:cure_off()
 
         p:add_home_arm( p.cures )
+        local count = 0
+        for id, num in pairs( p.cures ) do
+            count = count + num
+        end
+        p:add_count( resmng.ACH_COUNT_CURE, count )
         p.cures = {}
+
+        --任务
+        task_logic_t.process_task(p, TASK_ACTION.CURE, 2, count)
     end
 end
 
@@ -111,9 +117,9 @@ _funs["lost_temple"] = function(sn, state, eid, propid)
             lost_temple.gen_temple_by_propid(propid)
         end
     else
-        if state == 1 then
+        if state == LT_STATE.ACTIVE then
             lost_temple.start_lt()
-        elseif state == 2 then
+        elseif state == LT_STATE.DOWN then
             lost_temple.end_lt()
         end
     end
@@ -134,6 +140,10 @@ _funs["king_state"] = function(sn, state, eid)
 
 end
 
+_funs["kw_notify"] = function(sn, notify_id)
+    kingcity.send_notify(nofity_id)
+end
+
 _funs["select_default_king"] = function(sn)
     king_city.select_default_king()
 end
@@ -147,11 +157,11 @@ _funs["king_city"] = function(sn, eid, Type, troopId)
         end
         if Type == "fire" then
             king_city.try_fire_king(city)
-            return 
+            return
         end
         if Type == "troop" then
             king_city.try_atk_king(city)
-            return 
+            return
         end
         if Type == "towerDown" then
             king_city.reset_tower(city)
@@ -173,15 +183,6 @@ _funs["build"] = function(sn, pid, build_idx, ...)
         local p = getPlayer(pid)
         p:doTimerBuild(sn, build_idx, ...)
     end
-
-_funs["learn_tech"] = function(sn, pid, build_idx, tech_id)
-    local p = getPlayer(pid)
-    if p then
-        p:doTimerBuild(sn, build_idx, tech_id)
-    else
-        ERROR("[timerfunc.learn_tech]: get player failed. pid = %d, build_idx = %d, tech_id = %d.", pid, build_idx, tech_id)
-    end
-end
 
 _funs["mass"] = function(sn, uid, idx)
     local union = unionmng.get_union(uid)
@@ -223,14 +224,6 @@ _funs.expiry = function(sn, pid, heroid, over)
 end
 
 
-_funs["kill_hero"] = function(sn, pid, build_idx, hero_id, buff_id, buff_time)
-    local p = getPlayer(pid)
-    if p then
-        -- p:real_kill_hero(hero_id, buff_id, buff_time)
-        p:doTimerBuild(sn, build_idx, hero_id, buff_id, buff_time)
-    end
-end
-
 _funs["delete_kill_buff"] = function(sn, pid, buff_id)
     local p = getPlayer(pid)
     if p then
@@ -252,42 +245,15 @@ _funs["buf"] = function(sn, pid, bufid, tmOver)
     end
 end
 
+_funs["globuf"] = function(sn, bufid, tmOver)
+    kw_mall.rem_buf(bufid, tmOver)
+end
+
 
 _funs["union_gather_empty"] = function(sn, eid)
     local dest = get_ety(eid)
     if dest and dest.tmSn == sn then
-        dest.val = 0
-        dest.speed = 0
-        dest.tmStart = 0
-        dest.tmOver = 0
-        dest.tmSn = 0
-
-        local u = unionmng.get_union(dest.uid)
-        union_build_t.remove_build(u, dest.idx)
-
-        for _, tid in pairs(dest.my_troop_id) do
-            local troop = troop_mng.get_troop(tid)
-            if troop then
-
-                local count = troop:get_extra("speed") * (gTime - troop:get_extra("tm"))
-                local mode = troop:get_extra("mode")
-                local gains = {}
-                table.insert(gains, { "res", mode, math.ceil(count) })
-
-                troop_mng.mount_bonus(troop, gains, VALUE_CHANGE_REASON.GATHER)
-                troop:clr_extra("speed")
-                troop:clr_extra("tm")
-                troop:clr_extra("mode")
-                troop.tmSn = 0
-                local p = get_ety(troop.owner_pid)
-                if p  then
-                    union_mission.ok(p,UNION_MISSION_CLASS.GATHER ,calc_res(mode,count))
-                end
-                troop_mng.troop_back(tr)
-            end
-        end
-        dest.my_troop_id = {}
-        union_build_t.mark(dest)
+        rem_ety(eid)
     end
 end
 
@@ -295,21 +261,14 @@ end
 _funs["union_build_complete"] = function(sn, eid)
     local dest = get_ety(eid)
     if dest and dest.tmSn == sn then
-        for _, tid in pairs(dest.my_troop_id) do
-            local troop = troop_mng.get_troop(tid)
-            if troop then
-                troop.tmSn = 0
-                troop_mng.troop_back(troop)
-            end
-        end
-        dest.hp = resmng.get_conf("prop_world_unit", dest.propid).Hp
-        dest.tmStart = 0
-        dest.tmOver = 0
-        dest.tmSn = 0
-        dest.speed = 0
-        dest.state = BUILD_STATE.WAIT
-        dest.my_troop_id = nil 
-        union_build_t.mark(dest)
+        union_build_t.troop_update(dest, "build")
+    end
+end
+_funs["union_build_fire"] = function(sn, eid)
+    local dest = get_ety(eid)
+    if dest and dest.fire_tmSn == sn then
+        dest.fire_tmSn = 0  
+        troop_mng.union_building(dest)
     end
 end
 
@@ -355,18 +314,18 @@ _funs["city_fire"] = function(sn, pid)
 
     local fire = wall:get_extra( "fire" )
     if not fire then return end
-    if gTime > fire then 
+    if gTime > fire then
         wall:clr_extra( "fire" )
-        return 
+        return
     end
 
     local dura = 1
     local black = 0
-    if is_in_black_land( ply.x, ply.y ) then 
+    if is_in_black_land( ply.x, ply.y ) then
         cur = cur - WALL_FIRE_IN_BLACK_LAND
         black = 1
-    else 
-        cur = cur - 1 
+    else
+        cur = cur - 1
         dura = WALL_FIRE_SECONDS
     end
 
@@ -385,6 +344,47 @@ _funs["city_fire"] = function(sn, pid)
         wall:set_extra( "cur", cur )
         wall:set_extra( "black", black )
         timer.new( "city_fire", dura, pid )
+    end
+end
+
+
+g_log_idx = 0
+_funs["tlog"] = function(sn, tid)
+    c_tlog( string.format("rolelogin|%d|2012-07-12|222222|111111", g_log_idx ) )
+    --print("tlog")
+    timer.new("tlog", 1 )
+    g_log_idx = g_log_idx + 1
+end
+
+_funs["check"] = function(sn, pid)
+    local ply = getPlayer( pid )
+    if ply.tm_check ~= sn then return end
+
+    --LOG( "[check], pid=%d", pid )
+
+    LOG( "[check], pid=%d", pid )
+    ply:initEffect()
+
+    if ply:is_online() then 
+        ply.tm_check = timer.new( "check", 600, pid ) 
+
+    elseif gTime - ply.tm_logout < 600 then
+        ply.tm_check = timer.new( "check", 600, pid ) 
+
+    else
+        LOG( "[check], pid=%d, off", pid )
+        ply._mail = nil
+        ply._build = nil
+        ply.tm_check = nil
+
+    end
+end
+
+
+_funs["check_frame"] = function(sn, idx)
+    if idx <= 100 then
+        if idx == 0 or idx == 100 then LOG( "checkframe, %d, %d", idx, gMsec ) end
+        timer.new( "check_frame", 0, idx+1)
     end
 end
 

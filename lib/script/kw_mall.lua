@@ -3,14 +3,24 @@ module("kw_mall", package.seeall)
 _mt = { __index = kw_mall }
 
 
-kwMallId = 0
-gsBuffs = {}
-shelf = {}
-itemPool = {}
+refresh_time = refresh_time or 0
+gsBuffs = gsBuffs or {}
+gsEf = gsEf or{}
+shelf = shelf or {}
+itemPool = itemPool or {}
+
+
+initDbList = 
+{
+    "gsBuffs",
+    "gsEf",
+--    "itemPool",
+--    "shelf",
+}
 
 
 function load_from_db()
-    local db = dbmng:getOne()
+    --[[local db = dbmng:getOne()
     local info = db.kw_mall:find({})
     while info:hasNext() do
         local m = info:next()
@@ -18,11 +28,158 @@ function load_from_db()
         shelf[m._id] = m
         print("kw_mall m.eid= ", m.eid)
         
+    end--]]
+
+    init_db_list()
+    load_kw_shelf()
+    if #shelf == 0 then
+        refresh_kw_mall()
     end
+end
 
-    init_pool()
-    init_shelf()
 
+
+function init_db_list()
+    for k, v in pairs(initDbList) do
+        kw_mall[ v ] = init_db(v)
+    end
+end
+
+function init_db(key)
+    local db = dbmng:getOne()
+    local info = db.status:findOne({_id = key})
+    --dumpTap(info, Key)
+    if not info then
+        info = {_id = key}
+        db.status:insert(info)
+    end
+    return info
+end
+
+function add_buf(bufid, count)
+    local node = resmng.prop_buff[ bufid ]
+    if node then
+        if count < 1 then count = 1 end
+
+        local dels = {}
+        if node.Mutex == 1 then  -- 互斥
+            local group = node.Group
+            for k, v in ipairs(gsBuffs) do
+                local b = resmng.get_conf("prop_buff", v[1])
+                if b and b.Group == group then
+                    table.insert(dels, k)
+                end
+            end
+
+        elseif node.Mutex == 2 then -- 高级替换低级
+            local group = node.Group
+            local lv = node.Lv
+            for k, v in ipairs(gsBuffs) do
+                local b = resmng.get_conf("prop_buff", v[1])
+                if b and b.Group == group then
+                    if b.Lv > lv then return end
+                    table.insert(dels, k)
+                end
+            end
+        end
+
+        if #dels > 0 then
+            for i = #dels, 1, -1 do
+                table.remove(bufs, dels[ i ]) 
+            end
+        end
+
+        if node.Value then ef_add(node.Value) end
+        local tmOver = gTime + count
+        local buf = {bufid, gTime, tmOver}
+        table.insert(gsBuffs, buf)
+        gPendingSave.status["globalBuf"].gsBuffs = gsBuffs
+        timer.new("globuf", count, bufid, tmOver)
+        print(string.format("add_buf, pid=%d, bufid=%d, tmStart=%d, count=%d", self.pid, bufid, gTime, count))
+        return buf
+    end
+end
+
+function rem_buf(bufid, tmOver)
+    for k, v in pairs(gsBuffs) do
+        --v = {bufid, tmOver}
+        if v[1] == bufid then
+            if not tmOver or tmOver == v[3] then
+                table.remove(gsBuffs, k)
+                local node = resmng.prop_buff[ bufid ]
+                if node and node.Value then ef_rem(node.Value) end
+                print(string.format("rem_buf, pid=%d, bufid=%d, tmOver=%d, now=%d", self.pid, bufid, tmOver, gTime))
+                return v[3]
+            end
+        end
+    end
+    gPendingSave.status["globalBuf"].gsBuffs = gsBuffs
+end
+
+function get_buf(bufid )
+    for k, v in pairs(gsBuffs) do
+        --v = {bufid, tmStart, tmOver}
+        if v[1] == bufid then
+            return v
+        end
+    end
+end
+
+function calc_diff(A, B) -- A, original; B, new one
+    local C = {}
+    for k, v in pairs(A) do
+        C[k] = (B[k] or 0) - v
+    end
+    for k, v in pairs(B) do
+        if not A[k] then
+            C[k] = B[k]
+        end
+    end
+    return C
+end
+
+function ef_chg(A, B) -- A, original; B, new, for upgrade
+    local C = calc_diff(A, B)
+    ef_add(C)
+end
+
+function ef_add(eff, init)
+    if not eff then return end
+    local res = {}
+    for k, v in pairs(eff) do
+        if type(v) == "table" then pause() end
+        gsEf[k] = (gsEf[k] or 0) + v
+        res[ k ] = gsEf[k]
+        if math.abs(gsEf[k]) <= 0.00001 then gsEf[k] = nil end
+        if not init then LOG("ef_add, what=%s, num=%d",  k, v) end
+    end
+    gPendingSave.status["globalBuf"].gsEf = gsEf
+    --if not init then Rpc:stateEf(self, res) end
+end
+
+function ef_rem(eff)
+    if not eff then return end
+    local t = gsEf
+    local res = {}
+    for k, v in pairs(eff) do
+        t[k] = (t[k] or 0) - v
+        res[ k ] = t[k]
+        if math.abs(t[k]) <= 0.00001 then t[k] = nil end
+        LOG("ef_rem, what=%s, num=%d",  k, v)
+    end
+    gPendingSave.status["globalBuf"].gsEf = gsEf
+end
+
+function get_num(what, ...) -- VALUE DIRECTLY
+    if ... == nil then
+        return gsEf[ what ] or 0 
+    else
+        local v = 0
+        for _, t in pairs({...}) do
+            v = v + (t[ what ] or 0)
+        end
+        return v
+    end
 end
 
 function init_pool()
@@ -72,20 +229,21 @@ function init_shelf()
                 item.point = 0
                 item.state = 0
                 shelf[v.ID] = item
-                mark(item)
+   --             mark(item)
             end
         end
     end
+    gPendingSave.status["kwState"].shelf = shelf
 end
 
-function load_kw_buff()
+function load_kw_shelf()
     local db = dbmng:getOne()
     local info = db.status:findOne({_id = "kwState"})
     if not info then
         info = {_id = "kwState"}
         db.status:insert(info)
     end
-    gsBuffs = info.gsBuffs or {}
+    shelf = info.shelf or {}
 end
 
 function mark(m)
@@ -103,6 +261,7 @@ function refresh_kw_mall()
     shelf = {}
     init_pool()
     init_shelf()
+    refresh_time = get_next_time()
 end
 
 function buy(ply, index)
@@ -110,9 +269,18 @@ function buy(ply, index)
     if good and can_buy(ply ,index) then
         good.state = 1
     end
+    local conf = resmng.prop_mall_item[good.itemId]
+    if conf then
+        if ply:condCheck(conf.Pay) then
+            ply:consume(conf.Pay, 1, VALUE_CHANGE_REASON.KW_MALL_BUY)
+            ply:add_bonus("mutex_award", conf.Buy, VALUE_CHANGE_REASON.KW_MALL_BUY, 1, false)
+        end
+    end
     table.insert(gsBuffs, good.itemId)
     gPendingSave.status["kwState"].gsBuffs = gsBuffs
-    mark(good)
+    gPendingSave.status["globalBuf"].gsBuffs = gsBuffs
+    gPendingSave.status["kwState"].shelf = shelf
+    --mark(good)
 end
 
 function can_buy(ply, index)
@@ -133,8 +301,8 @@ function can_vote(ply, index)
     if not shelf[index] then 
         return false
     end
-    if not tools.can_date(ply.vote_time) then
-        return false
+    if can_date(ply.vote_time) then
+        return true
     end
     return true
 end
@@ -146,7 +314,7 @@ function want_buy(ply, index)
         if good then
             good.point = good.point + 1
         end
-        mark(good)
+        gPendingSave.status["kwState"].shelf = shelf
     end
 end
 

@@ -81,3 +81,4 @@ function Array.getData( self )
 	return self.data_
 end
 
+return Array

@@ -15,22 +15,29 @@ module_class(
     my_troop_id = 0,
     parent_id = 0,
     be_atk_tm = 0,
+    defend_id = 0,
     class = 0, --区分大裂隙还是小裂隙
     remain_troop = {},  --每次反击时剩余的部队
     be_atk_list = {},   -- 被攻打的玩家列表
     reward_pool = {},   -- 奖励池在活动结束发放
     act_plys = {},      -- 参加活动的玩家
+    be_atked_list = {}, --防守裂隙专用，限制防守裂隙被攻打次数
+    mc_reward_pool = {},
+    --atk_troops= {},    --攻击该城市的部队
+    --leave_troops = {},  --从该城市出发的部队
 
 }
 )
 
-topKillerByPid = topKillerByPid or {}
-topKillerByUid = topKillerByUid or {}
+local zset = require "frame/zset"
+
+topMcByPid = topMcByPid or {}
+topMcByUid = topMcByUid or {}
 
 initRedisList =
 {
-    "topKillerByPid",
-    "topKillerByUid"
+    "topMcByPid",
+    "topMcByUid"
 }
 
 function init_db(key)
@@ -55,10 +62,10 @@ function init_redis(key, info)
     local zset = zset.new()
     for k, v in pairs(info) do
         if k ~= "_id" and v ~= {} then
-            if key == "topKillerByPid" then
-                zset:add(v, k)
-             --   zset:add(v[ "hurt" ], v[ "pid" ])
-            elseif key == "topKillerByUid" then
+            if key == "topMcByPid" then
+                --zset:add(v, k)
+              zset:add(v[ "hurt" ], v[ "pid" ])
+            elseif key == "topMcByUid" then
                 zset:add(v[ "hurt" ], v[ "uid" ] )
               --  zset:add(v[2], v[1])
             end
@@ -68,33 +75,45 @@ function init_redis(key, info)
 end
 
 function try_update_ply_hurt(key, score)
+    local org_score = rank_mng.get_score(8, key) or 0
+    score = score + org_score
+    rank_mng.add_data(8, key, {score})
+
+
     local pid = tostring(key)
-    local topScore = topKillerByPid:score(pid) or 0
-        topHurtByPid:add(topScore + score, pid)
-        gPendingSave.status[ "topKillerByPid" ][ pid ] = {[ "pid" ] = pid, ["hurt"] = hurt}
+    local topScore = topMcByPid:score(pid) or 0
+        score = score + topScore
+        topMcByPid:add(score, pid)
+        gPendingSave.status[ "topMcByPid" ][ pid ] = {[ "pid" ] = pid, ["hurt"] = score}
 end
 
 function try_update_union_hurt(key, score)
+    local org_score = rank_mng.get_score(7, key) or 0
+    score = score + org_score
+    rank_mng.add_data(7, key, {score})
+
+
     local uid = tostring(key)
-    local topScore = topKillerByUid:score(uid) or 0
-        topHurtByUid:add(topScore + score, uid)
-        gPendingSave.status[ "topKillerByUid" ][ pid ] = {[ "pid" ] = pid, ["hurt"] = hurt}
+    local topScore = topMcByUid:score(uid) or 0
+        score = score + topScore
+        topMcByUid:add(score, uid)
+        gPendingSave.status[ "topMcByUid" ][ uid ] = {[ "uid" ] = uid, ["hurt"] = score}
 end
 
 function get_top_ply_rank(key)
     local pid = tostring(key)
-    local topKillers = topKillerByPid:range(1, 200) or {}
-    local myScore = topKillerByPid:score(pid) or 0
-    local myRank = topKillerByPid:rank(pid) or 0
+    local topKillers = topMcByPid:range(1, 200) or {}
+    local myScore = topMcByPid:score(pid) or 0
+    local myRank = topMcByPid:rank(pid) or 0
     --print( topKillers, {myScore, myRank})
     return topKillers, myScore, myRank
 end
 
 function get_top_union_rank(key)
     local uid = tostring(key)
-    local topKillers = topKillerByUid:range(1, 200) or {}
-    local myScore = topKillerByUid:score(pid) or 0
-    local myRank = topKillerByUid:rank(pid) or 0
+    local topKillers = topMcByUid:range(1, 200) or {}
+    local myScore = topMcByUid:score(pid) or 0
+    local myRank = topMcByUid:rank(pid) or 0
     --print( topKillers, {myScore, myRank})
     return topKillers, myScore, myRank
 end
@@ -109,7 +128,12 @@ can_atk_stage =
 
 citys = citys or {}
 
-function init()
+function init(self)
+    local db = dbmng:getOne()
+    local info = db.monster_city:findOne({_id = self._id})
+    if not info then
+        gPendingInsert.monster_city[ self._id ] = self._pro
+    end
     -- to do
 end
 
@@ -128,6 +152,7 @@ function load_monster_city()
         print("monster city eid = ", m.eid)
         etypipe.add(m)
     end
+    init_redis_list()
 end
 
 function can_atk_mc(self, ply)
@@ -164,15 +189,16 @@ end
 function gen_monster_city(atkEid)
     local npcCity = gEtys[atkEid]
     if npcCity then
-        local m = monster_city.new({})
+        local _id = get_eid_monster_city()
+        local m = monster_city.new({_id = _id})
         local prop = get_conf_by_npc(npcCity)
         if prop then
-            m.eid = get_eid_monster_city()
-            m._id = m.eid
+            m.eid = _id
+            mark_eid(m.eid)
             m.propid = prop.ID
             m.size = prop.Size or 4
            -- local x, y =  c_get_pos_in_zone(math.abs(math.floor(npcCity.x / 16) + math.random(-3, 3)), math.abs(math.floor(npcCity.y / 16) + math.random(-3, 3)), r, r)
-            local x, y = get_pos_in_range(math.floor(npcCity.x/16), math.floor(npcCity.y/16), 3, 3, m.size)
+            local x, y = get_pos_in_range(math.floor(npcCity.x/16), math.floor(npcCity.y/16), 1, 1, m.size)
             print("debug  city x y", x, y)
             m.x = x
             m.y = y
@@ -192,6 +218,7 @@ function get_pos_in_range(x, y, offsetx, offsety, r)
     local i = 0
     local j = 0
     local list = {}
+    local lv = c_get_zone_lv(x, y)
     for i = (x-offsetx), (x+offsetx) do
         for j = (y-offsety), (y+offsety) do
             table.insert(list, {i, j})
@@ -204,7 +231,10 @@ function get_pos_in_range(x, y, offsetx, offsety, r)
         table.remove(list, index)
         local x, y = c_get_pos_in_zone(math.abs(pos[1]), math.abs(pos[2]), r,r)
         if x and y then
-            return x, y
+            local level = c_get_zone_lv(math.floor(x/16), math.floor(y/16))
+            if level == lv then
+                return x, y
+            end
         end
     end
 end
@@ -212,11 +242,13 @@ end
 function gen_small_city(pid, prop, parentId)
     local ply = getPlayer(pid)
     if ply then
-        local m = monster_city.new({})
+        --local m = monster_city.new({})
+        local m = {}
         local r = prop.Size  or 1
         m.eid = get_eid_monster_city()
+        mark_eid(m.eid)
         m._id = m.eid
-        m.x, m.y = get_pos_in_range(math.floor(ply.x/16), math.floor(ply.y/16), 4, 4, r)
+        m.x, m.y = get_pos_in_range(math.floor(ply.x/16), math.floor(ply.y/16), 1, 1, r)
         m.endTime = gTime + 30 * 60
         m.propid= prop.City
         m.atk_eid = ply.eid
@@ -224,6 +256,7 @@ function gen_small_city(pid, prop, parentId)
         m.parent_id = parentId
         m.class = MC_TYPE.ATK_PLY   -- 小裂隙
         gEtys[m.eid] = m
+        m = new(m)
         etypipe.add(m)
     print("small city  atk ply  city x %d, y %d,  propid %d", m.x, m.y, prop.ID, prop.City)
         prop = resmng.prop_world_unit[prop.City]
@@ -234,31 +267,35 @@ function gen_small_city(pid, prop, parentId)
 end
 
 function gen_defense_city(city, prop)
-        local m = monster_city.new({})
-        local r = prop.Size  or 1
-        m.eid = get_eid_monster_city()
-        m._id = m.eid
-        m.size = r
-        m.propid = prop.DefCity
-        m.x, m.y = get_pos_in_range(math.floor(city.x/16), math.floor(city.y/16), 1, 1, r)
-        --m.x, m.y =  c_get_pos_in_zone( math.abs(math.floor(city.x / 16) + math.random(-1, 1)), math.abs(math.floor(city.y / 16) + math.random(-1, 1)), r, r)
-        m.startTime = gTime
-        m.endTime = gTime + 30 * 60
-        m.band_eid = city.eid
-        --citys[m.atk_eid] = m.eid
-        gEtys[m.eid] = m
-        m.class = MC_TYPE.DEF_ATK   -- 防守裂隙
-        print("defense city", m.x , m.y)
-        etypipe.add(m)
-        timer.new("remove_mc", 30 * 60, m.eid)
+    local eid = get_eid_monster_city()
+    local m = monster_city.new({_id = eid})
+    local r = prop.Size  or 1
+    m.eid = eid
+    m.size = r
+    m.propid = prop.DefCity
+    m.x, m.y = get_pos_in_range(math.floor(city.x/16), math.floor(city.y/16), 1, 1, r)
+    --m.x, m.y =  c_get_pos_in_zone( math.abs(math.floor(city.x / 16) + math.random(-1, 1)), math.abs(math.floor(city.y / 16) + math.random(-1, 1)), r, r)
+    m.startTime = gTime
+    m.endTime = gTime + 30 * 60
+    m.band_eid = city.eid
+    city.defend_id = m.eid
+    --citys[m.atk_eid] = m.eid
+    gEtys[m.eid] = m
+    m.class = MC_TYPE.DEF_ATK   -- 防守裂隙
+    print("defense city", m.x , m.y)
+    etypipe.add(m)
+    timer.new("remove_mc", 2 * 60 * 60, m.eid)
 end
 
 function remove_city(city)
     local bandCity = get_ety(city.band_eid)
     if bandCity then
-        local remain_troop = bandCity.remain_troop
+        local remain_troop = bandCity.remain_troop or {}
         table.insert(remain_troop, city.my_troop_id)
         bandCity.remain_troop = remain_troop
+        if bandCity.defend_id == city.eid then
+            bandCity.defend_id = nil
+        end
     end
 
     rem_ety(city.eid)
@@ -292,7 +329,11 @@ function monster_city_job(union, city, stage, time)
     end
 
     -- 生产防守裂隙
-    if can_atk_stage[stage] then
+    --[[if can_atk_stage[stage] then
+        gen_defense_city(city, prop)
+    end--]]
+
+    if prop.DefCity then
         gen_defense_city(city, prop)
     end
 
@@ -324,8 +365,12 @@ function gen_atk_list(self, union, atkNum)
             if num == atkNum then
                 break
             end
-            table.insert(list, k)
-            num = num + 1
+            
+            if (v._union.tmJoin - gTime) >= (12 * 3600) then
+                table.insert(list, k)
+                num = num + 1
+            end
+
         end
     end
     if list == {} then return{70006} else return list end
@@ -375,12 +420,18 @@ function gen_monster_and_atk(city, prop)
         action = TroopAction.SiegeMonsterCity
     end
 
+
     if destCity then
         local sx, sy = get_ety_pos(city)
         local dx, dy = get_ety_pos(destCity)
         
         --tr = troop_mng.create_troop(city.eid, destCity.eid, action, sx, sy, dx, dy)
         tr = troop_mng.create_troop(action, city, destCity) 
+        local union = unionmng.get_union(destCity.uid)
+        if union then
+            tr.mcStage = union.monster_city_stage
+        end
+        tr.mcid = prop.ID
         tr.owner_id = city.eid
         local arm = {}
         for _, v in pairs(prop.Arms) do
@@ -390,8 +441,8 @@ function gen_monster_and_atk(city, prop)
         tr:add_arm(0, {live_soldier = arm, heros = {0,0,0,0}})
     end
 
-
     if tr then
+        city.my_troop_id = tr._id
         tr:go()
         player_t.get_watchtower_info(tr)
     end
@@ -416,7 +467,7 @@ function get_my_troop(self)
         for _, v in pairs(conf.Arms) do
             arm[ v[1] ] = v[2]
         end
-        tr:add_arm(0, {live_soldier=arm, heros={0,0,0,0}})
+        tr:add_arm(0, {live_soldier=arm, heros=conf.Heros or {0,0,0,0}})
         self.my_troop_id = tr._id
     end
     if tr then 
@@ -476,20 +527,34 @@ end
 
 --怪物城被攻击
 function after_been_atk(atkTroop, defenseTroop)
+    troop_mng.send_report[TroopAction.AtkMC](atkTroop, defenseTroop)
     local mc = get_ety(atkTroop.target_eid)
+
     mc.be_atk_tm = gTime
     if check_atk_win(atkTroop, defenseTroop) then
         if mc then
+            
+            local score = math.floor(defenseTroop.lost) 
+            for pid, arm in pairs(atkTroop.arms or {}) do
+                local point = score * arm.mkdmg / atkTroop.mkdmg
+                try_update_ply_hurt(pid, math.floor(point))
+            end
+
             local parentCity = get_ety(mc.parent_id)
             if parentCity then
                 local reward = get_small_mc_reward(mc)
-                local pool = parentCity.reward_pool or {}
+                --[[local pool = parentCity.reward_pool or {}
                 table.insert(pool, reward)
-                parentCity.reward_pool = pool
+                parentCity.reward_pool = pool--]]
                 add_act_plys(parentCity, atkTroop)
+                local union = unionmng.get_union(atkTroop.owner_uid)
+                if union then
+                    try_update_union_hurt(atkTroop.owner_uid, score)
+                    parentCity:add_mc_reward(union, reward)
+                end
             end
-        rem_ety(mc.eid)
         end
+        rem_ety(mc.eid)  -- 打赢消失
     end
     if is_ply(atkTroop.owner_eid) then
         atkTroop:back()
@@ -497,24 +562,26 @@ function after_been_atk(atkTroop, defenseTroop)
 end
 
 function send_act_award(mc)
-    for k, v in pairs(mc.act_plys) do
-
+    for k, v in pairs(mc.act_plys or {}) do
+        local ply = getPlayer(k)
+        if ply then
+            ply:send_system_notice(10006, {}, mc.mc_reward_pool or {})
+        end
     end
 end
 
 --怪物城攻击玩家
 function after_fight(atkTroop, defenseTroop)
     local mc = get_ety(atkTroop.owner_eid)
-    if check_atk_win(atkTroop, defenseTroop) then
+    if mc and check_atk_win(atkTroop, defenseTroop) then
         local npcCity = get_ety(atkTroop.target_eid)
-        local union = unionmng.get_union(defenseTroop.union_id)
+        local union = unionmng.get_union(defenseTroop.owner_uid)
 
         if union and npcCity then
            local citys = union.npc_citys or {}
            citys[npcCity.eid]  = nil
            union.npc_citys = citys
-           npcCity.uid = npcCity.propid
-           npcCity.my_troop_id = nil
+           npcCity:reset_npc()
            timer.del(union.mc_timer)
         end
 
@@ -530,16 +597,39 @@ function after_fight(atkTroop, defenseTroop)
 
     else
         if mc then
+            for pid, arm in pairs(defenseTroop.arms or {}) do
+                local score = atkTroop.lost * arm.mkdmg / defenseTroop.mkdmg or 0
+                try_update_ply_hurt(pid, math.floor(score))
+            end
+
+            --local score = defenseTroop.get_tr_pow(atkTroop)
+            local score = math.floor(atkTroop.lost)
             local reward = get_mc_reward(mc)
-            local pool = mc.reward_pool or {}
-            table.insert(pool, reward)
-            mc.reward_pool = pool
+            local union = unionmng.get_union(defenseTroop.owner_uid)
+            if union then
+                mc:add_mc_reward(union,reward)
+                try_update_union_hurt(defenseTroop.owner_uid, score)
+            end
+
             add_act_plys(mc, defenseTroop)
         end
     end
 
     troop_mng.delete_troop(atkTroop._id)
 end
+
+
+function add_mc_reward(self, union, rewards) 
+    local pool = self.mc_reward_pool
+    for k, v in pairs(rewards) do
+        if v[2] == 11 then
+            union.mc_point = union.mc_point + v[3]
+        end
+        table.insert(pool, v)
+    end
+    self.mc_reward_pool = pool
+end
+
 
 --增加活跃玩家列表
 function add_act_plys(mc, troop)
@@ -559,9 +649,13 @@ function after_atk_ply(atkTroop, defenseTroop)
             local parentCity = get_ety(mc.parent_id)
             if parentCity then
                 local reward = get_small_mc_reward(mc)
-                local pool = parentCity.reward_pool or {}
+                --[[local pool = parentCity.reward_pool or {}
                 table.insert(pool, reward)
-                parentCity.reward_pool = pool
+                parentCity.reward_pool = pool--]]
+                local union = unionmng.get_union(defenseTroop.owner_uid)
+                if union then
+                    parentCity:add_mc_reward(union, reward)
+                end
                 local acts = parentCity.act_plys or {}
                 acts[defenseTroop.owner_pid] = defenseTroop.owner_pid
                 parentCity.act_plys = acts
@@ -597,7 +691,9 @@ function get_mc_reward(city)
     if prop then 
         for k, v in pairs(prop.Reward) do
             local award = player_t.bonus_func[ v[1] ](prop, v[2])
-            table.insert(Rewards, award)
+            for _, gift in pairs(award) do
+            table.insert(Rewards, gift)
+            end
         end
     end
     return Rewards
@@ -628,4 +724,125 @@ function eye_info(city, pack)
     pack.state = city.state
 end
 
+function add_atk_troop(city, troopId) -- 增加前来攻击的部队
+    local atk_troops = city.atk_troops or {}
+    atk_troops[troopId] = troopId
+    city.atk_troops = atk_troops
+    city.atk_tr_tag = nil
+end
+
+function rem_atk_troop(city, troopId)
+    local atk_troops = city.atk_troops or {}
+    if atk_troops[troopId] then
+        atk_troops[troopId] = nil
+        city.atk_troops = atk_troops
+        city.atk_tr_tag = nil
+    end
+end
+
+function add_leave_troop(city, troopId) -- 增加前来攻击的部队
+    local leave_troops = city.leave_troops or {}
+    leave_troops[troopId] = troopId
+    city.leave_troops = leave_troops
+    city.leave_tr_tag = nil
+end
+
+function rem_leave_troop(city, troopId)
+    local leave_troops = city.leave_troops or {}
+    if leave_troops[troopId] then
+        leave_troops[troopId] = nil
+        city.leave_troops = leave_troops
+        city.leave_tr_tag = nil
+    end
+end
+
+function get_fast_troop(city, mode)
+    local troops = {}
+    if mode ==  ETY_TROOP.ATK then
+        troops = city.atk_troops
+    elseif mode == ETY_TROOP.LEAVE then
+        troops = city.leave_troops
+    end
+    
+    if city[mode] then
+        local tr = troop_mng.get_troop( city[mode])
+        if tr then return tr end
+    else
+        local troop = cal_fast_troop(troops)
+        if troop then
+            city[mode] = troop._id
+            return troop
+        end
+    end
+end
+
+function cal_fast_troop(troops)
+    if not troops then return end
+
+    local tmOver = 0
+    local troop = {}
+    local dels = {}
+    for k, v in pairs(troops) do
+        local tr =  troop_mng.get_troop(v)
+        if tr and tr.tmOver then
+            if tmOver == 0 or tmOver <= tr.tmOver then
+                troop = tr
+                tmOver = tr.tmOver
+            end
+        else
+            table.insert( dels, k )
+        end
+    end
+    if #dels > 0 then
+        for _, v in pairs(dels) do
+            troops[v] = nil
+        end
+    end
+
+    if troop ~= {} then return troop end
+
+end
+
+function can_atk_def_mc(self, pid)
+    if  self.be_atked_list[pid] then
+        return false
+    end
+    return true
+end
+
+function send_score_reward()
+    local prop = resmng.prop_mc_person_rank_award
+    if prop then
+        for k, v in pairs(prop) do
+            local plys = rank_mng.get_range(8, v.Rank[1], v.Rank[2])
+            for idx, pid in pairs(plys or {}) do
+                local score = rank_mng.get_score(8, tonumber(pid)) or 0
+                    local ply = getPlayer(tonumber(pid))
+                    if ply then
+                        ply:send_system_notice(10009, {idx}, v.Award)
+                    end
+            end
+        end
+    end
+
+    local u_award = resmng.prop_mc_union_rank_award
+    if u_award then 
+        for k, v in pairs(u_award) do
+            local unions = rank_mng.get_range(7, v.Rank[1], v.Rank[2])
+            for idx, uid in pairs(unions or {}) do
+                uid = tonumber(uid)
+                local union = unionmng.get_union(uid)
+                if union then
+                    for pid, ply in pairs(union._members) do
+                        local score = rank_mng.get_score(8, tonumber(pid)) or 0
+                            local ply = getPlayer(tonumber(pid))
+                            if ply then
+                                ply:send_system_notice(10010, {idx}, v.Award)
+                            end
+                    end
+                end
+            end
+        end
+    end
+end
 

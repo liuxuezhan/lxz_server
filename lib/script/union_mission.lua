@@ -26,7 +26,7 @@ _ce = {--军团人数上限对应任务等级
 _tm_limit= 4*60*60--完成时限
 _tm_newlimit= 1*60*60--新手军团完成时限
 _rr= {--任务抽取概率
-1,1,1,1,1,1,1,1,1,1
+1,1,1,1,1,1,1,1,
 }
 
 function load()--启动加载
@@ -66,15 +66,15 @@ function get_class(r,new)--任务类型
     if new then
         local r =  math.random(1,3)
         if r==1 then
-            r= 3
+            r = 3
         elseif r==2 then
-            r=4
+            r = 4
         elseif r==3 then
-            r = 7
+            r = 6
         end
         return r 
     else
-        local t =  math.ceil((gTime - gSysStatus.start)/24*60*60)
+        local t =  math.ceil((gTime - gSysStatus.start)/24*60*60)--开服固定
         if t<10 then
             return t 
         end
@@ -98,21 +98,9 @@ function get(pid,uid)--获取军团定时任务
         class  = 3
     end
 
-    if (not _d[uid]) then
-        _d[uid]= {
-            _id=uid,
-            propid  = get_propid(uid),--任务id
-            class  = class,--任务品质
-            tm  = gTime ,
-            tm_update  = 0 ,
-            exp  = 0 ,
-            state  = state,
-            cur_item = 0,
-            log = {},
-            sort = {},
-        }
-        gPendingSave.union_mission[uid] = _d[uid]
-    elseif (not u.new_union_sn and can_date(_d[uid].tm) ) and( u.new_union_sn and (gTime-_d[uid].tm)>_tm_newlimit ) then
+    if (not _d[uid]) then _d[uid]= { tm  = 0, } end
+
+    if (not u.new_union_sn and can_date(_d[uid].tm) ) or ( u.new_union_sn and (gTime-_d[uid].tm)>_tm_newlimit ) then
         _d[uid]= {
             _id=uid,
             propid  = get_propid(uid),
@@ -126,6 +114,9 @@ function get(pid,uid)--获取军团定时任务
             sort = {},
         }
         gPendingSave.union_mission[uid] = _d[uid]
+        for k,v in pairs (u._members or {}) do
+            ok(v,UNION_MISSION_CLASS.ACTIVE,v.activity)
+        end
     end
     local list = copyTab(_d[uid])
     list.log = nil
@@ -137,20 +128,21 @@ function get(pid,uid)--获取军团定时任务
     end
     list.cur_num = get_num(uid) 
     list.exp_limit=(list.class+1)*50
-    local num = 1
-    for k,v in pairs (_d[uid].log) do
-        if v.pid == pid  then
-            num = num + 1
-        end
-    end
-
     list.gold = get_gold(pid,uid) 
+    local p = getPlayer(pid)
+    if p then
+        list.tm_mission = p._union.tm_mission 
+    end
     return list 
 end
 
 function get_num(uid)
     local num = 0 
-    for _,v in pairs (_d[uid].sort) do
+    if not _d[uid] then
+        WARN("")
+        return 0
+    end
+    for _,v in pairs (_d[uid].sort or {} ) do
         num = num + v.num 
     end
     return num
@@ -256,6 +248,10 @@ function ok(ply,cond,num)--完成军团任务
         return
     end
     local c = resmng.get_conf("prop_union_task",d.propid)
+    if not c then
+        WARN("没有任务:"..d.propid)
+        return 
+    end
     local u = unionmng.get_union(d._id)
     if not u then return end
     local cur_num = get_num(ply.uid)
@@ -266,7 +262,7 @@ function ok(ply,cond,num)--完成军团任务
         num = c.Count - cur_num
     end
 
-    if cond == d.class then
+    if cond == c.Class then
         if ((not u.new_union_sn and gTime > d.tm + _tm_limit) or (u.new_union_sn and gTime > d.tm + _tm_newlimit) )then
         else
             if not _d[ply.uid].sort[ply.pid] then
@@ -286,6 +282,10 @@ function add(uid)--领取军团任务奖励
         return
     end
     local c = resmng.get_conf("prop_union_task",d.propid)
+    if not c  then
+        WARN("没有任务:"..d.propid)
+        return 
+    end
     local num = get_num(uid) 
     local mode = 0 
     num = (num*100/c.Count)
@@ -308,8 +308,15 @@ function add(uid)--领取军团任务奖励
             local u = unionmng.get_union(uid)
             if u then
                 for _,v  in pairs(u._members ) do
-                    union_item.add(v.pid,cc.Item,UNION_ITEM.TASK)
+                    if (not can_date(v._union.tm_mission)) and (v._union.cur_item > d.cur_item) then
+                    else
+                        union_item.add(v,cc.Item,UNION_ITEM.TASK)
+                        v._union.tm_mission = gTime 
+                        v._union.cur_item = d.cur_item 
+                        gPendingSave.union_member[v.pid].tm_mission = v._union.tm_mission  
+                    end
                 end
+                u:add_log(resmng.UNION_EVENT.MISSION,resmng.UNION_MODE.OK,{ propid=c.propid })
             end
         end
     end

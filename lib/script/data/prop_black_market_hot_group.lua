@@ -27,4 +27,5 @@ prop_black_market_hot_group = {
 	[MARKET_HOT_GROUP_18] = { ID = MARKET_HOT_GROUP_18, Point = 30000, Group = 6,},
 	[MARKET_HOT_GROUP_19] = { ID = MARKET_HOT_GROUP_19, Point = 35000, Group = 6,},
 	[MARKET_HOT_GROUP_20] = { ID = MARKET_HOT_GROUP_20, Point = 40000, Group = 6,},
+	[MARKET_HOT_GROUP_21] = { ID = MARKET_HOT_GROUP_21, Point = 50000, Group = 6,},
 }

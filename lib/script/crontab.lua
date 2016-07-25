@@ -21,3 +21,16 @@ function union_donate_summary()
 end
 
 
+function start_tw()
+    npc_city.start_tw()
+end
+
+function end_tw()
+    npc_city.end_tw()
+end
+
+function reset_kw_mall()
+    kw_mall.refresh_kw_mall()
+end
+
+

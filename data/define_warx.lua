@@ -350,6 +350,7 @@ function warx_init()
     do_load("gacha_limit_t")
     do_load("kw_mall")
     do_load("use_item_logic")
+    do_load("rank_mng")
 
     do_load("gmmng")
     local rt = restore_handler.action()

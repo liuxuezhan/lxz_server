@@ -1,0 +1,19 @@
+module("Protocol")
+
+Server = {
+    firstPacket = "int id, string account, string pasw",
+    login = "",
+    onBreak = "",
+    getTime = "",
+    loadData = "string what",
+    addGold = "int num",
+}
+
+
+Client = {
+    getTime = "int gTime",
+    statePro = "pack chgs",
+    loadData = "pack info",
+    onLogin = "int pid, string name",
+}
+

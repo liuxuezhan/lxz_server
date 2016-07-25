@@ -6,13 +6,13 @@ function new()--创建新手军团
     local id = getId("union")
     _id = _id + 1
     local data = {
-        uid=id,_id=id,name=name,alias=alias,level=1,language=40,credit=0,
-        membercount=1,note_in="",note_out="",invites = {},new_union_sn=_id
+        uid=id,_id=id,name=name,alias=alias,level=1,language=42,credit=0,
+        membercount=0,note_in="",note_out="",invites = {},new_union_sn=_id
     }
     local union = union_t.new(data)
 
     unionmng.add_union(union)
-    dbmng:getOne().union:insert(union._pro)
+    gPendingSave.union[union._id] = union._pro
     gPendingSave.union_log[id] = {_id=id}
 
     union_mission.get(id)
@@ -22,8 +22,7 @@ end
 function add(p)--加入新手军团
     for _, u in pairs(unionmng.get_all()) do
         if u.new_union_sn then
-            if u.membercount < 195 then
-                u:add_member(p)
+            if u:add_member(p) then
                 return
             end
         end
@@ -42,12 +41,10 @@ function update(p)--玩家城堡等级改变处理
 
     if node.Lv > 2 then
         p:set_rank(resmng.UNION_RANK_2)
-        u:notifyall("member", resmng.OPERATOR.UPDATE, p:get_union_info())
     end
 
     if node.Lv > 3 then
         p:set_rank(resmng.UNION_RANK_3)
-        u:notifyall("member", resmng.OPERATOR.UPDATE, p:get_union_info())
     end
 
     if node.Lv > 5 then

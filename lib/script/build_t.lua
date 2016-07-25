@@ -16,8 +16,7 @@ module_class("build_t", {
 
 function create(idx, pid, propid, x, y, state, tmStart, tmOver)
     local _id = string.format("%d_%d", idx, pid)
-    local t = {_id=_id, map=gMapID, idx=idx, pid=pid, propid=propid, x=x, y=y, state=state or 0, tmStart=tmStart or 0, tmOver=tmOver or 0}
-    gPendingInsert.build[ _id ] = t
+    local t = {_id=_id, map=gMapID, idx=idx, pid=pid, propid=propid, x=x, y=y, state=state or 2, tmStart=tmStart or 0, tmOver=tmOver or 0, extra={}, bufs={}, hero_idx=0 }
     return new(t)
 end
 
@@ -26,7 +25,7 @@ function getData(self)
 end
 
 function on_check_pending(db, _id, chgs)
-    gPendingSave.build[ _id ] = chgs
+    db.build:update( {_id=_id}, { ["$set"] = chgs }, true )
     local idx, pid = string.match(_id, "(%d+)_(%d+)")
     local p = getPlayer(tonumber(pid))
     if p then
@@ -88,20 +87,12 @@ function acceleration(self, secs)
             end
 
         else
-            if self.tmOver > gTime then self.tmOver = self.tmOver - secs end
+            if self.tmOver > gTime then 
+                self.tmStart = self.tmStart - secs 
+                self.tmOver = self.tmOver - secs 
+            end
             if self.tmSn > 0 then timer.acc(self.tmSn, secs) end
         end
-
-        --if self.state == BUILD_STATE.WORK then
-        --    local info = self.extra
-        --    local speed = info.speed
-        --    local cache = info.cache
-        --    local start = info.start
-        --    local count = info.count
-        --    cache = cache + speed * (gTime - start + secs)
-        --    if cache > count then cache = count end
-        --    self:set_extras({ cache=cache, start=gTime })
-        --end
     end
 end
 
@@ -200,24 +191,24 @@ end
 -- Return   : NULL
 -- Others   : NULL
 --------------------------------------------------------------------------------
-function init(self)
-    local conf = resmng.get_conf("prop_build", self.propid)
-    if not conf then
-        ERROR("build_t.init: get conf failed. propid = %d.", self.propid)
-        return
-    end
-
-    if not self.extra then
-        self.extra = {}
-    end
-
-    -- 监狱
-    if conf.Class == BUILD_CLASS.FUNCTION and conf.Mode == BUILD_FUNCTION_MODE.PRISON then
-        if not self.extra.prisoners_info then
-            self.extra.prisoners_info = {}
-        end
-    end
-end
+--function init(self)
+--    local conf = resmng.get_conf("prop_build", self.propid)
+--    if not conf then
+--        ERROR("build_t.init: get conf failed. propid = %d.", self.propid)
+--        return
+--    end
+--
+--    if not self.extra then
+--        self.extra = {}
+--    end
+--
+--    -- 监狱
+--    if conf.Class == BUILD_CLASS.FUNCTION and conf.Mode == BUILD_FUNCTION_MODE.PRISON then
+--        if not self.extra.prisoners_info then
+--            self.extra.prisoners_info = {}
+--        end
+--    end
+--end
 
 
 --------------------------------------------------------------------------------
@@ -392,6 +383,8 @@ function get_ef(self)
 end
 
 function recalc(self)
+    if self.state ~= BUILD_STATE.WORK then return end
+
     local ef = self:get_ef()
     local prop = resmng.get_conf("prop_build", self.propid)
     local class = prop.Class
@@ -400,6 +393,9 @@ function recalc(self)
 
     if class == BUILD_CLASS.RESOURCE then
         local speed = self:get_extra("speed") or 0
+        local new_speed = math.floor( prop.Speed * ( 1 + ( role:get_num("SpeedRes_R", ef) + role:get_num(string.format("SpeedRes%d_R", prop.Mode), ef) ) * 0.0001 ) )
+        if speed == new_speed then return end
+
         local cache = self:get_extra("cache") or 0
         local start = self:get_extra("start") or gTime
         local count = self:get_extra("count") or 0
@@ -407,11 +403,7 @@ function recalc(self)
         cache = math.floor(cache + speed * (gTime - start) / 3600)
         if cache > count then cache = count end
 
-        --speed = prop.Speed * role:get_valr(string.format("SpeedRes%d", prop.Mode), role._ef, ef)
-        --count = prop.Count * role:get_valr(string.format("CountRes%d", prop.Mode), role._ef, ef)
-
-        speed = prop.Speed * ( 1 + ( get_num_by("SpeedRes_R", role._ef, ef) + get_num_by(string.format("SpeedRes%d_R", prop.Mode), role._ef, ef) ) * 0.0001 )
-        --count = prop.Count * ( 1 + ( get_num_by("CountRes_R", role._ef, ef) + get_num_by(string.format("CountRes%d_R", prop.Mode), role._ef, ef) ) * 0.0001 )
+        speed = new_speed
         count = math.ceil( speed * 10 )
 
         self:set_extra("speed", speed)
@@ -420,28 +412,33 @@ function recalc(self)
         self:set_extra("count", count)
         self:set_extra("speedb", prop.Speed)
         self:set_extra("countb", prop.Count)
-
         print("recalc, speed, cache, start, count = ", speed, cache, start, count)
 
     elseif class == BUILD_CLASS.ARMY then
         local speed = self:get_extra("speed") or 0
+        local speedb, speedm, speeda = get_nums_by("SpeedTrain", role._ef, ef)
+        local new_speed = 1 * (1 + speedm * 0.0001) + speeda
+        if math.floor( speed * 100 ) == math.floor( new_speed * 100 ) then return end
+
         local cache = self:get_extra("cache") or 0
         local start = self:get_extra("start") or gTime
+        print("train1,", speed, cache, start, gTime )
 
         local make = (gTime - start) * speed
         cache = cache + make
 
-        local speedb, speedm, speeda = get_nums_by("SpeedTrain", role._ef, ef)
-        speed = 1 * (1 + speedm * 0.0001) + speeda
-
+        speed = new_speed 
         self:set_extra("speed", speed)
         self:set_extra("cache", cache)
         self:set_extra("start", gTime)
+
+        print("train2,", speed, cache, start, gTime )
 
         local count = self:get_extra("count")
         local need = count - cache 
         need = math.ceil(need / speed)
 
+        print("train,", count, need, speed )
         print("build_arm, recalc, old, new, speed = ", self.tmOver - gTime, need, speed)
 
         self.tmOver = gTime + need
@@ -454,9 +451,7 @@ end
 function imprison(self, hero, dura)
     local id = hero._id
     local info = self:get_extra("prisoners_info")
-    if not info then 
-        info = {} 
-    end
+    if not info then info = {} end
     dura = dura or 10
     if dura < 1 then dura = 1 end
 

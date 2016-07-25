@@ -180,9 +180,8 @@ function mongo_db:runCommand(cmd,cmd_v,...)
 	-- todo: check send
 	socket.write(sock, pack)
 
-    LOG("runCommand, before get_reply")
 	local _, succ, reply_id, doc = get_reply(request_id, sock)
-    LOG("runCommand, after get_reply")
+    --LOG("runCommand, get_reply")
 	assert(request_id == reply_id, "Reply from mongod error")
 	-- todo: check succ
 	return bson_decode(doc)

@@ -10,6 +10,9 @@ topHurtByPid = topHurtByPid or {}
 bossKillTimes = bossKillTimes or {}
 bossKillScore = bosskillScore or {}
 bossHurtRankByPropid = bossHurtRankByPropid  or {}
+
+can_atk_monster = {}
+
 initDbList = 
 { 
   "bossKillTimes",
@@ -44,6 +47,12 @@ function try_update_top_hurt(key, hurt)
 end
 
 function update_top_killer(key)
+    local org_score = rank_mng.get_score(11, key) or 0
+    score = 1 + org_score
+    rank_mng.add_data(11, key, {score})
+
+
+
     local pid = tostring(key)
     local topKiller = topKillerByPid:score(pid) or 0
     topKillerByPid:add(topKiller + 1, pid)
@@ -261,6 +270,17 @@ function respawn(tx, ty, grade)
     end
 end
 
+function boss_notify(monster)
+    if monster.lv > 2 then
+
+        Rpc:tips({pid=-1,gid=_G.GateSid}, 2,resmng.NOTIFY_UNION_CREATE,{},{})
+
+        Rpc:chat({pid=-1,gid=_G.GateSid}, 0, 0, 0, "system", string.format("super monster gen ,", conf.Chat))
+    end
+
+end
+
+
 -- refrash elite boss at utc 0
 function reset_boss()
     --删除之前的boss
@@ -361,21 +381,21 @@ function load_from_db()
     local have = {}
     while info:hasNext() do
         local m = info:next()
-        setmetatable(m, _mt)
-        gEtys[ m.eid ] = m
-        mark_eid(m.eid)
-        if m.grade >= 2 and m.grade < 4 then
-            boss[m.eid] = m.eid
+        if m.hp > 0 then
+            setmetatable(m, _mt)
+            gEtys[ m.eid ] = m
+            mark_eid(m.eid)
+            if m.grade >= 2 and m.grade < 4 then
+                boss[m.eid] = m.eid
+            end
+            etypipe.add(m)
+            checkin(m)
+        else
+            gPendingDelete.monster[ m._id ] = 0 
         end
-
-        print("boss m.eid =", m.eid)
-        etypipe.add(m)
-        checkin(m)
     end
-       init_global()
-       try_upgrade_stage() 
-
-       --test_monster()
+   init_global()
+   try_upgrade_stage() 
 end
 
 function do_check(zx, zy)
@@ -713,10 +733,156 @@ function get_my_troop(self)
         for _, v in pairs(conf.Arms) do
             arm[ v[1] ] = v[2]
         end
-        tr:add_arm(0, {live_soldier=arm, heros={0,0,0,0}})
+        tr:add_arm(0, {live_soldier=arm, heros=conf.Heros or {0,0,0,0}})
     end
     if tr then 
         --self.my_troop_id = tr._id
         return tr
+    end
+end
+
+function calc_hp( self, troop )
+    local cur = 0
+    local max = 0
+    for _, arm in pairs(troop.arms) do
+        local live = arm.live_soldier or {}
+        local dead = arm.dead_soldier or {}
+
+        for id, num in pairs(live) do
+            local conf = resmng.get_conf("prop_arm", id)
+            if conf then
+                cur = cur + conf.Pow * num
+                max = max + conf.Pow * (num + (dead[ id ] or 0)) 
+            end
+        end
+    end
+
+    local lost = math.floor((max-cur) * 100 / max + 0.1)
+    self.hp_before = self.hp
+    if self.hp <= lost then
+        lost = self.hp
+        self.hp = 0
+    else
+        self.hp = self.hp - lost
+        self.hp = math.floor(self.hp)
+    end
+end
+
+function make_reward_num(key, rewards, factor, pid, monster)
+    local newFactor = 1
+    if key == "base" then
+        local ply = getPlayer(pid)
+        local prop = resmng.prop_world_unit[monster.propid]
+        if ply and prop then
+            newFactor = math.max(0.1, math.min(1, (ply.lv - prop.Lv)/prop.Attenuation))
+        end
+        
+    end
+    for k, v in pairs(rewards) do
+        v[3] =  math.floor( v[3] * factor * newFactor)
+    end
+end
+
+function get_jungle_reward(self, pid, mkdmg, totalDmg )
+    local rewards = {}
+    for k, v in pairs(self.rewards) do
+        if k == "fix" then  -- fix award
+            rewards[ k ] = v
+        elseif k == "base" or k == "extra" then  -- base  extra award
+            make_reward_num(k, v, mkdmg / totalDmg, pid, self )
+            if totalDmg == 0 then
+                rewards[ k ] = v
+            else
+                rewards[ k ] = v
+            end
+        elseif k == "final" and self.hp <= 0 then
+            rewards[k] = {}
+            for key, award in pairs(v) do
+                table.insert(rewards[ k ], award[1])
+            end
+        elseif k == "unit" and self.hp <= 0 then
+            local ply = getPlayer(pid)
+            if ply then
+                local union = unionmng.get_union(ply.uid)
+                if union then
+                    for _, meb  in pairs(union._members ) do
+                        if meb:get_castle_lv() >= 6 and v then  --6级一下无礼包
+                            --print("monster.lua:793", v[1][2], ",", UNION_ITEM.BOSS, ",", self.propid, ",", pid)
+                            --union_item.add(meb, v[1][2], UNION_ITEM.BOSS, self.propid, pid)
+                            meb:add_bonus(v[1], v[2], VALUE_CHANGE_REASON.REASON_MONSTER)
+                        end
+                    end
+                end
+            end
+            -- final award to do
+        end
+    end
+    return rewards
+end
+
+
+can_atk_monster[BOSS_TYPE.NORMAL] = function(ply)
+    return true
+end
+can_atk_monster[BOSS_TYPE.ELITE] = function(ply)
+
+    local union = unionmng.get_union(ply.uid)
+    if not union then
+        return false
+    elseif union.new_union_sn then
+--        return false
+    end
+
+    if npc_city.get_city_num(union.npc_citys, 4, OPT_TYPE.LT) < 1 then
+        return false
+    end
+    return true
+end
+can_atk_monster[BOSS_TYPE.LEADER] = function(ply)
+
+    local union = unionmng.get_union(ply.uid)
+    if not union then
+        return false
+    elseif union.new_union_sn then
+        return false
+    end
+
+    if npc_city.get_city_num(union.npc_citys, 3, OPT_TYPE.LT) < 1 then
+        return false
+    end
+    return true
+end
+can_atk_monster[BOSS_TYPE.SUPER] = function(ply)
+    local union = unionmng.get_union(ply.uid)
+    if not union then
+        return false
+    elseif union.new_union_sn then
+        return false
+    end
+
+    local king = king_city.get_king()
+    if king then
+        if king.uid ~= ply.uid then
+            return false
+        end
+    end
+
+    return true
+end
+
+
+function send_score_reward()
+    local prop = resmng.prop_boss_rank_award
+    if prop then
+        for k, v in pairs(prop) do
+            local plys = rank_mng.get_range(11, v.Rank[1], v.Rank[2])
+            for idx, pid in pairs(plys or {}) do
+                local score = rank_mng.get_score(11, tonumber(pid)) or 0
+                    local ply = getPlayer(tonumber(pid))
+                    if ply then
+                        ply:send_system_notice(10015, {idx}, v.Award)
+                    end
+            end
+        end
     end
 end

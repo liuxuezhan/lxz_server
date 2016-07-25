@@ -35,13 +35,15 @@ function create(ply, uid, rank)
         donate = 0,                 --可用捐献
         donate_data = {0,0,0,0},    --捐献记录
         techexp_data = {0,0,0,0},   --捐献获得的科技经验记录
-        buildlv = {},               --建筑捐献记录
         mark = "",                   --联盟标记
         tmJoin = 0,                 --加入联盟的时间
         tmLeave = 0,                --离开联盟的时间
         donate_flag = 0,            --可否捐献
         tmDonate = 0,               --捐献cd
-        god_log = {lv=0,tm=0},               --战神膜拜记录
+        buildlv = {},               
+        god_log = {lv=0,tm=0},       --战神膜拜记录
+        tm_mission = 0,               
+        cur_item = 0, --已领军团任务奖励
     }
     gPendingSave.union_member[ply.pid] = data 
     ply._union = data
@@ -149,12 +151,23 @@ function add_donate_cooldown(ply, tm)
 end
 
 function clear_tmdonate(ply)
-    local g = 0
     if ply._union.tmDonate > gTime then
-        g = calc_acc_gold(ply._union.tmDonate-gTime)
-        if ply:doUpdateRes(resmng.DEF_RES_GOLD, -g, VALUE_CHANGE_REASON.UNION_DONATE) then 
+        ply._union.CD_doante_num  = ply._union.CD_doante_num or 0  
+        local g =  0  
+        if ply._union.CD_doante_num < #resmng.CLEAR_DONATE_COST then       
+            g = resmng.CLEAR_DONATE_COST[ply._union.CD_doante_num +1]       
+        else
+            g = resmng.CLEAR_DONATE_COST[#resmng.CLEAR_DONATE_COST]       
+        end
+         
+        if (ply._union.tmDonate - gTime)< tm_cool then
+            g = math.floor((ply._union.tmDonate - gTime) /tm_cool*g) 
+        end
+
+        if ply:do_dec_res(resmng.DEF_RES_GOLD, g, VALUE_CHANGE_REASON.UNION_DONATE) then 
             ply._union.donate_flag = 0
             ply._union.tmDonate = gTime
+            ply._union.CD_doante_num = ply._union.CD_doante_num + 1 
             gPendingSave.union_member[ply.pid] = ply._union 
         end
     end
@@ -172,8 +185,7 @@ function leave_union(ply)
     ply._union.title = ""
     ply._union.rank = 0
     ply._union.tmJoin = 0
-    ply._union.donate_flag = 0
-    ply._union.tmDonate = 0
+    ply._union.donate_flag = 1
     clear_donate_data(ply,resmng.DONATE_RANKING_TYPE.DAY)
     clear_donate_data(ply,resmng.DONATE_RANKING_TYPE.WEEK)
     clear_donate_data(ply,resmng.DONATE_RANKING_TYPE.UNION)

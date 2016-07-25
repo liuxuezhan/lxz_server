@@ -18,6 +18,3 @@ function do_public_gm(self, tb)
 end
 
 
-
-
-

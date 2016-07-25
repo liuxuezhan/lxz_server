@@ -31,9 +31,9 @@ _example = {
     talent_skill = 0,
     quality      = HERO_QUALITY_TYPE.ORDINARY,
     nature       = HERO_NATURE_TYPE.STRICT,
+    status       = HERO_STATUS_TYPE.FREE,
     culture      = CULTURE_TYPE.EAST,
     build_idx    = 0,    -- 所派遣建筑的idx
-    status       = HERO_STATUS_TYPE.FREE,
 
     tmSn         = 0,
     tmStart      = 0,
@@ -55,15 +55,13 @@ local hero_mt = {
 
     __newindex = function (tab, key, val)
         if _example[key] then
-            if tab._pro[key] ~= val then
-                tab._pro[key] = val
-                local n = _cache[tab._id]
-                if not n then
-                    n = {}
-                    _cache[tab._id] = n
-                end
-                n[key] = val
+            tab._pro[key] = val
+            local n = _cache[tab._id]
+            if not n then
+                n = {}
+                _cache[tab._id] = n
             end
+            n[key] = val
         else
             rawset(tab, key, val)
         end
@@ -236,15 +234,18 @@ end
 
 function get_ef(self)
     local ef = {}
-    for _, skillid in pairs(self.basic_skill) do
-        local conf = resmng.get_conf("prop_skill", skillid)
-        if conf then
-            for _, v in pairs(conf.Effect) do
-                if v[1] == "AddBuf" and v[3] == 0 then
-                    local buf = resmng.get_conf("prop_buff", v[2])
-                    if buf then
-                        for key, val in pairs(buf.Value) do
-                            ef[ key ] = (ef[key] or 0) + val
+    for _, skill in pairs(self.basic_skill) do
+        local skillid = skill[1] 
+        if skillid ~= 0 then
+            local conf = resmng.get_conf("prop_skill", skillid)
+            if conf and conf.Class ~= 20 then -- 20 is Talent Skill
+                for _, v in pairs(conf.Effect) do
+                    if v[1] == "AddBuf" and v[3] == 0 then
+                        local buf = resmng.get_conf("prop_buff", v[2])
+                        if buf then
+                            for key, val in pairs(buf.Value) do
+                                ef[ key ] = (ef[key] or 0) + val
+                            end
                         end
                     end
                 end
@@ -771,8 +772,9 @@ function change_basic_skill(self, skill_idx, skill_id, exp)
         return
     end
 
-    local old_skill_id = self.basic_skill[skill_idx] and self.basic_skill[skill_idx][1]
     self.basic_skill[skill_idx] = {skill_id, exp}
+    self.basic_skill = self.basic_skill
+
     LOG("change_basic_skill: hero._id = %s, skill_idx = %d, skill_id = %d, exp = %d", self._id, skill_idx, skill_id, exp)
     --任务
     local player = getPlayer(self.pid)
@@ -780,7 +782,7 @@ function change_basic_skill(self, skill_idx, skill_id, exp)
         task_logic_t.process_task(player, TASK_ACTION.LEARN_HERO_SKILL)
     end
 
-    if self.status == HERO_NATURE_TYPE.BUILDING then
+    if self.status == HERO_STATUS_TYPE.BUILDING then
         local role = getPlayer(self.pid)
         if role then
             local build = role:get_build(self.build_idx)
@@ -836,7 +838,8 @@ function is_best_personality(self)
         ERROR("is_best_personality: no self.")
         return false
     end
-    return (self.personality == self.nature)
+    local conf = resmng.get_conf( "prop_hero_basic", self.propid )
+    return (self.personality == conf.Nature)
 end
 
 
@@ -990,7 +993,7 @@ function can_def(self)
         [HERO_STATUS_TYPE.FREE]     = true,
         [HERO_STATUS_TYPE.BUILDING] = true,
     }
-    return  can_def_status[self.status]
+    return  can_def_status[self.status] and self.hp > 0
 end
 
 

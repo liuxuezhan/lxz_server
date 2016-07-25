@@ -29,8 +29,6 @@ function get_gacha_status(self)
 	msg_send.gift = self.gacha_gift
 	msg_send.box = self.gacha_box
 
-	local dest_stamp = get_next_day_stamp(gTime)
-
 	--银币
 	local prop_yinbi = resmng.prop_gacha_gacha[PROP_YINBI_ID]
 	if prop_yinbi == nil then
@@ -39,6 +37,7 @@ function get_gacha_status(self)
 	if gTime >= self.gacha_yinbi_cd and self.gacha_yinbi_num < prop_yinbi.Free then
 		msg_send.yinbi = {0, 0, self.gacha_yinbi_num, prop_yinbi.Free, self.gacha_yinbi_first}
 	else
+		local dest_stamp = self.gacha_yinbi_cd
 		msg_send.yinbi = {1, dest_stamp, self.gacha_yinbi_num, prop_yinbi.Free}
 	end
 
@@ -50,6 +49,7 @@ function get_gacha_status(self)
 	if gTime >= self.gacha_jinbi_cd and self.gacha_jinbi_num < prop_jinbi.Free then
 		msg_send.jinbi = {0, 0, self.gacha_jinbi_num, prop_jinbi.Free, self.gacha_jinbi_first}
 	else
+		local dest_stamp = self.gacha_jinbi_cd
 		msg_send.jinbi = {1, dest_stamp, self.gacha_jinbi_num, prop_jinbi.Free}
 	end
 
@@ -77,10 +77,20 @@ function do_gacha(self, type)
 	local task_type = 0
 	local task_num = 0
 	if type == GACHA_TYPE.YINBI_ONE then
+		if self:get_gacha_yinbi_limit() < 1 then
+			msg_send.result = 2
+			Rpc:do_gacha_resp(self, msg_send)
+			return
+		end
 		self:do_yinbi_one(msg_send)
 		task_type = 1
 		task_num = 1
 	elseif type == GACHA_TYPE.YINBI_TEN then
+		if self:get_gacha_yinbi_limit() < 10 then
+			msg_send.result = 2
+			Rpc:do_gacha_resp(self, msg_send)
+			return
+		end
 		self:do_yinbi_ten(msg_send)
 		task_type = 1
 		task_num = 10
@@ -99,11 +109,22 @@ function do_gacha(self, type)
 	end
 
 	task_logic_t.process_task(self, TASK_ACTION.GACHA_MUB, task_type, task_num)
+    self:add_count( resmng.ACH_COUNT_GACHA, 1 )
 
 	msg_send.gift = self.gacha_gift
 	msg_send.type = type
 
 	Rpc:do_gacha_resp(self, msg_send)
+end
+
+function get_gacha_yinbi_limit(self)
+	local basic_num = 0
+	local buff_num = self:get_val("SilverGachaCount")
+
+	if self.gacha_yinbi_num >= buff_num then
+		return 0
+	end
+	return buff_num - self.gacha_yinbi_num
 end
 
 function random_gacha(self, group_id)
@@ -142,7 +163,6 @@ function do_yinbi_one(self, msg_send)
 	if self.gacha_yinbi_num < prop_yinbi.Free and gTime >= self.gacha_yinbi_cd then
 		self.gacha_yinbi_num = self.gacha_yinbi_num + 1
 		if self.gacha_yinbi_num >= prop_yinbi.Free then
-			self.gacha_yinbi_num = prop_yinbi.Free
 			self.gacha_yinbi_cd = get_next_day_stamp(gTime)
 		else
 			self.gacha_yinbi_cd = gTime + prop_yinbi.FreeCD[self.gacha_yinbi_num]
@@ -154,6 +174,7 @@ function do_yinbi_one(self, msg_send)
         end
         local con = {{resmng.CLASS_RES, resmng.DEF_RES_SILVER, prop_yinbi.Price}}
         self:consume(con, 1, VALUE_CHANGE_REASON.REASON_GACHA_YINBI_ONE)
+        self.gacha_yinbi_num = self.gacha_yinbi_num + 1
     end
 
     local group = prop_yinbi.Group
@@ -192,6 +213,7 @@ function do_yinbi_ten(self, msg_send)
     end
     local con = {{resmng.CLASS_RES, resmng.DEF_RES_SILVER, prop_yinbi.ComboPrice}}
     self:consume(con, 1, VALUE_CHANGE_REASON.REASON_GACHA_YINBI_TEN)
+    self.gacha_yinbi_num = self.gacha_yinbi_num + 10
 
     local group = prop_yinbi.Group
     for i = 1, 10, 1 do
@@ -222,7 +244,6 @@ function do_jinbi_one(self, msg_send)
 	if self.gacha_jinbi_num < prop_jinbi.Free and gTime >= self.gacha_jinbi_cd then
 		self.gacha_jinbi_num = self.gacha_jinbi_num + 1
 		if self.gacha_jinbi_num >= prop_jinbi.Free then
-			self.gacha_jinbi_num = prop_jinbi.Free
 			self.gacha_jinbi_cd = get_next_day_stamp(gTime)
 		else
 			self.gacha_jinbi_cd = gTime + prop_jinbi.FreeCD[self.gacha_jinbi_num]
@@ -234,6 +255,7 @@ function do_jinbi_one(self, msg_send)
         end
         local con = {{resmng.CLASS_RES, resmng.DEF_RES_GOLD, prop_jinbi.Price}}
         self:consume(con, 1, VALUE_CHANGE_REASON.REASON_GACHA_JINBI_ONE)
+        self.gacha_jinbi_num = self.gacha_jinbi_num + 1
     end
 
     local group = prop_jinbi.Group
@@ -273,6 +295,7 @@ function do_jinbi_ten(self, msg_send)
     end
     local con = {{resmng.CLASS_RES, resmng.DEF_RES_GOLD, prop_jinbi.ComboPrice}}
     self:consume(con, 1, VALUE_CHANGE_REASON.REASON_GACHA_JINBI_TEN)
+    self.gacha_jinbi_num = self.gacha_jinbi_num + 10
 
     local group = prop_jinbi.Group
     for i = 1, 10, 1 do

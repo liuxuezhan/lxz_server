@@ -13,7 +13,6 @@ function toGate(host, port)
             pushHead(self.sid, 0, gNetPt.NET_SET_MAP_ID)
             pushInt(gMapID)
             pushOver()
-            --player_t.new({pid=0, account="@ConGate", gid=self.sid})
             _G.gAgent = {pid=0, account="@ConGate", gid=self.sid}
             _G.GateSid = self.sid
             c_set_gate( self.sid )
@@ -21,12 +20,11 @@ function toGate(host, port)
 
         onConnectFail = function (self) 
             LOG("connect Gate %s:%d fail", self.host, self.port)
-            timer.new("toGate", 5, self.host, self.port)
+            timer.new("toGate", 5, self.host, self.port, self.sid)
         end,
     }
     mt.__index = mt
     local sid = connect(host, port, 0, 0)
-    print( "connect to gate ", host, port )
     local t = { host=host, port=port, sid=sid, state=0 }
     gConns[ sid ] = t
 
@@ -57,6 +55,7 @@ function toMongo(host, port, db, tips)
     local sid = connect(host, port, 0, 2)
     local t = { host=host, port=port, sid=sid, state=0, db=db, tips=tips }
     gConns[ sid ] = t
+    print( "connect", host, port )
     return setmetatable(t, mt)
 end
 

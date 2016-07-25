@@ -24,7 +24,7 @@ function add(p,tm_sn)
         u.help={}
     end
     local t = timer.get(tm_sn)
-    if t.what =="build" and p.pid == t.param[1] then
+    if (t.what =="build" or t.what =="cure" or t.what =="hero_cure") and p.pid == t.param[1] then
         table.insert(u.help,{id=tm_sn,log={}})
     end
 
@@ -41,15 +41,28 @@ function set_one(p,cur)
 
     local t = timer.get(u.help[cur].id)
         local pid = t.param[1]
-    if t and t.what == "build" and p.pid~=pid  then
+    if t and (t.what == "build" or t.what == "cure")and p.pid~=pid  then
         local idx = t.param[2]
         local w = getPlayer(pid)
-        local limit = w:get_nums("CountHelp")
-        local tm = w:get_nums("TimerHelp",u:get_ef())
+        local limit = w:get_num("CountHelp")
+        local tm = w:get_num("TimerHelp")
         if limit>num then
             timer.acc(id,tm)
-            Rpc:stateBuild(w, {idx=idx,tmOver=t.over })
+            --t = timer.get(u.help[cur].id)
+            if t.what == "cure" or t.what == "hero_cure"  then
+                for k, v in pairs( p:get_build() or {}) do
+                    local conf = resmng.get_conf("prop_build", v.propid)
+                    if conf.Mode == BUILD_FUNCTION_MODE.HOSPITAL then
+                        Rpc:stateBuild(w, {idx=v.idx,tmOver=t.over })
+                    end
+                end
+            else
+                Rpc:stateBuild(w, {idx=idx,tmOver=t.over })
+            end
             table.insert(u.help[cur].log,p.pid)
+            union_mission.ok(p,UNION_MISSION_CLASS.HELP,1)
+            --任务
+            task_logic_t.process_task(p, TASK_ACTION.UNION_HELP_NUM, 1)
         end
     end
 end
@@ -77,7 +90,7 @@ function one(p,t)
     local idx = t.param[2]
     local p = getPlayer(pid)
     local build = p:get_build(idx)
-    local limit = p:get_nums("CountHelp")
+    local limit = p:get_num("CountHelp")
     local d = {id=t._id,pid=p.pid ,name = p.name,limit=limit,idx=idx}
     if build.state == BUILD_STATE.CREATE then
         d.type = HELP_TYPE.CONSTRUCT

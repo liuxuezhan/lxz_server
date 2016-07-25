@@ -25,26 +25,34 @@ function get(u,d)
     if (d.uid ~= u.uid) and (not d.new_union_sn) and (not u.new_union_sn) then
         if not u.relation then u.relation = {_id=u.uid,data={},log={} } end
         if not u.relation.data[d.uid] then
-            u.relation.data[d.uid]= { uid=d.uid,num=0,tm=gTime,tm_add=gTime }
+            u.relation.data[d.uid]= { uid=d.uid,num=0,tm=0,tm_add=gTime }
             if u.language == d.language then
                 u.relation.data[d.uid].type = UNION_RELATION.FRIEND
             else
                 u.relation.data[d.uid].type = UNION_RELATION.NORMAL
             end
         end
+
+        if (gTime - u.relation.data[d.uid].tm) > 60*60*24*14 then
+            if not can_month(u.relation.data[d.uid].tm_add)then
+                if u.relation.data[d.uid].num > 9 then
+                    u.relation.data[d.uid].type = UNION_RELATION.DEAD
+                elseif u.relation.data[d.uid].num > 1 then
+                    u.relation.data[d.uid].type = UNION_RELATION.ENEMY
+                end
+                table.insert(u.relation.log,{type=u.relation.data[d.uid].type,u_name=d.name,tm=gTime})
+            else
+                u.relation.data[d.uid].num = 0  
+            end
+        end
+
+--[[
         if  (gTime - u.relation.data[d.uid].tm_add) > 60*60*24*3 then
             u.relation.data[d.uid].tm_add = gTime
             u.relation.data[d.uid].num =  u.relation.data[d.uid].num - math.ceil(u.relation.data[d.uid].num/10)
         end
+        --]]
 
-        if (gTime - u.relation.data[d.uid].tm) > 60*60*24*14 then
-            if u.relation.data[d.uid].num > 9 then
-                u.relation.data[d.uid].type = UNION_RELATION.DEAD
-            elseif u.relation.data[d.uid].num > 1 then
-                u.relation.data[d.uid].type = UNION_RELATION.ENEMY
-            end
-            table.insert(u.relation.log,{type=u.relation.data[d.uid].type,u_name=d.name,tm=gTime})
-        end
         return u.relation.data[d.uid]
     end
 end
@@ -65,7 +73,7 @@ function list(u)
     if u.relation then
         for k, v in pairs( u.relation.log or {}) do
             if (gTime-v.tm)> 60*60*24*7 then
-                u.relation[k]=nil
+                v=nil
             else
                 table.insert(l.log,v)
             end
@@ -87,9 +95,17 @@ function add(troop)
     if not dest then return  end
     local u = unionmng.get_union(ply:get_uid())
     local d = unionmng.get_union(dest.uid)
+
     if union_relation.get(u,d) then
         u.relation.data[d.uid].num =  u.relation.data[d.uid].num + 1
-        gPendingSave.union_relation[d.uid] = u.relation
+        u.relation.data[d.uid].tm_add = gTime 
+        gPendingSave.union_relation[u.uid] = u.relation
+    end
+
+    if union_relation.get(d,u) then
+        d.relation.data[u.uid].num =  d.relation.data[u.uid].num + 1
+        d.relation.data[u.uid].tm_add = gTime 
+        gPendingSave.union_relation[d.uid] = d.relation
     end
 end
 
@@ -118,7 +134,7 @@ function set(ply,uid,type)
         u.relation.data[d.uid].type =  type
         u.relation.data[d.uid].tm =  gTime
         table.insert(u.relation.log,{name=ply.name,type=type,u_name=d.name,tm=gTime})
-        gPendingSave.union_relation[uid] = u.relation
+        gPendingSave.union_relation[u.uid] = u.relation
     end
 end
 

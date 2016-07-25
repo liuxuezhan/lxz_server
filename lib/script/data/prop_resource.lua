@@ -15,7 +15,7 @@ prop_resource = {
 	[DEF_RES_SILVER] = { ID = DEF_RES_SILVER, CodeKey = "silver", Name = LG_RESOURCE_NAME_124100007, Mul = nil, Open = nil, Desc = LG_RESOURCE_DESC_124200007, Color = 1,},
 	[DEF_RES_PERSONALHONOR] = { ID = DEF_RES_PERSONALHONOR, CodeKey = "personalhonor", Name = LG_RESOURCE_NAME_124100008, Mul = nil, Open = nil, Desc = LG_RESOURCE_DESC_124200008, Color = 1,},
 	[DEF_RES_UNITHONOR] = { ID = DEF_RES_UNITHONOR, CodeKey = "unithonor", Name = LG_RESOURCE_NAME_124100009, Mul = nil, Open = nil, Desc = LG_RESOURCE_DESC_124200009, Color = 1,},
-	[DEF_RES_MONSTERPOINT] = { ID = DEF_RES_MONSTERPOINT, CodeKey = "monsterpint", Name = LG_RESOURCE_NAME_124100010, Mul = nil, Open = nil, Desc = LG_RESOURCE_DESC_124200010, Color = 1,},
+	[DEF_RES_MONSTER_GOLD] = { ID = DEF_RES_MONSTER_GOLD, CodeKey = "monster_gold", Name = LG_RESOURCE_NAME_124100010, Mul = nil, Open = nil, Desc = LG_RESOURCE_DESC_124200010, Color = 1,},
 	[DEF_RES_LORDEXP] = { ID = DEF_RES_LORDEXP, CodeKey = "exp", Name = LG_RESOURCE_NAME_124100011, Mul = nil, Open = nil, Desc = LG_RESOURCE_DESC_124200011, Color = 1,},
 	[DEF_RES_HEROEXP] = { ID = DEF_RES_HEROEXP, CodeKey = "heroexp", Name = LG_RESOURCE_NAME_124100012, Mul = nil, Open = nil, Desc = LG_RESOURCE_DESC_124200012, Color = 1,},
 	[DEF_RES_LORDSINEW] = { ID = DEF_RES_LORDSINEW, CodeKey = "sinew", Name = LG_RESOURCE_NAME_124100013, Mul = nil, Open = nil, Desc = LG_RESOURCE_DESC_124200013, Color = 1,},

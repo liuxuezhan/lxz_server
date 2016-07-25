@@ -83,4 +83,5 @@ prop_mall = {
 	[MALL_ITEM_74] = { ID = MALL_ITEM_74, Class = 4, Item = {{"item",7024001,1,10000}}, OldPrice = 500, NewPrice = 500,},
 	[MALL_ITEM_75] = { ID = MALL_ITEM_75, Class = 4, Item = {{"item",4004001,1,10000}}, OldPrice = 200, NewPrice = 200,},
 	[MALL_ITEM_76] = { ID = MALL_ITEM_76, Class = 4, Item = {{"item",4005001,1,10000}}, OldPrice = 400, NewPrice = 400,},
+	[MALL_ITEM_77] = { ID = MALL_ITEM_77, Class = 4, Item = {{"item",8011001,1,10000}}, OldPrice = 200, NewPrice = 200,},
 }

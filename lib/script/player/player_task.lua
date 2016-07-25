@@ -597,6 +597,7 @@ function daily_task_done(self, task_id)
     self:add_save_task_id(task_id)
     self:do_save_task()
     self:daily_task_activity()
+    union_mission.ok(self,UNION_MISSION_CLASS.ACTIVE ,left_activity)
 
     Rpc:daily_task_done_resp(self, 0)
 end
@@ -648,6 +649,9 @@ function gm_accept_task(self, task_id)
     self:add_task_data(prop_tab)
 end
 
+function get_silver( self )
+    return self.silver
+end
 
 
 

@@ -36,7 +36,7 @@ function mail_drop_by_sn(self,sns)
         local db = self:getDb(self.pid)
         for _, sn in pairs(sns) do
             local m = ms[ sn ]
-            if m.tm_lock == 0 and (m.tm_fetch > 0 or m.its == 0) then
+            if m and m.tm_lock == 0 and (m.tm_fetch > 0 or m.its == 0) then
                 m.tm_drop = gTime
                 gPendingSave.mail[ m._id ].tm_drop = gTime
                 self:reply_ok("mail_drop_by_sn", m.idx)
@@ -69,11 +69,9 @@ function mail_fetch_by_sn(self, sns)
         local db = self:getDb(self.pid)
         for _, sn in pairs(sns) do
             local m = ms[ sn ]
-            if m and m.its ~= 0 and m.fetch == 0 then
-                m.fetch = gTime
-                for k, v in pairs(m.its) do
-                    self:inc_item(v[1], v[2], VALUE_CHANGE_REASON.FETCH_MAIL)
-                end
+            if m and m.its ~= 0 and m.tm_fetch == 0 then
+                m.tm_fetch = gTime
+                self:add_bonus("mutex_award", m.its, VALUE_CHANGE_REASON.REASON_MAIL_AWARD)
                 gPendingSave.mail[ m._id ].tm_fetch = gTime
                 self:reply_ok("mail_fetch_by_sn", m.idx)
                 INFO("[mail], fetch, pid=%d, id=%s", self.pid, m._id)
@@ -166,6 +164,9 @@ function mail_new(self, v, isload)
     if self._mail then 
         self._mail[ v.idx ] = v 
     end
+    if self:is_online() then
+        Rpc:mail_notify( self, v )
+    end
 end
 
 -- player.mail_all({ class=class, title="hello", content="world", its={{1001,100}}})
@@ -227,17 +228,17 @@ function generate_fight_mail(ack_troop, def_troop, is_win, catch_hero, rages)
     end
 
     ack_mail.arms = {}
-    for pid, arm in pairs(ack_troop.arms) do
+    for pid, arm in pairs(ack_troop.arms or {}) do
         local unit = {}
         local tmp_ply = getPlayer(pid)
         if tmp_ply ~= nil then
             unit.name = tmp_ply.name
         end
-        unit.power = arm.lost
+        unit.power = arm.lost or 0
 
         --hero:{propid, stars, lv, cur_hp, max_hp, catch}
         unit.hero = {}
-        for _, uid in pairs(arm.heros) do
+        for _, uid in pairs(arm.heros or {}) do
             local hero = {}
             local h = heromng.get_hero_by_uniq_id(uid)
             if h ~= nil then
@@ -285,17 +286,17 @@ function generate_fight_mail(ack_troop, def_troop, is_win, catch_hero, rages)
     def_mail.catch_hero = catch_hero
 
     def_mail.arms = {}
-    for pid, arm in pairs(def_troop.arms) do
+    for pid, arm in pairs(def_troop.arms or {}) do
         local unit = {}
         local tmp_ply = getPlayer(pid)
         if tmp_ply ~= nil then
             unit.name = tmp_ply.name
         end
-        unit.power = arm.lost
+        unit.power = arm.lost or 0
 
         --hero:{propid, stars, lv, cur_hp, max_hp, catch}
         unit.hero = {}
-        for _, uid in pairs(arm.heros) do
+        for _, uid in pairs(arm.heros or {}) do
             local hero = {}
             local h = heromng.get_hero_by_uniq_id(uid)
             if h ~= nil then
@@ -332,20 +333,102 @@ function generate_fight_mail(ack_troop, def_troop, is_win, catch_hero, rages)
     local content = {ack_mail=ack_mail, def_mail=def_mail}
     --发送邮件
     -- p:mail_new({from=from, name=name, class=class, title="hello", content="world", its={{1001,100}}})
-    --ack_mail.res_flag = 1
     for pid, arm in pairs(ack_troop.arms) do
         local tmp_ply = getPlayer(pid)
         if tmp_ply ~= nil then
+            local tmp = copyTab(content)
+            tmp.ack_mail.res_flag = 1
             tmp_ply:mail_new({from=0, name="", class=MAIL_CLASS.FIGHT, mode=ack_mode, title="", content=content, its={}})
         end
     end
-    --ack_mail.res_flag = 2
+
     for pid, arm in pairs(def_troop.arms) do
         local tmp_ply = getPlayer(pid)
         if tmp_ply ~= nil then
+            local tmp = copyTab(content)
+            tmp.ack_mail.res_flag = 2
             tmp_ply:mail_new({from=0, name="", class=MAIL_CLASS.FIGHT, mode=def_mode, title="", content=content, its={}})
         end
     end
 end
 
+
+function send_system_notice(self, mail_id, text_parm, award)
+    local prop_tab = resmng.get_conf("prop_mail", mail_id)
+    if prop_tab == nil then
+        return false
+    end
+
+    local content = {}
+    content.propid = mail_id
+    content.seq = {
+        {type=MAIL_SYSTEM_SEQ.NOTICE},
+        {type=MAIL_SYSTEM_SEQ.CONTENT, parm=text_parm},
+    }
+    content.extra = {}
+
+    local present = nil
+    if award == nil then
+        if prop_tab.AddBonus ~= nil then
+            present = prop_tab.AddBonus[2]
+            table.insert(content.seq, {type=MAIL_SYSTEM_SEQ.PRESENT})
+            table.insert(content.seq, {type=MAIL_SYSTEM_SEQ.AWARD})
+        end
+    else
+        present = award
+        table.insert(content.seq, {type=MAIL_SYSTEM_SEQ.PRESENT})
+        table.insert(content.seq, {type=MAIL_SYSTEM_SEQ.AWARD})
+    end
+    self:mail_new({from=0, name="", class=MAIL_CLASS.SYSTEM, mode=MAIL_SYSTEM_MODE.NORMAL, title="", content=content, its=present})
+    return true
+end
+
+function send_system_union_invite(self, mail_id, sender_pid, extra, text_parm)
+    local prop_tab = resmng.get_conf("prop_mail", mail_id)
+    if prop_tab == nil then
+        return false
+    end
+
+    local content = {}
+    content.propid = mail_id
+    content.seq = {
+        {type=MAIL_SYSTEM_SEQ.NOTICE},
+        {type=MAIL_SYSTEM_SEQ.CONTENT, parm=text_parm},
+        {type=MAIL_SYSTEM_SEQ.RESPONSE},
+    }
+    content.extra = extra
+
+    local sender = getPlayer(sender_pid)
+    if sender ~= nil then
+        content.extra.icon = sender.photo
+        content.extra.sender_name = sender.name
+    end
+
+    self:mail_new({from=0, name="", class=MAIL_CLASS.SYSTEM, mode=MAIL_SYSTEM_MODE.NORMAL, title="", content=content, its={}})
+    return true
+end
+
+function send_system_city_move(self, mail_id, sender_pid, extra, text_parm)
+    local prop_tab = resmng.get_conf("prop_mail", mail_id)
+    if prop_tab == nil then
+        return false
+    end
+
+    local content = {}
+    content.propid = mail_id
+    content.seq = {
+        {type=MAIL_SYSTEM_SEQ.NOTICE},
+        {type=MAIL_SYSTEM_SEQ.CONTENT, parm=text_parm},
+        {type=MAIL_SYSTEM_SEQ.RESPONSE},
+    }
+    content.extra = extra
+    local sender = getPlayer(sender_pid)
+    if sender ~= nil then
+        content.extra.icon = sender.photo
+        content.extra.sender_name = sender.name
+    end
+
+    self:mail_new({from=0, name="", class=MAIL_CLASS.SYSTEM, mode=MAIL_SYSTEM_MODE.NORMAL, title="", content=content, its={}})
+    return true
+end
 

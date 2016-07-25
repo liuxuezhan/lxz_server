@@ -120,7 +120,7 @@ end
 --}}}
 
 
-local hints_help = [[ 
+local hints_help = [[
 List of commands:
 
 b <filename> <linenum>           -- Add breakpoint
@@ -489,7 +489,7 @@ local function show(file,line,before,after)
   local f = io.open(file,'r')
   if not f then
     --{{{  try to find the file in the path
-    
+
     --
     -- looks for a file in the package path
     --
@@ -501,7 +501,7 @@ local function show(file,line,before,after)
         break
       end
     end
-    
+
     --}}}
     if not f then
       io.write('Cannot find '..file..'\n')
@@ -683,13 +683,13 @@ local function capture_vars(ref,level,line)
   local lvl = ref + level                --NB: This includes an offset of +1 for the call to here
 
   --{{{  capture variables
-  
+
   local ar = debug.getinfo(lvl, "f")
   if not ar then return {},'?',0 end
-  
+
   local vars = {__UPVALUES__={}, __LOCALS__={}}
   local i
-  
+
   local func = ar.func
   if func then
     i = 1
@@ -704,9 +704,9 @@ local function capture_vars(ref,level,line)
     end
     vars.__ENVIRONMENT__ = getfenv(func)
   end
-  
+
   vars.__GLOBALS__ = getfenv(0)
-  
+
   i = 1
   while true do
     local name, value = debug.getlocal(lvl, i)
@@ -717,16 +717,16 @@ local function capture_vars(ref,level,line)
     end
     i = i + 1
   end
-  
+
   vars.__VARSLEVEL__ = level
-  
+
   if func then
     --NB: Do not do this until finished filling the vars table
     setmetatable(vars, { __index = getfenv(func), __newindex = getfenv(func) })
   end
-  
+
   --NB: Do not read or write the vars table anymore else the metatable functions will get invoked!
-  
+
   --}}}
 
   local file = getinfo(lvl, "source")
@@ -887,7 +887,7 @@ local function debugger_loop(ev, vars, file, line, idx_watch)
   local command, args
 
   --{{{  local function getargs(spec)
-  
+
   --get command arguments according to the given spec from the args string
   --the spec has a single character for each argument, arguments are separated
   --by white space, the spec characters can be one of:
@@ -896,7 +896,7 @@ local function debugger_loop(ev, vars, file, line, idx_watch)
   -- N for a number
   -- V for a variable name
   -- S for a string
-  
+
   local function getargs(spec)
     local res={}
     local char,arg
@@ -929,7 +929,7 @@ local function debugger_loop(ev, vars, file, line, idx_watch)
     end
     return unpack(res)
   end
-  
+
   --}}}
 
   while true do
@@ -937,16 +937,25 @@ local function debugger_loop(ev, vars, file, line, idx_watch)
     local line = io.read("*line")
     if line == nil then io.write('\n'); line = 'exit' end
 
-    if string.find(line, "^[a-z]+") then
-      command = string.sub(line, string.find(line, "^[a-z]+"))
-      args    = string.gsub(line,"^[a-z]+%s*",'',1)            --strip command off line
+    -- if string.find(line, "^[a-z]+") then
+    --   command = string.sub(line, string.find(line, "^[a-z]+"))
+    --   args    = string.gsub(line,"^[a-z]+%s*",'',1)            --strip command off line
+    -- else
+    --   command = ''
+    -- end
+
+    line = trim(line)
+    local l, r  = string.find(line, "^[a-z]+%S*")
+    if l then
+      command = string.sub(line, l, r)
+      args    = string.sub(line, r+1, string.len(line))
     else
       command = ''
     end
 
     if command == "setb" or command == "b" then
       --{{{  set breakpoint
-      
+
       local filename, line = getargs('FL')
       if filename ~= '' and line ~= '' then
         filename = string.lower(filename)
@@ -955,12 +964,12 @@ local function debugger_loop(ev, vars, file, line, idx_watch)
       else
         io.write("Bad request\n")
       end
-      
+
       --}}}
 
     elseif command == "delb" then
       --{{{  delete breakpoint
-      
+
       local filename, line = getargs('FL')
       if filename ~= '' and line ~= '' then
         remove_breakpoint(filename, line)
@@ -968,7 +977,7 @@ local function debugger_loop(ev, vars, file, line, idx_watch)
       else
         io.write("Bad request\n")
       end
-      
+
       --}}}
 
     elseif command == "delallb" or command == "clear" then
@@ -988,7 +997,7 @@ local function debugger_loop(ev, vars, file, line, idx_watch)
 
     elseif command == "setw" then
       --{{{  set watch expression
-      
+
       if args and args ~= '' then
         local func = loadstring("return(" .. args .. ")")
         local newidx = #watches + 1
@@ -997,12 +1006,12 @@ local function debugger_loop(ev, vars, file, line, idx_watch)
       else
         io.write("Bad request\n")
       end
-      
+
       --}}}
 
     elseif command == "delw" then
       --{{{  delete watch expression
-      
+
       local index = tonumber(args)
       if index then
         watches[index] = nil
@@ -1010,7 +1019,7 @@ local function debugger_loop(ev, vars, file, line, idx_watch)
       else
         io.write("Bad request\n")
       end
-      
+
       --}}}
 
     elseif command == "delallw" then
@@ -1170,17 +1179,17 @@ local function debugger_loop(ev, vars, file, line, idx_watch)
 
     elseif command == "show" then
       --{{{  show file around a line or the current breakpoint
-      
+
       local line, file, before, after = getargs('LFNN')
       if before == 0 then before = 10     end
       if after  == 0 then after  = before end
-      
+
       if file ~= '' and file ~= "=stdin" then
         show(file,line,before,after)
       else
         io.write('Nothing to show\n')
       end
-      
+
       --}}}
 
     elseif command == "poff" then
@@ -1246,10 +1255,10 @@ local function debugger_loop(ev, vars, file, line, idx_watch)
 
     elseif line ~= '' then
       --{{{  just execute whatever it is in the current context
-      
+
       --map line starting with "=..." to "return ..."
       if string.sub(line,1,1) == '=' then line = string.gsub(line,'=','return ',1) end
-      
+
       local ok, func = pcall(loadstring,line)
       if func == nil then                             --Michael.Bringmann@lsi.com
         io.write("Compile error: "..line..'\n')
@@ -1273,7 +1282,7 @@ local function debugger_loop(ev, vars, file, line, idx_watch)
           io.write("Run error: "..res[2]..'\n')
         end
       end
-      
+
       --}}}
     end
   end
@@ -1379,7 +1388,7 @@ _G.coroutine.create = function(f)
   local hook, mask, count = debug.gethook()
   if hook then
     local function thread_hook(event,line)
-        --local info = debug.getinfo(2)    
+        --local info = debug.getinfo(2)
         --print("[Hook]:run at", event, line, info.short_src, info.name)
       hook(event,line,3,thread)
     end
@@ -1487,7 +1496,7 @@ _TRACEBACK = debug.traceback             --Lua 5.0 function
 
 --[[
 io.read = function( mode )
-    print("debug:") 
+    print("debug:")
     print(coroutine.running())
 
     local co = coroutine.running()

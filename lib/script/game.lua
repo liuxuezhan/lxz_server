@@ -11,19 +11,26 @@ function load_game_module()
     do_reload()
 end
 
+gTimeReload = gTimeReload or 0
+function do_load2( mod )
+    if gTimeReload == 0 or c_fmtime( mod .. ".lua" ) >= gTimeReload then
+        --if gTimeReload > 0 then print( c_fmtime( mod .. ".lua" ), gTimeReload ) end
+        package.loaded[ mod ] = nil
+        require( mod )
+        INFO("load module %s", mod)
+        print("load module", mod)
+    end
+end
 
 function do_reload()
-    do_load("game")
-
     do_load("resmng")
+    do_load("game")
     do_load("common/define")
     do_load("common/tools")
     do_load("common/protocol")
-
+    do_load("common/rpc_parse")
     do_load("timerfunc")
-
     do_load("public_t")
-
     do_load("player_t")
     do_load("player/player_item")
     do_load("player/player_mail")
@@ -36,25 +43,18 @@ function do_reload()
     do_load("player/player_month_award")
     do_load("player/player_skill")
     do_load("player/player_gacha")
-
+    do_load("player/player_ache")
+    do_load("player/player_title")
+    do_load("agent_t")
     do_load("build_t")
     do_load("arm_t")
-
     do_load("player/player_troop")
     do_load("troop_t")
     do_load("troop_mng")
-
-    --do_load("player/player_troop2")
-    --do_load("troop2_t")
-    --do_load("troop_mng2")
-
     do_load("heromng")
     do_load("hero/hero_t")
-
     do_load("fight")
     do_load("farm")
-    do_load("restore_handler")
-
     do_load("unionmng")
     do_load("union_t")
     do_load("union_member_t")
@@ -65,7 +65,6 @@ function do_reload()
     do_load("union_item")
     do_load("union_relation")
     do_load("union_god")
-
     do_load("npc_city")
     do_load("king_city")
     do_load("monster")
@@ -85,17 +84,15 @@ function do_reload()
     do_load("gacha_limit_t")
     do_load("kw_mall")
     do_load("use_item_logic")
-
-    --do_load("frame/zset")
-    --require("test")
-
-    --c_start_debug(10023)
+    do_load("rank_mng")
     do_load("gmmng")
+    do_load("restore_handler")
+
+    --gTimeReload = c_get_time()
 end
 
 function reload()
     do_reload()
-    --action(do_reload)
 end
 
 function restore_game_data()
@@ -133,32 +130,25 @@ end
 --
 --
 
-g_eid_idx = g_eid_idx or {}
-function get_eid(mode)
-    local base = mode * 0x010000
-    local idx = g_eid_idx[ mode ] or 0
-    for i = 1, 65530, 1 do
-        idx = idx + 1
-        if idx >= 0x010000 then idx = 0 end
-        local id = base + idx
-        if not gEtys[ id ] then
-            g_eid_idx[ mode ] = idx
-            return id
+g_eid_max = 0
+function get_eid()
+    local eid_max = g_eid_max
+    --524288 = math.pow(2,19)
+    for i = 1, 524288, 1 do 
+        eid_max = eid_max + 1
+        if eid_max > 524288 then eid_max = 1 end
+        local eid = eid_max * 4096 + gMapID
+
+        if not gEtys[ eid ] then 
+            g_eid_max = eid_max
+            return eid
         end
     end
 end
 
-function mark_eid(eid)
-    local mode = math.floor(eid / 65536)
-    local idx = math.floor(eid % 65536)
-    local cur = g_eid_idx[ mode ]
-
-    if not cur then
-        g_eid_idx[ mode ] = idx
-    else
-        if idx > cur then g_eid_idx[ mode ] = idx end
-    end
+function mark_eid( eid )
 end
+
 
 function add_ety(ety)
     gEtys[ ety.eid ] = ety
@@ -187,17 +177,7 @@ function get_eid_troop()
 end
 
 function get_eid_monster()
-    local base = EidType.Monster * 0x010000
-    local idx = g_eid_idx[EidType.Monster] or 0
-    for i = 1, 65519, 1 do  --65519之后是NPC怪物特殊id
-        idx = idx + 1
-        if idx > 65519 then idx = 0 end
-        local id = base + idx
-        if not gEtys[ id ] then
-            g_eid_idx[EidType.Monster] = idx
-            return id
-        end
-    end
+    return get_eid(EidType.Monster)
 end
 
 function get_eid_lost_temple()
@@ -220,19 +200,45 @@ function get_eid_npc_city()
     return get_eid(EidType.NpcCity)
 end
 
-
 function get_eid_camp()
     return get_eid(EidType.Camp)
 end
 
 function get_mode_by_eid(eid)
-    return math.floor(eid / 65536)
+    if eid == -1 then return -1 end
+    local e = get_ety( eid )
+    if e then
+        return math.floor( e.propid / 1000000 )
+    end
 end
 
 function get_ety(eid)
     return gEtys[ eid ]
 end
 
+
+function get_ety_arms(e)
+    if e then
+        if is_union_building(e) then
+           return union_build_t.arms(e)
+        else
+	        return e:get_my_troop()
+        end 
+    end
+end
+
+function save_ety(e)
+    if e then
+        if is_union_building(e) then
+           union_build_t.save(e)
+        elseif e.action then--行军队列  
+            e:save()
+            e:notify_owner()
+        else
+            assert()
+        end
+    end
+end
 
 function rem_ety(eid)
     local e = gEtys[ eid ]
@@ -246,22 +252,25 @@ function rem_ety(eid)
             gEtys[ eid ] = nil
             c_rem_ety(eid)
             e:checkout()
+            if e.marktm then gPendingDelete.monster[ eid ] = 0 end
+
+        elseif is_monster_city(e) then
+            gEtys[ eid ] = nil
+            c_rem_ety(eid)
+            if e.marktm then gPendingDelete.monster_city[ eid ] = 0 end
 
         elseif is_lost_temple(e) then
             gEtys[ eid ] = nil
             c_rem_ety(eid)
-            local db = dbmng:getOne()
-            db.lost_temple:delete({_id=e.eid})
             if e.marktm then gPendingDelete.monster[ eid ] = 0 end
+
         elseif is_union_building(e) then
-            local u = unionmng.get_union(e.uid)
-            union_build_t.remove_build(u,e.idx)
+           union_build_t.remove(e)
 
         else
             gPendingDelete.unit[ eid ] = 0
             gEtys[ eid ] = nil
             c_rem_ety(eid)
-
         end
     end
 end
@@ -277,6 +286,11 @@ function test3()
     local dp2 = get_ety(5)
     union:add_member(dp2)
 end
+
+function lt()
+    lost_temple.start_lt()
+end
+
 
 function test_mc()
     local p = getPlayer(70006)
@@ -323,8 +337,94 @@ end
 
 --]]
 function test()
-    local db = dbmng:getOne()
-    db.farm:delete( { pid = 0 } )
+
+    --gPendingSave.test[ 2 ] = { {1,2,3}, {4,5,6,} }
+    --gPendingSave.test[ 2 ] = { _id=2, {1,2,3}, {4,5,6,} }
+    --gPendingSave.test[ 3 ] = { data={{1,2,3},{4,5,6,}} }
+
+    --local hero = heromng.get_hero_by_uniq_id( "5_1550001" )
+    --local tab = heromng.get_fight_attr( "5_1550001" )
+    --dumpTab( tab, "hero_fight" )
+
+    --timer.new( "check_frame", 0, 0)
+
+    local pl = getPlayer( 1880006 )
+    pl:initEffect()
+    --pl:add_debug( "hello, %d", pl.pid )
+
+    --pl:ef_add( {SpeedConsume_R=1000} )
+    --pl:ef_add( {SpeedGather1_R=50000} )
+    
+
+    --pl.month_award_count = 3
+    --pl.month_award_1st = gTime - 3600 * 240
+
+    --print( pl.month_award_1st)
+    --print( pl.month_award_cur)
+    --print( pl.month_award_mark)
+    --print( pl.month_award_count)
+
+    --local idx = pl:month_award_get_award()
+
+    --print( pl.month_award_1st)
+    --print( pl.month_award_cur)
+    --print( pl.month_award_mark)
+    --print( pl.month_award_count)
+
+    --dumpTab( rank_mng.load_rank(1), "rank1") 
+    --dumpTab( rank_mng.load_rank(2), "rank2") 
+    --dumpTab( rank_mng.load_rank(5), "rank3") 
+
+    --c_tlog( "hello" )
+
+    --rank_mng.clear(6)
+
+    --local pl = getPlayer( 1180000 )
+    --print( pl:get_ache( 1001 ) )
+    --pl:set_ache( 1001 )
+
+    --print( pl:get_count( 1001 ) )
+    --pl:add_count( 1001, 1 )
+
+    ----
+    --rank_mng.add_member( 1, 1180011, {2, gTime, "hello"} )
+
+    --local res = rank_mng.load_rank( 1 )
+    --for k, v in pairs( res ) do
+    --    print( v[1], v[2], v[3], v[4] )
+    --end
+
+    --print(rank_mng.get_rank( 1, 1180014 ))
+
+    --print( "rank", rank_mng.get_rank(1, 10010 ) )
+
+    --local t = {}
+    --t.heloo = 5
+    --t[1] = 100
+    --t[2] = 100
+    --t[3] = 100
+
+    --gPendingSave.test[ "hello" ] = t
+
+    --local sl = skiplist()
+    --sl:insert(1, "hello")
+    --sl:insert(3, "world")
+    --sl:insert(5, "foo")
+    --sl:insert(5, "aaa")
+    --sl:insert(7, "bar")
+    --print( sl:get_count() )
+    --sl:dump()
+    --print( sl:get_rank( 5, "foo" ) )
+    --local t = sl:get_rank_range(1, 3)
+    --for k, v in pairs( t ) do
+    --    print( k, v)
+    --end
+
+
+    --local p = getPlayer(1120501)
+    --p:add_report( 2, {foo="bar"})
+    --local db = dbmng:getOne()
+    --db.farm:delete( { pid = 0 } )
 
     --to_tool(0, {type="chat", cmd="create_chat", user="liuxiang", host= CHAT_HOST, password = "liuxiang"})
     --to_tool(0, {type = "chat", cmd = "create_room", name = "666", server="conference."..CHAT_HOST, host = CHAT_HOST })
@@ -334,7 +434,7 @@ function test()
     --gPendingInsert.test[3] = {a=1}
     --local ply = getPlayer(590000)
     --ply:on_day_pass()
-    
+
 --    local db = dbmng:getOne()
 --    local info = db.troop:findOne({_id=49})
 --    for k, v in pairs(info.arms) do
@@ -412,7 +512,7 @@ function ack(self, funcname, code, reason)
     code = code or resmng.E_OK
     reason = reason or resmng.E_OK
     if not Rpc.localF[funcname] then
-        ERROR("[Rpc]: onError, not found, func:%s, code:%s, reason:%s", funcname, code, reason)
+        WARN("func:%s, code:%s, reason:%s", funcname, code, reason)
         return
     end
     local hash = Rpc.localF[funcname].id
@@ -461,6 +561,8 @@ function module_class(name, example)
     }
 
     function new(t)
+        if not t._id then return MARK( "no _id") end
+        _cache[t._id] = t
         local self = {_pro=t}
         setmetatable(self, mt)
         self:init()
@@ -574,4 +676,4 @@ function to_tool( sn, info )
     Rpc:qry_tool( gAgent, sn ,info )
 end
 
-
+--timer.new("tlog", 1)

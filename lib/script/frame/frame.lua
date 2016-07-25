@@ -51,16 +51,37 @@ gDbNum = 16
 function loadMod()
     require("frame/tools")
     require("frame/debugger")
-    require("frame/conn")
-    require("frame/crontab")
-    require("frame/dbmng")
-    require("frame/timer")
+
+    dofile("../etc/config.lua")
     require("frame/socket")
 
+    if config.NO_DB then
+        require("nodb/_conn")
+        require("nodb/_dbmng")
+        _G.mongo = require("nodb/_mongo")
+    else
+        require("frame/conn")
+        require("frame/dbmng")
+        _G.mongo = require("frame/mongo")
+    end
+
+    require("frame/crontab")
+    require("frame/timer")
+
+    _G.Json = require("frame/json")
+
+    -- rpc
     require("frame/class")
 
-    require("frame/player_t")
+    doLoadMod("packet", "frame/rpc/packet")
+    doLoadMod("MsgPack", "frame/MessagePack")
+    doLoadMod("Array", "frame/rpc/array")
 
+    doLoadMod("Struct", "frame/rpc/struct")
+    doLoadMod("RpcType", "frame/rpc/rpctype")
+    doLoadMod("Rpc", "frame/rpc/rpc")
+
+    require("frame/player_t")
 end
 
 function handle_dbg(sid)
@@ -77,7 +98,7 @@ function handle_network(sid)
     if p then
         if pktype ==  gNetPt.NET_MSG_CLOSE then
             LOG("handle_network, sid=%d, pktype=NET_MSG_CLOSE", sid)
-            gConns[ sid ] = nil
+            --gConns[ sid ] = nil
             p:onClose()
 
         elseif pktype == gNetPt.NET_MSG_CONN_COMP then
@@ -85,9 +106,8 @@ function handle_network(sid)
 
         elseif pktype == gNetPt.NET_MSG_CONN_FAIL then
             LOG("handle_network, sid=%d, pktype=NET_MSG_CONN_FAIL", sid)
-            gConns[ sid ] = nil
+            --gConns[ sid ] = nil
             p:onConnectFail()
-
         end
     end
 end
@@ -102,7 +122,7 @@ gTagFun[2] = handle_db
 gTagFun[3] = handle_dbg
 
 function action(func, ...)
-    table.insert(gActions, {func, arg})
+    table.insert(gActions, {func, {...}})
     begJob()
 end
 
@@ -230,6 +250,10 @@ function do_threadPK()
                 if pid == 0 then
                     LOG("RpcR, pid=%d, func=%s", pid, fname)
                     player_t[ fname ](_G.gAgent, unpack(args) )
+
+                elseif pid < 10000 then
+                    agent_t[ fname ]( {pid=pid}, unpack( args ) )
+
                 else
                     local p = getPlayer(pid)
                     if p then
@@ -299,11 +323,18 @@ function threadPk()
     end
 end
 
-function wait_db_connect()
+function check_db_connect()
     for k, v in pairs(gConns) do
         if v.state ~= 1 then
-            wait(1)
+            return false
         end
+    end
+    return true
+end
+
+function wait_db_connect()
+    while not check_db_connect() do
+        wait(1)
     end
 end
 
@@ -316,11 +347,13 @@ function frame_init()
     INFO("$$$ done load_uniq")
     gInit = "InitFrameDone"
     begJob()
+
+    c_tlog_start( "../etc/tlog.xml" )
 end
 
 function main_loop(sec, msec, fpk, ftimer, froi, deb)
     gFrame = gFrame + 1
-    LOG("gFrame = %d, fpk=%d, ftimer=%d, froi=%d, deb=%d, gInit=%s", gFrame, fpk, ftimer, froi, deb, gInit or "unknown")
+    --LOG("gFrame = %d, fpk=%d, ftimer=%d, froi=%d, deb=%d, gInit=%s", gFrame, fpk, ftimer, froi, deb, gInit or "unknown")
 
     if deb > 0 then
         if pause then
@@ -416,12 +449,6 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
     end
 
     if froi == 1 then
-        --while true do
-        --    local msg, d0, d1, d2, d3, d4, d5, d6, d7 = c_pull_msg_roi()
-        --    if not msg then break end
-        --    if do_roi_msg then do_roi_msg(msg, d0, d1, d2, d3, d4, d5, d6, d7) end
-        --end
-
         while true do
             local co = getCoroPool("roi")
             local flag, what, id = coroutine.resume(co)
@@ -471,17 +498,18 @@ function global_save()
             for id, chgs in pairs(doc) do
                 if chgs ~= cache then
                     if not chgs._a_ then
+                        local oid = chgs._id
+                        chgs._id = id
                         db[ tab ]:update({_id=id}, {["$set"] = chgs }, true)
-                        if tab ~= "status" then print("update", tab, id) end
+                        chgs._id = oid
                     else
                         if chgs._a_ == 0 then
-                            print("delete", tab, id)
                             db[ tab ]:delete({_id=id})
                         else
-                            print("insert", tab, id)
-                            chgs._a_ = nil
+                            local oid = chgs._id
+                            chgs._id = id
                             db[ tab ]:update({_id=id}, chgs, true)
-                            chgs._a_ = 1
+                            chgs._id = oid
                         end
                     end
                     update = true
@@ -499,7 +527,6 @@ end
 function check_save(db, frame)
     local f = function()
         local info = db:runCommand("getLastError")
-        --dumpTab(info, "check_save")
         if info.ok then
             local code = info.code
             for tab, doc in pairs(gPendingSave) do
@@ -507,13 +534,15 @@ function check_save(db, frame)
                 local dels = {}
                 for id, chgs in pairs(cache) do
                     if chgs._n_ == frame then
-                        --print("ack", id, frame, gFrame)
                         table.insert(dels, id)
-                        if code then dumpTab(chgs, "maybe error") end
+                        if code then
+                            local tips = string.format("error: upd_tab %s:", tab)
+                            dumpTab(chgs, tips..id)
+                        end
                     elseif chgs._n_ < frame - 10 then
                         chgs._n_ = nil
                         doc[ id ] = chgs
-                        print("retry", id, frame, gFrame)
+                        WARN("mongo retry, %s, %s, %s", id, frame, gFrame)
                         table.insert(dels, id)
                     end
                 end
@@ -659,11 +688,9 @@ function init(sec, msec)
     --setmetatable(gPendingSave, __mt_tab)
 
 
-
     gInit = "StateBeginInit"
     loadMod()
 
-    dofile("../etc/config.lua")
     require("game")
 
     load_game_module()
@@ -720,7 +747,8 @@ end
 
 function putCoroPool(what)
     local co = coroutine.running()
-    table.insert(gCoroPool[ what ], co)
+    local pool = gCoroPool
+    if #pool < 10 then table.insert(gCoroPool[ what ], co) end
     coroutine.yield("ok")
 end
 
@@ -782,6 +810,9 @@ function load_sys_config()
     else
         gSysConfig = {_id=gMapID, create=gTime}
         db.config:insert(gSysConfig)
+        if begin_new_map then
+            begin_new_map()
+        end
     end
 end
 
@@ -798,6 +829,11 @@ function load_uniq()
 end
 
 function getId(what)
+    if config.NO_DB then
+        gUniqs[what] = (gUniqs[what] or 10000) + 1
+        return gUniqs[what]
+    end
+
     local t = gUniqs[ what ]
     if not t then
         t = {_id=what, at=0, sn=0, wait=1}

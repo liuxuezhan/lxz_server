@@ -2,8 +2,17 @@ module("player_t")
 
 --{{{ create & destory
 function union_load(self, what)
-    local union = unionmng.get_union(self:get_uid())
+    Rpc:union_load(self, union_select(self,self.uid,what))
+end
+
+function union_get(self, what,uid)
+    Rpc:union_get(self, union_select(self,uid,what))
+end
+
+function union_select(self, uid,what)
+    local union = unionmng.get_union(uid)
     local result = {
+        uid = uid,
         key = what,
         val = {},
     }
@@ -12,38 +21,15 @@ function union_load(self, what)
     elseif what == "info" then
         result.val = union:get_info()
     elseif what == "member" then
-        result.val = union:get_member_info()
-    elseif what == "relation" then
-        result.val = union_relation.list(union)
-    elseif what == "ply" then --邀请列表
-        local l = {}
-        local num = 50  
-        local u = unionmng.get_union(self:get_uid())
-        if u then
-            for k, v in pairs(gPlys or {}) do
-                if k~=0 then
-                    if (v.uid == 0)and (v.language == u.language) and (not u:get_invite(v.pid)) 
-                        and (not u:has_member(v)) and (not u:get_apply(v.pid)) then
-                        table.insert(l,{pid=v.pid,name=v.name,language=v.language,photo=v.photo, 
-                        pow=calc_pow(v.lv,v.builds,v.arms,v.equips,v.techs,v.genius)})
-                        if #l > num then break end
-                    end
-                end
-            end
-            if #l < num then 
-                for k, v in pairs(gPlys or {}) do
-                    if k~=0 then
-                        if (v.uid==0)and(v.language ~= u.language) and (not u:get_invite(v.pid)) 
-                            and (not u:has_member(v)) and (not u:get_apply(v.pid)) then
-                            table.insert(l,{pid=v.pid,name=v.name,language=v.language,photo=v.photo, 
-                            pow=calc_pow(v.lv,v.builds,v.arms,v.equips,v.techs,v.genius)})
-                            if #l > num then break end
-                        end
-                    end
-                end
+        local R0 =  union_t.is_legal(self, "Invite") 
+        for _, A in pairs(union._members) do
+            if not R0  and A:get_rank() == resmng.UNION_RANK_0 then
+            else
+                table.insert(result.val, rpchelper.parse_rpc(A:get_union_info(),"unionmember"))
             end
         end
-        result.val = l 
+    elseif what == "relation" then
+        result.val = union_relation.list(union)
     elseif what == "apply" then
         local info = {}
         if union_t.is_legal(self, "Invite") then
@@ -72,7 +58,7 @@ function union_load(self, what)
         end
         result.val = {info=l, mark=union.tech_mark}
     elseif what == "donate" then
-        result.val = {donate=self._union.donate,tmOver=self._union.tmDonate, flag=union_member_t.get_donate_flag(self)}
+        result.val = {donate=self._union.donate,tmOver=self._union.tmDonate,CD_num = self._union.CD_doante_num or 0, flag=union_member_t.get_donate_flag(self)}
     elseif what == "mars" then --膜拜
         result.val = {mars=union.god,log = self._union.god_log,}
     elseif what == "" then
@@ -87,16 +73,61 @@ function union_load(self, what)
     elseif what == "fight" then
         room.load_fight(result,self.pid)
     elseif what == "build" then
+        if union.new_union_sn then return end
         result.val= {}
-        result.val.build =  get_build_list(self)
         result.val = union_buildlv.get(self)
+        result.val.build =  get_build_list(self)
     elseif what == "word" then
         result.val = union_word.list(self.pid,union)
         --Rpc:tips(self, resmng.BLACKMARCKET_TEXT_NEED_TIPS,{})
+    elseif what == "ef" then
+        result.val = {ef = union:get_ef(),ef_ex = union:get_castle_ef(self)}
+    elseif what == "union_donate" then
+        result.val = union.donate 
     end
 
     result.val = result.val or {}
-    Rpc:union_load(self, result)
+    return result
+end
+
+function union_search(self, what)
+    local l = {}
+    local num = 50
+    local u = unionmng.get_union(self:get_uid())
+    if not u then  return end
+
+    if what ~= "" then
+        local info = dbmng:getOne().player:find({name={["$regex"]=what}})
+        while info:hasNext() do
+            local p = info:next()
+            local v = getPlayer(p.pid)
+            if (v.uid == 0)and (not u:get_invite(v.pid)) and (not u:has_member(v)) and (not u:get_apply(v.pid)) then
+                table.insert(l,{pid=v.pid,name=v.name,language=v.language,photo=v.photo,uid=v.uid, pow=v:get_pow()})
+            end
+        end
+    else
+        local info = dbmng:getOne().player:find({language=u.language,uid=0})
+        while info:hasNext() do
+            local p = info:next()
+            local v = getPlayer(p.pid)
+            if (not u:get_invite(v.pid)) and (not u:has_member(v)) and (not u:get_apply(v.pid)) then
+                table.insert(l,{pid=v.pid,name=v.name,language=v.language,photo=v.photo, pow=v:get_pow()})
+                if #l > num then break end
+            end
+        end
+        if #l < num then
+            local info = dbmng:getOne().player:find({language={["$ne"]=u.lanuage},uid=0})
+            while info:hasNext() do
+                local p = info:next()
+                local v = getPlayer(p.pid)
+                if (not u:get_invite(v.pid)) and (not u:has_member(v)) and (not u:get_apply(v.pid)) then
+                    table.insert(l,{pid=v.pid,name=v.name,language=v.language,photo=v.photo, pow=v:get_pow()})
+                    if #l > num then break end
+                end
+            end
+        end
+    end
+    Rpc:union_search(self, l)
 end
 
 function union_relation_set(self,uid,type)
@@ -107,22 +138,22 @@ function get_build_list(self)
     local l = {}
     local union = unionmng.get_union(self:get_uid())
     if union then
-        for _, v in pairs(union.build) do
-            local t = copyTab(v)
-            local c = resmng.get_conf("prop_world_unit",v.propid)
+        for _, t in pairs(union.build) do
+            local c = resmng.get_conf("prop_world_unit",t.propid)
             if c.Mode == UNION_CONSTRUCT_TYPE.RESTORE then
                 if union_build_t.get_res_count(union) > 0 then
-                    t.go_state=1
+                    t.ga_state = 1
                 else
-                    t.go_state=0
+                    t.ga_state = 0
                 end
             else
-                if v.my_troop_id then
-                    t.go_state=1
+                if t.my_troop_id then
+                    t.ga_state = 1
                 else
-                    t.go_state=0
+                    t.ga_state = 0
                 end
             end
+            table.insert(l,t)
         end
     end
     return l
@@ -137,10 +168,6 @@ function union_create(self, name, alias, language, mars)
         ack(self, "union_create", resmng.E_CONDITION_FAIL) return
     end
 
-    if not self:condCheck(CREATEUNION.consume) then
-        ack(self, "union_create", resmng.E_CONSUME_FAIL) return
-    end
-
     for _, v in pairs(unionmng.get_all()) do
         if v.name == name then
             ack(self, "union_create", resmng.E_DUP_NAME) return
@@ -150,13 +177,24 @@ function union_create(self, name, alias, language, mars)
         end
     end
 
-    self:consume(CREATEUNION.consume, 1, VALUE_CHANGE_REASON.UNION_CREATE)
+    if self:get_castle_lv() < resmng.CREATEUNION.lv   then
+        if not self:do_dec_res(resmng.DEF_RES_GOLD, resmng.CREATEUNION.cost, VALUE_CHANGE_REASON.UNION_CREATE ) then 
+            WARN("金钱不足")
+            return 
+        end
+    end
 
     local union = union_t.create(self, name, alias, language, mars)
 
     -- register union chat room
     create_chat_room(union)
 
+    local c = resmng.get_conf("prop_language_cfg",union.language)
+    if not c  then
+        WARN("没有propid:"..union.language)
+        return 
+    end
+    Rpc:tips({pid=-1,gid=_G.GateSid}, 2,resmng.NOTIFY_UNION_CREATE,{self.name,union.name},{c.Text})
     Rpc:union_on_create(self, union:get_info())
     --任务
     task_logic_t.process_task(self, TASK_ACTION.JOIN_PLAYER_UNION)
@@ -200,7 +238,6 @@ function union_set_info(self, info)
         u.alias = info.alias
     end
     if union_t.is_legal(self, "ChgFlag") and info.flag then
-        --TODO: 扣钱
         u.flag = info.flag
     end
 
@@ -241,15 +278,23 @@ function union_add_member(self, pid)
         ack(self, "union_add_member", resmng.E_NO_PLAYER) return
     end
 
-    local union = unionmng.get_union(self:get_uid())
-    if not union then
+    local u = unionmng.get_union(self:get_uid())
+    if not u then
         ack(self, "union_add_member", resmng.E_NO_UNION) return
     end
 
-    local ret = union:accept_apply(self, B)
-    if ret ~= resmng.E_OK then
-        ack(self, "union_add_member", ret)
+    if not u:has_member(self) then return resmng.E_NO_UNION end
+    if not union_t.is_legal(self, "Invite") then
+        return resmng.E_DISALLOWED
     end
+
+    if not u:get_apply(pid) then 
+        WARN(u.uid..":没有申请:"..pid)
+        return  
+    end
+
+    u:remove_apply(pid)
+    u:add_member(B,self)
 end
 
 function union_apply(self, uid)
@@ -276,46 +321,38 @@ function union_apply(self, uid)
     else
         u:add_apply(self)
         if u:get_apply(self.pid) then
-            Rpc:union_reply(self, u.uid, resmng.UNION_STATE.APPLYING)
+            Rpc:union_reply(self, u.uid,u.name, resmng.UNION_STATE.APPLYING)
         elseif u:has_member(self) then
-            Rpc:union_reply(self, u.uid, resmng.UNION_STATE.IN_UNION)
+            Rpc:union_reply(self, u.uid,u.name, resmng.UNION_STATE.IN_UNION)
         end
     end
 
 end
 
 function union_quit(self)
-    for _, tid in pairs(self.busy_troop_ids) do
-        self:troop_recall(tid)
-    end
-
     local u = unionmng.get_union(self:get_uid())
     if not u then return end
     local ret = u:quit(self)
     ack(self, "union_quit", ret)
-
-    if ret == resmng.E_OK then
-        self.uname = ""
-        etypipe.add(self)
-    end
 end
 
 function union_reject(self, pid)
     local B = getPlayer(pid)
     if not B then
-        ack(self, "union_reject", resmng.E_NO_PLAYER) return
+        WARN("") 
+        return
     end
 
     local union = unionmng.get_union(self:get_uid())
     if not union then
-        ack(self, "union_reject", resmng.E_NO_UNION) return
+        WARN("") 
+        return
     end
 
     local ret = union:reject_apply(self, B)
     if ret == resmng.E_OK then
-        Rpc:union_reply(B, self.uid, resmng.UNION_STATE.NONE)
+        Rpc:union_reply(B, union.uid,union.name, resmng.UNION_STATE.NONE)
     end
-    ack(self, "union_reject", ret)
 end
 
 function union_enlist_set(self, check,text,lv,pow)
@@ -325,84 +362,95 @@ end
 
 function union_enlist_check(self, uid)
     local u = unionmng.get_union(uid)
-    local b = self:get_build(1)
-    local c = resmng.get_conf("prop_build",b.propid)
-    if c.Lv < u.enlist.lv then
+
+    local lv = self:get_castle_lv(self)
+
+    if lv < u.enlist.lv then
+        WARN("等级不足:"..lv..":"..u.enlist.lv)
         return false
     end
 
-    local p = calc_pow(self.lv,self.builds,self.arms,self.equips,self.techs,self.genius)
+    local p = self:get_pow()
     if p < u.enlist.pow then
+        WARN("战力不足:"..p..":"..u.enlist.pow)
         return false
     end
 
     return true
 end
 
-function union_info(self,uid)
-    local u = unionmng.get_union(uid)
-    if u then
-        local l = {}
-        l.enlist = u.enlist
-        Rpc:union_info(self, l)
-    end
-end
-
 function union_list(self,name)
 
-    local data = {name = name,list={}}
+    local ret = {name = name,list={}}
     if name ~= "" then
-        for _, u in pairs(unionmng.get_all() or {} ) do
-            if string.find(u.name,name) or string.find(u.alias,name)then
-                info = u:get_info()
-                info.state = resmng.UNION_STATE.NONE
-                if info.uid == self:get_uid() then
-                    info.state = resmng.UNION_STATE.IN_UNION
-                elseif u:get_apply(self.pid) then
-                    info.state = resmng.UNION_STATE.APPLYING
-                end
-                table.insert(data.list,info)
+        local data = dbmng:getOne().union:find({name={["$regex"]=name}})
+        while data:hasNext() do
+            local u = data:next()
+            u = unionmng.get_union(u.uid)
+            local info = u:get_info()
+            info.state = resmng.UNION_STATE.NONE
+            if info.uid == self:get_uid() then
+                info.state = resmng.UNION_STATE.IN_UNION
+            elseif u:get_apply(self.pid) then
+                info.state = resmng.UNION_STATE.APPLYING
             end
+            table.insert(data.list,info)
         end
-        Rpc:union_list(self, data)
+
+        data = dbmng:getOne().union:find({alias={["$regex"]=name}})
+        while data:hasNext() do
+            local u = data:next()
+            u = unionmng.get_union(u.uid)
+            local info = u:get_info()
+            info.state = resmng.UNION_STATE.NONE
+            if info.uid == self:get_uid() then
+                info.state = resmng.UNION_STATE.IN_UNION
+            elseif u:get_apply(self.pid) then
+                info.state = resmng.UNION_STATE.APPLYING
+            end
+            table.insert(ret.list,info)
+        end
+        Rpc:union_list(self, ret)
         return
     end
 
     local pow1 = 0
     local uid1 =0
-    for _, u in pairs(unionmng.get_all() or {} ) do --第一军团
-        local info = u:get_info()
-        if not info.new_union_sn then
-            if self.languge == u.language and  info.pow > pow1 then
-                  pow1=info.pow
-                  uid1 = info.uid
-            end
+    data = dbmng:getOne().union:find({language=self.language,new_union_sn={["$exists"]=false},})  --第一军团
+    while data:hasNext() do
+        local u = data:next()
+        u = unionmng.get_union(u.uid)
+        local pow = u:union_pow()
+        if (pow > pow1) then
+            pow1  = pow
+            uid1  =  u.uid
         end
     end
 
     local len = 0
     local uid2 = 0
-    for _, u in pairs(unionmng.get_all() or {} ) do --第二军团
-        local info = u:get_info()
-        if (not info.new_union_sn) and ( u.uid ~= uid1  ) then
-            local p = getPlayer(u.leader)
-            local l = math.pow(math.abs(p.x-self.x),2) + math.pow(math.abs(p.y-self.y),2)
-            if self.languge == u.language and  (l < len or len == 0) then
-                  len =l
-                  uid2 = info.uid
-            end
+    data = dbmng:getOne().union:find({language=self.language,new_union_sn={["$exists"]=false},uid={["$nin"]={uid1} } })  --第二军团
+    while data:hasNext() do
+        local u = data:next()
+        u = unionmng.get_union(u.uid)
+        local p = getPlayer(u.leader)
+        local l = math.pow(math.abs(p.x-self.x),2) + math.pow(math.abs(p.y-self.y),2)
+        if (l < len or len == 0) then
+            len =l
+            uid2 = u.uid
         end
     end
 
     local pow3 = 0
     local uid3 = 0
-    for _, u in pairs(unionmng.get_all() or {} ) do--第三军团
-        local info = u:get_info()
-        if (not info.new_union_sn) and u.uid ~= ( uid1 and uid2 )then
-            if info.pow > pow3 then
-                pow3 = info.pow
-                uid3 = info.uid
-            end
+    data = dbmng:getOne().union:find({language={["$nin"]={self.language}},new_union_sn={["$exists"]=false},uid={["$nin"]={uid1,uid2} } })  --第三军团
+    while data:hasNext() do
+        local u = data:next()
+        u = unionmng.get_union(u.uid)
+        local pow = u:union_pow()
+        if pow > pow3 then
+            pow3 = pow
+            uid3 = u.uid
         end
     end
 
@@ -425,7 +473,7 @@ function union_list(self,name)
         elseif union:get_apply(self.pid) then
             info.state = resmng.UNION_STATE.APPLYING
         end
-        table.insert(data.list,info)
+        table.insert(ret.list,info)
     end
 
     union = unionmng.get_union(uid2)
@@ -446,7 +494,7 @@ function union_list(self,name)
         elseif union:get_apply(self.pid) then
             info.state = resmng.UNION_STATE.APPLYING
         end
-        table.insert(data.list,info)
+        table.insert(ret.list,info)
     end
 
     union = unionmng.get_union(uid3)
@@ -467,68 +515,68 @@ function union_list(self,name)
         elseif union:get_apply(self.pid) then
             info.state = resmng.UNION_STATE.APPLYING
         end
-        table.insert(data.list,info)
+        table.insert(ret.list,info)
     end
 
-    for _, u in pairs(unionmng.get_all() or {} ) do--同语言军团
+    data = dbmng:getOne().union:find({language=self.language,new_union_sn={["$exists"]=false},uid={["$nin"]={uid1,uid2,uid3} } })  --同语言军团
+    while data:hasNext() do
+        local u = data:next()
+        u = unionmng.get_union(u.uid)
         local info = u:get_info()
-        if (not info.new_union_sn) and u.uid ~= (uid1 and uid2 and uid3 )then
-            local p = getPlayer(u.leader)
-            local l = math.pow(math.abs(p.x-self.x),2) + math.pow(math.abs(p.y-self.y),2)
-            if l < 10000 then
-                info.range = UNION_RANGE.NEAR
-            elseif l < 62500 then
-                info.range = UNION_RANGE.NORMAL
-            else
-                info.range = UNION_RANGE.FAR
-            end
-            info.state = resmng.UNION_STATE.NONE
-            if info.uid == self:get_uid() then
-                info.state = resmng.UNION_STATE.IN_UNION
-            elseif u:get_apply(self.pid) then
-                info.state = resmng.UNION_STATE.APPLYING
-            end
+        local p = getPlayer(u.leader)
+        local l = math.pow(math.abs(p.x-self.x),2) + math.pow(math.abs(p.y-self.y),2)
+        if l < 10000 then
+            info.range = UNION_RANGE.NEAR
+        elseif l < 62500 then
+            info.range = UNION_RANGE.NORMAL
+        else
+            info.range = UNION_RANGE.FAR
+        end
+        info.state = resmng.UNION_STATE.NONE
+        if info.uid == self:get_uid() then
+            info.state = resmng.UNION_STATE.IN_UNION
+        elseif u:get_apply(self.pid) then
+            info.state = resmng.UNION_STATE.APPLYING
+        end
 
-            if self.languge == u.language then
-                if #data.list < 101 then
-                    table.insert(data.list,info)
-                else
-                    break
-                end
+        if self.language == u.language then
+            if #ret.list < 101 then
+                table.insert(ret.list,info)
+            else
+                break
             end
         end
     end
 
-    for _, u in pairs(unionmng.get_all() or {} ) do--不同语言军团
+    data = dbmng:getOne().union:find({language={["$nin"]={self.language}},new_union_sn={["$exists"]=false},uid={["$nin"]={uid1,uid2,uid3} } })  --不同语言军团
+    while data:hasNext() do
+        local u = data:next()
+        u = unionmng.get_union(u.uid)
         local info = u:get_info()
-        if (not info.new_union_sn) and u.uid ~= (uid1 and uid2 and uid3 )then
-            local p = getPlayer(u.leader)
-            local l = math.pow(math.abs(p.x-self.x),2) + math.pow(math.abs(p.y-self.y),2)
-            if l < 10000 then
-                info.range = UNION_RANGE.NEAR
-            elseif l < 62500 then
-                info.range = UNION_RANGE.NORMAL
-            else
-                info.range = UNION_RANGE.FAR
-            end
-            info.state = resmng.UNION_STATE.NONE
-            if info.uid == self:get_uid() then
-                info.state = resmng.UNION_STATE.IN_UNION
-            elseif u:get_apply(self.pid) then
-                info.state = resmng.UNION_STATE.APPLYING
-            end
+        local p = getPlayer(u.leader)
+        local l = math.pow(math.abs(p.x-self.x),2) + math.pow(math.abs(p.y-self.y),2)
+        if l < 10000 then
+            info.range = UNION_RANGE.NEAR
+        elseif l < 62500 then
+            info.range = UNION_RANGE.NORMAL
+        else
+            info.range = UNION_RANGE.FAR
+        end
+        info.state = resmng.UNION_STATE.NONE
+        if info.uid == self:get_uid() then
+            info.state = resmng.UNION_STATE.IN_UNION
+        elseif u:get_apply(self.pid) then
+            info.state = resmng.UNION_STATE.APPLYING
+        end
 
-            if self.languge ~= u.language then
-                if #data.list < 101 then
-                    table.insert(data.list,info)
-                else
-                    break
-                end
-            end
+        if #ret.list < 101 then
+            table.insert(ret.list,info)
+        else
+            break
         end
     end
 
-    Rpc:union_list(self, data)
+    Rpc:union_list(self, ret)
 end
 
 function union_invite(self, pid)
@@ -542,41 +590,32 @@ function union_invite(self, pid)
     end
 
     local ret = union:send_invite(self, B)
+    B:send_system_union_invite(30001, self.pid, {uid=union.uid}, {self.name,union.name})
     ack(self, "union_invite", ret)
-    local mail = {class = MAIL_CLASS.REPORT, mode = MAIL_REPORT_MODE.UNION_INVITE, content = self:get_uid()}
-    B:mail_new(mail)
 end
 
-function union_help_add(self, type,idx)
-    if type == "build" then
-        local build = self:get_build(idx)
-        union_help.add(self,build.tmSn)
-    elseif type == "equip" then
-        local b = self:get_build_extra(BUILD_CLASS.FUNCTION, BUILD_FUNCTION_MODE.FORGE)
-        union_help.add(self,b.tmSn)
-    elseif type == "cure_hero" then
-        local hero = self:get_hero(hero_idx)
-        union_help.add(self,hero.tmSn)
-    elseif type == "cure_arm" then
-        union_help.add(self,self.tm_cure)
-    end
-end
 
 function union_accept_invite(self, uid)
     if #self.busy_troop_ids > 0 then
         ack(self, "union_accept_invite", resmng.E_DISALLOWED) return
     end
 
-    local union = unionmng.get_union(uid)
-    if not union then
+    local u = unionmng.get_union(uid)
+    if not u then
         ack(self, "union_accept_invite", resmng.E_NO_UNION) return
     end
-    local ret = union:accept_invite(self)
-    if ret ~= E_OK then
-        ack(self, "union_accept_invite", ret) return
+
+    if u:has_member(self) then
+        WARN("[Union]: acceptInvite, already in Union, player:%s, union:%s", self.pid, u.uid)
+        return 
     end
 
-    union:broadcast("union_add_member", self:get_union_info())
+    for k, v in pairs(u.invites) do
+        if v.pid == self.pid then
+            u:remove_invite(k)
+        end
+    end
+    u:add_member(self,self)
 end
 
 function union_member_rank(self, pid, r)
@@ -588,8 +627,12 @@ function union_member_rank(self, pid, r)
     if not u then
         ack(self, "union_member_rank", resmng.E_NO_UNION) return
     end
-    local ret = u:set_member_rank(self, B, r)
-    ack(self, "union_member_rank", ret)
+
+    if not u:has_member(self, B) then return  end
+
+    if self:get_rank() >= r then
+        B:set_rank(r)
+    end
 end
 
 function union_member_title(self, pid, t)
@@ -606,12 +649,11 @@ function union_member_title(self, pid, t)
     if self:get_rank() >= resmng.UNION_RANK_4 then
         B._union.title = t
         gPendingSave.union_member[B.pid] = B._union
-        u:notifyall("member", resmng.OPERATOR.UPDATE, B:get_union_info())
+        u:notifyall(resmng.UNION_EVENT.MEMBER, resmng.UNION_MODE.TITLE, B:get_union_info())
         return resmng.E_OK
     else
         return resmng.E_FAIL
     end
-    ack(self, "union_member_rank", ret)
 end
 
 function union_leader_auto(self )--自动移交军团长,返回是否删除军团
@@ -629,7 +671,7 @@ function union_leader_auto(self )--自动移交军团长,返回是否删除军�
     local rank = 0
     for id, v in pairs(u._members) do
         local B = getPlayer(id)
-        if B:get_rank() > rank and id ~= self.pid then
+        if B and B:get_rank() > rank and id ~= self.pid then
             pid = id
             rank = B:get_rank()
         end
@@ -641,39 +683,49 @@ function union_leader_auto(self )--自动移交军团长,返回是否删除军�
 
     local B = getPlayer(pid)
     if not B then
-        ack(self, "union_leader_update", resmng.E_NO_PLAYER) return false
+        WARN("") 
+        return false
     end
 
+    self:set_rank(resmng.UNION_RANK_4)
+    B:set_rank(resmng.UNION_RANK_5)
     u.leader = pid
-    local ret = u:set_member_rank(self, B,resmng.UNION_RANK_5)
-    ack(self, "union_lead_update", ret)
-    local ret = u:set_member_rank(B, self,resmng.UNION_RANK_4)
-    ack(self, "union_lead_update", ret)
     return false
 end
 
 function union_leader_update(self, pid)--手工移交军团长
-
-    if self:get_rank()~= resmng.UNION_RANK_5  then
-        return false
-    end
-
     local u = unionmng.get_union(self:get_uid())
     if not u then
-        ack(self, "union_leader_update", resmng.E_NO_UNION) return
+        WARN("")
+        return
+    end
+
+    local leader = getPlayer(u.leader)
+    if not leader then
+        WARN("没有军团长")
+        return
     end
 
     local B = getPlayer(pid)
     if not B then
         ack(self, "union_leader_update", resmng.E_NO_PLAYER) return
     end
-    if B:get_rank()~= resmng.UNION_RANK_4 or not u:has_member(B) then return false  end
 
-    u.leader = pid
-    local ret = u:set_member_rank(self, B,resmng.UNION_RANK_5)
-    ack(self, "union_lead_update", ret)
-    local ret = u:set_member_rank(B, self,resmng.UNION_RANK_4)
-    ack(self, "union_lead_update", ret)
+    if self:get_rank()== resmng.UNION_RANK_5 and B:get_rank()~= resmng.UNION_RANK_4 and  u:has_member(B) then 
+        leader:set_rank(resmng.UNION_RANK_4)
+        B:set_rank(resmng.UNION_RANK_5)
+        u.leader = pid
+    end
+
+    if u:has_member(B) and B:get_rank()== resmng.UNION_RANK_4 and leader.tm_logout + 0*24*60*60 <  gTime then
+        if not self:doUpdateRes(resmng.DEF_RES_GOLD, -1000, VALUE_CHANGE_REASON.UNION_RANK ) then 
+            WARN("金钱不足")
+            return 
+        end
+        leader:set_rank(resmng.UNION_RANK_4)
+        B:set_rank(resmng.UNION_RANK_5)
+        u.leader = pid
+    end
 end
 
 function union_member_mark(self, pid, mark)
@@ -753,8 +805,12 @@ end
 
 --}}}
 function union_troop_buf(self)
+    if not union_t.is_legal(self, "Global2") then
+        WARN("没权限")
+        return
+    end
 
-    if not self:doUpdateRes(resmng.DEF_RES_GOLD, -20000, VALUE_CHANGE_REASON.UNION_TASK) then
+    if not self:do_dec_res(resmng.DEF_RES_GOLD, 20000, VALUE_CHANGE_REASON.UNION_TASK) then
         return
     end
     local buf = {Atk_R=2000,Def_R=2000,SpeedMarch_R=500,}
@@ -765,6 +821,7 @@ function union_troop_buf(self)
     end
     u.tm_buf_over = gTime + 8*60*60
     timer.new("union_troop_buf", 8*60*60 , self.uid,buf )
+    Rpc:tips({pid=-1,gid=_G.GateSid}, 2,resmng.UNION_ADD_BUF,{u.name},{})
 end
 
 --{{{ tech & donate
@@ -790,43 +847,41 @@ function union_tech_mark(self, info)
     if not union then
         ack(self, "union_tech_mark", resmng.E_NO_UNION) return
     end
-    local ret = union:set_tech_mark(info)
-    ack(self, "union_tech_mark", ret)
+    union:set_tech_mark(info)
 end
 
 function union_mall_add(self,propid,num)
 
     local u = unionmng.get_union(self:get_uid())
     if not u then
-        ack(self, "union_mall_add", resmng.E_NO_UNION) return
+        WARN("")
+        return
     end
 
     if not union_t.is_legal(self, "AddItem") then
-        ack(self, "AddItem no rank", resmng.E_DISALLOWED) return
+        WARN("没权限")
+        return
     end
 
     local c = resmng.get_conf("prop_union_mall",propid)
     if not c then
-        ack(self, " no item", resmng.E_DISALLOWED) return
+        WARN("")
+        return
     end
 
     local cc = resmng.get_conf("prop_union_tech",c.ConditionLv[2] )
     if u._tech[1005] then
         local cur = resmng.get_conf("prop_union_tech",u._tech[1005].id)
         if cur.Lv < cc.Lv then
-            ack(self, " no tech", resmng.E_DISALLOWED) return
+            WARN("不能进货")
+            return
         end
     else
         if 0 < cc.Lv then
-            ack(self, " no tech", resmng.E_DISALLOWED) return
+            WARN("不能进货")
+            return
         end
     end
-
-    if c.Donate*num > u.donate then
-        ack(self, " no donate", resmng.E_DISALLOWED) return
-    end
-
-    u.donate = u.donate - c.Val*num
 
     union_mall.add(self,propid,num)
 end
@@ -855,20 +910,13 @@ function union_mall_buy(self,propid,num)
         ack(self, "union_mall_add", resmng.E_NO_UNION) return
     end
 
-    local c = resmng.prop_union_mall[propid]
-    local d = self:union_data()
-    if c.Val*num > d.donate then
-        ack(self, " no donate", resmng.E_DISALLOWED) return
-    end
-
-    d.donate= d.donate-c.Val*num
-    local ret = union_mall.buy(self,propid,num)
-    Rpc:union_donate_info(self, ret)
+    union_mall.buy(self,propid,num)
+    Rpc:union_donate_info(self, {donate=self._union.donate,tmOver=self._union.tmDonate,flag=union_member_t.get_donate_flag(self)})
 end
 
 function union_donate_clear(self)
     union_member_t.clear_tmdonate(self)
-    Rpc:union_donate_info(self, {tmOver=self._union.tmDonate,flag=union_member_t.get_donate_flag(self)})
+    Rpc:union_donate_info(self, {tmOver=self._union.tmDonate,CD_num = self._union.CD_doante_num, flag=union_member_t.get_donate_flag(self)})
 end
 
 function union_donate(self, idx, type)
@@ -878,20 +926,6 @@ function union_donate(self, idx, type)
     end
     local tech = union:get_tech(idx)
     if not tech then
-        ack(self, "union_donate", resmng.E_FAIL) return
-    end
-
-    local c = resmng.get_conf("prop_union_tech",tech.id+1)
-    if not c then
-        ack(self, "union_donate", resmng.E_FAIL) return
-    end
-
-    if not resmng.prop_union_tech[tech.id + 1] then
-        ack(self, "union_donate", resmng.E_NO_UNION) return
-    end
-
-    local conf = resmng.get_conf("prop_union_donate",union_tech_t.get_class(tech.idx))
-    if not conf then
         ack(self, "union_donate", resmng.E_FAIL) return
     end
 
@@ -910,6 +944,10 @@ function union_donate(self, idx, type)
 
     local cost = nil
     local reward = nil
+    local conf = resmng.get_conf("prop_union_donate",union_tech_t.get_class(tech.idx))
+    if not conf then
+        ack(self, "union_donate", resmng.E_FAIL) return
+    end
     if type == resmng.TECH_DONATE_TYPE.PRIMARY then
         cost = conf.Primary[donate[type]]
         reward = conf.Pincome
@@ -932,26 +970,23 @@ function union_donate(self, idx, type)
         ack(self, "union_donate", resmng.E_FAIL) return
     end
 
-    if cost[1] ~=resmng.DEF_RES_GOLD then
-        if not self:do_dec_res(cost[1], cost[2], VALUE_CHANGE_REASON.UNION_DONATE) then
-            return 
-        end
-    else
-        if not self:doUpdateRes(cost[1], -cost[2], VALUE_CHANGE_REASON.UNION_DONATE) then
-            return
-        end
+    if not self:do_dec_res(cost[1], cost[2], VALUE_CHANGE_REASON.UNION_DONATE) then
+        return
     end
 
     union_member_t.add_donate(self,reward[1])
     union:add_donate(reward[2],self)
+    union_mission.ok(self,UNION_MISSION_CLASS.DONATE,1)
     union_member_t.add_techexp(self,reward[3])
 
+    local c = resmng.get_conf("prop_union_tech", tech.id + 1)
+    if not c then return end
     local mode = math.floor(tech.exp/c.Exp)
     union_tech_t.add_exp(tech,reward[3])
 
     union.donate_rank = {}
     union_member_t.add_donate_cooldown(self,conf.TmAdd)
-    
+
     if mode ~= math.floor(tech.exp/c.Exp) then
         union_member_t.random_donate_cons(self,idx, true,type)
     else
@@ -960,7 +995,11 @@ function union_donate(self, idx, type)
 
     self:union_tech_info(idx)
     Rpc:union_donate_info(self, {tmOver=self._union.tmDonate,flag=union_member_t.get_donate_flag(self)})
+    --成就
+    self:add_count(resmng.ACH_TASK_TECH_DONATE, 1)
+    --任务
     task_logic_t.process_task(self, TASK_ACTION.UNION_TECH_DONATE, 1)
+
     ack(self, "union_donate", resmng.E_OK)
 end
 
@@ -1054,11 +1093,15 @@ function union_mission_chat (self )
 end
 
 function union_mission_set (self )--领取定时任务
+    local union = unionmng.get_union(self:get_uid())
+    if not union then WARN() return end
+
     if not union_t.is_legal(self, "Mission") then
         return
     end
 
     union_mission.set(self.uid)
+    union:add_log(resmng.UNION_EVENT.MISSION,resmng.UNION_MODE.GET,{ name=self.name,propid=union_mission._d[union.uid].propid })
 end
 function union_word_add (self,...)
     union_word.add(self.pid,...)
@@ -1072,68 +1115,68 @@ end
 
 function union_task_add (self, type, eid, hero,task_num, mode, res,res_num )--发布悬赏任务
     local union = unionmng.get_union(self:get_uid())
-    if not union then
-        ack(self, "union_task_add", resmng.E_NO_UNION) return
-    end
+    if not union then WARN() return end
 
     local dp = get_ety(eid)
     if not dp then
-        ack(self, "union_task_add", resmng.E_NO_UNION) return
+        WARN() 
+        return
     end
     union_task.add(self,type,eid,hero,task_num,mode,res,res_num)
+    union:add_log(resmng.UNION_EVENT.TASK,resmng.UNION_MODE.ADD,{ name=self.name,type=type,mode=mode })
 end
 --{{{ build
 
 function union_buildlv_donate(self, mode)
 
-    if not union_buildlv.add_buildlv_donate(self,mode) then
-        ack(self, "union_build_donate", resmng.E_FAIL) return
-    else
+    if union_buildlv.add_buildlv_donate(self,mode) then
         Rpc:union_buildlv_donate(self, union_buildlv.get_buildlv(self:get_uid(),mode))
     end
 end
 
-function union_build_setup(self, idx,propid, x, y)
+function union_build_setup(self, idx,propid, x, y,name)
     local u = self:union()
     if not u then
-        ack(self, "union_build_setup no union", resmng.E_NO_UNION) return
+        return
     end
 
     if not union_t.is_legal(self, "BuildPlace") then
-    --    ack(self, "union_build_setup no rank", resmng.E_DISALLOWED) return
+        return
     end
 
-    union_build_t.create(self.uid, idx, propid, x, y)
+    union_build_t.create(self.uid, idx, propid, x, y,name)
 end
 
-function union_build_remove(self, idx)
+function union_build_up(self, idx,state)
     local u = self:union()
     if not u then return end
 
-    local bcc = resmng.prop_world_unit[u.build[idx].propid]
+    if not union_t.is_legal(self, "BuildUp") then return end
+
+    local e = u:get_build(idx)
+    if not e then return end
+
+    e.state = state 
+
+    local bcc = resmng.get_conf("prop_world_unit",e.propid) or {}
     if not bcc then return false end
 
-    local ret = union_build_t.remove_build(u,idx)
+    if bcc.Mode == resmng.CLASS_UNION_BUILD_FARM
+        or bcc.Mode ==resmng.CLASS_UNION_BUILD_LOGGINGCAMP
+        or bcc.Mode ==resmng.CLASS_UNION_BUILD_MINE
+        or bcc.Mode ==resmng.CLASS_UNION_BUILD_QUARRY  then     --采集返回
 
---拆除奇迹相关建筑
-    if bcc.Mode == resmng.CLASS_UNION_BUILD_CASTLE or resmng.CLASS_UNION_BUILD_MINI_CASTLE then
-        for k, v in pairs(u.build) do
-            local cc = resmng.prop_world_unit[v.propid]
-            if not u:can_castle(bcc) then
-                u:remove_build(k)
-            end
+        for k, v in pairs(e.my_troop_id) do
+            local one = troop_mng.get_troop(v)
+            one:back()
         end
     end
+    save_ety(e)
 end
 
-function union_build_upgrade(self, idx)
-    local u = self:union()
-    if not u then return end
-
-    local ret = u:upgrade_build(self, idx)
-    if ret == resmng.E_OK then
-        union_mission.ok(self,"build_upgrade",1)
-    end
+function union_build_remove(self, eid)
+    if not union_t.is_legal(self, "BuildUp") then return end
+    rem_ety(eid)
 end
 
 
@@ -1277,20 +1320,6 @@ function union_battle_room_list(self)
                 unit.room_id = room._id
                 table.insert(msg_send, unit)
             end
-
-            --local ack_troop = troop_mng.get_troop(room.ack_troop_id)
-            --if ack_troop then
-            --    local ack_unit = self:get_battle_room_unit(room.ack_troop_id, room.ack_uid)
-            --    local defense_unit = self:get_battle_room_unit(room.defense_troop_id, room.defense_uid)
-            --    if ack_unit ~= nil and defense_unit ~= nil then
-            --        local unit = {}
-            --        unit.ack = ack_unit
-            --        unit.defense = defense_unit
-            --        unit.is_mass = ack_troop.is_mass
-            --        unit.room_id = room._id
-            --        table.insert(msg_send, unit)
-            --    end
-            --end
         else
             table.insert(dels, 1, k)
         end
@@ -1328,8 +1357,29 @@ function do_battle_room_info(room)
 
         node.players = {}
         local hit = v.pid or 0
-        if is_ply(v) then table.insert(node.players, { name=v.name, photo=v.photo, pid=v.pid} )
-        else table.insert(node.players, { monster=v.propid} ) end
+        if is_ply(v) then 
+            table.insert(node.players, { name=v.name, photo=v.photo, pid=v.pid} )
+
+        elseif is_res(v) then
+            if v.pid and v.pid > 0 then
+                local dest = getPlayer( v.pid )
+                if dest then
+                    table.insert(node.players, { name=dest.name, photo=dest.photo, pid=dest.pid} )
+                end
+            end
+
+        elseif is_camp(v) then
+            if v.pid and v.pid > 0 then
+                local dest = getPlayer( v.pid )
+                if dest then
+                    table.insert(node.players, { name=dest.name, photo=dest.photo, pid=dest.pid} )
+                end
+            end
+
+        elseif is_monster(v) then
+            table.insert(node.players, { monster=v.propid} ) 
+
+        end
 
         if k == 1 then node.x, node.y = troop.sx, troop.sy
         else node.x, node.y = troop.dx, troop.dy end
@@ -1340,7 +1390,7 @@ function do_battle_room_info(room)
                 if pid ~= hit and pid > 0 then
                     local p = getPlayer(pid)
                     if p then
-                        if is_ply(p) then 
+                        if is_ply(p) then
                             table.insert(node.players, { name=p.name, photo=p.photo, pid=p.pid} )
                         end
                     end
@@ -1506,10 +1556,10 @@ function fill_player_info_by_arm(self, arm, troop_action, owner_pid)
     unit.heros_hp = {}
     local tm_heros = {}
     --如果是城主的部队，英雄要算出来
-    if troop_action == TroopAction.DefultFollow and arm.pid == owner_pid then tm_heros = self:get_defense_heros() 
+    if troop_action == TroopAction.DefultFollow and arm.pid == owner_pid then tm_heros = self:get_defense_heros()
     else tm_heros = arm.heros end
 
-    for k, v in pairs(tm_heros) do
+    for k, v in pairs(tm_heros or {}) do
         if v ~= 0 then
             local hero = heromng.get_hero_by_uniq_id(v)
             if hero then
@@ -1585,7 +1635,7 @@ function do_battle_room_detail(room)
 
     for k, v in ipairs({A, D}) do
         local node = info[ k ]
-        if k == 1 then node.troop_id = room._id 
+        if k == 1 then node.troop_id = room._id
         else node.troop_id = D.my_troop_id or 0 end
 
         node.uid = v.uid
@@ -1693,7 +1743,7 @@ end
 --    if ack_unit == nil or defense_unit == nil or ack_troop == nil then
 --        return
 --    end
---    
+--
 --    local msg_send = {}
 --    ack_unit.x = ack_troop.sx
 --    ack_unit.y = ack_troop.sy
@@ -1731,7 +1781,7 @@ function union_battle_room_detail(self, room_id)
     dumpTab(info, "battle_room_detail")
 
     local msg_send = {}
-    
+
     msg_send.action = troop.action
     msg_send.ack = info[1]
     msg_send.defense = info[2]
@@ -1793,5 +1843,9 @@ end
 
 function union_god_get(self)
     union_god.get(self)
+end
+
+function get_union( self )
+    return unionmng.get_union( self.uid )
 end
 

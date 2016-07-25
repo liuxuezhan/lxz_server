@@ -8,16 +8,16 @@ function get_item(self, idx)
         local info = db.item:findOne({_id=self.pid})
         if info then
             for k, v in pairs(info) do
-                if k ~= "_id" then
+                if type(k) == "number" then
                     ms[ tonumber(k) ] = v
                 end
             end
         else
             db.item:insert({_id=self.pid})
         end
-        --self._item = ms
         rawset(self, "_item", ms)
     end
+    self._item._n_ = nil
     if not idx then return self._item
     else return self._item[ idx ] end
 end
@@ -52,7 +52,7 @@ function inc_item(self, id, num, reason)
     if reason == VALUE_CHANGE_REASON.DEFAULT then
         ERROR("inc_item: pid = %d, don't use the default reason.", self.pid)
     end
-    LOG("inc_item: pid = %d, item_id = %d, num = %d, reason = %d.", self.pid, id, num, reason)
+    LOG("[ITEM] inc_item: pid = %d, idx = %d, item_id = %d, num = %d, total = %d, reason = %d.", self.pid, idx, id, num, its[idx][3], reason)
 end
 
 function add_item_pend(self, idx)
@@ -64,7 +64,7 @@ function add_item_pend(self, idx)
     end
     local k = tostring(idx)
     node[ k ] = self._item[ idx ]
-    node[ k ]._n_ = nil
+    node._n_ = nil
 end
 
 
@@ -80,8 +80,8 @@ function dec_item(self, idx, num, reason)
         return false
     end
 
-
     local item = self:get_item(idx)
+    local propid = item[2]
     if item and item[3] >= num then
         item[3] = item[3] - num
         self:add_item_pend(idx)
@@ -90,12 +90,12 @@ function dec_item(self, idx, num, reason)
         if reason == VALUE_CHANGE_REASON.DEFAULT then
             ERROR("dec_item: pid = %d, don't use the default reason.", self.pid)
         end
-        LOG("dec_item: pid = %d, idx = %d, item_id = %d, num = %d, reason = %d.", self.pid, idx, item[2], num, reason)
+        LOG("[ITEM] dec_item: pid = %d, idx = %d, item_id = %d, num = %d, total = %d, reason = %d.", self.pid, idx, item[2], num, item[3], reason)
         --任务
-        task_logic_t.process_task(self, TASK_ACTION.USE_ITEM, id, num)
+        task_logic_t.process_task(self, TASK_ACTION.USE_ITEM, propid, num)
         return true
     else
-        LOG("dec_item: pid = %d, idx = %d, item_id = %d, num = %d > have = %d", self.pid, idx, item[2], num, item and item[3] or -1)
+        LOG("[ITEM] dec_item: pid = %d, idx = %d, item_id = %d, num = %d > have = %d", self.pid, idx, item[2], num, item and item[3] or -1)
         return false
     end
 end
@@ -125,17 +125,16 @@ function dec_item_by_item_id(self, item_id, num, reason)
     for idx, item in pairs(item_list) do
         if item[2] == item_id then
             if item[3] >= item_need_del then
-                item[3] = item[3] - item_need_del
+                self:dec_item( idx, item_need_del, reason )
                 item_need_del = 0
+                break
             else
+                local num = item[3]
                 item[3] = 0
-                item_need_del = item_need_del - item[3]
+                self:dec_item( idx, num, reason )
+                item_need_del = item_need_del - num
             end
             self:add_item_pend(idx)
-        end
-
-        if item_need_del == 0 then
-            break
         end
     end
 
@@ -143,7 +142,7 @@ function dec_item_by_item_id(self, item_id, num, reason)
     if reason == VALUE_CHANGE_REASON.DEFAULT then
         ERROR("dec_item_by_item_id: pid = %d, don't use the default reason.", self.pid)
     end
-    INFO("dec_item_by_item_id: pid = %d, item_id = %d, num = %d, reason = %d.", self.pid, item_id, num, reason)
+    --INFO("[ITEM] dec_item_by_item_id: pid = %d, item_id = %d, num = %d, total = %d, reason = %d.", self.pid, item_id, num, item_have - num, reason)
     return true
 end
 
@@ -416,7 +415,7 @@ function buy_item(self, id, num, use)
                         if itemp then
                             if itemp.Action then
                         --        item_func[ itemp.Action ]( self, itemnum * num, unpack(itemp.Param or {} ) )
-                            player_t.use_item_logic[itemp.Action](self,itemp.ID, num, itemp)
+                                player_t.use_item_logic[itemp.Action](self,itemp.ID, num, itemp)
                                 flag = true
                             end
                         end

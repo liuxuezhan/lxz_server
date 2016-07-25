@@ -70,10 +70,8 @@ function singletonClass( child, parent )
 	setmetatable( child, mt )
 end
 
--- --.-----------------------------------------------------------------------.--
--- Hx@2016-03-09: module based class
--- 需要注意加载顺序，基类先加载
 function create_module_class(name, base)
+    --WARN("[DEL] use attack_wrap_ instead")
     module(name, package.seeall)
     if base then setmetatable(_ENV, {__index=base}) end
     setfenv(2, getfenv(1))   
@@ -96,11 +94,13 @@ function create_module_class(name, base)
             if not _cache[t._id] then _cache[t._id] = {} end
             t._pro[k] = v
             _cache[t._id][k] = v
-            _cache[t._id]._n_ = nil
         end
     }
     
     function new(t)
+        if not t._id then return MARK( "no _id") end
+        _cache[t._id] = t
+        t._n_ = 1
         local self = {_pro=t or {}}
         setmetatable(self, meta)
         self:init()
@@ -117,6 +117,7 @@ function create_module_class(name, base)
 end
 
 function attach_check_pending(example)
+    --WARN("[DEL] use attack_wrap_ instead")
     setfenv(1, getfenv(2))   
 
     for k, v in pairs(example or {}) do
@@ -172,6 +173,49 @@ function attach_check_pending(example)
         _cache[self._id][tostring(k)] = self[k]
     end
 end
--- --'-----------------------------------------------------------------------'--
 
+function attach_wrap_(base)
+    setfenv(1, getfenv(2))
+    _base = base
+    if _base then setmetatable(_ENV, {__index=_base}) end
 
+    for k, v in pairs(_base and _base._example or {}) do
+        _example[k] = _example[k] or v
+    end
+
+    function init() end
+
+    _meta = {
+        __index=function(t, k)
+            return t._pro[k] or rawget(t, k) or _ENV[k]
+        end,
+        __newindex=function(t, k, v)
+            if _example and _example[k] ~= nil then
+                if t.on_value_change then t:on_value_change(k, t._pro[k], v) end
+                t._pro[k] = v
+                return
+            end
+            rawset(t, k, v)
+        end
+    }
+
+    function deliver()
+        local t = setmetatable({_pro = copyTab(_example) or {}}, _meta)
+        if init then init(t) end
+        return t
+    end
+
+    function wrap(t)
+        local cp = setmetatable({_pro = copyTab(_example) or {}}, _meta)
+        if init then init(cp) end
+        local function trans(d, t)
+            for k, v in pairs(t) do
+                if _example and _example[k] ~= nil then d._pro[k] = v else d[k] = v end
+            end
+        end
+        trans(cp, rawget(t, "_pro") or {})
+        rawset(t, "_pro", nil)
+        trans(cp, t)
+        return cp
+    end
+end

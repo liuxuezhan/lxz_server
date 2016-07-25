@@ -58,6 +58,9 @@ function get_online_award(self)
     --任务
     task_logic_t.process_task(self, TASK_ACTION.DAY_AWARD, 1)
     self:refresh_online_award()
+
+    self:add_count( resmng.ACH_COUNT_DAILY_REWARD, 1 )
+
 end
 
 function refresh_online_award(self)

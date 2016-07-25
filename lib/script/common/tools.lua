@@ -30,7 +30,7 @@ function string.format_ex(str,tab_arg)
     if not tab_arg then return str end
     local match_count = 0
     for i = 1,#tab_arg do
-        local pattern = string.format("{%d}",i)
+        local pattern = string.format("{%d}",i) 
         str,match_count = string.gsub(str,pattern,tostring(tab_arg[i]))
         if match_count > 1 then 
             print("<color=yellow>target string has more than one pattern: "..pattern.."</color>\nstring is: "..str)
@@ -71,6 +71,34 @@ function table.clear(tb)
     for k,v in pairs(tb) do
         tb[k] = nil
     end
+end
+
+--clone一个table
+function table.clone(table)
+    local save_t = {}
+
+    local function table_clone(t)
+        local dt = {}
+        if type(t) == "table" then
+            if save_t[t] then
+                dt = t
+            else
+                save_t[t] = t
+                for k,v in pairs(t) do
+                    if type(v) == "table" then
+                        local v1 = table_clone(v)
+                        dt[k] = v1
+                    else
+                        dt[k] = v
+                    end
+                end
+            end
+        end
+        return dt
+    end
+
+    save_t = {}
+    return table_clone(table)
 end
 
 function table.index_of(tb,o)
@@ -253,20 +281,17 @@ function timestamp_to_str(timestamp)
 end
 
 
--- Hx@2016-01-15 : ety format
 etypipe = {}
-etypipe[EidType.Player] =       {"eid", "x", "y", "propid", "uid", "pid", "photo", "name", "uname"}
-etypipe[EidType.Res]    =       {"eid", "x", "y", "propid", "uid", "pid", "val", "extra"}
---etypipe[EidType.Troop]  =       {"eid", "culture", "owner_eid", "start_eid", "start_uid", "dest_eid", "dest_uid", "sx", "sy", "dx", "dy", "tmStart", "tmOver", "tmCur", "action", "status", "curx", "cury", "speed", "soldier_num"}
-etypipe[EidType.Troop]  =       {"eid", "culture", "action", "owner_eid", "owner_pid", "owner_uid", "target_eid", "target_pid", "target_uid", "sx", "sy", "dx", "dy", "tmCur", "curx", "cury", "speed", "tmStart", "tmOver", "soldier_num","be_atk_list"}
-etypipe[EidType.Monster]=       {"eid", "x", "y", "propid", "hp", "level"}
-etypipe[EidType.UnionBuild] =   {"eid", "x", "y", "propid", "uid", "sn","idx","hp","state","name"}
-etypipe[EidType.NpcCity]=   {"eid", "x", "y", "propid", "state", "startTime","endTime", "unions"}
-etypipe[EidType.KingCity]=   {"eid", "x", "y", "propid", "state", "status","startTime", "endTime", "occuTime","uid", "uname"}
-etypipe[EidType.MonsterCity]=   {"eid", "x", "y", "propid", "state", "class", "startTime", "endTime"}
-etypipe[EidType.Camp]    =       {"eid", "x", "y", "propid", "pid", "uid"}
-etypipe[EidType.LostTemple]=   {"eid", "x", "y", "propid", "state", "startTime", "endTime", "uid"}
-
+etypipe[EidType.Player] =       {"propid", "eid", "x", "y", "uid", "pid", "photo", "name", "uname", "officer", "nprison"}
+etypipe[EidType.Res]    =       {"propid", "eid", "x", "y", "uid", "pid", "val", "extra"}
+etypipe[EidType.Troop]  =       {"propid", "eid", "culture","action", "owner_eid", "owner_pid", "owner_uid", "target_eid", "target_pid", "target_uid", "sx", "sy", "dx", "dy", "tmCur", "curx", "cury", "speed", "tmStart", "tmOver", "soldier_num","be_atk_list", "flag", "owner_pid", "name"}
+etypipe[EidType.Monster]=       {"propid", "eid", "x", "y", "hp", "level","born"}
+etypipe[EidType.UnionBuild] =   {"propid", "eid", "x", "y", "uid","alias", "sn","idx","hp","state","name","val","culture"}
+etypipe[EidType.NpcCity]=       {"propid", "eid", "x", "y", "state", "startTime","endTime", "unions", "randomAward"}
+etypipe[EidType.KingCity]=      {"propid", "eid", "x", "y", "state", "status","startTime", "endTime", "occuTime","uid", "uname"}
+etypipe[EidType.MonsterCity]=   {"propid", "eid", "x", "y", "state", "class", "startTime", "endTime"}
+etypipe[EidType.Camp]    =      {"propid", "eid", "x", "y", "pid", "uid"}
+etypipe[EidType.LostTemple]=    {"propid", "eid", "x", "y", "state", "startTime", "endTime", "uid", "uname", "born"}
 
 
 function etypipe.pack(filter, xs)
@@ -275,7 +300,7 @@ function etypipe.pack(filter, xs)
         assert(xs[v], "ety add lack key: ".. v)
         val[k] = xs[v]
     end
-    --return cmsgpack.pack(val)
+    return val
 end
 
 function etypipe.unpack(filter, data)
@@ -285,29 +310,64 @@ function etypipe.unpack(filter, data)
     end
     return val
 end
+
+--function etypipe.pack(filter, xs)
+--    local val = {}
+--    table.insert( val, gMapID )
+--    for k, v in ipairs(filter) do
+--        assert(xs[v], "ety add lack key: ".. v)
+--        table.insert(val, xs[v])
+--    end
+--    return cmsgpack.pack(val)
+--end
+--
+--function etypipe.unpack(filter, data)
+--    local val = {}
+--    table.remove(data, 1)
+--    for k, v in pairs(filter) do
+--        val[v] = data[k]
+--    end
+--    val.map = gMapID
+--    return val
+--end
+--
 -- api
+--function etypipe.parse(data)
+--    local eid = data[1]
+--    local mode = math.floor(eid / 0x010000)
+--    local node = etypipe[ mode ]
+--    if node then
+--        return etypipe.unpack(node, data)
+--    else
+--        WARN("no etypipid, eid=0x%08x", eid)
+--        return data
+--    end
+--end
+
 function etypipe.parse(data)
-    local eid = data[1]
-    local mode = math.floor(eid / 0x010000)
+    local propid = data[1]
+    local mode = math.floor(propid / 1000000)
     local node = etypipe[ mode ]
     if node then
         return etypipe.unpack(node, data)
     else
-        WARN("no etypipid, eid=0x%08x", eid)
+        WARN("no etypipid, eid=0x%08x", propid)
         return data
     end
 end
 
 function etypipe.add(data)
     --assert(data.eid, data.x, data.y)
-    local mode = math.floor(data.eid / 0x010000)
+    --
+    local mode = math.floor(data.propid / 1000000)
+    --local mode = math.floor(data.eid / 0x010000)
     local node = etypipe[ mode ]
     if not node then
         WARN("what type, etypipe.add??")
         dumpTab(data, "etypipe.add error")
     end
 
-    if is_troop(data.eid) then 
+    if is_troop(data) then 
         data.be_atk_list = data.be_atk_list or {}
         --c_add_troop(data.eid, data.sx, data.sy, data.dx, data.dy, etypipe.pack(node, data))
     else
@@ -315,7 +375,6 @@ function etypipe.add(data)
         data.size = data.size or 4
         --c_add_ety(data.eid, data.x, data.y, data.size, 0, etypipe.pack(node, data))
     end
-
 end
 
 function get_val_by(what, ...)
@@ -430,7 +489,7 @@ end
 
 function calc_distance(sx, sy, dx, dy)
     local dist = math.sqrt((dy - sy) ^ 2 + (dx - sx) ^ 2)
-    local cx,cy,hw = 512, 512, 256
+    local cx,cy,hw = 608, 608, 64
     
     if sx < cx and dx < cx then return dist end
     if sy < cy and dy < cy then return dist end
@@ -483,11 +542,19 @@ end
 
 function get_building(builds, class, mode, seq)
     if builds then
-        seq = seq or 1
-        if seq >= 100 then return end
-        local idx = class * 10000 + mode * 100 + seq
-        return builds[ idx ]
+        if seq then
+            return builds[class * 10000 + mode * 100 + seq]
+        else
+            for i=1,BUILD_MAX_NUM[class][mode] do
+                if builds[class * 10000 + mode * 100 + i] then
+                    return builds[class * 10000 + mode * 100 + i]
+                end
+            end
+        end
     end
+end
+
+function get_one_building(builds, class, mode )
 end
 
 function t_random(t)--序列化随机
@@ -505,7 +572,18 @@ function t_random(t)--序列化随机
     end
 end
 
+-- 第二天零点
+function get_next_time()
+    local now = os.date("*t", gTime)
+    local temp = { year=now.year, month=now.month, day=now.day, hour=0, min=0,sec=0 }
+    return os.time(temp) + 24 * 3600
+end
+
 function can_date(time)--是否跨天
+    if (not time) or (time == 0)  then
+        return true
+    end
+
     if os.date("%d")~=os.date("%d",time) then
         return true
     end
@@ -513,6 +591,10 @@ function can_date(time)--是否跨天
 end
 
 function can_month(time)--是否跨月
+    if (not time) or (time == 0)  then
+        return true
+    end
+
     if os.date("%m")~=os.date("%m",time) then
         return true
     end
@@ -641,16 +723,6 @@ function calc_buyres_gold(res_num, res_id)
     -- print("res_to_gold", res_id, orig, cost)
     return cost
 end
--- 计算除去已有资源所需的金币
-function calc_need_res_gold(res_num, res_id)
-    local _res = Model.get_pro("res")[res_id]
-    local _have_res = _res[1]+_res[2]
-    if _have_res>=res_num then
-        return 0
-    else
-        return calc_buyres_gold(res_num-_have_res, res_id)
-    end
-end
 
 function get_taxrate(propid,effect)--获取税率
     local c = resmng.get_conf("prop_build",propid)
@@ -661,11 +733,19 @@ function get_taxrate(propid,effect)--获取税率
 end
 
 function get_castle_count(member_count)
-    local count = 0
+    local count = 1
     if member_count < UNION_CASTALCOUNT_LIMIT[1] then
         return count
     end
-    count = 2 + math.ceil((member_count - UNION_CASTALCOUNT_LIMIT[1]) / UNION_CASTALCOUNT_LIMIT[2]) 
+    count = 2 + math.floor((member_count - UNION_CASTALCOUNT_LIMIT[1]) / UNION_CASTALCOUNT_LIMIT[2])    
+    return count
+end
+
+function get_can_occupycity_count(member_count)    
+    if member_count < UNION_OCCUPY_LIMIT[1] then
+        return 0
+    end    
+    return 1 + math.floor((member_count - UNION_OCCUPY_LIMIT[1]) / UNION_OCCUPY_LIMIT[2])
 end
 
 function table_count(tab)
@@ -728,6 +808,7 @@ function ana_item(unit)
     if prop_tab.Open == 0 then
         unit.icon = prop_tab.Icon
         unit.grade = prop_tab.Color or 1
+        unit.name = prop_tab.Name
         table.insert(list, unit)
     else
         for _, info in pairs(prop_tab.Param) do
@@ -739,6 +820,7 @@ function ana_item(unit)
                     if prop_tmp ~= nil then
                         tmp.icon = prop_tmp.Icon
                         tmp.grade = prop_tmp.Color or 1
+                        tmp.name = prop_tmp.Name
                     end
                 elseif tmp.type == "res" or tmp.type == "respicked" then
                     ana_res(tmp)
@@ -759,6 +841,7 @@ function ana_res(unit)
     end
     unit.icon = prop_tab.Icon
     unit.grade = prop_tab.Color or 1
+    unit.name = prop_tab.Name
 end
 
 function ana_hero(unit)
@@ -768,6 +851,7 @@ function ana_hero(unit)
     end
     unit.icon = prop_tab.Icon
     unit.grade = prop_tab.Quality or 1
+    unit.name = prop_tab.Name
 end
 
 --得到礼包里面的奖励物品
@@ -813,7 +897,8 @@ function get_award_box_item(item_id)
 end
 
 function is_in_black_land( x, y )
-    return  x >= 512 and x < 512 + 256 and y >= 512 and y < 512 + 256 
+    --return  x >= 512 and x < 512 + 256 and y >= 512 and y < 512 + 256 
+    return  x >= 608 and x < 608 + 64 and y >= 608 and y < 608 + 64  -- 640 - 16 * 2
 end
 
 -- the first bit idx is 1, not 0
@@ -838,10 +923,14 @@ function get_bit( val, idx )
     else return 1 end
 end
 
+function get_first_zero( val )
+    for i = 1, 32, 1 do
+        if get_bit( val, i ) == 0 then return i end
+    end
+end
+
 --------------------------------------------------------------------
 --------------------------------------------------------------------
-
-
 
 
 --------------------------------------------------------------------------------

@@ -7,25 +7,11 @@ function load_player()
     local total = 0
     while info:hasNext() do
         local data = info:next()
-
-        local cures = {}
-        for k, v in pairs(data.cures or {} ) do
-            cures[ tonumber(k) ] = v
-        end
-        data.cures = cures
-
-        local hurts = {}
-        for k, v in pairs(data.hurts) do
-            hurts[ tonumber(k) ] = v
-        end
-        data.hurts = hurts
+        if data.tm_login > (data.tm_logout or 0) then data.tm_logout = gTime - 1 end
+        if data.culture < 1 or data.culture > 4 then data.culture = 1 end
 
         local p = player_t.new(data)
-        if p.pid > (gPid or 0 ) then
-            gPid = p.pid
-        end
         rawset(p, "eid", data.eid)
-        rawset(p, "propid", resmng.PLY_CITY_WEST_1)
         rawset(p, "size", 4)
         rawset(p, "uname", "")
 
@@ -35,7 +21,7 @@ function load_player()
                 rawset(p, "uname", union.alias)
             end
         end
-        etypipe.add(p)
+        --etypipe.add(p)
 
         gEtys[ p.eid ] = p
         mark_eid(p.eid)
@@ -43,20 +29,17 @@ function load_player()
         if count >= 100 then
             total = total + 100
             LOG("load player %d", total)
-            print(string.format("load player %d", total))
-            --mem_info()
             count = 0
         end
     end
     total = total + count
-    print("load_player done")
-    --INFO("total player %d", total)
 end
 
 
 function load_build()
     local db = dbmng:getOne()
     local info = db.build:find({})
+    local count = 0
     while info:hasNext() do
         local b = info:next()
         local p = getPlayer(b.pid)
@@ -67,6 +50,10 @@ function load_build()
                 p._build = bs
             end
             bs[ b.idx ] = build_t.new(b)
+            count = count + 1
+            if count % 10000 == 0 then
+                LOG("load build %d", count)
+            end
         end
     end
 end
@@ -75,22 +62,32 @@ function load_troop()
     local db = dbmng:getOne()
     db.troop:delete({delete=true})
 
+    local datas = {}
+
     local info = db.troop:find({})
     local maxSn = 0
     while info:hasNext() do
         local tr = info:next()
         if tr._id > maxSn then maxSn = tr._id end
-        troop_mng.load_data(tr)
+        datas[ tr._id ] = tr
     end
     _G.gSns[ "troop" ] = maxSn + 1
+    troop_mng.datas = datas
+end
+
+function restore_troop()
+    local datas = troop_mng.datas
+    troop_mng.datas = nil
+    for k, v in pairs( datas ) do
+        troop_mng.load_data( v )
+    end
 end
 
 function load_equip()
-    local db = dbmng:getOne()
-    local info = db.troop:find({})
-
     for _, v in pairs( gPlys ) do v._equip = {} end
 
+    local db = dbmng:getOne()
+    local info = db.troop:find({})
     while info:hasNext() do
         local t = info:next()
         local ply = getPlayer( t.pid )
@@ -100,6 +97,19 @@ function load_equip()
     end
 end
 
+function load_count()
+    for _, v in pairs( gPlys ) do v._count = {} end
+    local db = dbmng:getOne()
+    local info = db.count:find({})
+    while info:hasNext() do
+        local t = info:next()
+        local ply = getPlayer( t.pid )
+        if ply then
+            t._id = nil
+            ply._count = t
+        end
+    end
+end
 
 
 function load_room()
@@ -131,7 +141,6 @@ function troop_t.mark(T)
     --gPendingSave.troop[ T._id ] = T
     gPendingSave.troop[ T._id ].tmCur = gTime
     gPendingSave.troop[ T._id ].arms = {} 
-
 end
 
 function load_npc_city()
@@ -146,28 +155,21 @@ function load_npc_city()
             mark_eid(c.eid)
             etypipe.add(c)
             have[ n.ID ] = c
-
-            print("npc_city, eid, x, y =", c.eid, c.x, c.y)
         end
     end
 
     for k, v in pairs(resmng.prop_world_unit) do
         if v.Class == CLASS_UNIT.NPC_CITY then
             if not have[ v.ID ] then
-                --if c_map_test_pos(v.X, v.Y, v.Size) == 0 then
-                    local eid = get_eid_npc_city()
-                    if eid then
-                        local c = {_id=eid, eid=eid, x=v.X, y=v.Y, propid=k, size=v.Size, uid=0}
-                        print("npc_city, eid, x, y =", c.eid, c.x, c.y)
-                        gEtys[ eid ] = c
+                local eid = get_eid_npc_city()
+                if eid then
+                    local c = {_id=eid, eid=eid, x=v.X, y=v.Y, propid=k, size=v.Size, uid=0}
+                    gEtys[ eid ] = c
 
-                        mark_eid(eid)
-                        etypipe.add(c)
-                        db.npc_city:insert(c)
-                    end
-                --else
-                --    print("npc_city, propid= x, y =", v.ID, v.X, v.Y)
-                --end
+                    mark_eid(eid)
+                    etypipe.add(c)
+                    db.npc_city:insert(c)
+                end
             end
         end
     end
@@ -180,9 +182,7 @@ function load_hero()
         local b = info:next()
         local p = getPlayer(b.pid)
         if p then
-            if not p._hero then
-                p._hero = {}
-            end
+            if not p._hero then p._hero = {} end
             local hero = hero_t.wrap(b)
             p._hero[ b.idx ] = hero
             heromng.add_hero(hero)
@@ -190,53 +190,6 @@ function load_hero()
     end
 end
 
-function load_union()
-    local db = dbmng:getOne()
-    local info = db.union:find({})
-    while info:hasNext() do
-        local union = union_t.new(info:next())
-        unionmng._us[union.uid] = union
-        if union.new_union_sn and union.new_union_sn > new_union._id   then
-            new_union._id =  union.new_union_sn 
-        end
-    end
-
-    info = db.union_log:find({})
-    while info:hasNext() do
-        local lg = union_t.new(info:next())
-        if unionmng._us[lg._id] then
-            unionmng._us[lg._id].log = lg
-            local csn = 0
-            for _, v in pairs(lg.log) do
-                if csn < v.sn then
-                    csn = v.sn
-                end
-            end
-            unionmng._us[lg._id].log_csn = csn
-        end
-    end
-end
-
-
-
-function load_union_build()
-    local db = dbmng:getOne()
-    local info = db.union_build:find({})
-    while info:hasNext() do
-        local data = info:next()
-        local u = unionmng.get_union(data.uid)
-        if u  and data.state ~= BUILD_STATE.DESTROY then
-            u.build[data.idx] = data
-            gEtys[ data.eid ] = data 
-            data.name = ""
-
-            print("union_build,", data.eid)
-            mark_eid(data.eid)
-            etypipe.add(data)
-            union_build_t.set_sn(data.sn)
-        end
-    end
-end
 
 function load_sys_status()
     local db = dbmng:getOne()
@@ -250,9 +203,21 @@ function load_sys_status()
 end
 
 function init_effect()
+    local count = 0
     for _, v in pairs(gPlys) do
+        local propid = v.culture * 1000 + v:get_castle_lv()
+        if v.propid ~= propid then v.propid = propid end
+        v.nprison = v:get_prison_count()
         v:initEffect()
+        etypipe.add(v)
+        count = count + 1
     end
+
+    local us = unionmng.get_all()
+    for _, v in pairs( us ) do
+        v:union_pow()
+    end
+    return count
 end
 
 function load_sys_mail()
@@ -284,7 +249,7 @@ function load_task()
     end
 end
 
-function restore_timer2()
+function restore_timer()
     local db = dbmng:getOne()
     db.timer:delete({delete=true})
 
@@ -363,126 +328,29 @@ function restore_timer2()
 
         for _, v in pairs(retroop) do
            -- print(string.format("add_actor, troop, troopid=%s, speed=%f, eid=%d, action=%d, status=%d", v._id, v.speed, v.eid, v.action, v.status))
+            local speed = v.speed
+            local black = is_in_black_land( v.curx, v.cury )
+            if black then v.speed = v.speed * 0.1 end
             etypipe.add(v)
             c_add_actor(v.eid, v.curx, v.cury, v.dx, v.dy, v.tmCur, v.speed)
             gEtys[ v.eid ] = v
+            v.speed = speed
         end
 
         return "Compensation"
     else
         for k, node in pairs(timer._sns) do
-            --addTimer(node._id, (node.over-real)*1000, node.tag or 0)
-        end
-    end
-end
-
-function restore_timer()
-    local ghostNewTimer = timer.newTimer
-    timer.newTimer = function() end
-
-    local db = dbmng:getOne()
-    local info = db.timer:find({})
-
-    while info:hasNext() do
-        local t = info:next()
-        timer._sns[ t._id ] = t
-    end
-
-    local funMin = function()
-        local min = math.huge
-        local k = false
-        for sn, v in pairs(timer._sns) do
-            if v.over < min then
-                k = sn
-                min = v.over
-            end
-        end
-        return k
-    end
-
-    _G.gTime = 0
-    _G.gMsec = 0
-    local start = 0
-
-    while true do
-        local id = funMin()
-        if not id then break end
-        local node = timer.get(id)
-
-        print(string.format("over:%d, real:%d, action=%s", node.over, real_gTime, node.what))
-
-        if node.over > real_gTime then break end
-
-        if _G.gTime == 0 then
-            _G.gTime = node.over
-            start = node.over
-        end
-
-        _G.gTime = node.over
-        _G.gMsec = (node.over - start) * 1000
-
-        timer.callback(node._id, node.tag)
-    end
-
-    timer.newTimer = ghostNewTimer
-    _G.gTime = real_gTime
-    _G.gMsec = real_gMsec
-
-    for k, node in pairs(timer._sns) do
-        if node.what == "cron" then
-            timer.del(node._id)
-        else
-            addTimer(node._id, (node.over-gTime)*1000, node.tag or 0)
-        end
-    end
-end
-
-function renewTimer()
-    for _, p in pairs(gPlys) do
-        local bs = p._build
-        if bs then
-            for _, b in pairs(bs) do
-                if b.tmOver and b.tmOver > 0 then
-                    b.tmSn = timer.new("build", b.tmOver - _G.gTime, p.pid, b.idx)
-                else
-                    if b.tmSn ~= 0 then b.tmSn = 0 end
-                end
-            end
-        end
-
-        local ts = p:get_troop()
-        if ts then
-            for _, t in pairs(ts) do
-                if t.tmOver and t.tmOver > 0 then
-                    t.tmSn = timer.new("troop", t.tmOver - _G.gTime, t.pid, t.idx)
-                end
-            end
-        end
-    end
-
-    for _, union in pairs(unionmng.get_all()) do
-        for _, t in pairs(union.mass or {}) do
-            if t.tmOver and t.tmOver > 0 then
-                t.tmSn = timer.new("mass", t.tmOver - _G.gTime, union.uid, t.idx)
-            end
-        end
-
-        for _, t in pairs(union._tech) do
-            if t.tmOver and t.tmOver > 0 then
-                t.tmSn = timer.new("uniontech", t.tmOver - _G.gTime, union.uid, t.idx)
-            end
-        end
-
-        for _, t in pairs(union.build) do
-            if t.tmOver and t.tmOver > 0 then
-                t.tmSn = timer.new("unionbuild", t.tmOver - _G.gTime, t._id)
-            end
+            addTimer(node._id, (node.over-real)*1000, node.tag or 0)
         end
     end
 end
 
 function post_init()
     --c_roi_view_start()
+
+    INFO("-- init_rank ---------")
+    rank_mng.init()
+    INFO("-- init_rank done  ---")
 end
 
 function action()
@@ -490,8 +358,10 @@ function action()
     load_sys_status()
     INFO("-- load_sys_status done-----")
 
+    load_troop()
+
     INFO("-- load_union --------------")
-    load_union()
+    union_t.load()
     INFO("-- load_union done ---------")
 
     INFO("-- load_player -------------")
@@ -526,12 +396,13 @@ function action()
     kw_mall.load_from_db()
     INFO("-- load_kw_mall -----------")
 
-    INFO("-- load_lost_temple -----------")
-    lost_temple.load_lost_temple()
-    INFO("-- load_lost_temple -----------")
+    -- should load after troop
+    --INFO("-- load_lost_temple -----------")
+    --lost_temple.load_lost_temple()
+    --INFO("-- load_lost_temple -----------")
 
     INFO("-- load_union_build --------")
-    load_union_build()
+    union_build_t.load()
     INFO("-- load_union_build done ---")
 
     INFO("-- load_hero ---------------")
@@ -555,16 +426,21 @@ function action()
     INFO("-- restore_system_mail done-")
 
     INFO("-- restore_troop -----")
-    load_troop()
+    restore_troop()
     INFO("-- restore_troop done-")
+
+    INFO("-- load_lost_temple -----------")
+    lost_temple.load_lost_temple()
+    INFO("-- load_lost_temple -----------")
+
 
     INFO("-- restore_equip -----")
     load_equip()
     INFO("-- restore_equip done-")
 
     INFO("-- init_effect -------------")
-    init_effect()
-    INFO("-- init_effect done --------")
+    local count = init_effect()
+    INFO("-- init_effect done -------- %d", count)
     
     INFO("-- restore_room -----")
     load_room() 
@@ -614,12 +490,8 @@ function action()
     INFO("-- done done done ----------")
 
     INFO("-- restore_timer -----------")
-    local compensate =  restore_timer2()
+    local compensate =  restore_timer()
     INFO("-- restore_timer done ------")
-
-
-    --- fo test
-    --test_mc()
 
     return compensate
 end
