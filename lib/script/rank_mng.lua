@@ -108,7 +108,7 @@ function add_data( idx, key, data )
 
     if node.num <= node.nall then
         node.tops = nil
-        node.sl:insert( score, tostring(key) )
+        --node.sl:insert( score, tostring(key) )
         node.alls[ key ] = data
         gPendingSave[tab][ key ].v = data
         node.num = node.num + 1

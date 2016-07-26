@@ -182,23 +182,15 @@ function create(account, map, pid)
     -- Hx@2015-12-24 : lazy init union when login, not here
     --ply._union = union_member_t.create(pid, 0, 0)
     local place = false
-    for i = 1, 16, 1 do
-        local x, y = c_get_pos_by_lv(1,4,4)
-        if x then
-            ply.x = x
-            ply.y = y
-            local culture = c_get_culture( x, y );
-            if culture and culture >= 1 and culture <= 4 then
-                ply.culture = culture
-                ply.propid = culture * 1000 + 1
-            else
-                ply.culture = 1
-                ply.propid = 1001
-            end
-            place = true
-            break
-        end
-    end
+       -- local x, y = c_get_pos_by_lv(1,4,4)
+       local x, y = pid*5,pid*5 
+       if x then
+           ply.x = x
+           ply.y = y
+           ply.culture = 1 
+           ply.propid = 1001
+           place = true
+       end
 
     if not place then return WARN("pid=%d, no room", ply.pid) end
 
@@ -410,7 +402,8 @@ function firstPacket2(self, sockid, from_map, account, pasw)
     end
 
     if not p then
-        local pid = getId("pid")
+        gPid = (gPid or 0) + 1
+        local pid = gPid 
 
         local dg = dbmng:getGlobal()
         local info = { [pid] = {map=map, smap=from_map} }

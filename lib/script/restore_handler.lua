@@ -11,6 +11,9 @@ function load_player()
         if data.culture < 1 or data.culture > 4 then data.culture = 1 end
 
         local p = player_t.new(data)
+        if p.pid > (gPid or 0 ) then
+            gPid = p.pid
+        end
         rawset(p, "eid", data.eid)
         rawset(p, "size", 4)
         rawset(p, "uname", "")

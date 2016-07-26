@@ -18,9 +18,9 @@ local function slg_read(fd)
 		skynet.error(string.format("socket(%d) read fail", fd))
     end
 
-    ret = json.decode(ret) 
-    lxz(ret)
-    player_t[ ret[1] ](_G.gAgent, unpack(ret[2]) ) 
+    local d = json.decode(ret) 
+    lxz(d)
+    player_t[d.f](_G.gAgent, unpack(d.args)  ) 
 end
 
 

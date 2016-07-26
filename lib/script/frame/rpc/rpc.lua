@@ -44,27 +44,11 @@ end
 
 
 local function makeRpc( rpc, name, ... )
-    local rf = rpc.remoteF[name]
-   	if  not rf then
-		error(string.format("can't find remote function named %s",key))
-		return nil 
-	end
 	
-	local arg={...}
-	if #arg ~= #rf.args then
-		for i,v in ipairs(arg) do print(i,v) end
-		error(string.format("expected %d arguments, but passed in %d",#rf.args,#arg))
-	end
-	
-    local packet = LuaPacket(rf.id)
+    local packet = {f=name,args={}}
 
-    for i, v in ipairs(arg) do
-        local t = rf.args[i].t
-		if t and isTypeOf(i,t,v) then
-			RpcType[t]._write( packet, v )
-		else
-			error(string.format("bad argument %d, expected %s, but a %s",i,t,type(v)))
-		end
+    for i, v in ipairs({...}) do
+        table.insert( packet.args, v )
     end
 
 	return packet
@@ -368,10 +352,9 @@ end
 local mt = {
     __index = function( table, key )
         return function(rpc, ...)
-            --local packet = rpc:makeRpc(key,...)
-            --Server.Send(packet)
-            callRpc(rpc, key, ...)
-            --rpc:callRpc(key, ...)
+            local packet = rpc:makeRpc(key,...)
+            local socket = require "socket"
+            local ok  = pcall(socket.write,fd, json.encode(packet).."\n")
         end
     end
 }
