@@ -67,8 +67,8 @@ function add_data( idx, key, data )
 
         else
             local top = node.top
-            node.sl:delete( old, tostring( key ) )
-            node.sl:insert( new, tostring( key ) )
+            --node.sl:delete( old, tostring( key ) )
+            --node.sl:insert( new, tostring( key ) )
             table.insert( data, 1, key )
             node.alls[ key ] = data
             gPendingSave[tab][ key ].v = data

@@ -381,9 +381,8 @@ end
 
 --gAccs[ "loon" ]  = {_id="loon", [ 10001 ] = {map=3, smap=3, }}
 
-function firstPacket2(self, sockid, from_map, account, pasw)
-    print( string.format( "firstPacket2, account=%s, from=%s, to=%s, sockid=0x%08x", account, from_map, gMapID, sockid ) )
-
+function firstPacket2(self, fd, from_map, account, pasw)
+    lxz()
     local p = false
     local acc = gAccounts[ account ]
     if acc then
@@ -402,7 +401,7 @@ function firstPacket2(self, sockid, from_map, account, pasw)
     end
 
     if not p then
-        gPid = (gPid or 0) + 1
+        gPid = (gPid or 10000) + 1
         local pid = gPid 
 
         local dg = dbmng:getGlobal()
@@ -415,11 +414,7 @@ function firstPacket2(self, sockid, from_map, account, pasw)
     end
 
     if p then
-        pushHead(_G.GateSid, 0, 9)  -- set server id
-        pushInt(sockid)
-        pushInt(from_map)
-        pushInt(p.pid)
-        pushOver()
+        p.fd = fd 
         player_t.login( p, p.pid )
     end
 
@@ -451,8 +446,8 @@ function login(self, pid)
     local p = getPlayer(pid)
     if p then
         p.gid = gid
-        INFO("[LOGIN], on, pid=%d, name=%s", pid, p.name)
         --如果是第一次登陆，初始化玩家数据
+        INFO("[LOGIN], on, pid=%d, name=%s", pid, p.name)
         if p.tm_login == 0 then p:first_login() end
 
         if p.tm_login > p.tm_logout then

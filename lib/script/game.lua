@@ -137,7 +137,7 @@ function get_eid()
     for i = 1, 524288, 1 do 
         eid_max = eid_max + 1
         if eid_max > 524288 then eid_max = 1 end
-        local eid = eid_max * 4096 + gMapID
+        local eid = eid_max * 4096 + (gMapID or 1)
 
         if not gEtys[ eid ] then 
             g_eid_max = eid_max

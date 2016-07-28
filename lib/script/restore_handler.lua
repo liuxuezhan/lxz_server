@@ -14,6 +14,10 @@ function load_player()
         if p.pid > (gPid or 0 ) then
             gPid = p.pid
         end
+        if not gAccounts[ p.account]then
+            gAccounts[ p.account] = {} 
+        end
+        gAccounts[ p.account].pid = p 
         rawset(p, "eid", data.eid)
         rawset(p, "size", 4)
         rawset(p, "uname", "")

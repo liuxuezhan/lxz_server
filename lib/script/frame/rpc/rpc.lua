@@ -54,52 +54,6 @@ local function makeRpc( rpc, name, ... )
 	return packet
 end
 
---local function parseRpc( rpc, packet )
---    local rfid = packet:Type()
---	local rf = rpc.localF[rfid]
---	if not rf then
---		error(string.format("rfid(%d) not found in LocalF", rfid))
---	end
---
---	local args={}
---	for i,v in ipairs(rf.args) do
---		local tm = RpcType[v.t]
---		args[i] = tm:_read( packet )
---	end
---	
---	local lf = ProtocolImp[rf.name]
---	if lf then
---		lf(unpack(args))
---	else
---		error(string.format("%s local function do not defined", rf.name))
---	end
---end 
---
-
-
---local function parseRpc( rpc, packet, rfid, mod, ply )
---	local rf = rpc.localF[rfid]
---	if not rf then
---		error(string.format("rfid(%d) not found in LocalF", rfid))
---	end
---
---    LOG("RpcR, name=%s, pid=%d", rf.name, ply.pid)
---
---	local args={}
---	for i,v in ipairs(rf.args) do
---		local tm = RpcType[v.t]
---		args[i] = tm._read( packet )
---	end
---	
---	local lf = mod[rf.name]
---	if lf then
---		lf(ply, unpack(args))
---	else
---		error(string.format("%s local function do not defined", rf.name))
---	end
---end 
-
-
 local function parseRpc( rpc, packet, rfid)
 	local rf = rpc.localF[rfid]
 	if not rf then
@@ -291,70 +245,12 @@ local function callAgent( rpc, map, name, ... )
     LOG("RpcA, pid=%d, func=%s", map, name)
 end
 
-
-local function callRpc( rpc, name, plA, ... )
-    local rf = rpc.remoteF[name]
-   	if not rf then
-		error(string.format("can't find remote function named %s",name))
-		return nil 
-	end
-	
-	local arg={...}
-	if #arg ~= #rf.args then
-		for i,v in ipairs(arg) do print(i,v) end
-		error(string.format("expected %d arguments, but passed in %d",#rf.args,#arg))
-	end
-
-    if rpc.mode == "server"  then
-        if plA.pid then
-            if not plA.gid then 
-                --WARN("callRpc, name=%s, pid=%d, no gid", name, plA.pid)
-                return 
-            end
-            pushHead(_G.GateSid, plA.pid, rf.id)
-        else
-            if not _G.GateSid then return end
-
-            local pids = {}
-            local num = 0
-            for k, v in ipairs(plA) do
-                table.insert(pids, v)
-                num = num + 1
-            end
-
-                if #pids == num then
-                    pushHead(_G.GateSid, 0, 15) --gNetPt.NET_SEND_MUL
-                    pushInt( num )
-                    for _, pid in pairs( plA ) do
-                        pushInt( pid )
-                    end
-                    pushInt(rf.id)
-                end
-        end
-    else
-        pushHead2s(plA.gid or _G.GateSid, rf.id)
-    end
-
-    for i, v in ipairs(arg) do
-        local t = rf.args[i].t
-		if t and isTypeOf(i,t,v) then
-			RpcType[t]._write( packet, v )
-		else
-			error(string.format("bad argument %d, expected %s, but a %s",i,t,type(v)))
-		end
-    end
-    pushOver()
-
-    LOG("RpcS, pid=%d, func=%s", plA.pid or 0, name)
-end
-
-
 local mt = {
     __index = function( table, key )
-        return function(rpc, ...)
+        return function(rpc, ply,...)
             local packet = rpc:makeRpc(key,...)
             local socket = require "socket"
-            local ok  = pcall(socket.write,fd, json.encode(packet).."\n")
+            local ok  = pcall(socket.write,ply.fd, json.encode(packet).."\n")
         end
     end
 }

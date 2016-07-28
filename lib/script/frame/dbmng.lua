@@ -36,9 +36,12 @@ function tryOne(self, policy)
 end
 
 function getByTips(self, tips)
+    return self:getOne(policy)
+    --[[
     for _, t in pairs(self.sckMap) do
         if t.tips == tips then return t.db end
     end
+    --]]
 end
 
 function getGlobal(self)

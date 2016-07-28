@@ -101,11 +101,12 @@ function cprint(s,color)--颜色答应
 end
 
 function log(...)--日志
-    local info = debug.getinfo(2)
+    local info = debug.getinfo(3)
     local d = "["..(info.short_src or "FILE")..":"..(info.currentline or 0).."]"..":"
     for _,v in pairs({...}) do
         d = d..json.encode(v).."@"
     end
+    print(d)
     os.execute("logger -p local0.info "..d )
 end
 
@@ -270,6 +271,7 @@ function warx_init()
     require("frame/timer")
     require("frame/socket")
     require("frame/class")
+    require("frame/frame")
     doLoadMod("packet", "frame/rpc/packet")
     doLoadMod("MsgPack", "frame/MessagePack")
     doLoadMod("Array", "frame/rpc/array")
@@ -363,5 +365,4 @@ function warx_init()
     gMapID=1 
     load_sys_config()
     load_uniq()
-
 end

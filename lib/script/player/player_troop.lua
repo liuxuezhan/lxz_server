@@ -91,6 +91,7 @@ function inc_arm(self, soldier_id, num)
 
     local arm = troop:get_arm_by_pid( self.pid )
     if arm then
+    pause("debug in main_loop")
         Rpc:upd_arm(self, arm.live_soldier)
     end
 end

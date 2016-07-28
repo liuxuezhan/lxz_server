@@ -20,7 +20,12 @@ local function slg_read(fd)
 
     local d = json.decode(ret) 
     lxz(d)
-    player_t[d.f](_G.gAgent, unpack(d.args)  ) 
+    if d.f == "firstPacket2" then
+        d.args[1]=fd
+        player_t[d.f](_G.gAgent, unpack(d.args)  ) 
+    else
+        player_t[d.f](_G.gAgent, unpack(d.args)  ) 
+    end
 end
 
 
