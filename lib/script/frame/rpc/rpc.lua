@@ -51,7 +51,7 @@ local function makeRpc( rpc, name, ... )
         table.insert( packet.args, v )
     end
 
-	return packet
+	return json.encode(packet)
 end
 
 local function parseRpc( rpc, packet, rfid)
@@ -250,7 +250,10 @@ local mt = {
         return function(rpc, ply,...)
             local packet = rpc:makeRpc(key,...)
             local socket = require "socket"
-            local ok  = pcall(socket.write,ply.fd, json.encode(packet).."\n")
+            lxz(#packet,packet)
+	        local pack = string.pack(">s", packet)
+    --pause("debug in main_loop")
+            socket.write(ply.fd, pack)
         end
     end
 }

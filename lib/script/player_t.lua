@@ -206,10 +206,11 @@ function create(account, map, pid)
     ply.size = 4
     ply.nprison = 0
     etypipe.add(ply)
+    --pause("debug in main_loop")
 
     -- register chat accout
     --Rpc:create_chat_accont(ply, tostring(pid), CHAT_HOST, tostring(pid))
-    create_chat_account(ply)
+--    create_chat_account(ply)
 
     return ply
 end
@@ -414,7 +415,7 @@ function firstPacket2(self, fd, from_map, account, pasw)
     end
 
     if p then
-        p.fd = fd 
+        p.fd=fd
         player_t.login( p, p.pid )
     end
 

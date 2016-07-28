@@ -107,7 +107,7 @@ skynet.start(function()
         local ok, err = pcall(accept, fd, addr)
         if not ok then
             if err then
-                skynet.error(string.format("invalid client (fd = %d) error = %s", fd, err))
+                lxz(fd, err)
             end
             close_fd(fd)
         end
