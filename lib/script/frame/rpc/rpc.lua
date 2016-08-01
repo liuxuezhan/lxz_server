@@ -47,7 +47,7 @@ local function makeRpc( rpc, name, ... )
 	
     local packet = {f=name,args={}}
 
-    for i, v in ipairs({...}) do
+    for i, v in pairs({...}) do
         table.insert( packet.args, v )
     end
 
@@ -163,6 +163,7 @@ local function parseRpcType()
 end
 
 local function init( rpc, what )
+    pause()
     parseProtocol( rpc, what )
     parseRpcType()
     print("parse done")
@@ -245,15 +246,27 @@ local function callAgent( rpc, map, name, ... )
     LOG("RpcA, pid=%d, func=%s", map, name)
 end
 
+local function callRpc( rpc, name, plA, ... )
+
+    local arg={...}
+    if not plA.pid then
+        for _, pid in pairs( plA ) do
+            plA = getPlayer(pid)
+        end
+    end
+
+    local socket = require "socket"
+    local pack = {name=name,args={...}, }
+    pack = string.pack(">s", json.encode(pack))
+    socket.write(plA.fd, pack)
+
+    LOG("RpcS, pid=%d, func=%s", plA.pid or 0, name)
+end
+
 local mt = {
     __index = function( table, key )
         return function(rpc, ply,...)
-            local packet = rpc:makeRpc(key,...)
-            local socket = require "socket"
-            lxz(#packet,packet)
-	        local pack = string.pack(">s", packet)
-    --pause("debug in main_loop")
-            socket.write(ply.fd, pack)
+            callRpc(rpc,key,ply, ...)
         end
     end
 }
