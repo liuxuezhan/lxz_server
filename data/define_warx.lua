@@ -289,6 +289,7 @@ function warx_init()
     do_load("common/define")
     do_load("common/tools")
     do_load("common/protocol")
+    do_load("common/rpc_parse")
 
     do_load("timerfunc")
 

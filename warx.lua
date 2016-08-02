@@ -64,7 +64,7 @@ function CMD.kick(name )
     ply._d[name].online=0
 end
 
-
+plys = {}
 local function accept(fd, addr)
     lxz()
     lxz(string.format("connect from %s (fd = %d)", addr, fd))
@@ -72,13 +72,18 @@ local function accept(fd, addr)
     open_fd(fd)	-- may raise error here
 
     --slg_read(fd)
-    local d = json.decode(copy(read(fd)))
-    lxz(d)
-    if d.f == "firstPacket2" then
-        d.args[1]=fd
-        player_t[d.f](_G.gAgent, unpack(d.args)  ) 
-    else
-        player_t[d.f](_G.gAgent, unpack(d.args)  ) 
+    while 1 do
+        local d = json.decode(copy(read(fd)))
+        if d then
+            lxz(d)
+            if d.f == "firstPacket2" then
+                d.args[1]=fd
+                local p = player_t[d.f](_G.gAgent, unpack(d.args)  ) 
+                plys[fd] = p 
+            else
+                player_t[d.f](plys[fd], unpack(d.args)  ) 
+            end
+        end
     end
 end
 

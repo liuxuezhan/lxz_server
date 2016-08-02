@@ -395,7 +395,7 @@ Server = {
     p2p = "int to_pid, pack info",
 
     reset_skill = "int hero_idx, int skill_idx",
-
+    request_empty_pos = "int x, int y, int size",
 }
 
 
@@ -696,6 +696,6 @@ Client = {
     -- title
     title_info_ack = "pack info",
     p2p = "int from_pid, pack info",
-
+    response_empty_pos = "int x, int y",
 }
 

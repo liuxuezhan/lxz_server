@@ -379,7 +379,6 @@ end
 --gAccs[ "loon" ]  = {_id="loon", [ 10001 ] = {map=3, smap=3, }}
 
 function firstPacket2(self, fd, from_map, account, pasw)
-    lxz()
     local p = false
     local acc = gAccounts[ account ]
     if acc then
@@ -415,6 +414,7 @@ function firstPacket2(self, fd, from_map, account, pasw)
         player_t.login( p, p.pid )
     end
 
+    return p 
 end
 
 function first_login(self)
@@ -4034,3 +4034,28 @@ can_ply_opt_act[ACT_TYPE.NPC] = function(ply)
     return false
 end
 
+function request_empty_pos(self, x, y, size)
+--[[
+    local zone_x = math.floor(x/16)
+    local zone_y = math.floor(y/16)
+
+    for _, range in pairs(SEARCH_RANGE) do
+        local length = #range
+        local sindex = math.random(1, length)
+        for i = 1, length, 1 do
+            local index = (sindex + i) % length
+            if index == 0 then index = length end
+            local tmp_x = zone_x + range[index][1]
+            local tmp_y = zone_y + range[index][2]
+            if (tmp_x > 0 and tmp_x < 80) and (tmp_y > 0 and tmp_y < 80) then
+                local dx, dy = c_get_pos_in_zone(tmp_x, tmp_y, size, size)
+                if dx ~= nil and dy ~= nil then
+                    Rpc:response_empty_pos(self, dx, dy)
+                    return
+                end
+            end
+        end
+    end
+--]]
+    Rpc:response_empty_pos(self, -1, -1)
+end
