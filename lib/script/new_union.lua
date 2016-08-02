@@ -3,8 +3,8 @@ module(..., package.seeall)
 _id = 0 --序号,外部引用
 
 function new()--创建新手军团
-    local id = getId("union")
     _id = _id + 1
+    local id = 1000+_id 
     local data = {
         uid=id,_id=id,name=name,alias=alias,level=1,language=42,credit=0,
         membercount=0,note_in="",note_out="",invites = {},new_union_sn=_id

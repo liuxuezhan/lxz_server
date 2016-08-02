@@ -12,20 +12,12 @@ local server_name = "warx"
 local conf =_list[server_name] 
 
 
-local function slg_read(fd)
+local function read(fd)
     local ok ,ret = pcall(socket.readline,fd)
     if not ok then
 		skynet.error(string.format("socket(%d) read fail", fd))
     end
-
-    local d = json.decode(ret) 
-    lxz(d)
-    if d.f == "firstPacket2" then
-        d.args[1]=fd
-        player_t[d.f](_G.gAgent, unpack(d.args)  ) 
-    else
-        player_t[d.f](_G.gAgent, unpack(d.args)  ) 
-    end
+    return ret
 end
 
 
@@ -74,11 +66,20 @@ end
 
 
 local function accept(fd, addr)
+    lxz()
     lxz(string.format("connect from %s (fd = %d)", addr, fd))
 
     open_fd(fd)	-- may raise error here
 
-    slg_read(fd)
+    --slg_read(fd)
+    local d = json.decode(copy(read(fd)))
+    lxz(d)
+    if d.f == "firstPacket2" then
+        d.args[1]=fd
+        player_t[d.f](_G.gAgent, unpack(d.args)  ) 
+    else
+        player_t[d.f](_G.gAgent, unpack(d.args)  ) 
+    end
 end
 
 local  function save_db()

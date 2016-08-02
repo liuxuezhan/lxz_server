@@ -257,7 +257,9 @@ local function callRpc( rpc, name, plA, ... )
 
     local socket = require "socket"
     local pack = {name=name,args={...}, }
-    pack = string.pack(">s", json.encode(pack))
+    pack = json.encode(pack)
+    lxz(pack)
+    pack = string.pack(">s", pack)
     socket.write(plA.fd, pack)
 
     LOG("RpcS, pid=%d, func=%s", plA.pid or 0, name)

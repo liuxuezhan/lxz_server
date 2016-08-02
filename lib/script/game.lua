@@ -1,4 +1,3 @@
-
 function load_game_module()
     gMapID = getMap()
     gMapNew = 1
@@ -234,6 +233,7 @@ function save_ety(e)
         elseif e.action then--行军队列  
             e:save()
             e:notify_owner()
+        elseif is_ply(e) then
         else
             assert()
         end
@@ -326,16 +326,6 @@ function send_invite()
 
 end
 
---[[
-function test2()
-    local ap = get_ety(7)
-    c_rem_ety(ap.eid)
-    ap.x = 160
-    ap.y = 1100
-    etypipe.add(ap)
-end
-
---]]
 function test()
 
     --gPendingSave.test[ 2 ] = { {1,2,3}, {4,5,6,} }
@@ -673,7 +663,6 @@ end
 
 
 function to_tool( sn, info )
-    Rpc:qry_tool( gAgent, sn ,info )
+--    Rpc:qry_tool( gAgent, sn ,info )
 end
-
 --timer.new("tlog", 1)

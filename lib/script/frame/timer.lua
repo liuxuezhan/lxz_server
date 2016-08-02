@@ -3,7 +3,7 @@ _sns = _sns or {}
 _funs = _funs or {}
 
 function newTimer(node)
-    addTimer(node._id, (node.over-gTime)*1000, node.tag or 0)
+    --addTimer(node._id, (node.over-gTime)*1000, node.tag or 0)
 end
 
 function get(id)

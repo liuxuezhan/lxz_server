@@ -385,10 +385,12 @@ function init(self)
     if not self._invites then self._invites = {} end
     if not self.mass then self.mass = {} end
     if not self._tech then self._tech = {} end
+    --[[
     if not self.log then self.log = {} end
     table.sort(self.log, function(l, r)
         return l.sn > r.sn
     end)
+    --]]
     if not self._fight then self._fight = {} end
     setmetatable(self._fight, {__mode="v"})
     if not self.donate_rank then self.donate_rank = {} end
@@ -1014,6 +1016,7 @@ end
 
 
 function add_log(self, what, op,data)
+--[[
 
     self.log_csn = (self.log_csn or 0 ) + 1 
     local log = {
@@ -1039,6 +1042,7 @@ function add_log(self, what, op,data)
 
     table.insert(self.log, log)
     dbmng:getOne().union_log:update( {_id=self._id}, { ["$push"]={ log={["$each"]={log}, ["$slice"]=-100 }} }, true )
+    --]]
 end
 
 local function log_qfind(t, sn)

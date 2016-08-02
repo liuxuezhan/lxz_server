@@ -4,6 +4,7 @@ _num = 1 --机器人数量
 _conf = { --机器人操作集合
 			{"open","127.0.0.1",8001,"user","pwd","game_server1"},
 			{"send","login","user","pwd"},
+			{"send","login","user2","pwd"},
 			{"close"},
 	}
 function robot_init(id)--初始化配置

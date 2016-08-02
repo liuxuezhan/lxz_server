@@ -206,11 +206,7 @@ function create(account, map, pid)
     ply.size = 4
     ply.nprison = 0
     etypipe.add(ply)
-    --pause("debug in main_loop")
-
-    -- register chat accout
-    --Rpc:create_chat_accont(ply, tostring(pid), CHAT_HOST, tostring(pid))
---    create_chat_account(ply)
+   --save_ety(ply) 
 
     return ply
 end
@@ -424,10 +420,10 @@ end
 function first_login(self)
     --给玩家加上默认troop
     self:init_my_troop()
-    self:inc_arm(1001, 10000)
-    self:inc_arm(2001, 10000)
-    self:inc_arm(3001, 10000)
-    self:inc_arm(4001, 10000)
+   -- self:inc_arm(1001, 10000)
+   -- self:inc_arm(2001, 10000)
+  --  self:inc_arm(3001, 10000)
+  --  self:inc_arm(4001, 10000)
 
     --接任务
     self:init_task()
@@ -684,6 +680,7 @@ function check_pending()
     local hit = false
     local cur = gFrame
     for pid, chgs in pairs(_cache) do
+    pause("debug in main_loop")
         if not chgs._n_ then
             db.player:update({_id=pid}, {["$set"]=chgs}, true)
             dumpTab(chgs, string.format("update player, pid = %d", pid))
