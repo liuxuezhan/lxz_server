@@ -47,7 +47,6 @@ function CMD.close()
 end
 
 function CMD.login(data)
-    lxz()
     data = json.decode(data) 
     ply._d[data.name]=data
     save.data.ply[data._id]=data
@@ -66,22 +65,20 @@ end
 
 plys = {}
 local function accept(fd, addr)
-    lxz()
-    lxz(string.format("connect from %s (fd = %d)", addr, fd))
 
-    open_fd(fd)	-- may raise error here
-
-    --slg_read(fd)
     while 1 do
-        local d = json.decode(copy(read(fd)))
-        if d then
-            lxz(d)
-            if d.f == "firstPacket2" then
-                d.args[1]=fd
-                local p = player_t[d.f](_G.gAgent, unpack(d.args)  ) 
-                plys[fd] = p 
-            else
-                player_t[d.f](plys[fd], unpack(d.args)  ) 
+        local ret = read(fd)
+        if ret then
+            local d = json.decode(copy(ret))
+            if d then
+                lxz(d)
+                if d.f == "firstPacket2" then
+                    d.args[1]=fd
+                    local p = player_t[d.f](_G.gAgent, unpack(d.args)  ) 
+                    plys[fd] = p 
+                else
+                    player_t[d.f](plys[fd], unpack(d.args)  ) 
+                end
             end
         end
     end
@@ -89,25 +86,12 @@ end
 
 local  function save_db()
     skynet.timeout(3*100, function() 
-        pause("")
         check_pending()
+       save_db()
     end)
 end
 
-
-skynet.start(function()
---    local console = skynet.newservice("console")
- --   skynet.newservice("debug_console",80000)
- 
-    require "debugger"
-    skynet.newservice("db_mongo",conf.db_name)--数据库写中心
-    local f = save_db()
-    coroutine.wrap(f)
-    warx_init()
-
-    lxz(conf)
-    socket_id = socket.listen(conf.host, conf.port)
-    socket.start ( socket_id , function(fd, addr)
+local function pre(fd,addr)
         local ok, err = pcall(accept, fd, addr)
         if not ok then
             if err then
@@ -115,6 +99,29 @@ skynet.start(function()
             end
             close_fd(fd)
         end
+end
+
+skynet.start(function()
+--    local console = skynet.newservice("console")
+ --   skynet.newservice("debug_console",80000)
+ 
+    require "debugger"
+    skynet.newservice("db_mongo",conf.db_name)--数据库写中心
+    save_db()
+    warx_init()
+
+    lxz(conf)
+    socket_id = socket.listen(conf.host, conf.port)
+    socket.start ( socket_id , function(fd, addr)
+        open_fd(fd)	-- may raise error here
+        lxz(string.format("connect from %s (fd = %d)", addr, fd))
+        local ok, err = pcall(accept, fd, addr)
+        if not ok then
+            if err then
+                lxz(fd, err)
+            end
+        end
+        close_fd(fd)
     end
     )
 end)
