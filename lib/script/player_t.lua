@@ -675,12 +675,11 @@ end
 
 
 function check_pending()
-    local db = dbmng:tryOne(1)
+    local db = dbmng:getOne()
     if not db then return end
     local hit = false
     local cur = gFrame
     for pid, chgs in pairs(_cache) do
-    pause("debug in main_loop")
         if not chgs._n_ then
             db.player:update({_id=pid}, {["$set"]=chgs}, true)
             dumpTab(chgs, string.format("update player, pid = %d", pid))
@@ -710,7 +709,7 @@ function check_pending()
         end
     end
 
-    if hit then get_db_checker(db, gFrame)() end
+--    if hit then get_db_checker(db, gFrame)() end
 end
 
 

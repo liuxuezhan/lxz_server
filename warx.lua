@@ -89,11 +89,8 @@ end
 
 local  function save_db()
     skynet.timeout(3*100, function() 
-        if next(save.data) then
-            skynet.send(conf.db_name, "lua","db1", json.encode(save.data))--不需要返回
-            save.clear()
-        end
-        save_db()
+        pause("")
+        check_pending()
     end)
 end
 
@@ -104,7 +101,8 @@ skynet.start(function()
  
     require "debugger"
     skynet.newservice("db_mongo",conf.db_name)--数据库写中心
-    save_db()
+    local f = save_db()
+    coroutine.wrap(f)
     warx_init()
 
     lxz(conf)

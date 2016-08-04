@@ -367,3 +367,12 @@ function warx_init()
     load_sys_config()
     load_uniq()
 end
+
+function check_pending()
+    player_t.check_pending()
+    build_t.check_pending()
+    hero_t.check_pending()
+    union_t.check_pending()
+    room.check_pending()
+    npc_city.check_pending()
+end

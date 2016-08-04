@@ -28,11 +28,7 @@ function getOne(self, policy)
 end
 
 function tryOne(self, policy)
-    if self.num < 1 then return false end
-    policy = policy or math.random(64)
-    local idx = (policy % #self.idxMap) + 1
-    local t = self.idxMap[ idx ]
-    return t.db
+    return getOne(self, policy)
 end
 
 function getByTips(self, tips)
