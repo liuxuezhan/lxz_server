@@ -57,8 +57,6 @@ end
 local function accept(fd, addr)
     lxz(string.format("connect from %s (fd = %d)", addr, fd))
 
-    socket.start(fd)	-- may raise error here
-    socket.limit(fd, 8192) -- set socket buffer limit (8K),If the attacker send large package, close the socket
 
     -- 发送基础key给客户端
     local base_key = crypt.randomkey()
@@ -117,7 +115,7 @@ local function accept(fd, addr)
 	end
 
 	local s = assert(server_list[server], "Unknown server")
-	local ret = json.encode({name=server,host=s.host,port=s.port})
+	local ret = msg.pack({name=server,host=s.host,port=s.port})
 	write(fd,  crypt.base64encode(ret))
     ply._d[name].server = server
     ply._d[name].addr = addr
@@ -126,7 +124,7 @@ local function accept(fd, addr)
 
     log(ply._d[name]._id,"认证通过")
 	local s = cluster.query("game1", "game1_1")
-	cluster.call("game1",s, "login", json.encode(p))
+	cluster.call("game1",s, "login", msg.pack(p))
     socket.abandon(fd)	-- never raise error here
 end
 
@@ -148,6 +146,8 @@ function()
     skynet.error(string.format("login server listen at : %s %d", conf.host, conf.port))
     local s = socket.listen(conf.host, conf.port)--客户端通信
     socket.start ( s , function(fd, addr)
+        socket.start(fd)	-- may raise error here
+        socket.limit(fd, 8192) -- set socket buffer limit (8K),If the attacker send large package, close the socket
         local ok, err = pcall(accept, fd, addr)
         if not ok then
             if err then

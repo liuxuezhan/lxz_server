@@ -2,7 +2,7 @@
 --机器人发消息模块
 dofile("/www/lualib/skynet/data/define.lua")
 module(..., package.seeall)
-local json = require "json"
+local msg = require "msg"
 package.cpath =package.cpath..";/www/lualib/skynet/skynet/luaclib/?.so"
 local crypt = require "crypt"
 local socket = require "client_socket"
@@ -116,7 +116,7 @@ function open(i,conf)
     local result = read(i)
 
     local info  = crypt.base64decode(result)
-    info = json.decode(info)
+    info = msg.unpack(info)
     socket.close(fd)
 
     lxz(info)
@@ -137,7 +137,7 @@ function send(i)
 	end
 
 	if _r[i][cur].send then
-       local msg = json.encode({_r[i].pid,_r[i][cur].send})
+       local msg = msg.pack({_r[i].pid,_r[i][cur].send})
 		write(i, msg )
         local ret = read(i)
         lxz(ret)

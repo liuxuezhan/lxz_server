@@ -57,7 +57,7 @@ end
 
 function CMD.login(data)
     lxz()
-    data = json.decode(data) 
+    data = msg.unpack(data) 
     ply._d[data.name]=data
     save.data.ply[data._id]=data
 end
@@ -78,7 +78,7 @@ local function accept(fd, addr)
     --socket.limit(fd, 8192) -- set socket buffer limit (8K),Ifthe attacker send large package, close the socket
 
     while 1 do
-        local d = json.decode(copy(read(fd)))
+        local d = msg.unpack(copy(read(fd)))
         local name = d[1] 
         if name then
             if ply._d[name] then
@@ -92,7 +92,7 @@ end
 local  function save_db()
     skynet.timeout(3*100, function() 
         if next(save.data) then
-            skynet.send(conf.db_name, "lua","db1", json.encode(save.data))--不需要返回
+            skynet.send(conf.db_name, "lua","db1", msg.pack(save.data))--不需要返回
             save.clear()
         end
         save_db()

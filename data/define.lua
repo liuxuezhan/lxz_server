@@ -1,4 +1,6 @@
 json = require "json"
+msg = require "msg"
+--require "debugger"
 
 _list={
 
@@ -62,12 +64,24 @@ function save_file (mod,path,buf)
 end
 
 
-function print_r(sth)
+function print_r(sth,h)
 
     if type(sth) ~= "table" then
-        cprint(sth.."")
+        if type(sth) == "boolean" then
+            if sth then
+                cprint(h.."true",1) 
+            else 
+                cprint(h.."true",1)
+            end 
+        elseif type(sth) == "function" then 
+            cprint(h.."function",1)
+        else
+            cprint(h..sth,1)
+        end
         return
     end
+
+    cprint(h,1)
 
     local space, deep = string.rep(' ', 2), 0
     local function _dump(t)
@@ -95,9 +109,13 @@ function print_r(sth)
     cprint(")")
 end
 
-function cprint(s,color)--颜色答应
-    color = color or "echo -e \"\\033[40;31;2m" 
-    local cool = color..s.." \\033[0m \"" 
+function cprint(s,num)--颜色答应
+    if not s  then return end
+    local c = "echo -e \"\\033[40;31;2m"-- 红色
+    if num == 1 then --蓝色
+       c =  "echo -e \"\\033[40;34;2m"
+    end
+    local cool = c..s.." \\033[0m \"" 
     os.execute(cool) 
 end
 
@@ -111,37 +129,37 @@ function log(...)--日志
 end
 
 function lxz(...)--打印lua变量数据到日志文件
-  local info = debug.getinfo(2)
-  local head = "["..(info.short_src or "FILE")..":"..(info.name or "")..":"..(info.currentline or 0).."]"
-  cprint(head,"echo -e \"\\033[40;34;2m")
+    local info = debug.getinfo(2)
+    local h = "["..(info.short_src or "FILE")..":"..(info.name or "")..":"..(info.currentline or 0).."]:"
+
+    for _,v in pairs({...}) do
+        print_r(v,h)
+    end
+end
+
+function lxz1(...)--打印lua变量数据到日志文件
+    local info = debug.getinfo(2)
+    cprint(debug.traceback(),1)
     for _,v in pairs({...}) do
         print_r(v)
     end
 end
 
-function lxz1(...)--打印lua变量数据到日志文件
-  local info = debug.getinfo(2)
-  cprint(debug.traceback(),"echo -e \"\\033[40;34;2m")
-  for _,v in pairs({...}) do
-        print_r(v)
-  end
+getfenv = getfenv or function(f)
+    f = (type(f) == 'function' and f or debug.getinfo(f + 1, 'f').func)
+    local name, val
+    local up = 0
+    repeat
+        up = up + 1
+        name, val = debug.getupvalue(f, up)
+    until name == '_ENV' or name == nil
+    return val
 end
 
-    getfenv = getfenv or function(f)
-        f = (type(f) == 'function' and f or debug.getinfo(f + 1, 'f').func)
-        local name, val
-        local up = 0
-        repeat
-            up = up + 1
-            name, val = debug.getupvalue(f, up)
-        until name == '_ENV' or name == nil
-        return val
-    end
-
-    setfenv = setfenv or function(f, t) --lua5.3 没有,模拟一个
-        f = (type(f) == 'function' and f or debug.getinfo(f + 1, 'f').func)
-        local name
-        local up = 0
+setfenv = setfenv or function(f, t) --lua5.3 没有,模拟一个
+    f = (type(f) == 'function' and f or debug.getinfo(f + 1, 'f').func)
+    local name
+    local up = 0
         repeat
             up = up + 1
             name = debug.getupvalue(f, up)
