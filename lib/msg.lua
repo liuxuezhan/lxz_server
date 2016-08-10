@@ -1,7 +1,7 @@
 local json = require "json"
 local msg = {}
 
---ex = {"pid","name",arm={},}
+--ex = {"key","num"}
 
 function msg.pack(src,tab)
     if tab then
@@ -19,7 +19,22 @@ function msg.unpack(src,tab)
     return src
 end
 
-function msg.zip(src,tab)
+function msg.arr(src) --压缩空洞数组
+      local t = {}
+      for k,v in pairs(src) do
+          table.insert(t,{k,v})
+      end
+      return t
+end
+function msg.unarr(src) 
+      local t = {}
+      for _,v in pairs(src) do
+          t[v[1]]=v[2] 
+      end
+      return t
+end
+
+function msg.zip(src,tab) --压缩key
     local des = {}
     for i=1,#tab do 
         local key = tab[i]  
