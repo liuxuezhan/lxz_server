@@ -108,6 +108,7 @@ skynet.start(function()
 	cluster.open "game1"
 
     require "skynet.manager"	-- import skynet.register
+    do_load("resmng")--加载策划配置
     skynet.register(server_name) --注册服务名字便于其他服务调用
 
 	local s = cluster.query("login1", "login1_1")

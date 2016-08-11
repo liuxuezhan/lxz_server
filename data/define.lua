@@ -20,9 +20,160 @@ _list={
     warx = {   host = "10.0.2.15", port = 8888, maxclient=3000, room ="room1", db_name = "db_server1" }, 
 }
 
+function do_load(mod)
+    package.loaded[ mod ] = nil
+    require( mod )
+end
 
---基础库
-function copy(object)
+function get_val_by(what, ...)--计算buff值
+    local bidx = what
+    local ridx = string.format("%s_R", what)
+    local eidx = string.format("%s_A", what)
+    local b, r, e = 0, 0, 0 -- base, multiple, add
+    for _, v in pairs({...}) do
+        b = b + (v[ bidx ] or 0)
+        r = r + (v[ ridx ] or 0)
+        e = e + (v[ eidx ] or 0)
+    end
+    return b * (1 + r * 0.0001) + e
+end
+
+
+function get_nums_by(what, ...)--计算一个buff各种加成
+
+    local bidx = what
+    local ridx = string.format("%s_R", what)
+    local eidx = string.format("%s_A", what)
+    local b, r, e = 0, 0, 0 -- base, multiple, add
+    for _, v in pairs({...}) do
+        b = b + (v[ bidx ] or 0)
+        r = r + (v[ ridx ] or 0)
+        e = e + (v[ eidx ] or 0)
+    end
+    return b, r, e
+end
+
+function calc_crosspoint(sx, sy, dx, dy, rect)--直线与矩形相交
+    local crosspoint = {}
+    if sx == dx then
+        local miny = math.min(sy, dy)
+        local maxy = math.max(sy, dy)
+
+        if miny < rect.y1 and maxy > rect.y1 then table.insert({sx, rect.y1}) end
+        if miny < rect.y2 and maxy > rect.y2 then table.insert({sx, rect.y2}) end
+
+        return crosspoint
+    end
+
+    local k = (sy - dy) / (sx - dx)
+    local b = sy - k * sx
+    function get_linear_y(x) return k * x + b end
+    function get_linear_x(y) return (y - b) / k end
+
+    local crosspoint = {}
+    local y1 = get_linear_y(rect.x1)
+    if y1 > rect.y1 and y1 < rect.y2 then
+        table.insert(crosspoint, {rect.x1, y1})
+    end
+
+    local x1 = get_linear_x(rect.y1)
+    if x1 > rect.x1 and x1 < rect.x2 then
+        table.insert(crosspoint, {x1, rect.y1})
+    end
+
+    local y2 = get_linear_y(rect.x2)
+    if y2 > rect.y1 and y2 < rect.y2 then
+        table.insert(crosspoint, {rect.x2, y2})
+    end
+
+    local x2 = get_linear_x(rect.y2)
+    if x2 > rect.x1 and x2 < rect.x2 then
+        table.insert(crosspoint, {x2, rect.y2})
+    end
+
+    if #crosspoint > 0 then return crosspoint end
+end
+
+function calc_line_length(sx, sy, dx, dy) --两点间距离
+    return math.sqrt((dy - sy) ^ 2 + (dx - sx) ^ 2)
+end
+
+function diff_days(timestamp1, timestamp2) --计算两个时间戳间隔的天数
+    local days1 = math.floor((timestamp1 + TIME_ZONE) / 86400)
+    local days2 = math.floor((timestamp2 + TIME_ZONE) / 86400)
+    return math.abs(days1 - days2)
+end
+
+
+function get_days(timestamp) --计算1970年1月1日到当前的天数
+    return math.floor((timestamp + TIME_ZONE) / 86400)
+end
+
+
+function cur_hour(timestamp)--计算这个时间戳是当天的第几个小时
+    local s = timestamp % 86400
+    return math.floor(s / 3600)
+end
+
+function t_random(t)--序列化随机
+    local n =0
+    for _,v in pairs (t) do
+        n = n+v
+    end
+    local p = math.random(n)
+    n=0
+    for k,v in pairs (t) do
+        n = n+v
+        if p <= n then
+            return k
+        end
+    end
+end
+
+function next_day() -- 第二天零点
+    local now = os.date("*t", gTime)
+    local temp = { year=now.year, month=now.month, day=now.day, hour=0, min=0,sec=0 }
+    return os.time(temp) + 24 * 3600
+end
+
+function date(time)--是否跨天
+    if (not time) or (time == 0)  then
+        return true
+    end
+
+    if os.date("%d")~=os.date("%d",time) then
+        return true
+    end
+    return false
+end
+
+function month(time)--是否跨月
+
+    if (not time) or (time == 0)  then
+        return true
+    end
+
+    if os.date("%m")~=os.date("%m",time) then
+        return true
+    end
+    return false
+end
+
+function tm_str(time)--时间串
+    return os.date("%Y-%m-%d %X", time or gTime)
+end
+
+function tab_num(t)--计算表项数
+    local num = 0
+    if t then
+        for _, v in pairs(t) do
+            num=num+1
+        end
+    end
+    return num
+end
+
+function copy(object)--复制表
     local lookup_table = {}
     local function _copy(object)
         if type(object) ~= "table" then
