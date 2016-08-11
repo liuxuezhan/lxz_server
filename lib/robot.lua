@@ -1,9 +1,9 @@
 
 --机器人发消息模块
-dofile("/www/lualib/skynet/data/define.lua")
+dofile("../data/define.lua")
 module(..., package.seeall)
 local msg = require "msg"
-package.cpath =package.cpath..";/www/lualib/skynet/skynet/luaclib/?.so"
+package.cpath =package.cpath..";../skynet/luaclib/?.so"
 local crypt = require "crypt"
 local socket = require "client_socket"
 --require "debugger"
