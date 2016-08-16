@@ -160,7 +160,7 @@ function month(time)--是否跨月
 end
 
 function tm_str(time)--时间串
-    return os.date("%Y-%m-%d %X", time or gTime)
+    return os.date("%Y-%m-%d %X", time or os.time() )
 end
 
 function tab_num(t)--计算表项数
@@ -282,7 +282,7 @@ end
 
 function lxz(...)--打印lua变量数据到日志文件
     local info = debug.getinfo(2)
-    local h = "["..(info.short_src or "FILE")..":"..(info.name or "")..":"..(info.currentline or 0).."]:"
+    local h = "["..tm_str(time).."]".."["..(info.short_src or "FILE")..":"..(info.name or "")..":"..(info.currentline or 0).."]:"
 
     for _,v in pairs({...}) do
         print_r(v,h)
