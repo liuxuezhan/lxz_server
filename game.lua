@@ -18,6 +18,7 @@ local conf =_list[server_name]
 local server = {}
 
 local function read(fd)
+--require "debugger"
     local ok ,ret = pcall(socket.readline,fd)
     if not ok then
 		skynet.error(string.format("socket(%d) read fail", fd))
@@ -59,7 +60,7 @@ function CMD.login(data)
     lxz()
     data = msg.unpack(data) 
     ply._d[data.name]=data
-    save.data.ply[data._id]=data
+    save.data.ply[data._id]=data 
 end
 
 -- call by agent
@@ -91,6 +92,7 @@ end
 
 local  function save_db()
     skynet.timeout(3*100, function() 
+    lxz()
         if next(save.data) then
             skynet.send(conf.db_name, "lua","db1", msg.pack(save.data))--不需要返回
             save.clear()

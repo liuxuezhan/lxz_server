@@ -1,7 +1,8 @@
 json = require "json"
 msg = require "msg"
---require "debugger"
 
+--------------------------------------------服务器配置--------------------------------------------------------------------------------
+_sid = "warx1"
 _list={
 
     db_server1 ={ 
@@ -19,10 +20,23 @@ _list={
 
     warx = {   host = "10.0.2.15", port = 8888, maxclient=3000, room ="room1", db_name = "db_server1" }, 
 }
-
+----------------------------------------------压缩数据--------------------------------------------------------------------------------
+_msg = {}
+_msg.login = {"name","pwd"}
+----------------------------------------------公用函数---------------------------------------------------------------------------------
 function do_load(mod)
     package.loaded[ mod ] = nil
     require( mod )
+end
+
+function tab_add(...)--合并buff值
+    local t = {}
+    for _, ts in pairs({...}) do
+        for k, v in pairs(ts) do
+            t[k] = (t[k] or 0 ) + v 
+        end
+    end
+    return t  
 end
 
 function get_val_by(what, ...)--计算buff值
@@ -52,6 +66,7 @@ function get_nums_by(what, ...)--计算一个buff各种加成
     end
     return b, r, e
 end
+
 
 function calc_crosspoint(sx, sy, dx, dy, rect)--直线与矩形相交
     local crosspoint = {}
@@ -194,7 +209,7 @@ end  -- function deepcopy
 
 function split(str, reps)  --分割字符串
     local resultStrsList = {};
-    string.gsub(str, '[^' .. reps ..']+', function(w) table.insert(resultStrsList, w) end );
+    string.gsub(str,'[^'..reps..']+', function(w) table.insert(resultStrsList, w) end );
     return resultStrsList;
 end
 
@@ -216,6 +231,27 @@ function save_file (mod,path,buf)
 end
 
 
+local function _dump(t)
+    local space, deep = string.rep(' ', 2), 0
+
+    local temp = {}
+
+    for k,v in pairs(t) do
+        local key = tostring(k)
+
+        if type(v) == "table" then
+
+            deep = deep + 2
+            cprint(string.format( "%s[%s]=\n%s(", string.rep(space, deep - 1), key, string.rep(space, deep))) 
+            _dump(v)
+            cprint(string.format("%s)",string.rep(space, deep)))
+            deep = deep - 2
+
+        else
+            cprint(string.format("%s[%s]=%s", string.rep(space, deep + 1), key, v)) 
+        end 
+    end 
+end
 function print_r(sth,h)
 
     if type(sth) ~= "table" then
@@ -235,26 +271,6 @@ function print_r(sth,h)
 
     cprint(h,1)
 
-    local space, deep = string.rep(' ', 2), 0
-    local function _dump(t)
-        local temp = {}
-
-        for k,v in pairs(t) do
-            local key = tostring(k)
-
-            if type(v) == "table" then
-
-                deep = deep + 2
-                cprint(string.format( "%s[%s]=\n%s(", string.rep(space, deep - 1), key, string.rep(space, deep))) 
-                _dump(v)
-                cprint(string.format("%s)",string.rep(space, deep)))
-                deep = deep - 2
-
-            else
-                cprint(string.format("%s[%s]=%s", string.rep(space, deep + 1), key, v)) 
-            end 
-        end 
-    end
 
     cprint("(")
     _dump(sth)
@@ -265,7 +281,7 @@ function cprint(s,num)--颜色答应
     if not s  then return end
     local c = "echo -e \"\\033[40;31;2m"-- 红色
     if num == 1 then --蓝色
-       c =  "echo -e \"\\033[40;34;2m"
+        c =  "echo -e \"\\033[40;34;2m"
     end
     local cool = c..s.." \\033[0m \"" 
     os.execute(cool) 
@@ -312,20 +328,20 @@ setfenv = setfenv or function(f, t) --lua5.3 没有,模拟一个
     f = (type(f) == 'function' and f or debug.getinfo(f + 1, 'f').func)
     local name
     local up = 0
-        repeat
-            up = up + 1
-            name = debug.getupvalue(f, up)
-        until name == '_ENV' or name == nil
-        if name then
-            debug.upvaluejoin(f, up, function() return name end, 1) -- use unique upvalue
-            debug.setupvalue(f, up, t)
-        end
+    repeat
+        up = up + 1
+        name = debug.getupvalue(f, up)
+    until name == '_ENV' or name == nil
+    if name then
+        debug.upvaluejoin(f, up, function() return name end, 1) -- use unique upvalue
+        debug.setupvalue(f, up, t)
     end
+end
 
 
-    module = module or function(mname)  --lua5.3 没有,模拟一个
-        _ENV[mname] = _ENV[mname] or {}
-        setmetatable(_ENV[mname], {__index = _ENV})
-        setfenv(2, _ENV[mname])
-    end
+module = module or function(mname)  --lua5.3 没有,模拟一个
+    _ENV[mname] = _ENV[mname] or {}
+    setmetatable(_ENV[mname], {__index = _ENV})
+    setfenv(2, _ENV[mname])
+end
 

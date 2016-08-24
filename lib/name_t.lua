@@ -6,11 +6,11 @@ function load(conf)
     local mongo = require "mongo"
     for name,v  in pairs(conf) do
         local db = mongo.client(v)
-        local info = db[name].ply:find({})
+        local info = db[name].name:find({})
         while info:hasNext() do
             local d = info:next()
-            _d[d.name]=d
-            if cur  < d.pid then
+            _d[d._id]=d
+            if  type(d.name)=="number"  and cur < d.pid then
                 cur = d.pid
             end
         end
@@ -18,15 +18,25 @@ function load(conf)
 end
 
 
-function login( pid )
-    if pid == 0 then --新建 
-        cur = cur + 1
-        local pid = _sid.."_"..cur
-        _d[pid]={_id=pid,}
-    else
-
+function login( name,pwd,sid,pid )
+    if not _d[name] then --新建 
+        if name == ""  then
+            cur = cur + 1
+            name = cur 
+        end
+        _d[name]={_id=name,pwd=pwd,pid=sid,    }
     end
-    return _d[pid]
+
+    local self = _d[name] 
+
+    if pwd ~= self.pwd then return end
+
+    if not self.pid then 
+        self.pid = sid 
+        return 
+    end
+
+    return _d[name]
 end
 
 function new(server,name,pwd)

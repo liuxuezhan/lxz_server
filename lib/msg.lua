@@ -1,7 +1,6 @@
 local json = require "json"
 local msg = {}
 
---ex = {"key","num"}
 
 function msg.pack(src,tab)
     if tab then
