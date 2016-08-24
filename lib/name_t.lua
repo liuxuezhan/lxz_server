@@ -21,11 +21,10 @@ end
 function login( tid,pwd,sid )
     --require "debugger"
 
-    tid = tonumber(tid)
     local self = _d[tid] 
     if not self then
         cur = cur + 1
-        tid = cur 
+        tid = tostring(cur)
         self = {_id=tid,pwd=pwd, }
     end
 

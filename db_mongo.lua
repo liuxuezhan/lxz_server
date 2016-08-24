@@ -134,6 +134,7 @@ function global_save(sid,data)
             local cache = doc._bak
             for id, chgs in pairs(doc) do
                 if chgs ~= cache then
+    --require "debugger"
                     if not chgs._a_ then
                         db[db_name][tab]:update({_id=id}, {["$set"] = chgs }, true) 
                         if tab ~= "status" then print("update", tab, id) end
