@@ -124,10 +124,10 @@ function check_save(db,data, frame)
     end
 end
 
-function global_save(id,data)
+function global_save(sid,data)
     local gFrame = (gFrame or 0) + 1
-    db = _db[id].fd
-    local db_name = id 
+    db = _db[sid].fd
+    local db_name = sid 
     if db then
         local update = false
         for tab, doc in pairs(data) do

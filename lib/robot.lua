@@ -31,7 +31,8 @@ end
 
 function robot_init(id,_num,_conf)--初始化配置
     for i=1,_num do
-        _r[i]={last="",name = "test"..os.time().."_"..id.."_"..i }
+        _r[i]={last="",name = math.floor(id)*1000 + i }
+       lxz(id,i) 
         for k,v in pairs(_conf) do
             _r[i][k]={}
             dispath(_r[i][k],_r[i].name,table.unpack(v))
@@ -87,6 +88,7 @@ function open(i,conf)
     local fd = socket.connect( conf[1],conf[2])
     _r[i].fd = fd 
     _r[i].pid = conf[3] 
+    lxz(conf)
     if fd == 0 then
         lxz("connect fail["..i.."]\n")
         return 1

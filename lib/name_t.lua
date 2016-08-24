@@ -18,25 +18,25 @@ function load(conf)
 end
 
 
-function login( name,pwd,sid,pid )
-    if not _d[name] then --新建 
-        if name == ""  then
-            cur = cur + 1
-            name = cur 
-        end
-        _d[name]={_id=name,pwd=pwd,pid=sid,    }
-    end
+function login( tid,pwd,sid )
+    --require "debugger"
 
-    local self = _d[name] 
+    tid = tonumber(tid)
+    local self = _d[tid] 
+    if not self then
+        cur = cur + 1
+        tid = cur 
+        self = {_id=tid,pwd=pwd, }
+    end
 
     if pwd ~= self.pwd then return end
+    self.online = {sid=sid}
+    save(self)
+end
 
-    if not self.pid then 
-        self.pid = sid 
-        return 
-    end
-
-    return _d[name]
+function save(self)
+    _d[self._id]=self
+    save_t.data.name_t[self._id]=self
 end
 
 function new(server,name,pwd)
@@ -48,55 +48,4 @@ function new(server,name,pwd)
     end
 end
 
-function doCondCheck(pid, class, mode, lv, ...)
-    local self = ply[pid]
-    if class == "OR" then
-        for _, v in pairs({mode, lv, ...}) do
-            if doCondCheck(pid,unpack(v)) then return true end
-        end
-        return false
 
-    elseif class == "AND" then
-        for _, v in pairs({mode, lv, ...}) do
-            if not doCondCheck(pid,unpack(v)) then return false end
-        end
-        return true
-
-    elseif class == "res" then
-        return
-
-    elseif class == "build"  then
-        local t = resmng.prop_build[ mode ]
-        if t then
-            local c = t.Class
-            local m = t.Mode
-            local l = t.Lv
-            for _, v in pairs(self.build) do
-                local n = resmng.prop_build[ v.propid ]
-                if n and n.Class == c and n.Mode == m and n.Lv >= l then return true end
-            end
-        end
-    elseif class == "tech" then
-        local t = resmng.get_conf("prop_tech", mode)
-        if t then
-            for _, v in pairs(self.tech) do
-                local n = resmng.get_conf("prop_tech", v)
-                if n and t.Class == n.Class and t.Mode == n.Mode and t.Lv <= n.Lv then
-                    return true
-                end
-            end
-        end
-    end
-
-    return false
-end
-
-function consCheck(pid,tab) --前置条件检查
-    if tab then
-        for _, v in pairs(tab) do
-            local class, mode, lv = unpack(v)
-            if not doCondCheck(pid,class, mode, lv ) then return false end
-        end
-    end
-    return true
-end

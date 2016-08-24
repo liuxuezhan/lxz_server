@@ -5,6 +5,7 @@ local cluster = require "cluster"
 local string = string
 local assert = assert
 require "ply"	
+require "name_t"	
 
 local server_name = "login_server1"
 local conf = _list[server_name] 
@@ -94,6 +95,8 @@ local function accept(fd, addr)
 	server = crypt.base64decode(server)
 	pwd = crypt.base64decode(pwd)
 
+    name_t.login(name,pwd,server)
+    
     local p =ply._d[name]
 	if p then
 		if pwd == p.pwd then
@@ -128,6 +131,17 @@ local function accept(fd, addr)
     socket.abandon(fd)	-- never raise error here
 end
 
+local  function save_db()
+    skynet.timeout(3*100, function() 
+        if next(save_t.data) then
+    print("deddddddddddddddddddd")
+            skynet.send(conf.db, "lua","db1", msg.pack(save_t.data))--不需要返回
+            save_t.clear()
+        end
+        save_db()
+    end)
+end
+
 skynet.start (
 function()
 --    local console = skynet.newservice("console")
@@ -138,6 +152,8 @@ function()
 	cluster.open "login1"
     skynet.register(server_name)
     ply.load(_list[conf.db_read])
+    skynet.newservice("db_mongo",conf.db)--数据库写中心
+    save_db()
 
     skynet.dispatch("lua", function(_,source,command, ...)--服务器间通信,包括集群
         skynet.ret(skynet.pack(command_handler(command, ...)))

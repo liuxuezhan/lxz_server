@@ -139,7 +139,7 @@ public:
 	int cmd;
 	int sp;
 private:
-    uint32_t    m_id;// 子线程ID
+    uint32_t  m_id;// 子线程ID
 
     bool OnStart(void)
     {

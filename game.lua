@@ -4,6 +4,7 @@ local socket = require "socket"
 local crypt = require "crypt"
 local cluster = require "cluster"
 require "ply"
+require "name_t"
 local save = require "save"	
 local assert = assert
 local b64encode = crypt.base64encode
@@ -18,7 +19,6 @@ local conf =_list[server_name]
 local server = {}
 
 local function read(fd)
---require "debugger"
     local ok ,ret = pcall(socket.readline,fd)
     if not ok then
 		skynet.error(string.format("socket(%d) read fail", fd))

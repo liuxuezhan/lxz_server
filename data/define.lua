@@ -1,6 +1,7 @@
 json = require "json"
 msg = require "msg"
-
+save = require "save"	
+save_t = require "save_t"	
 --------------------------------------------服务器配置--------------------------------------------------------------------------------
 _sid = "warx1"
 _list={
@@ -12,7 +13,7 @@ _list={
     },
 
     --登录服务器
-    login_server1={ host = "127.0.0.1", port = 8001, multilogin = true, db_read="db_server1"  },
+    login_server1={ host = "127.0.0.1", port = 8001, multilogin = true, db_read="db_server1", db="db_server1", },
 
 
     --分区服务器
