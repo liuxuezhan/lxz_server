@@ -76,7 +76,9 @@ local function accept(fd, addr)
     --socket.limit(fd, 8192) -- set socket buffer limit (8K),Ifthe attacker send large package, close the socket
 
     while 1 do
-        local d = msg_t.unpack(copy(read(fd)))
+        local msg = msg_t.unpack(read(fd))
+        msg = msg_t.unzip(msg,"cs_msg")
+        lxz(msg)
         local name = d[1] 
         if name then
             if ply_t._d[name] then

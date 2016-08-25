@@ -1,6 +1,6 @@
 
 --机器人发消息模块
-dofile("../data/def_login.lua")
+dofile("../data/def.lua")
 module(..., package.seeall)
 package.cpath =package.cpath..";../skynet/luaclib/?.so"
 local crypt = require "crypt"
@@ -22,7 +22,7 @@ function dispath(r,name,type,...)
     elseif type == "first" then
         r.name = ...
     elseif type == "send" then
-        r.send ={...} 
+        r.send =... 
     elseif type == "close" then
         r.close = 0
     end
@@ -118,6 +118,7 @@ function open(i,conf)
 
     local info  = crypt.base64decode(result)
     info = msg_t.unpack(info)
+    info = msg_t.unzip(info,"sc_open")
     socket.close(fd)
 
     lxz(info)
@@ -133,7 +134,6 @@ end
 
 function send(i)
     local self=_r[i][cur]
-    lxz(cur,self)
     if _r[i][cur].open then
         local conf = _r[i][cur].open 
         if open(i,conf) then
@@ -142,10 +142,15 @@ function send(i)
 	end
 
 	if self.send then
-        if self.send[1]== g_msgid.cs_enter then
-        end
-       local msg1 = msg.pack({_r[i].pid,_r[i][cur].send})
-		write(i, msg1 )
+        local msg = self.send
+    lxz(msg)
+        msg.pid = _r[i].pid 
+        msg.tid = _r[i].tid 
+    lxz(msg)
+        msg = msg_t.zip(msg,msg.id)
+    lxz(msg)
+        msg = msg_t.pack(msg)
+		write(i, msg )
         local ret = read(i)
         lxz(ret)
 	end

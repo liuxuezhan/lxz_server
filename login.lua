@@ -110,8 +110,11 @@ local function accept(fd, addr)
     name_t.save(p)
 
     local s = assert(svrs[ins.sid], "Unknown server")
-    local ret = msg_t.pack({tid=p.tid,pid=p.online.pid,host=s.host,port=s.port})
-	write(fd,  crypt.base64encode(ret))
+    lxz(p)
+    local msg = msg_t.zip({tid=p._id,pid=p.online.pid,host=s.host,port=s.port},"sc_open")
+    lxz(msg)
+    msg = msg_t.pack(msg)
+	write(fd,  crypt.base64encode(msg))
 
     log(p._id,"认证通过")
 	local s = cluster.query("game1",g_game.name)
@@ -140,7 +143,7 @@ function()
     require "skynet.manager"
 	cluster.register(g_login.name, SERVERNAME)
 
-	cluster.open "login1"
+	cluster.open "login1" 
 
     skynet.register(g_login.name)
     skynet.newservice("db_mongo",g_login.db)--数据库写中心

@@ -2,6 +2,9 @@ local json = require "json"
 local msg = {}
 
 msg.cs_open = {"tid","pwd","sid","pid"} --链接loginserver
+msg.sc_open = {"tid","pid","host","port"} --链接loginserver
+
+msg.cs_msg = {"pid","id","msg"} 
 
 local function zip(src,tab) --压缩key
     local obj = {}
