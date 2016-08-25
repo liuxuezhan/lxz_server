@@ -4,7 +4,7 @@ local crypt = require "crypt"
 local cluster = require "cluster"
 local string = string
 local assert = assert
-require "ply"	
+require "ply_t"	
 require "name_t"	
 
 
@@ -22,10 +22,10 @@ function CMD.register_gate(server, host,port)--注册分区
 end
 
 function CMD.logout(name)
-    u = ply._d[name]
+    u = ply_t._d[name]
 	if u then
 		print(string.format("%s is logout",name))
-        ply._d[name].online=0
+        ply_t._d[name].online=0
 	end
 end
 
