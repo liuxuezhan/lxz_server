@@ -14,7 +14,6 @@ local socket_id	-- listen socket
 local client_number = 0
 
 
-local conf = g_game 
 local server = {}
 
 local function read(fd)
@@ -32,12 +31,12 @@ end
 
 function dispatch_msg(fd, name,msg)--分发消息，不返回
     local msg_id,msg = table.unpack(msg)
-    skynet.send(conf.room, "lua", fd,name,msg_id,msg)
+    skynet.send(g_game.room, "lua", fd,name,msg_id,msg)
 end
 
 
 function open_fd(fd)
-    if client_number >= conf.maxclient then
+    if client_number >= g_game.maxclient then
         return
     end
     client_number = client_number + 1
@@ -93,7 +92,7 @@ local  function save_db()
     skynet.timeout(3*100, function() 
     lxz()
         if next(save.data) then
-            skynet.send(conf.db, "lua",conf.db, msg.pack(save.data))--不需要返回
+            skynet.send(g_game.db, "lua",g_game.db, msg.pack(save.data))--不需要返回
             save.clear()
         end
         save_db()
@@ -104,23 +103,23 @@ skynet.start(function()
 --    local console = skynet.newservice("console")
  --   skynet.newservice("debug_console",80000)
     require "debugger"
-    skynet.newservice("db_mongo",conf.db)--数据库写中心
+    skynet.newservice("db_mongo",g_game.db)--数据库写中心
     save_db()
-	cluster.register("game1_1", SERVERNAME)
+	cluster.register(g_game.name, SERVERNAME)
 	cluster.open "game1"
 
     require "skynet.manager"	-- import skynet.register
     do_load("resmng")--加载策划配置
-    skynet.register(conf.name) --注册服务名字便于其他服务调用
+    skynet.register(g_game.name) --注册服务名字便于其他服务调用
 
-	local s = cluster.query("login1", "login1_1")
-	cluster.call("login1",s, "register_gate", conf.name, conf.host,conf.port)
-    ply.load(g_db[conf.db])
+	local s = cluster.query("login1", g_login.name)
+	cluster.call("login1",s, "register_gate", g_game.name, g_game.host,g_game.port)
+    ply.load(g_db[g_game.db])
 
-    skynet.newservice("room",conf.room)--模块服务器
+    skynet.newservice("room",g_game.room)--模块服务器
 
-    lxz(conf)
-    socket_id = socket.listen(conf.host, conf.port)
+    lxz(g_game)
+    socket_id = socket.listen(g_game.host, g_game.port)
     socket.start ( socket_id , function(fd, addr)
         open_fd(fd)	-- may raise error here
         lxz(string.format("connect from %s (fd = %d)", addr, fd))

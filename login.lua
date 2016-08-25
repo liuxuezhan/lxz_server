@@ -7,7 +7,6 @@ local assert = assert
 require "ply"	
 require "name_t"	
 
-local conf =  g_login 
 
 local server_list = {}
 
@@ -103,7 +102,7 @@ local function accept(fd, addr)
 	        local s = assert(server_list[server], "Unknown server")
             lxz()
             if p.server then
-	            local s = cluster.query("game1", "game1_1")
+	            local s = cluster.query("game1", g_game.name)
 	            cluster.call("game1",s, "kick", p.name)
                 p.server = server
             end
@@ -125,7 +124,7 @@ local function accept(fd, addr)
     ply._d[name].tm = tm()
 
     log(ply._d[name]._id,"认证通过")
-	local s = cluster.query("game1", "game1_1")
+	local s = cluster.query("game1",g_game.name)
 	cluster.call("game1",s, "login", msg.pack(p))
     socket.abandon(fd)	-- never raise error here
 end
@@ -134,7 +133,7 @@ local  function save_db()
     skynet.timeout(3*100, function() 
         if next(save_t.data) then
     print("deddddddddddddddddddd")
-            skynet.send(conf.db, "lua",conf.db, msg.pack(save_t.data))--不需要返回
+            skynet.send(g_login.db, "lua",g_login.db, msg.pack(save_t.data))--不需要返回
             save_t.clear()
         end
         save_db()
@@ -148,19 +147,20 @@ function()
     require "debugger"
 
     require "skynet.manager"
-	cluster.register("login1_1", SERVERNAME)
+	cluster.register(g_login.name, SERVERNAME)
+
 	cluster.open "login1"
 
-    skynet.register(conf.name)
-    skynet.newservice("db_mongo",conf.db)--数据库写中心
+    skynet.register(g_login.name)
+    skynet.newservice("db_mongo",g_login.db)--数据库写中心
     save_db()
 
     skynet.dispatch("lua", function(_,source,command, ...)--服务器间通信,包括集群
         skynet.ret(skynet.pack(command_handler(command, ...)))
     end)
 
-    skynet.error(string.format("login server listen at : %s %d", conf.host, conf.port))
-    local s = socket.listen(conf.host, conf.port)--客户端通信
+    skynet.error(string.format("login server listen at : %s %d", g_login.host, g_login.port))
+    local s = socket.listen(g_login.host, g_login.port)--客户端通信
     socket.start ( s , function(fd, addr)
         socket.start(fd)	-- may raise error here
         socket.limit(fd, 8192) -- set socket buffer limit (8K),If the attacker send large package, close the socket
