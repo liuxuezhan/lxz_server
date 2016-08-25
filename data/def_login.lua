@@ -1,7 +1,6 @@
 json = require "json"
-msg_t = require "msg"
+msg_t = require "msg_t"
 save_t = require "save_t"	
-load("zip_msg")
 --------------------------------------------服务器配置--------------------------------------------------------------------------------
 g_cid = 1    --集群id
 g_tid = 1000  --玩家id开始

@@ -89,7 +89,8 @@ local function accept(fd, addr)
     local ins = crypt.desdecode(secret, crypt.base64decode(etoken))
 
     ins = msg_t.unpack(ins)
-    lxz(tmp)
+    ins = msg_t.unzip(ins,"cs_open")
+    lxz(ins)
     local p = name_t.login(ins)
 
     if p then --踢掉上次登录

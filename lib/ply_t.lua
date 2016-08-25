@@ -1,6 +1,7 @@
 module(..., package.seeall)
 cur = 1000--当前最大id
 _d = {}--数据
+_onlines = {} --在线玩家
 
 function load(conf)
     local mongo = require "mongo"
@@ -15,17 +16,13 @@ function load(conf)
     end
 end
 
-
-function login( pid )
-    if pid == 0 then --新建 
-        cur = cur + 1
-        local pid = _sid.."_"..cur
-        _d[pid]={_id=pid,}
-    else
-
+function enter(pid,tid)
+    local self = _d[pid]
+    if not self then
+        self = {_id=pid,tid= tid }
     end
-    return _d[pid]
 end
+
 
 function save(self)
     _d[self._id]=self

@@ -2,7 +2,6 @@
 --机器人发消息模块
 dofile("../data/def_login.lua")
 module(..., package.seeall)
-local msg_t = require "msg"
 package.cpath =package.cpath..";../skynet/luaclib/?.so"
 local crypt = require "crypt"
 local socket = require "client_socket"
@@ -107,6 +106,9 @@ function open(i,conf)
         sid = conf[5],
         pid = 1,
     }
+    lxz(token)
+    token = msg_t.zip(token,"cs_open")
+    lxz(token)
 
     local etoken = crypt.desencode(secret, encode_token(token))
     local b = crypt.base64encode(etoken)
