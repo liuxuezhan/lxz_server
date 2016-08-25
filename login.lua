@@ -8,7 +8,7 @@ require "ply"
 require "name_t"	
 
 
-local server_list = {}
+local svrs = {}
 
 local function tm()
     local _tm = os.time()
@@ -18,7 +18,7 @@ local CMD = {}
 
 function CMD.register_gate(server, host,port)--注册分区
     lxz(server,host,port)
-	server_list[server] = {host=host,port=port} 
+	svrs[server] = {host=host,port=port} 
 end
 
 function CMD.logout(name)
@@ -86,46 +86,36 @@ local function accept(fd, addr)
     end
 
     local etoken = read(fd)
-    local token = crypt.desdecode(secret, crypt.base64decode(etoken))
+    local ins = crypt.desdecode(secret, crypt.base64decode(etoken))
 
-	local name, server, pwd = token:match("([^@]+)@([^:]+):(.+)")
-	name = crypt.base64decode(name)
-	server = crypt.base64decode(server)
-	pwd = crypt.base64decode(pwd)
+    ins = msg_t.unpack(ins)
+    lxz(tmp)
+    local p = name_t.login(ins)
 
-    name_t.login(name,pwd,server)
-    
-    local p =ply._d[name]
-	if p then
-		if pwd == p.pwd then
-            lxz()
-	        local s = assert(server_list[server], "Unknown server")
-            lxz()
-            if p.server then
-	            local s = cluster.query("game1", g_game.name)
-	            cluster.call("game1",s, "kick", p.name)
-                p.server = server
+    if p then --踢掉上次登录
+        if p.online then 
+            local sid = p[p.online.pid]
+            local s = svrs[sid]
+            if s then
+                local cid = cluster.query("game1", g_game.name)
+                cluster.call("game1",cid, "kick", p.online.pid)
             end
-            lxz()
-        else
-			write( fd, "401 Unauthorized")
-            return
-		end
+        end
     else
-        p = ply.new(server,name,pwd) 
-	end
+        write( fd, "401 Unauthorized")
+        return
+    end
+    p.online = {pid=tostring(ins.pid),addr=addr,fd= fd, tm_login=os.time() }
+    name_t.save(p)
 
-	local s = assert(server_list[server], "Unknown server")
-	local ret = msg.pack({name=server,host=s.host,port=s.port})
+    local s = assert(svrs[ins.sid], "Unknown server")
+    local ret = msg_t.pack({tid=p.tid,pid=p.online.pid,host=s.host,port=s.port})
 	write(fd,  crypt.base64encode(ret))
-    ply._d[name].server = server
-    ply._d[name].addr = addr
-    ply._d[name].online = 1
-    ply._d[name].tm = tm()
 
-    log(ply._d[name]._id,"认证通过")
+    log(p._id,"认证通过")
 	local s = cluster.query("game1",g_game.name)
-	cluster.call("game1",s, "login", msg.pack(p))
+    lxz(p)
+	cluster.call("game1",s, "login", msg_t.pack(p))
     socket.abandon(fd)	-- never raise error here
 end
 
@@ -133,7 +123,7 @@ local  function save_db()
     skynet.timeout(3*100, function() 
         if next(save_t.data) then
     print("deddddddddddddddddddd")
-            skynet.send(g_login.db, "lua",g_login.db, msg.pack(save_t.data))--不需要返回
+            skynet.send(g_login.db, "lua",g_login.db, msg_t.pack(save_t.data))--不需要返回
             save_t.clear()
         end
         save_db()

@@ -17,24 +17,22 @@ function load(conf)
 end
 
 
-function login( tid,pwd,sid,pid )
+function login( ins )
 
-    local self = _d[tid] 
+    local self = _d[tostring(ins.tid)] 
     if not self then
         g_tid = g_tid + 1
-        tid = tostring(g_tid)
-        self = {_id=tid,pwd=pwd }
+        self = {_id=tostring(g_tid),pwd=ins.pwd }
     end
 
-    if not self[pid] then
+    if not self[tostring(ins.pid)] then
         g_pid = g_pid + 1
-        self[g_pid] = sid
-        pid = g_pid
+        self[tostring(g_pid)] = ins.sid
     end
 
-    if pwd ~= self.pwd then return end
-    self.online = pid 
-    save(self)
+    if ins.pwd ~= self.pwd then return end
+
+    return self
 end
 
 function save(self)

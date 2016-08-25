@@ -3,9 +3,8 @@ local skynet = require "skynet"
 local socket = require "socket"
 local crypt = require "crypt"
 local cluster = require "cluster"
-require "ply"
+require "ply_t"
 require "name_t"
-local save = require "save"	
 local assert = assert
 local b64encode = crypt.base64encode
 local b64decode = crypt.base64decode
@@ -54,22 +53,22 @@ function CMD.close()
     socket.close(socket_id)
 end
 
-function CMD.login(data)
-    lxz()
-    data = msg.unpack(data) 
-    ply._d[data.name]=data
-    save.data.ply[data._id]=data 
+function CMD.login(msg)
+    msg = msg_t.unpack(msg) 
+    lxz(msg)
+    self={_id=msg.online.pid,tid=msg._id }
+    ply_t.save(self)
 end
 
 -- call by agent
 function CMD.logout(name )
-    close_fd(ply._d[name].fd)
-    ply._d[name].online=0
+    close_fd(ply_t._d[name].fd)
+    ply_t._d[name].online=0
     skynet.call(loginservice, "lua", "logout",name )
 end
 
 function CMD.kick(name )
-    ply._d[name].online=0
+    ply_t._d[name].online=0
 end
 
 
@@ -77,11 +76,11 @@ local function accept(fd, addr)
     --socket.limit(fd, 8192) -- set socket buffer limit (8K),Ifthe attacker send large package, close the socket
 
     while 1 do
-        local d = msg.unpack(copy(read(fd)))
+        local d = msg_t.unpack(copy(read(fd)))
         local name = d[1] 
         if name then
-            if ply._d[name] then
-                ply._d[name].fd = fd
+            if ply_t._d[name] then
+                ply_t._d[name].fd = fd
                 dispatch_msg(fd, name,d[2])
             end
         end
@@ -91,9 +90,9 @@ end
 local  function save_db()
     skynet.timeout(3*100, function() 
     lxz()
-        if next(save.data) then
-            skynet.send(g_game.db, "lua",g_game.db, msg.pack(save.data))--不需要返回
-            save.clear()
+        if next(save_t.data) then
+            skynet.send(g_game.db, "lua",g_game.db, msg_t.pack(save_t.data))--不需要返回
+            save_t.clear()
         end
         save_db()
     end)
@@ -114,7 +113,7 @@ skynet.start(function()
 
 	local s = cluster.query("login1", g_login.name)
 	cluster.call("login1",s, "register_gate", g_game.name, g_game.host,g_game.port)
-    ply.load(g_db[g_game.db])
+    ply_t.load(g_db[g_game.db])
 
     skynet.newservice("room",g_game.room)--模块服务器
 

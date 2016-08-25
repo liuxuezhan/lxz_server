@@ -4,15 +4,13 @@ _d = {}--数据
 
 function load(conf)
     local mongo = require "mongo"
-    for name,v  in pairs(conf) do
-        local db = mongo.client(v)
-        local info = db[name].ply:find({})
-        while info:hasNext() do
-            local d = info:next()
-            _d[d.name]=d
-            if cur  < d.pid then
-                cur = d.pid
-            end
+    local db = mongo.client(conf)
+    local info = db[g_sid].ply:find({})
+    while info:hasNext() do
+        local d = info:next()
+        _d[d.name]=d
+        if cur  < d.pid then
+            cur = d.pid
         end
     end
 end
@@ -27,6 +25,11 @@ function login( pid )
 
     end
     return _d[pid]
+end
+
+function save(self)
+    _d[self._id]=self
+    save_t.data.ply[self._id]=self
 end
 
 function new(server,name,pwd)

@@ -2,7 +2,7 @@
 --机器人发消息模块
 dofile("../data/def_login.lua")
 module(..., package.seeall)
-local msg = require "msg"
+local msg_t = require "msg"
 package.cpath =package.cpath..";../skynet/luaclib/?.so"
 local crypt = require "crypt"
 local socket = require "client_socket"
@@ -32,9 +32,9 @@ end
 function robot_init(id,_num,_conf)--初始化配置
     for i=1,_num do
         _r[i]={last="",name = math.floor(id)*1000 + i }
-       lxz(id,i) 
         for k,v in pairs(_conf) do
             _r[i][k]={}
+       lxz(v) 
             dispath(_r[i][k],_r[i].name,table.unpack(v))
         end
     end
@@ -78,10 +78,7 @@ end
 
 
 local function encode_token(token)
-	return string.format("%s@%s:%s",
-		crypt.base64encode(token.user),
-		crypt.base64encode(token.server),
-		crypt.base64encode(token.pass))
+      return msg_t.pack(token)
 end
 
 function open(i,conf)
@@ -105,11 +102,11 @@ function open(i,conf)
 
     --开始登陆
     local token = {
-        user = conf[3],
-        pass =  conf[4],
-        server = conf[5],
+        tid = conf[3],
+        pwd =  conf[4],
+        sid = conf[5],
+        pid = 1,
     }
-    lxz(token)
 
     local etoken = crypt.desencode(secret, encode_token(token))
     local b = crypt.base64encode(etoken)
@@ -118,12 +115,14 @@ function open(i,conf)
     local result = read(i)
 
     local info  = crypt.base64decode(result)
-    info = msg.unpack(info)
+    info = msg_t.unpack(info)
     socket.close(fd)
 
     lxz(info)
     fd = socket.connect( info.host,info.port)
     _r[i].fd = fd 
+    _r[i].pid = info.pid 
+    _r[i].tid = info.tid 
     if fd == 0 then
         lxz("connect fail["..i.."]\n")
         return 1
@@ -131,6 +130,8 @@ function open(i,conf)
 end
 
 function send(i)
+    local self=_r[i][cur]
+    lxz(cur,self)
     if _r[i][cur].open then
         local conf = _r[i][cur].open 
         if open(i,conf) then
@@ -138,9 +139,11 @@ function send(i)
         end
 	end
 
-	if _r[i][cur].send then
-       local msg = msg.pack({_r[i].pid,_r[i][cur].send})
-		write(i, msg )
+	if self.send then
+        if self.send[1]== g_msgid.cs_enter then
+        end
+       local msg1 = msg.pack({_r[i].pid,_r[i][cur].send})
+		write(i, msg1 )
         local ret = read(i)
         lxz(ret)
 	end

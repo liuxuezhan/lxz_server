@@ -1,7 +1,7 @@
 json = require "json"
-msg = require "msg"
-save = require "save"	
+msg_t = require "msg"
 save_t = require "save_t"	
+load("zip_msg")
 --------------------------------------------服务器配置--------------------------------------------------------------------------------
 g_cid = 1    --集群id
 g_tid = 1000  --玩家id开始
@@ -15,6 +15,7 @@ g_login={name="login_server", host = "192.168.103.225", port = 8001, multilogin 
 --分区服务器
 g_game={  name = "game_server", host = "192.168.103.225", port = 8888, maxclient=3000, room ="room1", db = "db_game" } 
 
+--数据库
 g_db = {
     db_login={ host = "192.168.100.12", port = 27017, },
     db_game={ host = "192.168.100.12", port = 27017, },
@@ -22,9 +23,6 @@ g_db = {
     -- db={  host = "127.0.0.1", port = 27017,username="admin",password="admin" },
 }
 
-----------------------------------------------压缩数据--------------------------------------------------------------------------------
-_msg = {}
-_msg.login = {"name","pwd"}
 ----------------------------------------------公用函数---------------------------------------------------------------------------------
 function do_load(mod)
     package.loaded[ mod ] = nil
