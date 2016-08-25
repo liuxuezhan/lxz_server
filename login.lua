@@ -7,8 +7,7 @@ local assert = assert
 require "ply"	
 require "name_t"	
 
-local server_name = "login_server1"
-local conf = _list[server_name] 
+local conf =  g_login 
 
 local server_list = {}
 
@@ -135,7 +134,7 @@ local  function save_db()
     skynet.timeout(3*100, function() 
         if next(save_t.data) then
     print("deddddddddddddddddddd")
-            skynet.send(conf.db, "lua","db1", msg.pack(save_t.data))--不需要返回
+            skynet.send(conf.db, "lua",conf.db, msg.pack(save_t.data))--不需要返回
             save_t.clear()
         end
         save_db()
@@ -146,12 +145,13 @@ skynet.start (
 function()
 --    local console = skynet.newservice("console")
  --   skynet.newservice("debug_console",80000)
+    require "debugger"
 
     require "skynet.manager"
 	cluster.register("login1_1", SERVERNAME)
 	cluster.open "login1"
-    skynet.register(server_name)
-    ply.load(_list[conf.db_read])
+
+    skynet.register(conf.name)
     skynet.newservice("db_mongo",conf.db)--数据库写中心
     save_db()
 

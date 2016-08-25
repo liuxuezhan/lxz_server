@@ -14,8 +14,7 @@ local socket_id	-- listen socket
 local client_number = 0
 
 
-local server_name = "game_server1" 
-local conf =_list[server_name] 
+local conf = g_game 
 local server = {}
 
 local function read(fd)
@@ -94,7 +93,7 @@ local  function save_db()
     skynet.timeout(3*100, function() 
     lxz()
         if next(save.data) then
-            skynet.send(conf.db_name, "lua","db1", msg.pack(save.data))--不需要返回
+            skynet.send(conf.db, "lua",conf.db, msg.pack(save.data))--不需要返回
             save.clear()
         end
         save_db()
@@ -104,18 +103,19 @@ end
 skynet.start(function()
 --    local console = skynet.newservice("console")
  --   skynet.newservice("debug_console",80000)
-    skynet.newservice("db_mongo",conf.db_name)--数据库写中心
+    require "debugger"
+    skynet.newservice("db_mongo",conf.db)--数据库写中心
     save_db()
 	cluster.register("game1_1", SERVERNAME)
 	cluster.open "game1"
 
     require "skynet.manager"	-- import skynet.register
     do_load("resmng")--加载策划配置
-    skynet.register(server_name) --注册服务名字便于其他服务调用
+    skynet.register(conf.name) --注册服务名字便于其他服务调用
 
 	local s = cluster.query("login1", "login1_1")
-	cluster.call("login1",s, "register_gate", server_name, conf.host,conf.port)
-    ply.load(_list[conf.db_name])
+	cluster.call("login1",s, "register_gate", conf.name, conf.host,conf.port)
+    ply.load(g_db[conf.db])
 
     skynet.newservice("room",conf.room)--模块服务器
 

@@ -1,6 +1,6 @@
 
 --机器人发消息模块
-dofile("../data/define.lua")
+dofile("../data/def_login.lua")
 module(..., package.seeall)
 local msg = require "msg"
 package.cpath =package.cpath..";../skynet/luaclib/?.so"

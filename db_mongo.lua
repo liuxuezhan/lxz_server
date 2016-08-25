@@ -4,7 +4,7 @@ local bson = require "bson"
 
 lxz(...)
 local server_name = ...
-local conf = _list[server_name] 
+local conf =  g_db 
 _db = {}
 
 function test_insert_without_index(db)

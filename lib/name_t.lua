@@ -1,5 +1,4 @@
 module(..., package.seeall)
-cur = 1000--当前最大id
 _d = {}--数据
 
 function load(conf)
@@ -10,32 +9,37 @@ function load(conf)
         while info:hasNext() do
             local d = info:next()
             _d[d._id]=d
-            if  type(d.name)=="number"  and cur < d.pid then
-                cur = d.pid
+            if  type(d.name)=="number"  and g_tid < d.pid then
+                g_tid = d.pid
             end
         end
     end
 end
 
 
-function login( tid,pwd,sid )
-    --require "debugger"
+function login( tid,pwd,sid,pid )
 
     local self = _d[tid] 
     if not self then
-        cur = cur + 1
-        tid = tostring(cur)
-        self = {_id=tid,pwd=pwd, }
+        g_tid = g_tid + 1
+        tid = tostring(g_tid)
+        self = {_id=tid,pwd=pwd }
+    end
+
+    if not self[pid] then
+        g_pid = g_pid + 1
+        self[g_pid] = sid
+        pid = g_pid
     end
 
     if pwd ~= self.pwd then return end
-    self.online = {sid=sid}
+    self.online = pid 
     save(self)
 end
 
 function save(self)
     _d[self._id]=self
-    save_t.data.name_t[self._id]=self
+    save_t.data.name[self._id]=self
 end
 
 function new(server,name,pwd)

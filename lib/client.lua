@@ -2,7 +2,8 @@ require "robot"
 
 _num = 1 --机器人数量
 _conf = { --机器人操作集合
-			{"open","127.0.0.1",8001,"10000","pwd","game_server1"},
+			{"open","192.168.103.225",8001,"10000","pwd","game_server"},
+			--{"open","127.0.0.1",8001,"10000","pwd","game_server1"},
 			{"send","login","user","pwd"},
 			{"send","login","user2","pwd"},
 			{"close"},
