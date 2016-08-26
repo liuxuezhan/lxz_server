@@ -4,7 +4,6 @@ local bson = require "bson"
 
 lxz(...)
 local server_name = ...
-local conf =  g_db 
 _db = {}
 
 function test_insert_without_index(db)
@@ -135,7 +134,7 @@ function global_save(sid,data)
             for id, chgs in pairs(doc) do
                 if chgs ~= cache then
                     if not chgs._a_ then
-    require "debugger"
+  -- require "debugger"
                         db[db_name][tab]:update({_id=id}, {["$set"] = chgs }, true) 
                         if tab ~= "status" then print("update", tab, id) end
                     else
@@ -163,14 +162,15 @@ end
 
 skynet.start(function()
 
-    require "skynet.manager"	-- import skynet.register
     lxz(server_name)
+    require "skynet.manager"	-- import skynet.register
     skynet.register(server_name) --注册服务名字便于其他服务调用
 
     skynet.dispatch("lua", function(session, source, id,data,...)
-        data = json.decode(data)
+    lxz(data)
+        data = msg_t.unpack(data)
         if not _db[id] then
-            _db[id]={fd = mongo.client(conf[id]),list=data }
+            _db[id]={fd = mongo.client(g_db[id]),list=data }
         else
             for tab, v in pairs(data) do
                 for k, d in pairs(v) do

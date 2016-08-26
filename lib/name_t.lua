@@ -42,7 +42,7 @@ end
 
 function save(self)
     _d[self._id]=self
-    save_t.data.name[self._id]=self
+    save_t.data.name_t[self._id]=self
 end
 
 function new(server,name,pwd)

@@ -1,10 +1,7 @@
-package.path = package.path..";./?.lua"
 local skynet = require "skynet"
 local socket = require "socket"
 local crypt = require "crypt"
 local cluster = require "cluster"
-require "ply_t"
-require "name_t"
 local assert = assert
 local b64encode = crypt.base64encode
 local b64decode = crypt.base64decode
@@ -83,8 +80,8 @@ end
 
 local  function save_db()
     skynet.timeout(3*100, function() 
-    lxz()
         if next(save_t.data) then
+    lxz(save_t.data)
             skynet.send(g_game.db, "lua",g_game.db, msg_t.pack(save_t.data))--不需要返回
             save_t.clear()
         end

@@ -55,7 +55,7 @@ end
 
 local function accept(fd, addr)
     g_tm = os.time()
-    lxz(string.format("connect from %s (fd = %d)", addr, fd))
+    lxz(addr, fd)
 
 
     -- 发送基础key给客户端
@@ -121,13 +121,13 @@ local function accept(fd, addr)
 	local s = cluster.query("game1",g_game.name)
     lxz(p)
 	cluster.call("game1",s, "login", msg_t.pack(p))
-    socket.abandon(fd)	-- never raise error here
+--    socket.abandon(fd)	-- never raise error here
 end
 
 local  function save_db()
     skynet.timeout(3*100, function() 
         if next(save_t.data) then
-    print("deddddddddddddddddddd")
+        lxz(save_t.data)
             skynet.send(g_login.db, "lua",g_login.db, msg_t.pack(save_t.data))--不需要返回
             save_t.clear()
         end
@@ -141,14 +141,14 @@ function()
  --   skynet.newservice("debug_console",80000)
     require "debugger"
 
-    require "skynet.manager"
-	cluster.register(g_login.name, SERVERNAME)
-
-	cluster.open "login1" 
-
-    skynet.register(g_login.name)
     skynet.newservice("db_mongo",g_login.db)--数据库写中心
     save_db()
+
+	cluster.register(g_login.name, SERVERNAME)
+	cluster.open "login1" 
+
+    require "skynet.manager"
+    skynet.register(g_login.name)
 
     skynet.dispatch("lua", function(_,source,command, ...)--服务器间通信,包括集群
         skynet.ret(skynet.pack(command_handler(command, ...)))
@@ -158,7 +158,7 @@ function()
     local s = socket.listen(g_login.host, g_login.port)--客户端通信
     socket.start ( s , function(fd, addr)
         socket.start(fd)	-- may raise error here
-        socket.limit(fd, 8192) -- set socket buffer limit (8K),If the attacker send large package, close the socket
+    --    socket.limit(fd, 8192) -- set socket buffer limit (8K),If the attacker send large package, close the socket
         local ok, err = pcall(accept, fd, addr)
         if not ok then
             if err then

@@ -23,6 +23,41 @@ g_db = {
     -- db={  host = "127.0.0.1", port = 27017,username="admin",password="admin" },
 }
 
+-------------------------------------------warx模块----------------------------------------------------------------------------
+getfenv = getfenv or function(f)
+    f = (type(f) == 'function' and f or debug.getinfo(f + 1, 'f').func)
+    local name, val
+    local up = 0
+    repeat
+        up = up + 1
+        name, val = debug.getupvalue(f, up)
+    until name == '_ENV' or name == nil
+    return val
+end
+
+setfenv = setfenv or function(f, t) --lua5.3 没有,模拟一个
+    f = (type(f) == 'function' and f or debug.getinfo(f + 1, 'f').func)
+    local name
+    local up = 0
+    repeat
+        up = up + 1
+        name = debug.getupvalue(f, up)
+    until name == '_ENV' or name == nil
+    if name then
+        debug.upvaluejoin(f, up, function() return name end, 1) -- use unique upvalue
+        debug.setupvalue(f, up, t)
+    end
+end
+
+
+module = module or function(mname)  --lua5.3 没有,模拟一个
+    _ENV[mname] = _ENV[mname] or {}
+    setmetatable(_ENV[mname], {__index = _ENV})
+    setfenv(2, _ENV[mname])
+end
+
+require "ply_t"	
+require "name_t"	
 ----------------------------------------------公用函数---------------------------------------------------------------------------------
 function do_load(mod)
     package.loaded[ mod ] = nil
@@ -244,13 +279,13 @@ function print_tab(sth,h)
         elseif type(sth) == "function" then 
             cprint(h.."function",1)
         elseif type(sth) == "string" and (not string.find(sth,'^[_%a][_.%w]*$')) then
-            cprint(h.."\'"..sth.."\'",1)
+            cprint(h.."\""..sth.."\"",1)
         else
             cprint(h..sth,1)
         end
-
         return
     end
+
     cprint(h,1)
 
     local space, deep = string.rep(' ', 2), 0
@@ -262,27 +297,27 @@ function print_tab(sth,h)
             if type(k)=="number" then
                 key = "["..key.."]"
             elseif type(k) == 'string' and (not string.find(k,'^[_%a][_.%w]*$')) then
-                key = "[\'"..key.."\']"
+                key = "[\""..key.."\"]"
             end
 
             if type(v) == "table" then
 
                 deep = deep + 2
-                cprint(string.format( "%s%s=(", string.rep(space, deep - 1), key )) 
+                cprint(string.format( "%s%s = {", string.rep(space, deep - 1), key )) 
                 _dump(v)
-                cprint(string.format("%s)",string.rep(space, deep-1)))
+                cprint(string.format("%s}",string.rep(space, deep-1)))
                 deep = deep - 2
             elseif type(v) == "string" and (not string.find(v,'^[_%a][_.%w]*$')) then
-                cprint(string.format("%s%s=\'%s\'", string.rep(space, deep + 1), key, v)) 
+                cprint(string.format("%s%s = \"%s\"", string.rep(space, deep + 1), key, v)) 
             else
-                cprint(string.format("%s%s=%s", string.rep(space, deep + 1), key, v)) 
+                cprint(string.format("%s%s = %s", string.rep(space, deep + 1), key, v)) 
             end 
         end 
     end
 
-    cprint("(")
+    cprint("{")
     _dump(sth)
-    cprint(")")
+    cprint("}")
 end
 
 function cprint(s,num)--颜色答应
@@ -320,37 +355,5 @@ function lxz1(...)--打印lua变量数据到日志文件
     for _,v in pairs({...}) do
         print_tab(v)
     end
-end
-
-getfenv = getfenv or function(f)
-    f = (type(f) == 'function' and f or debug.getinfo(f + 1, 'f').func)
-    local name, val
-    local up = 0
-    repeat
-        up = up + 1
-        name, val = debug.getupvalue(f, up)
-    until name == '_ENV' or name == nil
-    return val
-end
-
-setfenv = setfenv or function(f, t) --lua5.3 没有,模拟一个
-    f = (type(f) == 'function' and f or debug.getinfo(f + 1, 'f').func)
-    local name
-    local up = 0
-    repeat
-        up = up + 1
-        name = debug.getupvalue(f, up)
-    until name == '_ENV' or name == nil
-    if name then
-        debug.upvaluejoin(f, up, function() return name end, 1) -- use unique upvalue
-        debug.setupvalue(f, up, t)
-    end
-end
-
-
-module = module or function(mname)  --lua5.3 没有,模拟一个
-    _ENV[mname] = _ENV[mname] or {}
-    setmetatable(_ENV[mname], {__index = _ENV})
-    setfenv(2, _ENV[mname])
 end
 
