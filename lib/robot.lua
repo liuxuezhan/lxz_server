@@ -107,7 +107,7 @@ function open(i,conf)
         pid = 1,
     }
     lxz(token)
-    token = msg_t.zip(token,"cs_open")
+    token = msg_t.zip(token,"cs_login")
     lxz(token)
 
     local etoken = crypt.desencode(secret, encode_token(token))
@@ -118,7 +118,7 @@ function open(i,conf)
 
     local info  = crypt.base64decode(result)
     info = msg_t.unpack(info)
-    info = msg_t.unzip(info,"sc_open")
+    info = msg_t.unzip(info,"sc_login")
     socket.close(fd)
 
     lxz(info)
@@ -147,7 +147,7 @@ function send(i)
         msg.pid = _r[i].pid 
         msg.tid = _r[i].tid 
     lxz(msg)
-        msg = msg_t.zip(msg,msg.id)
+        msg = msg_t.zip(msg,"cs_msg")
     lxz(msg)
         msg = msg_t.pack(msg)
 		write(i, msg )

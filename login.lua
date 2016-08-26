@@ -89,7 +89,7 @@ local function accept(fd, addr)
     local ins = crypt.desdecode(secret, crypt.base64decode(etoken))
 
     ins = msg_t.unpack(ins)
-    ins = msg_t.unzip(ins,"cs_open")
+    ins = msg_t.unzip(ins,"cs_login")
     lxz(ins)
     local p = name_t.login(ins)
 
@@ -111,7 +111,7 @@ local function accept(fd, addr)
 
     local s = assert(svrs[ins.sid], "Unknown server")
     lxz(p)
-    local msg = msg_t.zip({tid=p._id,pid=p.online.pid,host=s.host,port=s.port},"sc_open")
+    local msg = msg_t.zip({tid=p._id,pid=p.online.pid,host=s.host,port=s.port},"sc_login")
     lxz(msg)
     msg = msg_t.pack(msg)
 	write(fd,  crypt.base64encode(msg))

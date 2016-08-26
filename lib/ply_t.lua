@@ -16,6 +16,15 @@ function load(conf)
     end
 end
 
+function cs_msg( fd,pid,mid,msg )
+    if mid == "cs_enter" then
+        local self = _d[pid]
+        if not self then
+            log("没有角色")
+        end
+    end
+end
+
 function enter(pid,tid)
     local self = _d[pid]
     if not self then

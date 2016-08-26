@@ -79,13 +79,7 @@ local function accept(fd, addr)
         local msg = msg_t.unpack(read(fd))
         msg = msg_t.unzip(msg,"cs_msg")
         lxz(msg)
-        local name = d[1] 
-        if name then
-            if ply_t._d[name] then
-                ply_t._d[name].fd = fd
-                dispatch_msg(fd, name,d[2])
-            end
-        end
+        ply_t.cs_msg(fd, msg.pid,msg.id,msg.msg)
     end
 end
 

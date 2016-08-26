@@ -1,8 +1,8 @@
 local json = require "json"
 local msg = {}
 
-msg.cs_open = {"tid","pwd","sid","pid"} --链接loginserver
-msg.sc_open = {"tid","pid","host","port"} --链接loginserver
+msg.cs_login = {"tid","pwd","sid","pid"} --链接loginserver
+msg.sc_login = {"tid","pid","host","port"} --链接loginserver
 
 msg.cs_msg = {"pid","id","msg"} 
 

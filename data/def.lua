@@ -292,6 +292,7 @@ function log(...)--日志
     for _,v in pairs({...}) do
         d = d..json.encode(v).."@"
     end
+    cprint(d)
     os.execute("logger -p local0.info "..d )
 end
 
