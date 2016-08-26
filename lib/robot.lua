@@ -18,7 +18,7 @@ end
 function dispath(r,name,type,...)
     if type == "open" then
         r.open = {...}
-        r.open[3] = name --动态生成机器人名字
+        r.open[3].name = name --动态生成机器人名字
     elseif type == "first" then
         r.name = ...
     elseif type == "send" then
@@ -30,7 +30,7 @@ end
 
 function robot_init(id,_num,_conf)--初始化配置
     for i=1,_num do
-        _r[i]={last="",name = math.floor(id)*1000 + i }
+        _r[i]={last="",name = "robot_"..tostring((math.floor(id)+1)*1000 + i) }
         for k,v in pairs(_conf) do
             _r[i][k]={}
        lxz(v) 
@@ -100,12 +100,7 @@ function open(i,conf)
     write(i, crypt.base64encode(hmac))
 
     --开始登陆
-    local token = {
-        tid = conf[3],
-        pwd =  conf[4],
-        sid = conf[5],
-        pid = 1,
-    }
+    local token =  conf[3]
     lxz(token)
     token = msg_t.zip(token,"cs_login")
     lxz(token)
@@ -125,7 +120,7 @@ function open(i,conf)
     fd = socket.connect( info.host,info.port)
     _r[i].fd = fd 
     _r[i].pid = info.pid 
-    _r[i].tid = info.tid 
+    _r[i].nid = info.nid 
     if fd == 0 then
         lxz("connect fail["..i.."]\n")
         return 1

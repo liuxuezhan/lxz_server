@@ -2,8 +2,9 @@ json = require "json"
 msg_t = require "msg_t"
 save_t = require "save_t"	
 --------------------------------------------服务器配置--------------------------------------------------------------------------------
+g_tm = os.time() --系统时间 
 g_cid = 1    --集群id
-g_tid = 1000  --玩家id开始
+g_nid = 1000  --玩家id开始
 g_sid = "warx1" --服务器id
 g_pid = g_cid*1000*1000 --玩家角色id开始  
 
@@ -237,21 +238,26 @@ local function _dump(t)
 
     for k,v in pairs(t) do
         local key = tostring(k)
+        if type(k)=="number" then
+            key = "["..key.."]"
+        end
 
         if type(v) == "table" then
 
             deep = deep + 2
-            cprint(string.format( "%s[%s]=\n%s(", string.rep(space, deep - 1), key, string.rep(space, deep))) 
+            cprint(string.format( "%s%s=\n%s(", string.rep(space, deep - 1), key, string.rep(space, deep))) 
             _dump(v)
             cprint(string.format("%s)",string.rep(space, deep)))
             deep = deep - 2
-
+        elseif type(v) == "number" then
+            cprint(string.format("%s%s=[%s]", string.rep(space, deep + 1), key, v)) 
         else
-            cprint(string.format("%s[%s]=%s", string.rep(space, deep + 1), key, v)) 
+            cprint(string.format("%s%s=%s", string.rep(space, deep + 1), key, v)) 
         end 
     end 
 end
-function print_r(sth,h)
+
+function print_tab(sth,h)
 
     if type(sth) ~= "table" then
         if type(sth) == "boolean" then
@@ -262,12 +268,13 @@ function print_r(sth,h)
             end 
         elseif type(sth) == "function" then 
             cprint(h.."function",1)
+        elseif type(sth) == "number" then 
+            cprint(h.."["..sth.."]",1)
         else
             cprint(h..sth,1)
         end
         return
     end
-
     cprint(h,1)
 
 
@@ -301,7 +308,7 @@ function lxz(...)--打印lua变量数据到日志文件
     local h = "["..tm_str(time).."]".."["..(info.short_src or "FILE")..":"..(info.name or "")..":"..(info.currentline or 0).."]:"
 
     for _,v in pairs({...}) do
-        print_r(v,h)
+        print_tab(v,h)
     end
 end
 
@@ -309,7 +316,7 @@ function lxz1(...)--打印lua变量数据到日志文件
     local info = debug.getinfo(2)
     cprint(debug.traceback(),1)
     for _,v in pairs({...}) do
-        print_r(v)
+        print_tab(v)
     end
 end
 

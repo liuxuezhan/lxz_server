@@ -9,8 +9,8 @@ function load(conf)
         while info:hasNext() do
             local d = info:next()
             _d[d._id]=d
-            if  type(d.name)=="number"  and g_tid < d.pid then
-                g_tid = d.pid
+            if  type(d.name)=="number"  and g_nid < d.pid then
+                g_nid = d.pid
             end
         end
     end
@@ -19,20 +19,25 @@ end
 
 function login( ins )
 
-    local self = _d[tostring(ins.tid)] 
+    local pid = ins.pid
+    local self = _d[ins.name] 
     if not self then
-        g_tid = g_tid + 1
-        self = {_id=tostring(g_tid),pwd=ins.pwd }
+        g_nid = g_nid + 1
+        self = {_id=ins.name,nid=g_nid,pwd=ins.pwd }
     end
-
-    if not self[tostring(ins.pid)] then
-        g_pid = g_pid + 1
-        self[tostring(g_pid)] = ins.sid
-    end
-
     if ins.pwd ~= self.pwd then return end
 
-    return self
+    if not self[ins.pid] then
+        if not self.online then
+            g_pid = g_pid + 1
+            self[tostring(g_pid)] = ins.sid
+            pid = tostring(g_pid)
+        else
+            pid = self.online.pid 
+        end
+    end
+
+    return self,pid
 end
 
 function save(self)

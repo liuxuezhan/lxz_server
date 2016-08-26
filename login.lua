@@ -54,6 +54,7 @@ local function read(fd)
 end
 
 local function accept(fd, addr)
+    g_tm = os.time()
     lxz(string.format("connect from %s (fd = %d)", addr, fd))
 
 
@@ -91,7 +92,7 @@ local function accept(fd, addr)
     ins = msg_t.unpack(ins)
     ins = msg_t.unzip(ins,"cs_login")
     lxz(ins)
-    local p = name_t.login(ins)
+    local p,pid = name_t.login(ins)
 
     if p then --踢掉上次登录
         if p.online then 
@@ -106,12 +107,12 @@ local function accept(fd, addr)
         write( fd, "401 Unauthorized")
         return
     end
-    p.online = {pid=tostring(ins.pid),addr=addr,fd= fd, tm_login=os.time() }
+
+    p.online = {pid=pid,addr=addr,fd= fd, tm_login=g_tm }
     name_t.save(p)
 
     local s = assert(svrs[ins.sid], "Unknown server")
-    lxz(p)
-    local msg = msg_t.zip({tid=p._id,pid=p.online.pid,host=s.host,port=s.port},"sc_login")
+    local msg = msg_t.zip({nid=p.nid,pid=pid,host=s.host,port=s.port},"sc_login")
     lxz(msg)
     msg = msg_t.pack(msg)
 	write(fd,  crypt.base64encode(msg))

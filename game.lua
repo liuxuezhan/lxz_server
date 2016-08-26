@@ -55,9 +55,7 @@ end
 
 function CMD.login(msg)
     msg = msg_t.unpack(msg) 
-    lxz(msg)
-    self={_id=msg.online.pid,tid=msg._id }
-    ply_t.save(self)
+    ply_t.cs_login(msg)
 end
 
 -- call by agent
