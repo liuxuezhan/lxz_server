@@ -231,31 +231,6 @@ function save_file (mod,path,buf)
 end
 
 
-local function _dump(t)
-    local space, deep = string.rep(' ', 2), 0
-
-    local temp = {}
-
-    for k,v in pairs(t) do
-        local key = tostring(k)
-        if type(k)=="number" then
-            key = "["..key.."]"
-        end
-
-        if type(v) == "table" then
-
-            deep = deep + 2
-            cprint(string.format( "%s%s=\n%s(", string.rep(space, deep - 1), key, string.rep(space, deep))) 
-            _dump(v)
-            cprint(string.format("%s)",string.rep(space, deep)))
-            deep = deep - 2
-        elseif type(v) == "number" then
-            cprint(string.format("%s%s=[%s]", string.rep(space, deep + 1), key, v)) 
-        else
-            cprint(string.format("%s%s=%s", string.rep(space, deep + 1), key, v)) 
-        end 
-    end 
-end
 
 function print_tab(sth,h)
 
@@ -277,6 +252,31 @@ function print_tab(sth,h)
     end
     cprint(h,1)
 
+    local space, deep = string.rep(' ', 2), 0
+    local function _dump(t)
+
+        local temp = {}
+
+        for k,v in pairs(t) do
+            local key = tostring(k)
+            if type(k)=="number" then
+                key = "["..key.."]"
+            end
+
+            if type(v) == "table" then
+
+                deep = deep + 2
+                cprint(string.format( "%s%s=(", string.rep(space, deep - 1), key )) 
+                _dump(v)
+                cprint(string.format("%s)",string.rep(space, deep-1)))
+                deep = deep - 2
+            elseif type(v) == "number" then
+                cprint(string.format("%s%s=[%s]", string.rep(space, deep + 1), key, v)) 
+            else
+                cprint(string.format("%s%s=%s", string.rep(space, deep + 1), key, v)) 
+            end 
+        end 
+    end
 
     cprint("(")
     _dump(sth)
