@@ -243,24 +243,26 @@ function print_tab(sth,h)
             end 
         elseif type(sth) == "function" then 
             cprint(h.."function",1)
-        elseif type(sth) == "number" then 
-            cprint(h.."["..sth.."]",1)
+        elseif type(sth) == "string" and (not string.find(sth,'^[_%a][_.%w]*$')) then
+            cprint(h.."\'"..sth.."\'",1)
         else
             cprint(h..sth,1)
         end
+
         return
     end
     cprint(h,1)
 
     local space, deep = string.rep(' ', 2), 0
+
     local function _dump(t)
-
         local temp = {}
-
         for k,v in pairs(t) do
             local key = tostring(k)
             if type(k)=="number" then
                 key = "["..key.."]"
+            elseif type(k) == 'string' and (not string.find(k,'^[_%a][_.%w]*$')) then
+                key = "[\'"..key.."\']"
             end
 
             if type(v) == "table" then
@@ -270,8 +272,8 @@ function print_tab(sth,h)
                 _dump(v)
                 cprint(string.format("%s)",string.rep(space, deep-1)))
                 deep = deep - 2
-            elseif type(v) == "number" then
-                cprint(string.format("%s%s=[%s]", string.rep(space, deep + 1), key, v)) 
+            elseif type(v) == "string" and (not string.find(v,'^[_%a][_.%w]*$')) then
+                cprint(string.format("%s%s=\'%s\'", string.rep(space, deep + 1), key, v)) 
             else
                 cprint(string.format("%s%s=%s", string.rep(space, deep + 1), key, v)) 
             end 
