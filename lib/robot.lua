@@ -54,34 +54,50 @@ local function read_line(text)--返回换行前后两个字符串
 	return nil, text
 end
 
-local function read(i)
+reading = coroutine.create(function (i)
 	local function try_recv(fd, last)
-		local result
-		result, last = read_line(last)
-		if result then
-			return result, last
+		local ret
+		ret, last = read_line(last)
+		if ret then
+			return ret, last
 		end
 
-		local r = socket.recv(fd)
-		if not r then
+		local ret = socket.recv(fd)
+		if not ret then
 			return nil, last
 		end
-		if r == "" then
+		if ret == "" then
 			error "Server closed"
 		end
-		return read_line(last .. r)
+		return read_line(last .. ret)
 	end
 
     while true do
-        local result
-        result, _r[i].last = try_recv(_r[i].fd, _r[i].last)
-        if result then
-            return result
+        local ret
+        ret, _r[i].last = try_recv(_r[i].fd, _r[i].last)
+        --lxz()
+        if ret then
+            coroutine.yield(ret) 
         end
-        socket.usleep(100)
+        coroutine.yield() 
     end
+end)
+
+local function read(i)--读到数据
+   while true do
+        local f,r = coroutine.resume(reading, i)
+        if f and r then 
+            return r
+        end
+   end
 end
 
+local function read_one(i)--读一个
+    local f,r = coroutine.resume(reading, i)
+    if f and r then 
+        return r
+    end
+end
 
 local function encode_token(token)
       return msg_t.pack(token)
@@ -152,10 +168,10 @@ function send(i)
         msg.pid = _r[i].pid 
         msg.tid = _r[i].tid 
         msg = msg_t.zip(msg,"cs_msg")
-    lxz(msg)
         msg = msg_t.pack(msg)
 		write(i, msg )
-    --    local ret = read(i)
+    lxz(msg)
+        local ret = read_one(i)
         lxz(ret)
 	end
 
