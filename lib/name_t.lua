@@ -1,6 +1,6 @@
 module(..., package.seeall)
 _d = {}--数据
-
+local _name =...
 function load(conf)
     local mongo = require "mongo"
     for name,v  in pairs(conf) do
@@ -42,7 +42,7 @@ end
 
 function save(self)
     _d[self._id]=self
-    save_t.data.name_t[self._id]=self
+    save_t.data[_name][self._id]=self
 end
 
 function new(server,name,pwd)

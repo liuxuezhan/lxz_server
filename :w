@@ -23,7 +23,6 @@ extern "C"
 }
 int  m_bProcExit = 0;
 int  m_exitnum = 0;
-int  g_debug = 0;
 int  next =10; //执行步数
 
 #define ISQ_SYSTEM_VERSION  "lxz_server-debug-2015.8.25"
@@ -174,9 +173,9 @@ private:
 
 			/*调用lua函数处理消息并返回*/
 			lua_getglobal(m_l, "main_loop");
-		    lua_pushnumber(m_l, g_debug);
+		    //lua_pushnumber(m_l, 1);
 
-			if (lua_pcall(m_l, 1, 1, 0) != 0) /* pcall(Lua_state, 参数个数, 返回值个数, 错误处理函数所在的索引)，最后一个参数暂时先忽略 */
+			if (lua_pcall(m_l, 0, 1, 0) != 0) /* pcall(Lua_state, 参数个数, 返回值个数, 错误处理函数所在的索引)，最后一个参数暂时先忽略 */
 			{
 				printf("-----(%d)--------(%s)\n", __LINE__,lua_tostring(m_l,-1));
 				lua_pop(m_l, 1);/* 将返回值弹出堆栈，将堆栈恢复到调用前的样子 */
@@ -218,7 +217,7 @@ public:
             m_probot[n] = new ROBOT(n);
 			m_probot[n]->m_l =  luaL_newstate();
 
-			reload_lua(m_probot[n]->m_l, "robot.lua");
+			reload_lua(m_probot[n]->m_l, "client.lua");
         }
 
         if (!Start()) //创建一个主线程
@@ -305,7 +304,7 @@ void server_quit()
     delete pMgr;
 }
 
-void CatchSysSignal(int iSignal) //信号处理
+void CatchSysSignal(int iSignal)
 {
 
     printf( "捕获信号: [%d ]",iSignal);
@@ -323,12 +322,6 @@ void CatchSysSignal(int iSignal) //信号处理
             break;
         }
     case SIGINT:
-/*
-        {
-            g_debug= g_debug + 1; 
-            break;
-        }
-*/
     case SIGTERM:
     case SIGSYS:
     case SIGTRAP:

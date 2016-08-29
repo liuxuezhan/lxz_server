@@ -2,7 +2,7 @@ module(..., package.seeall)
 cur = 1000--当前最大id
 _d = {}--数据
 _onlines = {} --在线玩家
-
+local _name = ...
 function load(conf)
     local mongo = require "mongo"
     local db = mongo.client(conf)
@@ -41,7 +41,7 @@ end
 
 function save(self)
     _d[self._id]=self
-    save_t.data.ply_t[self._id]=self
+    save_t.data[_name][self._id]=self
 end
 
 function new(server,name,pwd)

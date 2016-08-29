@@ -1,11 +1,18 @@
-
 --机器人发消息模块
 dofile("../data/def.lua")
-module(..., package.seeall)
 package.cpath =package.cpath..";../skynet/luaclib/?.so"
 local crypt = require "crypt"
 local socket = require "client_socket"
 --require "debugger"
+
+
+_num = 1 --机器人数量
+_conf = { --机器人操作集合
+			{"open","192.168.103.225",8001,{name="10000",pwd="pwd",sid="game_server",pid="" }},
+			--{"open","127.0.0.1",8001,"10000","pwd","game_server1"},
+			{"send",{id="cs_enter",pid=0,msg={} },},
+			{"close"},
+	}
 
 local _r ={}--机器人列表
 local cur = 1--当前执行的步骤
@@ -28,7 +35,7 @@ function dispath(r,name,type,...)
     end
 end
 
-function robot_init(id,_num,_conf)--初始化配置
+function robot_init(id)--初始化配置
     for i=1,_num do
         _r[i]={last="",name = "robot_"..tostring((math.floor(id)+1)*1000 + i) }
         for k,v in pairs(_conf) do
@@ -160,7 +167,8 @@ function send(i)
 end
 
 
-function robot_start(_num,_conf)--开始执行
+function main_loop(debug)--开始执行
+    lxz(debug)
 
 	local ret = 0
 	if cur >#_conf then
