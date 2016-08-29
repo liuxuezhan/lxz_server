@@ -172,23 +172,25 @@ private:
 			}
 
 
+    printf( "开始6: [%d ]\n",sp);
+			sleep(1);
 			/*调用lua函数处理消息并返回*/
 			lua_getglobal(m_l, "main_loop");
 		    lua_pushnumber(m_l, g_debug);
 
+				sleep(1);
 			if (lua_pcall(m_l, 1, 1, 0) != 0) /* pcall(Lua_state, 参数个数, 返回值个数, 错误处理函数所在的索引)，最后一个参数暂时先忽略 */
 			{
 				printf("-----(%d)--------(%s)\n", __LINE__,lua_tostring(m_l,-1));
-				lua_pop(m_l, 1);/* 将返回值弹出堆栈，将堆栈恢复到调用前的样子 */
 				break;
 			}
+            g_debug= 0;
 
+    printf( "开始7: [%d ]\n",sp);
 			int ret = lua_tonumber(m_l, -1);
 			lua_pop(m_l, 1);/* 将返回值弹出堆栈，将堆栈恢复到调用前的样子 */
 
-			if (ret==1) {
-				break;
-			}
+            printf( "ret: [%d ]\n",ret);
 			sp ++;
         }
 		lua_close(m_l);
@@ -288,7 +290,6 @@ private:
 SERVER* pMgr=NULL;
 
 
-void CatchSysSignal(int iSignal);
 void sig_reload_lua_1()
 {
 
@@ -305,7 +306,7 @@ void server_quit()
     delete pMgr;
 }
 
-void CatchSysSignal(int iSignal) //信号处理
+void catch_sig(int iSignal) //信号处理
 {
 
     printf( "捕获信号: [%d ]",iSignal);
@@ -323,25 +324,17 @@ void CatchSysSignal(int iSignal) //信号处理
             break;
         }
     case SIGINT:
-/*
         {
-            g_debug= g_debug + 1; 
-            break;
+
+            if (g_debug== 0) {
+                g_debug= 1;
+                break;
+            } else if (g_debug== 1) {
+            }
         }
-*/
     case SIGTERM:
     case SIGSYS:
     case SIGTRAP:
-        {//正常退出
-            for (uint32_t n = 0 ; n < pMgr->m_num ; n ++)
-            {
-                lua_State* l= pMgr->m_probot[n]->m_l;
-                lua_getglobal(l,"pause");
-                lua_call(l, 0, 0);
-            }
-        //    server_quit();
-         //   exit(0);
-        }
     case SIGILL:
     case SIGQUIT:
     case SIGBUS:
@@ -358,12 +351,12 @@ void CatchSysSignal(int iSignal) //信号处理
     }
 }
 
-void InstallSysSignal(void)
+void install_sig(void)
 {
     struct sigaction sigact;
     struct sigaction old;
 
-    sigact.sa_handler = CatchSysSignal;
+    sigact.sa_handler = catch_sig;
     sigfillset(&sigact.sa_mask);//执行时屏蔽所有信号
     sigact.sa_flags = 0;
 
@@ -458,7 +451,7 @@ int32_t main(int32_t argc, char** argv)
     signal(SIGPIPE, SIG_IGN);//socket连接断开不处理
 
 
-    InstallSysSignal();//安装信号
+    install_sig();//安装信号
 
     pMgr= new SERVER(i);
 

@@ -3,7 +3,7 @@ dofile("../data/def.lua")
 package.cpath =package.cpath..";../skynet/luaclib/?.so"
 local crypt = require "crypt"
 local socket = require "client_socket"
---require "debugger"
+require "debugger"
 
 
 _num = 1 --机器人数量
@@ -135,7 +135,12 @@ function open(i,conf)
 end
 
 function send(i)
+lxz(i,cur)
     local self=_r[i][cur]
+    if not self then
+        return
+    end
+
     if _r[i][cur].open then
         local conf = _r[i][cur].open 
         if open(i,conf) then
@@ -145,15 +150,13 @@ function send(i)
 
 	if self.send then
         local msg = self.send
-    lxz(msg)
         msg.pid = _r[i].pid 
         msg.tid = _r[i].tid 
-    lxz(msg)
         msg = msg_t.zip(msg,"cs_msg")
     lxz(msg)
         msg = msg_t.pack(msg)
 		write(i, msg )
-        local ret = read(i)
+    --    local ret = read(i)
         lxz(ret)
 	end
 
@@ -167,8 +170,12 @@ function send(i)
 end
 
 
-function main_loop(debug)--开始执行
-    lxz(debug)
+function main_loop(deb)--开始执行
+    if deb > 0 then
+            pause("debug in main_loop")
+    elseif deb > 1 then
+            os.exit(-1)
+    end
 
 	local ret = 0
 	if cur >#_conf then
