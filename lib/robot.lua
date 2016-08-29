@@ -135,7 +135,6 @@ function open(i,conf)
 end
 
 function send(i)
-lxz(i,cur)
     local self=_r[i][cur]
     if not self then
         return
@@ -170,24 +169,26 @@ lxz(i,cur)
 end
 
 
-function main_loop(deb)--开始执行
+function main_loop(deb,num)--开始执行
     if deb > 0 then
-            pause("debug in main_loop")
+        pause("debug in main_loop")
     elseif deb > 1 then
-            os.exit(-1)
+        os.exit(-1)
     end
 
-	local ret = 0
-	if cur >#_conf then
-		return 1
-	end
+    for i = 1,num do
+        local ret = 0
+        if cur >#_conf then
+            return 1
+        end
 
-	for i=1,_num do
-		ret = send(i)
-	end
+        for i=1,_num do
+            ret = send(i)
+        end
 
-	cur = cur + 1
-	return 0
+        cur = cur + 1
+    end
+    return 0
 end
 
 

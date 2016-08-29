@@ -132,13 +132,11 @@ public:
     {
         m_l = NULL;
 		cmd = 0;
-		sp = 0;
     };
     virtual ~ROBOT(void){};
 public:
     lua_State* m_l;
 	int cmd;
-	int sp;
 private:
     uint32_t  m_id;// 子线程ID
 
@@ -166,32 +164,26 @@ private:
 
             if (1==m_bProcExit) { break;}
 
-			if (sp>=cmd ) {
-				sleep(1);
-				continue;
-			}
-
-
-    printf( "开始6: [%d ]\n",sp);
+            if (cmd == 0 ) { continue;}
 			sleep(1);
 			/*调用lua函数处理消息并返回*/
 			lua_getglobal(m_l, "main_loop");
 		    lua_pushnumber(m_l, g_debug);
+		    lua_pushnumber(m_l, cmd);
 
-				sleep(1);
-			if (lua_pcall(m_l, 1, 1, 0) != 0) /* pcall(Lua_state, 参数个数, 返回值个数, 错误处理函数所在的索引)，最后一个参数暂时先忽略 */
+	        printf("next:%d\n", cmd);
+			if (lua_pcall(m_l, 2, 1, 0) != 0) /* pcall(Lua_state, 参数个数, 返回值个数, 错误处理函数所在的索引)，最后一个参数暂时先忽略 */
 			{
-				printf("-----(%d)--------(%s)\n", __LINE__,lua_tostring(m_l,-1));
+				printf("%d:%s\n", __LINE__,lua_tostring(m_l,-1));
 				break;
 			}
+            cmd = 0;
             g_debug= 0;
 
-    printf( "开始7: [%d ]\n",sp);
 			int ret = lua_tonumber(m_l, -1);
 			lua_pop(m_l, 1);/* 将返回值弹出堆栈，将堆栈恢复到调用前的样子 */
 
             printf( "ret: [%d ]\n",ret);
-			sp ++;
         }
 		lua_close(m_l);
 
@@ -254,7 +246,7 @@ public:
 			int f =0;
 			for (uint32_t n = 0 ; n < m_num ; n ++)
 			{
-				if (m_probot[n]->sp != m_probot[n]->cmd){
+				if (m_probot[n]->cmd != 0 ){
 					f =1;
 					break;
 				}
@@ -264,7 +256,7 @@ public:
 
             if (next == 0 )
             {
-                printf("next:");
+                printf("继续步数:");
                 scanf("%d",&cmd);
             }else{
                 cmd = next;
@@ -274,7 +266,6 @@ public:
             for (uint32_t n = 0 ; n < m_num ; n ++)
             {
 				m_probot[n]->cmd = cmd;
-				m_probot[n]->sp = 0;
 			}
 		}
 
@@ -328,9 +319,11 @@ void catch_sig(int iSignal) //信号处理
 
             if (g_debug== 0) {
                 g_debug= 1;
-                break;
             } else if (g_debug== 1) {
+                server_quit();
+                exit(3);
             }
+            break;
         }
     case SIGTERM:
     case SIGSYS:
@@ -343,7 +336,7 @@ void catch_sig(int iSignal) //信号处理
     case SIGXCPU:
     case SIGXFSZ:
         {//非法退出
-        //    server_quit();
+            server_quit();
             abort();
         }
     default:
@@ -445,7 +438,7 @@ int32_t main(int32_t argc, char** argv)
 
 	if (argc > 1 ) {
 		i = atoi(argv[1]);
-		next = atoi(argv[1]);
+		next = atoi(argv[2]);
 	}
 
     signal(SIGPIPE, SIG_IGN);//socket连接断开不处理
