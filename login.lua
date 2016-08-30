@@ -1,4 +1,4 @@
-local skynet = require "skynet"
+skynet = require "skynet"
 local socket = require "socket"
 local crypt = require "crypt"
 local cluster = require "cluster"
@@ -6,6 +6,7 @@ local string = string
 local assert = assert
 require "ply_t"	
 require "name_t"	
+require "timer"	
 
 
 local svrs = {}
@@ -142,7 +143,8 @@ function()
     require "debugger"
 
     skynet.newservice("db_mongo",g_login.db)--数据库写中心
-    save_db()
+    --save_db()
+    timer.news("save_db",3,g_login.db)
 
 	cluster.register(g_login.name, SERVERNAME)
 	cluster.open "login1" 

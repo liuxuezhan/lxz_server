@@ -167,7 +167,7 @@ skynet.start(function()
     skynet.register(server_name) --注册服务名字便于其他服务调用
 
     skynet.dispatch("lua", function(session, source, id,data,...)
-    lxz(data)
+    --lxz(data)
         data = msg_t.unpack(data)
         if not _db[id] then
             _db[id]={fd = mongo.client(g_db[id]),list=data }
