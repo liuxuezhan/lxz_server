@@ -1,16 +1,12 @@
-local skynet = require "skynet"
+skynet = require "skynet"
 local socket = require "socket"
-local crypt = require "crypt"
 local cluster = require "cluster"
+require "time_t"	
 local assert = assert
-local b64encode = crypt.base64encode
-local b64decode = crypt.base64decode
 
 local socket_id	-- listen socket
 local client_number = 0
 
-
-local server = {}
 
 local function read(fd)
     local ok ,ret = pcall(socket.readline,fd)
@@ -20,9 +16,6 @@ local function read(fd)
     return ret
 end
 
-function server.username(uid, servername)
-	return string.format("%s_%s", b64encode(servername) ,b64encode(uid))
-end
 
 
 function dispatch_msg(fd, name,msg)--分发消息，不返回
@@ -78,23 +71,12 @@ local function accept(fd, addr)
     end
 end
 
-local  function save_db()
-    skynet.timeout(3*100, function() 
-        if next(save_t.data) then
-    lxz(save_t.data)
-            skynet.send(g_game.db, "lua",g_game.db, msg_t.pack(save_t.data))--不需要返回
-            save_t.clear()
-        end
-        save_db()
-    end)
-end
-
 skynet.start(function()
 --    local console = skynet.newservice("console")
  --   skynet.newservice("debug_console",80000)
     require "debugger"
-    skynet.newservice("db_mongo",g_game.db)--数据库写中心
-    save_db()
+    skynet.newservice("mongo_t",g_game.db)--数据库写中心
+    time_t.news("save_db",3,g_game.db)
 	cluster.register(g_game.name, SERVERNAME)
 	cluster.open "game1"
 

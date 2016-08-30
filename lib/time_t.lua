@@ -76,7 +76,7 @@ function new(what, sec, ...)
         while true do
             max_sn = max_sn + 1
             local sn = tostring(max_sn)
-            if not timer.get(sn) then
+            if not time_t.get(sn) then
                 id = sn
                 break
             end

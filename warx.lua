@@ -1,7 +1,7 @@
 package.path = package.path..";./?.lua"
 local skynet = require "skynet"
 local socket = require "socket"
-local save = require "save"	
+local save = require "save_t"	
 local assert = assert
 
 local socket_id	-- listen socket
@@ -86,7 +86,7 @@ end
 
 local  function save_db()
     skynet.timeout(3*100, function() 
-        check_pending()
+       check_pending()
        save_db()
     end)
 end
@@ -106,7 +106,7 @@ skynet.start(function()
  --   skynet.newservice("debug_console",80000)
  
     require "debugger"
-    skynet.newservice("db_mongo",conf.db_name)--数据库写中心
+    skynet.newservice("mongo_t",conf.db_name)--数据库写中心
     save_db()
     warx_init()
 

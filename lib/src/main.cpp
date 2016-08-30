@@ -212,7 +212,7 @@ public:
             m_probot[n] = new ROBOT(n);
 			m_probot[n]->m_l =  luaL_newstate();
 
-			reload_lua(m_probot[n]->m_l, "robot.lua");
+			reload_lua(m_probot[n]->m_l, "robot_t.lua");
         }
 
         if (!Start()) //创建一个主线程
