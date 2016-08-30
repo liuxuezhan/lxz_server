@@ -5,6 +5,7 @@ _sns = _sns or {}
 _funs = {}
 _funs["save_db"] = function(sn,db)
     if next(save_t.data) then
+    lxz(db,save_t.data)
         skynet.send(db, "lua",db, msg_t.pack(save_t.data))--不需要返回
         save_t.clear()
     end
@@ -90,22 +91,11 @@ function new(what, sec, ...)
 end
 
 function news(what, sec, ...)
-    if sec >= 0 and _funs[ what ] then
-        local id = false
-        while true do
-            max_sn = max_sn + 1
-            local sn = tostring(max_sn)
-            if not timer.get(sn) then
-                id = sn
-                break
-            end
-        end
-
-        local node = {_id=id, tag=0, start=g_tm, over=g_tm+sec, what=what, param={...}}
-        _sns[ id ] = node
-        add(node,sec)
-        return id, node
-    end
+    local fun = _funs[ what ]
+    local args = {...}
+    skynet.timeout(sec*100, function() 
+        fun(1, table.unpack(args))
+    end)
 end
 
 function add(node,sec)

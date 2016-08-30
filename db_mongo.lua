@@ -170,18 +170,18 @@ skynet.start(function()
     --lxz(data)
         data = msg_t.unpack(data)
         if not _db[id] then
-            _db[id]={fd = mongo.client(g_db[id]),list=data }
-        else
-            for tab, v in pairs(data) do
-                for k, d in pairs(v) do
-                    if k ~= "_bak" then
-                        _db[id].list[tab][k] = d 
-                    end
+            _db[id]={fd = mongo.client(g_db[id]) }
+        end
+
+        _db[id].list = data
+        for tab, v in pairs(data) do
+            for k, d in pairs(v) do
+                if k ~= "_bak" then
+                    _db[id].list[tab][k] = d 
                 end
             end
         end
 
-        lxz(_db[id].list)
         global_save(id,_db[id].list)
         --[[
         test_insert_without_index(db)

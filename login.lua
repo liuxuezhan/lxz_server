@@ -125,16 +125,6 @@ local function accept(fd, addr)
 --    socket.abandon(fd)	-- never raise error here
 end
 
-local  function save_db()
-    skynet.timeout(3*100, function() 
-        if next(save_t.data) then
-        lxz(save_t.data)
-            skynet.send(g_login.db, "lua",g_login.db, msg_t.pack(save_t.data))--不需要返回
-            save_t.clear()
-        end
-        save_db()
-    end)
-end
 
 skynet.start (
 function()
@@ -143,8 +133,7 @@ function()
     require "debugger"
 
     skynet.newservice("db_mongo",g_login.db)--数据库写中心
-    --save_db()
-    timer.news("save_db",3,g_login.db)
+    timer.new("save_db",3,g_login.db)
 
 	cluster.register(g_login.name, SERVERNAME)
 	cluster.open "login1" 
