@@ -6,13 +6,27 @@ msg.sc_login = {"nid","pid","host","port"}
 
 msg.cs_msg = {"pid","id","msg"} 
 
-local function zip(src,tab) --压缩key
+local function zip(tab,...) --压缩key
     local obj = {}
-    for i=1,#tab do 
-        local key = tab[i]  
+    local src = {...}
+    for i=1,#tab do
+        local key = tab[i]
+        for j=1,#src do
+            if type(src[j])=="table" then
+                obj[i] = src[j][key]
+            end
+        end
+    end
+    return obj
+end
+
+local function zips(tab,src) --表中表
+    local obj = {}
+    for i=1,#tab do
+        local key = tab[i]
         if type(key) == "table" then
-            local temp_tab = msg.get(key)         
-            obj[i] = zip(src[key[1]],temp_tab)
+            local temp_tab = msg.get(key)
+            obj[i] = zip(temp_tab,src[key[1]])
         else
             obj[i] = src[key]
         end
@@ -20,7 +34,8 @@ local function zip(src,tab) --压缩key
     return obj
 end
 
-local function unzip(src,tab)
+
+local function unzip(tab,src)
     local obj = {}
     for i = 1,#tab do
         local key = tab[i]
@@ -28,7 +43,7 @@ local function unzip(src,tab)
             local temp_tab = msg.get(key)
             local temp_key = key[1]
             if src[i] then
-                obj[temp_key]  = unzip(src[i],temp_tab)
+                obj[temp_key]  = unzip(temp_tab,src[i])
             end
         else
             obj[key] = src[i]
@@ -39,7 +54,7 @@ end
 
 function msg.pack(src,tab)
     if tab then
-        src = msg.zip(src,tab)
+        src = msg.zip(tab,src)
     end
     src = json.encode(src)
     return src
@@ -48,7 +63,7 @@ end
 function msg.unpack(src,tab)
     src = json.decode(src)
     if tab then
-        src = msg.unzip(src,tab)
+        src = msg.unzip(tab,src)
     end
     return src
 end
@@ -78,12 +93,12 @@ function msg.get(tab)
     return temp
 end
 
-function msg.zip(src,what) --压缩key
-    return zip(src,msg[what])
+function msg.zip(what,...) --压缩key
+    return zip(msg[what],...)
 end
 
-function msg.unzip(src,what)
-    return unzip(src,msg[what])
+function msg.unzip(what,src)
+    return unzip(msg[what],src)
 end
 
 return msg

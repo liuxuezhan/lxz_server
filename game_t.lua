@@ -65,7 +65,7 @@ local function accept(fd, addr)
 
     while 1 do
         local msg = msg_t.unpack(read(fd))
-        msg = msg_t.unzip(msg,"cs_msg")
+        msg = msg_t.unzip("cs_msg",msg)
         lxz(msg)
         ply_t.cs_msg(fd, msg.pid,msg.id,msg.msg)
     end

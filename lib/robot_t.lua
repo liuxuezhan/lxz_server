@@ -123,9 +123,7 @@ function open(i,conf)
     write(i, crypt.base64encode(hmac))
 
     --开始登陆
-    local token =  conf[3]
-    lxz(token)
-    token = msg_t.zip(token,"cs_login")
+    local token = msg_t.zip("cs_login",conf[3])
     lxz(token)
 
     local etoken = crypt.desencode(secret, encode_token(token))
@@ -136,7 +134,7 @@ function open(i,conf)
 
     local info  = crypt.base64decode(result)
     info = msg_t.unpack(info)
-    info = msg_t.unzip(info,"sc_login")
+    info = msg_t.unzip("sc_login",info)
     socket.close(fd)
 
     lxz(info)
@@ -167,7 +165,7 @@ function send(i)
         local msg = self.send
         msg.pid = _r[i].pid 
         msg.tid = _r[i].tid 
-        msg = msg_t.zip(msg,"cs_msg")
+        msg = msg_t.zip("cs_msg",msg)
         msg = msg_t.pack(msg)
 		write(i, msg )
     lxz(msg)
