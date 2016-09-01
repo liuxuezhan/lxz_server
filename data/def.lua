@@ -9,17 +9,19 @@ g_sid = "warx1" --服务器id
 g_pid = g_cid*1000*1000 --玩家角色id开始  
 
 --登录服务器
-g_login={name="login_server", host = "192.168.103.225", port = 8001, multilogin = true,  db="db_login", cl_port=2528 }
---login_server1={ host = "127.0.0.1", port = 8001, multilogin = true, db_read="db_server1", db="db_server1", },
+g_login={name="login1", host = "192.168.103.225", port = 8001, multilogin = true,  db="db1",  }
+g_login1={name="login1", host = "192.168.103.225", port = 8001, multilogin = true,  db="db1",  }
+g_login2={name="login2", host = "127.0.0.1", port = 8001, multilogin = true,  db="db2",  }
 
 --分区服务器
-g_game={  name = "game_server", host = "192.168.103.225", port = 8888, maxclient=3000, room ="room1", db = "db_game",cl_port=2529 } 
+g_game={  name = "game1", host = "192.168.103.225", port = 8888, maxclient=3000, room ="room1", db = "db1" } 
+g_game1={  name = "game1", host = "192.168.103.225", port = 8888, maxclient=3000, room ="room1", db = "db1" } 
+g_game2={  name = "game2", host = "127.0.0.1", port = 8888, maxclient=3000, room ="room1", db = "db2" } 
 
 --数据库
 g_db = {
-    db_login={ host = "192.168.100.12", port = 27017, },
-    db_game={ host = "192.168.100.12", port = 27017, },
-    --db1={ host = "127.0.0.1", port = 27017, },
+    db1={ host = "192.168.100.12", port = 27017, },
+    db2={ host = "127.0.0.1", port = 27017, },
     -- db={  host = "127.0.0.1", port = 27017,username="admin",password="admin" },
 }
 

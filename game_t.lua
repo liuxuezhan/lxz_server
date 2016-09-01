@@ -1,7 +1,7 @@
 skynet = require "skynet"
 local socket = require "socket"
 local cluster = require "cluster"
-require "time_t"	
+require "time_t"
 local assert = assert
 
 local socket_id	-- listen socket
@@ -78,14 +78,14 @@ skynet.start(function()
     skynet.newservice("mongo_t",g_game.db)--数据库写中心
     time_t.news("save_db",3,g_game.db)
 	cluster.register(g_game.name, SERVERNAME)
-	cluster.open "game1"
+	cluster.open(g_game.name)
 
     require "skynet.manager"	-- import skynet.register
     do_load("resmng")--加载策划配置
     skynet.register(g_game.name) --注册服务名字便于其他服务调用
 
-	local s = cluster.query("login1", g_login.name)
-	cluster.call("login1",s, "register_gate", g_game.name, g_game.host,g_game.port)
+	local s = cluster.query(g_login.name, g_login.name)
+	cluster.call(g_login.name,s, "register_gate", g_game.name, g_game.host,g_game.port)
     ply_t.load(g_db[g_game.db])
 
     skynet.newservice("room",g_game.room)--模块服务器

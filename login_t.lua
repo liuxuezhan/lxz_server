@@ -3,7 +3,6 @@ local socket = require "socket"
 local crypt = require "crypt"
 local cluster = require "cluster"
 local string = string
-local assert = assert
 require "ply_t"	
 require "name_t"	
 require "time_t"	
@@ -100,8 +99,8 @@ local function accept(fd, addr)
             local sid = p[p.online.pid]
             local s = svrs[sid]
             if s then
-                local cid = cluster.query("game1", g_game.name)
-                cluster.call("game1",cid, "kick", p.online.pid)
+                local cid = cluster.query(g_game.name, g_game.name)
+                cluster.call(g_game.name,cid, "kick", p.online.pid)
             end
         end
     else
@@ -112,16 +111,19 @@ local function accept(fd, addr)
     p.online = {pid=pid,addr=addr,fd= fd, tm_login=g_tm }
     name_t.save(p)
 
-    local s = assert(svrs[ins.sid], "Unknown server")
+    local s = svrs[ins.sid]
+    if not s then
+        log("")
+    end
     local msg = msg_t.zip("sc_login",{nid=p.nid,pid=pid,host=s.host,port=s.port})
     lxz(msg)
     msg = msg_t.pack(msg)
 	write(fd,  crypt.base64encode(msg))
 
     log(p._id,"认证通过")
-	local s = cluster.query("game1",g_game.name)
+	local s = cluster.query(g_game.name,g_game.name)
     lxz(p)
-	cluster.call("game1",s, "login", msg_t.pack(p))
+	cluster.call(g_game.name,s, "login", msg_t.pack(p))
 --    socket.abandon(fd)	-- never raise error here
 end
 
@@ -136,7 +138,7 @@ function()
     time_t.new("save_db",3,g_login.db)
 
 	cluster.register(g_login.name, SERVERNAME)
-	cluster.open "login1" 
+	cluster.open(  g_login.name )
 
     require "skynet.manager"
     skynet.register(g_login.name)
