@@ -54,6 +54,7 @@ local function read_line(text)--返回换行前后两个字符串
 	return nil, text
 end
 
+--reading = co_t.new("reading",function (i)
 reading = coroutine.create(function (i)
 	local function try_recv(fd, last)
 		local ret
@@ -75,11 +76,8 @@ reading = coroutine.create(function (i)
     while true do
         local ret
         ret, _r[i].last = try_recv(_r[i].fd, _r[i].last)
-        --lxz()
-        if ret then
-            coroutine.yield(ret) 
-        end
-        coroutine.yield() 
+        --co_t.suspend(ret) 
+        coroutine.yield(ret)
     end
 end)
 

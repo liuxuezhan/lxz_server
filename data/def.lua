@@ -60,6 +60,7 @@ end
 
 require "ply_t"
 require "name_t"
+require "co_t"
 ----------------------------------------------公用函数---------------------------------------------------------------------------------
 function do_load(mod)
     package.loaded[ mod ] = nil
