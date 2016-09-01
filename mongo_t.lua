@@ -101,10 +101,11 @@ function check_save(db,data, frame)
             for id, chgs in pairs(cache) do
                 if chgs._n_ == frame then
                     --print("ack", id, frame, gFrame)
+                    rawset( chgs, "_n_", nil )
                     table.insert(dels, id)
                     if code then lxz(chgs, "maybe error") end
                 elseif chgs._n_ < frame - 10 then
-                    chgs._n_ = nil
+                    rawset( chgs, "_n_", nil )
                     doc[ id ] = chgs
                     print("retry", id, frame, gFrame)
                     table.insert(dels, id)
@@ -134,8 +135,11 @@ function global_save(sid,data)
             for id, chgs in pairs(doc) do
                 if chgs ~= cache then
                     if not chgs._a_ then
-  -- require "debugger"
+                        -- require "debugger"
+                        local oid = chgs._id
+                        chgs._id = id
                         db[db_name][tab]:update({_id=id}, {["$set"] = chgs }, true) 
+                        chgs._id = oid
                         if tab ~= "status" then print("update", tab, id) end
                     else
                         if chgs._a_ == 0 then
@@ -143,9 +147,12 @@ function global_save(sid,data)
                             db[db_name][ tab ]:delete({_id=id})
                         else
                             print("insert", tab, id)
-                            chgs._a_ = nil
+                            local oid = chgs._id
+                            rawset( chgs, "_a_", nil )
+                            rawset( chgs, "_id", id )
                             db[db_name][ tab ]:update({_id=id}, chgs, true)
-                            chgs._a_ = 1
+                            rawset( chgs, "_a_", 1)
+                            rawset( chgs, "_id", oid )
                         end
                     end
                     update = true

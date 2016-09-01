@@ -1,12 +1,12 @@
 json = require "json"
 msg_t = require "msg_t"
-save_t = require "save_t"	
+save_t = require "save_t"
 --------------------------------------------服务器配置--------------------------------------------------------------------------------
-g_tm = os.time() --系统时间 
+g_tm = os.time() --系统时间
 g_cid = 1    --集群id
 g_nid = 1000  --玩家id开始
 g_sid = "warx1" --服务器id
-g_pid = g_cid*1000*1000 --玩家角色id开始  
+g_pid = g_cid*1000*1000 --玩家角色id开始 
 
 --登录服务器
 g_login={name="login1", host = "192.168.103.225", port = 8001, multilogin = true,  db="db1",  }
@@ -58,8 +58,8 @@ module = module or function(mname)  --lua5.3 没有,模拟一个
     setfenv(2, _ENV[mname])
 end
 
-require "ply_t"	
-require "name_t"	
+require "ply_t"
+require "name_t"
 ----------------------------------------------公用函数---------------------------------------------------------------------------------
 function do_load(mod)
     package.loaded[ mod ] = nil
