@@ -2,25 +2,26 @@ module(..., package.seeall)
 _d = {}
 
 function get(what,fun,id)
-    if not _d[what] then _d[what]={} end
     if id then
+        if not _d[what] then _d[what]={} end
         local co = _d[ what ][ id ]
         if not co then
-            co = coroutine.create(fun)
+           return coroutine.create(fun)
+        else
+            return co
         end
     else
-        if #_d[ what ] > 0 then
+        if _d[ what ] then
             local co = table.remove(_d[ what ])
             return co
         else
-            local co = coroutine.create(fun)
             table.insert(_d[ what ], co) 
+            return coroutine.create(fun)
         end
     end
-    return co
 end
 
-function suspend(ret,id)
+function suspend(what,ret,id)
     local co = coroutine.running()
     if id  then
         if ret then 
@@ -28,8 +29,10 @@ function suspend(ret,id)
         else 
             _d[ what ][ id ] = co 
         end
+        coroutine.yield(ret)
+    else
+        coroutine.yield(ret)
     end
-    coroutine.yield(ret)
 
 end
 
