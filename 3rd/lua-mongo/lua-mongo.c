@@ -253,7 +253,7 @@ op_reply(lua_State *L) {
 			lua_pushinteger(L, id);
 			return 2;
 		}
-		int c = lua_objlen(L, 2);
+		int c = lua_rawlen(L, 2);
 		for (;i<=c;i++) {
 			lua_pushnil(L);
 			lua_rawseti(L, 2, i);
@@ -449,7 +449,7 @@ document_length(lua_State *L) {
 	}
 	if (lua_istable(L,3)) {
 		int total = 0;
-		int s = lua_objlen(L,3);
+		int s = lua_rawlen(L,3);
 		int i;
 		for (i=1;i<=s;i++) {
 			lua_rawgeti(L, 3, i);
@@ -500,7 +500,7 @@ op_insert(lua_State *L) {
 		document doc = lua_touserdata(L,3);
 		luaL_addlstring(&b, (const char *)doc, get_length(doc));
 	} else {
-		int s = lua_objlen(L, 3);
+		int s = lua_rawlen(L, 3);
 		int i;
 		for (i=1;i<=s;i++) {
 			lua_rawgeti(L,3,i);
@@ -528,7 +528,7 @@ reply_length(lua_State *L) {
 }
 
 int
-luaopen_mongo_driver(lua_State *L) {
+luaopen_mongo2_driver2(lua_State *L) {
 	luaL_Reg l[] ={
 		{ "query", op_query },
 		{ "reply", op_reply },
@@ -541,6 +541,6 @@ luaopen_mongo_driver(lua_State *L) {
 		{ NULL, NULL },
 	};
 
-    luaL_register(L, "mongo",l);
+    luaL_newlib(L,l);
 	return 1;
 }

@@ -1,4 +1,5 @@
-LUALIB=-I/usr/local/include -L/usr/local/bin -llua52
+LUALIB=-I../../skynet/3rd/lua/ -L../../skynet.3rd/lua/ -llua5.3 
+
 SOCKETLIB=-lws2_32
 
 .PHONY: all win linux

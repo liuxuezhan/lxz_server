@@ -1,7 +1,7 @@
 mongo = require "mongo"
 dofile("preload.lua")
 
-db = mongo.client { host = "192.168.100.8" }
+db = mongo.client { host = "192.168.100.12" }
 
 local r = db:runCommand "listDatabases"--返回不全，lua5.3中一样有问题，不是修改引起的
 lxz(r)

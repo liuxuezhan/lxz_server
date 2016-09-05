@@ -1,4 +1,4 @@
-LUALIB=-I/home/lxz/lua-5.1.4/src -L/home/lxz/lua-5.1.4/src -llua 
+LUALIB=-I../../skynet/3rd/lua/ -L../../skynet.3rd/lua/ -llua 
 SOCKETLIB=-lws2_32
 
 .PHONY: all win linux
