@@ -8,7 +8,7 @@
 | skynet参考 | [skynet研究](http://forthxu.com/blog/skynet.html )  [skynet源码](https://github.com/cloudwu/skynet )   | 
 |  python |   [资源大全](https://github.com/jobbole/awesome-python-cn) | 
 | vim配置 |   [vim](https://github.com/humiaozuzu/dot-vimrc.git) | 
-|  lua | [应用库](http://lua-users.org/wiki/LuaDirectory)  [zlib](https://github.com/brimworks/lua-zlib)  [5.3手册](http://cloudwu.github.io/lua53doc/manual.html#lua_getmetatable) | 
+|  lua | [库](http://luaforge.net/tags/) [应用库](http://lua-users.org/wiki/LuaDirectory)  [zlib](https://github.com/brimworks/lua-zlib)  [5.3手册](http://cloudwu.github.io/lua53doc/manual.html#lua_getmetatable) | 
 | nginx |   [淘宝翻译](http://tengine.taobao.org/book/index.html) | 
 |  OpenResty |   [官网](http://openresty.org/cn/) [源码](https://github.com/sumory/openresty-china) [学习资源](https://github.com/TeamStuQ/skill-map/issues/29) [语法](https://moonbingbing.gitbooks.io/openresty-best-practices/content/openresty/install.html)  | 
 | json |   [不同语言API](http://www.json.org/) | 
