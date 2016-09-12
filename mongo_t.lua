@@ -6,15 +6,12 @@ lxz(...)
 local server_name = ...
 _db = {}
 
-function test_insert_without_index(db)
+function test_insert_without_index(db_name,db)
 	db[db_name].testdb:dropIndex("*")
 	db[db_name].testdb:drop()
 
 	local ret = db[db_name].testdb:safe_insert({test_key = 1});
-	assert(ret and ret.n == 1)
-
-	local ret = db[db_name].testdb:safe_insert({test_key = 1});
-	assert(ret and ret.n == 1)
+	lxz(ret )
 end
 
 function test_insert_with_index(db)
@@ -25,10 +22,8 @@ function test_insert_with_index(db)
 	db[db_name].testdb:ensureIndex({test_key = 1}, {unique = true, name = "test_key_index"})
 
 	local ret = db[db_name].testdb:safe_insert({test_key = 1})
-	assert(ret and ret.n == 1)
+    lxz(ret)	
 
-	local ret = db[db_name].testdb:safe_insert({test_key = 1})
-	assert(ret and ret.n == 0)
 end
 
 function test_find_and_remove(db)
@@ -191,7 +186,7 @@ skynet.start(function()
 
         global_save(id,_db[id].list)
         --[[
-        test_insert_without_index(db)
+        test_insert_without_index(id,_db[id].fd)
         test_insert_with_index(db)
         test_find_and_remove(db)
         test_expire_index(db)
