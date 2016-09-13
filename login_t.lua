@@ -64,6 +64,7 @@ local function accept(fd, addr)
 
     --接收客户端key
     local ret = read(fd)
+    lxz(ret)
     local clientkey = crypt.base64decode(ret)
     if #clientkey ~= 8 then
         error "Invalid client key"
