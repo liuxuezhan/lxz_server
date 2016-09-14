@@ -30,9 +30,9 @@
 
 ## vim ##
 ### 配置 ###
-git clone git://github.com/humiaozuzu/dot-vimrc.git ~/.vim
-ln -s ~/.vim/vimrc ~/.vimrc
-git clone https://github.com/gmarik/vundle.git ~/.vim/bundle/vundle
+    git clone git://github.com/humiaozuzu/dot-vimrc.git ~/.vim
+    ln -s ~/.vim/vimrc ~/.vimrc
+    git clone https://github.com/gmarik/vundle.git ~/.vim/bundle/vundle
 :BundleInstall
 .bashrc增加export TERM="screen-256color"
 
@@ -61,6 +61,7 @@ git clone https://github.com/gmarik/vundle.git ~/.vim/bundle/vundle
     count=1
 ### 技巧 ###
 * 缩进：V模式 + <> 
+* 分窗：(ctr+B) 
 
 
 
