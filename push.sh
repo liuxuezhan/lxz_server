@@ -8,6 +8,6 @@ else
    #timestamp=`date +%s` 
    timestamp=`date "+%Y-%m-%d %H:%M:%S"` 
    git commit -m "$timestamp" 
-   echo "警告: log_name=$timestamp"
+   echo "日志名：$timestamp"
 fi
 git push all 
