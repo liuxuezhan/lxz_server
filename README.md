@@ -28,11 +28,8 @@
 
 
 ## syslog ##
-```
-echo " $emplate myformat, "%$NOW% %TIMESTAMP:8:$% %hostname% %syslogtag% %msg%\n"  ">>/etc/rsyslog.conf
-echo " local0.info">>/etc/rsyslog.conf
-echo "/var/log/local0.log;myformat ">>/etc/rsyslog.conf
-```
+* `$emplate myformat, "%$NOW% %TIMESTAMP:8:$% %hostname% %syslogtag% %msg%\n" `>>/etc/rsyslog.conf
+* ` local0.info   /var/log/local0.log;myformat `>>/etc/rsyslog.conf
 
 ## vim ##
 ### 配置 ###
