@@ -221,8 +221,11 @@ sed -i '/SELINUX/s/enforcing/disabled/' /etc/selinux/config
 ```
 /www/nginx/sbin/nginx -p /www/nginx -c conf/nginx.conf
 ```
-* 开机启动 创建 /usr/lib/systemd/system/nginx.service
+* 开机启动 创建 
 ```
+#!/bin/sh
+(
+cat <<EOF
 [Unit]  
 Description=nginx  
 After=network.target  
@@ -234,13 +237,40 @@ PrivateTmp=true
    
 [Install]  
 WantedBy=multi-user.target 
-```
-```
+EOF
+) >/usr/lib/systemd/system/nginx.service
+
 ln -s /usr/lib/systemd/system/nginx.service /etc/systemd/system/multi-user.target.wants/
 systemctl daemon-reload
 chkconfig nginx on
 service nginx start
 ```
 
+## mongo ##
 
+```
+#!/bin/sh
+(
+cat <<EOF
+[mongodb-org-3.0]
+name=MongoDB Repository
+baseurl=http://mirrors.aliyun.com/mongodb/yum/redhat/7/mongodb-org/3.2/x86_64/
+gpgcheck=0
+enabled=1
+EOF
+) >/etc/yum.repos.d/mongodb-org-3.0.repo 
 
+yum install mongodb-org
+echo "security:">>/etc/mongod.conf
+echo "authorization: abled">>/etc/mongod.conf
+mongod -f /etc/mongod.conf
+ln -s /usr/lib/systemd/system/mongod.service /etc/systemd/system/multi-user.target.wants/
+systemctl daemon-reload
+chkconfig mongod on
+service mongod start
+
+```
+* 查看mongod的错误日志：/var/log/mongodb/mongod.log
+* 映射27017到到宿主27017端口
+
+### rockmongo ###
