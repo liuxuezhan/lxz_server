@@ -1,10 +1,11 @@
 #!/bin/sh
 
+git add --all
 if [ $# == 1 ]
 then
-   git add --all
    git commit -m "'$1'" 
-   git push all 
 else
-    echo "you must set log "
+   timestamp=`date +%s` 
+   git commit -m "$timestamp" 
 fi
+git push all 
