@@ -83,11 +83,164 @@ curl -L http://install.ohmyz.sh | sh
 yum install -y htop 
 yum install -y tmux 
 ```
+##openresty##
+```
+yum install php php-fpm
+echo "user = www">>/etc/php.ini
+echo "group = www">>/etc/php.ini
+chkconfig php-fpm on
+service php-fpm start
+php
+yum install pcre-devel openssl-devel
+git clone https://liuxuezhan@git.oschina.net/liuxuezhan/my_tool.git  
+cd my_tool/ngx_openresty-1.9.7.1/bundle/LuaJIT-2.1-20151219
+make
+make install
+./configure --prefix=/www --with-luajit
+```
+配置nginx.conf
+```
+server {
+    listen 6699 default so_keepalive=2s:2s:8;
+    server_name foo.com;
+ 
+    root /www/nginx/html;
+    index index.html index.htm index.php;
+ 
+    location / {
+        try_files $uri $uri/ /index.php;
+    }
+ 
+    location ~ \.php$ {
+        try_files $uri =404;
+ 
+        include fastcgi.conf;
+        fastcgi_pass 127.0.0.1:9000;
+    }
 
+    location /1.0/websocket {
 
+  lua_socket_log_errors off;
 
+  lua_check_client_abort on;
 
+  content_by_lua '
 
+    local server = require "resty.websocket.server"
+
+    local wb, err = server:new{
+
+    timeout = 5000,  -- in milliseconds
+
+    max_payload_len = 65535,
+
+    }
+
+    if not wb then
+
+      ngx.log(ngx.ERR, "failed to new websocket: ", err)
+
+      return ngx.exit(444)
+
+    end
+
+    while true do
+
+      local data, typ, err = wb:recv_frame()
+
+      if wb.fatal then
+
+        ngx.log(ngx.ERR, "failed to receive frame: ", err)
+
+        return ngx.exit(444)
+
+      end
+
+      if not data then
+
+        local bytes, err = wb:send_ping()
+
+        if not bytes then
+
+          ngx.log(ngx.ERR, "failed to send ping: ", err)
+
+          return ngx.exit(444)
+
+        end
+
+      elseif typ == "close" then break
+
+      elseif typ == "ping" then
+
+        local bytes, err = wb:send_pong()
+
+        if not bytes then
+
+          ngx.log(ngx.ERR, "failed to send pong: ", err)
+
+          return ngx.exit(444)
+
+        end
+
+      elseif typ == "pong" then
+
+        ngx.log(ngx.INFO, "client ponged")
+
+      elseif typ == "text" then
+
+        local bytes, err = wb:send_text(data)
+
+        if not bytes then
+
+          ngx.log(ngx.ERR, "failed to send text: ", err)
+
+          return ngx.exit(444)
+
+        end
+
+      end
+
+    end
+
+    wb:send_close()
+
+  ';
+
+}
+}
+
+```
+* 映射6699到到宿主80端口
+* 关闭selinux
+
+```
+chown -R www:www /www
+sed -i '/SELINUX/s/enforcing/disabled/' /etc/selinux/config 
+```
+* 重启查看sestatus
+```
+/www/nginx/sbin/nginx -p /www/nginx -c conf/nginx.conf
+```
+* 开机启动 创建 /usr/lib/systemd/system/nginx.service
+```
+[Unit]  
+Description=nginx  
+After=network.target  
+   
+[Service]  
+Type=forking  
+ExecStart=/www/nginx/sbin/nginx -p /www/nginx -c conf/nginx.conf  
+PrivateTmp=true  
+   
+[Install]  
+WantedBy=multi-user.target 
+```
+```
+ln -s /usr/lib/systemd/system/nginx.service /etc/systemd/system/multi-user.target.wants/
+systemctl daemon-reload
+chkconfig nginx on
+service nginx start
+```
 
 
 
