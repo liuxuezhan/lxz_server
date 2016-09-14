@@ -27,6 +27,12 @@
 | 175.124.123.9 | aktlakfh!@34  | 
 
 
+## syslog ##
+```
+echo " $emplate myformat, "%$NOW% %TIMESTAMP:8:$% %hostname% %syslogtag% %msg%\n"  ">>/etc/rsyslog.conf
+echo " local0.info">>/etc/rsyslog.conf
+echo "/var/log/local0.log;myformat ">>/etc/rsyslog.conf
+```
 
 ## vim ##
 ### 配置 ###
@@ -274,3 +280,19 @@ service mongod start
 * 映射27017到到宿主27017端口
 
 ### rockmongo ###
+```
+git clone https://github.com/iwind/rockmongo.git
+yum install php-devel
+wget http://pecl.php.net/get/mongo-1.6.13.tgz
+tar -xzvf mongo-1.4.5.tgz
+cd mongo-1.4.5
+phpize
+./configure
+make
+make install
+echo "extension=mongo.so">>/etc/php.ini
+cp rockmongo /www/nginx/html/rockmongo
+```
+* config.php 配置 `host`
+* config.php 配置 `auth false`
+* http://192.168.1.100/rockmongo/index.php?action=admin.index
