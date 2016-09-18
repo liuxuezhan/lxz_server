@@ -133,8 +133,8 @@ skynet.start (
 function()
 --    local console = skynet.newservice("console")
  --   skynet.newservice("debug_console",80000)
-    require "debugger"
 
+    require "debugger"
     skynet.newservice("mongo_t",g_login.db)--数据库写中心
     time_t.new("save_db",3,g_login.db)
 

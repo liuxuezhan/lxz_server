@@ -1,0 +1,58 @@
+<html>
+  <head>
+    <title>机器人管理</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Bootstrap -->
+    <link rel="stylesheet" href="{{ static_url("css/bootstrap.min.css") }}">
+
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+    <script src="http://cdn.bootcss.com/html5shiv/3.7.0/html5shiv.min.js"></script>
+    <script src="http://cdn.bootcss.com/respond.js/1.3.0/respond.min.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+
+    <div class="container">
+
+      <form class="form-signin" action="/Set_robot" method="get" role="form">
+        <h2 class="form-signin-heading"></h2>
+        <input type="text" name="name" class="form-control" value="robot" placeholder="机器人名字" required autofocus>
+        <input type="text" name="path" class="form-control" value="/home/liuxuezhan/slg" placeholder="路径" required autofocus>
+        <input type="text" name="mid" class="form-control" value="6" placeholder="服务器id" required autofocus>
+        <input type="text" name="num" class="form-control" value="10" placeholder="机器人数量" required autofocus>
+        <input type="text" name="time" class="form-control" value="1" placeholder="登陆分钟数" required autofocus>
+        <button class="btn btn-lg btn-primary btn-block" type="submit">配置</button>
+      </form>
+
+      <form class="form-signin" action="/Start_robot" method="get" role="form">
+        <h2 class="form-signin-heading"></h2>
+        <input type="text" name="name" class="form-control" value="robot" placeholder="别名" required autofocus>
+        <input type="text" name="path" class="form-control" value="/home/liuxuezhan/slg" placeholder="路径" required autofocus>
+        <button class="btn btn-lg btn-primary btn-block" type="submit">开始</button>
+      </form>
+
+      <form class="form-signin" action="/Stop_robot" method="get" role="form">
+        <h2 class="form-signin-heading"></h2>
+        <input type="text" name="name" class="form-control" value="robot" placeholder="别名" required autofocus>
+        <button class="btn btn-lg btn-primary btn-block" type="submit">关闭</button>
+      </form>
+
+      <form class="form-signin" action="/GetLog_robot" method="get" role="form">
+        <h2 class="form-signin-heading"></h2>
+        <input type="text" name="name" class="form-control" value="robot" placeholder="服务器名字" required autofocus>
+        <input type="text" name="num" class="form-control" value="10" placeholder="日志行数" required >
+        <button class="btn btn-lg btn-primary btn-block" type="submit">获取日志</button>
+      </form>
+
+    </div> <!-- /container -->
+
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <script src="{{ static_url("js/jquery.min.js") }}"></script>
+    <!-- Include all compiled plugins (below), or include individual files as needed -->
+    <script src="{{ static_url("js/bootstrap.min.js") }}"></script>
+
+  </body>
+
