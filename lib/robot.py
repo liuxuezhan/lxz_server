@@ -1,3 +1,4 @@
+#!/usr/bin/python
 #coding=utf-8
 import os.path
 
@@ -13,25 +14,26 @@ from datetime import *
 
 from tornado.options import define, options
 define("port", default=int(sys.argv[1]), help="输入端口号", type=int)
+define("name", default=sys.argv[2], help="输入机器人名字", type=str)
+define("path", default=sys.argv[3], help="路径", type=str)
 
 
 gHandle = 0
-class LoginHandler(tornado.web.RequestHandler):
+class main(tornado.web.RequestHandler):
     def get(self):
-        self.render('login.html')
+        self.render('robot.html')
 
 class Start_robot(tornado.web.RequestHandler):
     def get(self):
         global gHandle
 
-        name = self.get_argument("name")
         #sub = subprocess.Popen("/home/liuxuezhan/slg/bin/robot 0 robot robot/robot.lua", cwd="/home/liuxuezhan/slg/bin", shell=True)
-        cmd = '/usr/bin/killall -9 %s'%(name)
+        cmd = '/usr/bin/killall -9 %s'%(options.name)
         a = subprocess.Popen(cmd, shell=True)
         a.wait()
 
-        path = '%s/bin'%(self.get_argument("path"))
-        cmd = '%s/%s 0 robot robot/robot.lua'%(path,name)
+        cmd = '%s/bin/%s 0 robot robot/robot.lua'%(options.path,options.name)
+        path = '%s/bin'%(options.path)
         sub = subprocess.Popen(cmd, cwd=path, shell=True)
         gHandle = sub
         self.write( "done" )
@@ -45,8 +47,7 @@ class Stop_robot(tornado.web.RequestHandler):
             gHandle.wait()
             gHandle = 0
 
-        name = self.get_argument("name")
-        cmd = '/usr/bin/killall -9 %s'%(name)
+        cmd = '/usr/bin/killall -9 %s'%(options.name)
         a = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True, bufsize=4096)
         a.wait()
         self.write( "done" )
@@ -55,11 +56,10 @@ class Set_robot(tornado.web.RequestHandler):
     def get(self):
         num = self.get_argument("num")
         mid = self.get_argument("mid")
-        name = self.get_argument("name")
         time = self.get_argument("time")
 
-        cmd = 'sed -i "s#gName.*#gName =\\"%s\\" #g" preload.lua'%(name)
-        path = '%s/script/robot'%(self.get_argument("path"))
+        cmd = 'sed -i "s#gName.*#gName =\\"%s\\" #g" preload.lua'%(options.name)
+        path = '%s/script/robot'%(options.path)
         a = subprocess.Popen(cmd, cwd=path, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
         ret = a.stdout.read()
         a.wait()
@@ -84,15 +84,15 @@ class Set_robot(tornado.web.RequestHandler):
         a.wait()
         self.write( "%s<br/>"%ret )
 
-        cmd = 'sh createrobot.sh %s 1 %s'%(name,num)
-        path = '%s/plscripts'%(self.get_argument("path"))
+        cmd = 'sh createrobot.sh %s 1 %s'%(options.name,num)
+        path = '%s/plscripts'%(options.path)
         a = subprocess.Popen(cmd, cwd=path, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
         ret = a.stdout.read()
         a.wait()
         self.write( "%s<br/>"%ret )
 
-        cmd = 'cp game %s'%(name)
-        path = '%s/bin'%(self.get_argument("path"))
+        cmd = 'cp game %s'%(options.name)
+        path = '%s/bin'%(options.path)
         a = subprocess.Popen(cmd, cwd=path, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
         ret = a.stdout.read()
         a.wait()
@@ -102,12 +102,11 @@ class Set_robot(tornado.web.RequestHandler):
 
 class GetLog_robot(tornado.web.RequestHandler):
     def get(self):
-        name = self.get_argument("name")
         num = self.get_argument("num")
         if num == '0':
             self.write( "begin<br/>" )
             self.finsh()
-            cmd = 'tail -f  /var/log/localA.log | grep %s' %(name)
+            cmd = 'tail -f  /var/log/localA.log | grep %s' %(options.name)
             import time
             while True:
                 a = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
@@ -118,7 +117,7 @@ class GetLog_robot(tornado.web.RequestHandler):
                     self.flush() 
                 time.sleep(1)
         else:
-            cmd = 'grep %s /var/log/localA.log | tail -n %s'%(name,num)
+            cmd = 'grep %s /var/log/localA.log | tail -n %s'%(options.name,num)
             a = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
             logs = a.stdout.read()
             a.wait()
@@ -128,7 +127,7 @@ class GetLog_robot(tornado.web.RequestHandler):
 if __name__ == "__main__":
     tornado.options.parse_command_line()
     app = tornado.web.Application([
-        (r"/",LoginHandler),
+        (r"/",main),
         (r"/Start_robot", Start_robot),
         (r"/Stop_robot", Stop_robot),
         (r"/Set_robot", Set_robot),
