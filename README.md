@@ -17,6 +17,7 @@
 | vim配置 |   [vim](https://github.com/humiaozuzu/dot-vimrc.git) | 
 | 机器人算法 |   [facebook](https://github.com/torch/torch7) | 
 | bootstrap |   [布局](http://www.ibootstrap.cn/v2/) | 
+| ansible |  [模块](http://blog.csdn.net/modoo_junko/article/category/3084431) [应用](https://galaxy.ansible.com/explore#/) | 
 | 图表 | [百度图表](https://github.com/ecomfe/echarts)   [淘宝图表](http://www.oschina.net/p/G2) [淘宝图片裁剪](https://github.com/exinnet/tclip) | 
 | 其他 | [网易公开课](http://open.163.com/)  [开源黄页](http://www.oschina.net/company) [IT牛人博客](http://www.udpwork.com/)  [编程书籍](http://siberiawolf.com/free_programming/index.html) | 
 
