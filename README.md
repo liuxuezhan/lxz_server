@@ -22,7 +22,7 @@
 
 ## ansible ##
 ```
-ansible-playbook site.yml -vv
+ansible-playbook site.yml -vv --skip-tags="ali"
 ```
 
 ## 总结 ##
@@ -80,17 +80,6 @@ if exists('$TMUX')
 endif
 ```
 
-## 安装阿里源 ##
-```
-wget -O /etc/yum.repos.d/CentOS-Base.repo http://mirrors.aliyun.com/repo/Centos-7.repo
-wget -P /etc/yum.repos.d/ http://mirrors.aliyun.com/repo/epel-7.repo
-yum clean all
-yum makecache
-yum install -y yum-axelget
-curl -L http://install.ohmyz.sh | sh
-yum install -y htop 
-yum install -y tmux 
-```
 ##openresty##
 ```
 yum install php php-fpm
