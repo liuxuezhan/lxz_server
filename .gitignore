@@ -11,4 +11,5 @@ skynet/luaclib
 *.so
 *.dSYM
 .DS_Store
+.svn
 tags

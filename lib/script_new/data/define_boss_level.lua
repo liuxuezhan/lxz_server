@@ -1,0 +1,14 @@
+--
+-- $Id$
+--
+
+module( "resmng" )
+svnnum("$Id$")
+
+RESOURCE_LEVLE_0 = 0
+RESOURCE_LEVLE_1 = 1
+RESOURCE_LEVLE_2 = 2
+RESOURCE_LEVLE_3 = 3
+RESOURCE_LEVLE_4 = 4
+RESOURCE_LEVLE_5 = 5
+RESOURCE_LEVLE_6 = 6

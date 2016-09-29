@@ -1,0 +1,15 @@
+--
+-- $Id$
+--
+
+module( "resmng" )
+svnnum("$Id$")
+
+BOSS_NOTIFY_41 = 41
+BOSS_NOTIFY_42 = 42
+BOSS_NOTIFY_43 = 43
+BOSS_NOTIFY_44 = 44
+BOSS_NOTIFY_45 = 45
+BOSS_NOTIFY_51 = 51
+BOSS_NOTIFY_52 = 52
+BOSS_NOTIFY_53 = 53
