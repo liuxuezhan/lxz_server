@@ -1,8 +1,0 @@
-- name: 开发环境 
-  hosts: test
-  user: root
-  sudo: yes
-
-  roles:
-      - centos/vim
-      #- centos/common

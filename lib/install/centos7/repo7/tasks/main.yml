@@ -1,5 +1,0 @@
-- name: copy 
-  template: src=ali.sh dest=/root/ali.sh owner=root group=root mode=777 force=yes
-
-- name: intsall  
-  shell: sh ali.sh chdir=/root 
