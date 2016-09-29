@@ -8,8 +8,7 @@ skynet/3rd/lua/lua
 skynet/3rd/lua/luac
 skynet/cservice
 skynet/luaclib
-lib/script_new/resmng
-lib/script/resmng
+resmng
 *.so
 *.dSYM
 .DS_Store
