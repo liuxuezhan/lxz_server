@@ -14,3 +14,4 @@ resmng
 .DS_Store
 .svn
 tags
+!/lib/install
