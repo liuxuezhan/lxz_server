@@ -1,6 +1,6 @@
 #!/bin/sh
 
-git add --all
+git add -A --all
 if [ $# == 1 ]
 then
    git commit -m "'$1'" 
