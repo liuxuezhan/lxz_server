@@ -31,6 +31,7 @@ ansible-playbook site.yml -vv --skip-tags="ali"
 | 名字 | 信息  |
 |----|:---:| 
 | wordpress | dQgjoGK5()TRNkjkpP  | 
+| Shadowsocks | ssserver -p 443 -k password -m rc4-md5  | 
 
 
 ## syslog ##
