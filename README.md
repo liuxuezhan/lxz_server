@@ -70,6 +70,7 @@ count=1
 ### 技巧 ###
 * 缩进：v模式 + `<>` 
 * 分窗：`ctrl+W`+`v` 或`s` 
+* 切换窗口：`Esc`+`1~9`
 * vimrc支持tmux
 ```
 if exists('$TMUX')
