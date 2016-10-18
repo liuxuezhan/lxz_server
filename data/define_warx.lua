@@ -3,16 +3,16 @@ json = require "json"
 _list={
 
     db_server1 ={ 
-        db1={ host = "192.168.100.12", port = 27017, },
-        --db1={ host = "127.0.0.1", port = 27017, },
+  --      db1={ host = "192.168.100.12", port = 27017, },
+        db1={ host = "127.0.0.1", port = 27017, },
         -- db={  host = "127.0.0.1", port = 27017,username="admin",password="admin" },
     },
 
     warx = {   host = "192.168.103.225", port = 8888, maxclient=3000, room ="room1", db_name = "db_server1" }, 
-   --warx = {   host = "10.0.2.15", port = 8888, maxclient=3000, room ="room1", db_name = "db_server1" }, 
 }
 
-g_warx = {   host = "192.168.103.225", port = 8888, maxclient=3000, room ="room1", db_name = "db_server1" } 
+--g_warx = {   host = "192.168.103.225", port = 8888, maxclient=3000, room ="room1", db_name = "db_server1" } 
+g_warx = {   host = "10.0.2.15", port = 8888, maxclient=3000, room ="room1", db_name = "db_server1" } 
 
 --基础库
 function copy(object)
@@ -270,9 +270,32 @@ skiplist = {
 
  }
 
+ function getMap(...)
+     return 6
+ end
 
-function warx_init()
-    _G.GateSid = 1 
+ function c_roi_init(...)
+ end
+
+ function c_roi_set_block(...)
+ end
+ function c_init_log(...)
+ end
+
+ function connect(...)
+     if not conn then
+            conn = {}
+     end
+     table.insert(conn,{...})
+     return #conn
+ end
+
+ function begJob (...)
+     --main_loop 没消息也循环
+ end
+
+ function warx_init()
+     _G.GateSid = 1 
     _G.gAgent = {pid=0, account="@ConGate", gid=_G.gGateSid}
     gTime = os.time() 
     gMapNew = 1

@@ -3,7 +3,7 @@ module("config")
 Map = 14
 Tips = "map_new"
 
-DbHost = "192.168.100.12"
+DbHost = "127.0.0.1"
 DbPort = 27017
 
 DbHostG = "192.168.100.12"

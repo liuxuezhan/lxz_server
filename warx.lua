@@ -106,7 +106,12 @@ skynet.start(function()
     require "debugger"
     skynet.newservice("mongo_t",g_warx.db_name)--数据库写中心
     save_db()
-    warx_init()
+--  warx_init()
+    require "warx_pub/frame"
+    init(os.time(),os.time())
+    while true do
+        -- main_loop(os.time(), os.time(), 1, 0, 0, 0)
+    end
 
     socket_id = socket.listen(g_warx.host, g_warx.port)
     socket.start ( socket_id , function(fd, addr)

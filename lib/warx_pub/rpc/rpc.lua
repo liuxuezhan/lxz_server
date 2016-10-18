@@ -165,8 +165,7 @@ local function parseRpcType()
 end
 
 local function init( rpc, what )
-    pause()
-    parseProtocol( rpc, what )
+    --parseProtocol( rpc, what )
     parseRpcType()
     print("parse done")
 end
