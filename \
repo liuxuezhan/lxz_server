@@ -240,36 +240,10 @@ function load_uniq()
 end
 
 function llog(...)
-log(...)
 end
 
 function linfo(...)
-log(...)
 end 
-
-function lwarn(...)
-log(...)
-end 
-
-function c_add_ety(...)
-end
-
-function c_add_troop(...)
-end
-
-function c_add_scan(...)
-end
-
-function c_roi_view_start(...)
-end
-
-skiplist = {
-
- new = function (...) end,
- get_range_with_score = function (...) end,
-
- }
-
 
 function warx_init()
     _G.GateSid = 1 
@@ -293,7 +267,7 @@ function warx_init()
 
     gInit = "StateBeginInit"
     require("etc/config")
-    require("frame/tools")
+    require("warx_pub/tools")
     --require("frame/debugger")
     require("frame/conn")
     require("frame/crontab")
@@ -302,12 +276,12 @@ function warx_init()
     require("frame/socket")
     require("frame/class")
     require("frame/frame")
-    doLoadMod("packet", "warx_pub/rpc/packet")
-    doLoadMod("MsgPack", "warx_pub/MessagePack")
-    doLoadMod("Array", "warx_pub/rpc/array")
-    doLoadMod("Struct", "warx_pub/rpc/struct")
-    doLoadMod("RpcType", "warx_pub/rpc/rpctype")
-    doLoadMod("Rpc", "warx_pub/rpc/rpc")
+    doLoadMod("packet", "frame/rpc/packet")
+    doLoadMod("MsgPack", "frame/MessagePack")
+    doLoadMod("Array", "frame/rpc/array")
+    doLoadMod("Struct", "frame/rpc/struct")
+    doLoadMod("RpcType", "frame/rpc/rpctype")
+    doLoadMod("Rpc", "frame/rpc/rpc")
     require("frame/player_t")
 
     gSysMailSn = 0
@@ -318,8 +292,7 @@ function warx_init()
     do_load("game")
     do_load("mem_monitor")
     do_load("common/define")
-    --do_load("common/tools")
-    do_load("warx_pub/tools")
+    do_load("common/tools")
     do_load("common/protocol")
     do_load("common/rpc_parse")
 
