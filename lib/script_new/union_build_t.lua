@@ -34,7 +34,10 @@ function create(uid,idx, propid, x, y,name)
     local cc = resmng.get_conf("prop_world_unit",propid)
     if (not cc) or cc.Class ~= BUILD_CLASS.UNION then return end
     --TODO: 地图空位检测
-    if c_map_test_pos(x, y, cc.Size) ~= 0 then return end
+    if c_map_test_pos(x, y, cc.Size) ~= 0 then 
+        LOG("军团建筑不在空地")
+        return 
+    end
 
     if not u:can_build(propid,x,y) then return end
     local e 
@@ -323,9 +326,12 @@ end
 function restore_add_res(e, pid,res )--存储资源
 
     local u = unionmng.get_union(e.uid)
-    if not u.restore then u.restore={ sum={},day={}} end
+    if (not u.restore) or (not next(u.restore)) then u.restore={ sum={},day={}} end
+    if not u.restore.sum then u.restore.sum={} end
+    if not u.restore.day then u.restore.day={} end
+
     local f = 0
-    for _, v in pairs(u.restore.sum  ) do
+    for _, v in pairs( u.restore.sum or {}  ) do
         if v.pid == pid then
             for k, vv in pairs(res) do
                 v.res[k] = (v.res[k] or 0 ) + vv
@@ -339,7 +345,7 @@ function restore_add_res(e, pid,res )--存储资源
     end
 
     f=0
-    for _, v in pairs(u.restore.day ) do
+    for _, v in pairs(u.restore.day or {} ) do
         if v.pid == pid then
             if can_date(v.time) then
                 v.num = 0
@@ -571,9 +577,9 @@ function can_troop(action, p, eid, res)--行军队列发出前判断
 
         local sum,max = p:get_hold_limit(dp)
         if sum <= max then
+            LOG("到达驻守上限:"..sum..":"..max)
             return true
         end
-        WARN("到达驻守上限:"..sum..":"..max)
 
     elseif action == resmng.TroopAction.SaveRes then
         if dp.uid == p.uid then

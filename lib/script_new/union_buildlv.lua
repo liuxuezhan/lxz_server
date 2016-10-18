@@ -135,14 +135,14 @@ function can(ply, mode)
 
     if not player_t.debug_tag then
         if v and not can_date(v.tm) then
-            WARN("冷却中")
+            INFO("冷却中")
             return false
         end
 
         local cons = ply._union.buildlv[mode].cons
         for _, item in pairs(cons) do
             if ply:get_item_num(item[2]) < item[3] then
-                WARN("没名产")
+                INFO("没名产")
                 return false
             end
         end

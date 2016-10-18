@@ -12,6 +12,8 @@ _list={
    --warx = {   host = "10.0.2.15", port = 8888, maxclient=3000, room ="room1", db_name = "db_server1" }, 
 }
 
+g_warx = {   host = "192.168.103.225", port = 8888, maxclient=3000, room ="room1", db_name = "db_server1" } 
+
 --基础库
 function copy(object)
     local lookup_table = {}

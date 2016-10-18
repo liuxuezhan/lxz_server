@@ -147,7 +147,6 @@ end
 
 function trigger_event(troop, action)
     action = action or troop:get_base_action()
-    print(string.format("troop trigger, troop = %d, action = %d", troop._id, troop.action))
 
     if troop:is_back() then 
         troop:home()
@@ -167,7 +166,6 @@ function trigger_event(troop, action)
         end
 
         gTroopActionTrigger[action](troop)
-        print( "troop_arive_ over, !!!!!!!!!!!!!!!!!!!!!! ")
 
         if not troop.delete then
             troop:save()
@@ -282,11 +280,11 @@ gTroopActionTrigger[TroopAction.SiegePlayer] = function(troop)
 
     dest:troop_cure(defense_troop)
     Rpc:upd_arm(dest, defense_troop.arms[ dest.pid ].live_soldier or {}) 
+    defense_troop:save()
     
     --发邮件
     player_t.generate_fight_mail(troop, defense_troop, win, capture, rages, total_round)
 
-    --player_t.rm_watchtower_info(troop)
     union_relation.add(troop)
     add_union_log(troop,win)
 end
@@ -390,7 +388,6 @@ gTroopActionTrigger[TroopAction.SiegeUnion] = function(troop)
     --发邮件
     player_t.generate_fight_mail(troop, defense_troop, win)
 
-    --player_t.rm_watchtower_info(troop)
 end
 
     --打怪
@@ -512,7 +509,7 @@ gTroopActionTrigger[TroopAction.SiegeMonster] = function(ack_troop)
     delete_troop(defense_troop._id)
     dest.my_troop_id = nil
     if dest.hp <= 0 then
-        if dest.grade ~= BOSS_TYPE.NORMAL or  dest.grade ~= BOSS_TYPE.SUPER then
+        if dest.grade ~= BOSS_TYPE.NORMAL and  dest.grade ~= BOSS_TYPE.SUPER and  dest.grade ~= BOSS_TYPE.SPECIAL then
             timer.new("monster", BossRbTime[dest.grade], dest.zx, dest.zy, dest.grade, dest.npc_id)
         end
 
@@ -664,7 +661,6 @@ end
 
 
 gTroopActionTrigger[TroopAction.SupportArm] = function(troop)
-    --player_t.rm_watchtower_info(troop)
     local ply = getPlayer(troop.owner_pid)
     if ply == nil then return troop:back() end
 
@@ -699,7 +695,6 @@ gTroopActionTrigger[TroopAction.SupportRes] = function(troop)
         dest:add_bonus("mutex_award", troop.goods, troop.goods_reason, ratio) 
         troop.goods = nil 
     end
-    --player_t.rm_watchtower_info(troop)
 end
 
 
@@ -774,7 +769,6 @@ gTroopActionTrigger[TroopAction.Gather] = function(troop)
                     union_relation.add(troop)
                     return
                 end
-                --player_t.rm_watchtower_info(troop)
             else
                 troop:back()
             end
@@ -809,7 +803,6 @@ gTroopActionTrigger[TroopAction.SiegeCamp] = function(troop)
                     player_t.generate_fight_mail(troop, dtroop, atk_win)
                 end
             end
-            --player_t.rm_watchtower_info(troop)
         end
     end
 end
@@ -1904,7 +1897,10 @@ gTroopActionTrigger[TroopAction.AtkMC] = function(ack_troop)
     end
 
     if not monster_city.can_atk_def_mc(dest, ack_troop.owner_pid) then
-
+        local ply = get_ety(ack_troop.owner_eid)
+        if ply then
+            ply:add_debug("alread be atk")
+        end
         if not player_t.debug_tag  then
             ack_troop:back() 
             return
@@ -1927,7 +1923,7 @@ gTroopActionTrigger[TroopAction.AtkMC] = function(ack_troop)
     end
 
 
-    if not monster_city.can_be_atk(dest) then
+    if not monster_city.can_be_atk(dest) then  -- not use 2016.10.10
         local ply = get_ety(ack_troop.owner_eid)
         if ply then
             ply:add_debug("alread be atk")
@@ -2137,6 +2133,22 @@ function troop_timer(tsn, tid)
     if troop.tmSn ~= tsn then return end
     troop.tmSn = 0
 
+    if is_monster(troop.target_eid) then
+        local monster = get_ety(troop.target_eid)
+        if not monster then -- monster already gone
+            troop:back()
+            return
+        else
+            local prop = resmng.prop_world_unit[monster.propid]
+            if prop then  -- only mass success can atk
+                if prop.Declare == 1 and get_table_valid_count(troop.arms or {}) == 1 then
+                    troop:back()
+                    return
+                end
+            end
+        end
+    end
+
     if troop:is_ready() then
         troop:go()
         --todo, just for mass?
@@ -2164,7 +2176,6 @@ function troop_timer(tsn, tid)
                     union_hall_t.battle_room_update(OPERATOR.UPDATE, troop, dest_troop)
                 end
             end
-            --player_t.get_watchtower_info(troop)
         end
 
     elseif troop:is_settle() then
@@ -2176,7 +2187,6 @@ function troop_timer(tsn, tid)
         end
     end
 end
-
 
 function gather_stop(troop, dp)
     local count = math.floor((troop:get_extra("speed") or 0) * (gTime - (troop:get_extra("start") or gTime)))
@@ -2206,7 +2216,7 @@ function gather_stop(troop, dp)
         task_logic_t.process_task(owner, TASK_ACTION.GATHER, mode, count)
 
         local gain = math.floor( count * RES_RATE[ mode ] )
-        local fbox = gain / 10000 * 0.1104
+        local fbox = gain / 10000 * 0.023
         print( "gather_stop", gain, fbox )
         local nbox = math.floor( fbox )
         if math.random(1, 100) <= ( fbox - nbox) * 100 then nbox = nbox + 1 end

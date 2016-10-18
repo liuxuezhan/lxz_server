@@ -21,6 +21,7 @@ _funs["cron"] = function(sn)
     fight.clean_report()
     _G.gSysStatus.tick = gTime
     gPendingSave.status[ gMapID ].tick = gTime
+    Tlog("GameSvrState",config.GameHost )
 end
 
 _funs["monitor"] = function(sn, num)
@@ -247,10 +248,14 @@ _funs["delete_kill_buff"] = function(sn, pid, buff_id)
     end
 end
 
-_funs["destroy_dead_hero"] = function(sn, hero_id)
+_funs["destroy_dead_hero"] = function(sn, pid, hero_id)
     local hero = heromng.get_hero_by_uniq_id(hero_id)
     if hero and hero.status ~= HERO_STATUS_TYPE.DEAD then
         heromng.destroy_hero(hero_id)
+    end
+    local p = getPlayer( pid )
+    if p then
+        p:add_count( resmng.ACH_COUNT_KILL_HERO, 1 )
     end
 end
 

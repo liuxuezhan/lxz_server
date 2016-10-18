@@ -31,7 +31,7 @@ prop_achievement_var = {
 	[ACH_EQUIP_QUALITY_6] = { ID = ACH_EQUIP_QUALITY_6, Way = "count_equip", Param = 6,},
 	[ACH_COUNT_GACHA] = { ID = ACH_COUNT_GACHA, Way = "count", Param = nil,},
 	[ACH_NUM_HERO] = { ID = ACH_NUM_HERO, Way = "count_hero", Param = nil,},
-	[ACH_COUNT_KILL_HERO] = { ID = ACH_COUNT_KILL_HERO, Way = "count_hero_kill", Param = nil,},
+	[ACH_COUNT_KILL_HERO] = { ID = ACH_COUNT_KILL_HERO, Way = "count", Param = nil,},
 	[ACH_HERO_QUALITY_1] = { ID = ACH_HERO_QUALITY_1, Way = "count_hero_quality", Param = 1,},
 	[ACH_HERO_QUALITY_2] = { ID = ACH_HERO_QUALITY_2, Way = "count_hero_quality", Param = 2,},
 	[ACH_HERO_QUALITY_3] = { ID = ACH_HERO_QUALITY_3, Way = "count_hero_quality", Param = 3,},

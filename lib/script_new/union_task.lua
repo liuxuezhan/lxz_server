@@ -53,17 +53,17 @@ function del_res(p,id,num)
     local c = resmng.get_conf("prop_build",b.propid)
 
     if sum < UNION_TASK_CONFIG.BONUS.MIN * c.Lv or sum > UNION_TASK_CONFIG.BONUS.MAX * c.Lv then
-        WARN("上限不足")
+        INFO("上限不足")
         return false
     end
 
     if num > p:get_res_num_normal(id) then
-        WARN("普通资源不足")
+        INFO("普通资源不足")
         return false
     end
 
     if not p:do_dec_res(id,num, VALUE_CHANGE_REASON.UNION_TASK) then
-        WARN("资源不足:"..num)
+        INFO("资源不足:"..num)
         return false
     end
     return true
@@ -72,7 +72,7 @@ end
 function add(p,type,eid,hero_id,num,mode,res,res_num) --发布悬赏任务
     for k,v in pairs(_d ) do
         if v.eid == eid and v.uid == p:get_uid() then
-            WARN("已有任务")
+            INFO("已有任务")
             return
         end
     end
@@ -80,18 +80,18 @@ function add(p,type,eid,hero_id,num,mode,res,res_num) --发布悬赏任务
     if is_ply(eid) then
         local e = get_ety(eid)
         if p.uid == e.uid then
-            WARN("是自己")
+            INFO("是自己")
             return
         end
     end
 
     if not p:do_dec_res(resmng.DEF_RES_GOLD, UNION_TASK_CONFIG.PRICE, VALUE_CHANGE_REASON.UNION_TASK) then 
-        WARN("金币不够")
+        INFO("金币不够")
         return
     end
 
     if type > UNION_TASK.NUM then
-        WARN("类型错误:"..type)
+        INFO("类型错误:"..type)
         return
     end
 

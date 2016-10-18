@@ -101,14 +101,14 @@ function agent_migrate_ack(self, pid, map, ret)
 end
 
 
-    function agent_migrate( self, pid, x, y, data , task, timers, union_pro)
+    function agent_migrate( self, pid, x, y, data , task, timers, union_pro, troop)
     --print("jump to server ", pid)
         -- 是否有空位    
         local from = self.pid
-        if c_map_test_pos( x, y, 4 ) ~= 0 then
-            Rpc:callAgent( from, "agent_migrate_ack", pid, -1 ) 
-            return
-        end
+        --if c_map_test_pos( x, y, 4 ) ~= 0 then
+        --    Rpc:callAgent( from, "agent_migrate_ack", pid, gMapID, -1 ) 
+        --    return
+        --end
 
         local eid = get_eid_ply()
 
@@ -124,7 +124,7 @@ end
 
     local build = data._build or {}
     local bs = {}
-    for k, v in pairs( build ) do
+    for k, v in pairs( build or {}) do
         b = v._pro
         bs[ b.idx ] = build_t.new( b )
     end
@@ -133,14 +133,15 @@ end
 
     local hero = data._hero or {}
     local hs = {}
-    for k, v in pairs(hero) do
-        hs[v.idx] = hero_t.new(v)
+    for k, v in pairs(hero or {}) do
+        h = v._pro
+        hs[h.idx] = hero_t.new(h)
     end
     ply._hero = hs
 
     local equip = data._equip or {}
     local es = {}
-    for k, v in pairs(equip) do
+    for k, v in pairs(equip or {}) do
         local id = getId("equip")
         v._id = id
         gPendingSave.equip[ id ] = v
@@ -149,18 +150,18 @@ end
     ply._equip = es
 
 
-    local item = data.item or {}
+    local item = data._item or {}
     gPendingInsert.item[ pid ] = item
-    ply.item = item
+    ply._item = item
 
     local count = data._count or {}
-    for k, v in pairs(count) do
+    for k, v in pairs(count or {}) do
         gPendingSave.count[ ply.pid ][k] = v
     end
     ply._count = count
 
     local ache = data._ache or {}
-    for k, v in pairs(ache) do
+    for k, v in pairs(ache or {}) do
         gPendingSave.ache[ ply.pid ][k] = v
     end
     ply._ache = ache
@@ -183,6 +184,15 @@ end
     gEtys[ eid ] = ply
     ply.size = 4
     etypipe.add(ply)
+
+    local tr = ply:init_my_troop()
+    if tr then
+        for k, v in pairs(ply.arms or {}) do
+            tr:add_arm(k, v)
+        end
+    end
+
+    ply.my_troop_id = tr._id
 
     for k, v in pairs(timers) do
         timer._sns[v._id] = v

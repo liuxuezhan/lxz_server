@@ -192,6 +192,11 @@ function get_task_award(self, task_id)
     if prop_task == nil then
         return false
     end
+
+    info.task_status = TASK_STATUS.TASK_STATUS_FINISHED
+    self:add_save_task_id(info.task_id)
+    self:do_save_task()
+
     --扣除任务物品
     local func, con_id, con_num, is_deduct = unpack(prop_task.FinishCondition)
     if func == "get_item" and is_deduct == 1 then
@@ -203,9 +208,6 @@ function get_task_award(self, task_id)
     local bonus = resmng.prop_task_detail[task_id].Bonus
     self:add_bonus(bonus_policy, bonus, VALUE_CHANGE_REASON.REASON_TASK)
 
-    info.task_status = TASK_STATUS.TASK_STATUS_FINISHED
-    self:add_save_task_id(info.task_id)
-    self:do_save_task()
     return true
 end
 
@@ -623,6 +625,11 @@ function open_build_by_task(self, task_id)
                 if bs[ build_idx ] == nil then
                     local build = build_t.create(build_idx, self.pid, build_id, 0, 0, BUILD_STATE.CREATE)
                     bs[ build_idx ] = build
+                    if build_id == 21001 then
+                        --self:open_online_award()
+                        build.extra.next_time = self:get_online_award_next_time()
+                    end
+
                     build.tmSn = 0
                     self:doTimerBuild( 0, build_idx )
                 end

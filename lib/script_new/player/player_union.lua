@@ -461,6 +461,30 @@ function union_enlist_check(self, uid)
     return true
 end
 
+function sort_info(self,union)
+    if union then
+        local info  = union:get_info()
+        local p = union:get_leader()
+        local l = math.pow(math.abs(p.x-self.x),2) + math.pow(math.abs(p.y-self.y),2)
+        if l < 10000 then
+            info.range = UNION_RANGE.NEAR
+        elseif l < 62500 then
+            info.range = UNION_RANGE.NORMAL
+        else
+            info.range = UNION_RANGE.FAR
+        end
+
+        info.state = resmng.UNION_STATE.NONE
+        if info.uid == self:get_uid() then
+            info.state = resmng.UNION_STATE.IN_UNION
+        elseif union:get_apply(self.pid) then
+            info.state = resmng.UNION_STATE.APPLYING
+        end
+        info = rpchelper.parse_rpc(info,"union")
+        return info
+    end
+end
+
 function union_list(self,name)
 
     local ret = {name = name,list={}}
@@ -470,14 +494,10 @@ function union_list(self,name)
             local u = data:next()
             u = unionmng.get_union(u.uid)
             if u  and u:check() then
-                local info = u:get_info()
-                info.state = resmng.UNION_STATE.NONE
-                if info.uid == self:get_uid() then
-                    info.state = resmng.UNION_STATE.IN_UNION
-                elseif u:get_apply(self.pid) then
-                    info.state = resmng.UNION_STATE.APPLYING
+                local info = sort_info(self,u)
+                if info  then
+                    ret.list[info.uid]=info
                 end
-                ret.list[info.uid]=info
             else
                 WARN("警告："..u.uid)
             end
@@ -488,198 +508,68 @@ function union_list(self,name)
             local u = data:next()
             u = unionmng.get_union(u.uid)
             if u and u:check() then
-                local info = u:get_info()
-                info.state = resmng.UNION_STATE.NONE
-                if info.uid == self:get_uid() then
-                    info.state = resmng.UNION_STATE.IN_UNION
-                elseif u:get_apply(self.pid) then
-                    info.state = resmng.UNION_STATE.APPLYING
+                local info = sort_info(self,u)
+                if info  then
+                    ret.list[info.uid]=info
                 end
-                ret.list[info.uid]=info
             end
         end
         Rpc:union_list(self, ret)
         return
     end
 
-    local pow1 = 0
-    local uid1 =0
-    local data = dbmng:getOne().union_t:find({language=self.language,new_union_sn={["$exists"]=false},})  --第一军团
-    while data:hasNext() do
-        local udata = data:next()
-        local u = unionmng.get_union(udata.uid)
-        if u  and u:check() then
-            local pow = u:union_pow()
-            if (pow > pow1) then
-                pow1  = pow
-                uid1  =  u.uid
-            end
-        else
-            Mark( "uid=%d", udata.uid )
-        end
-    end
+    local u1,u2,u3 
+    local u4 = {}
+    local u5 = {}
+    local len = math.huge
 
-    local len = 0
-    local uid2 = 0
-    data = dbmng:getOne().union_t:find({language=self.language,new_union_sn={["$exists"]=false},uid={["$nin"]={uid1} } })  --第二军团
-    while data:hasNext() do
-        local udata = data:next()
-        local u = unionmng.get_union(udata.uid)
-        if u  and u:check() then
-            local p = u:get_leader()
-            local l = math.pow(math.abs(p.x-self.x),2) + math.pow(math.abs(p.y-self.y),2)
-            if (l < len or len == 0) then
-                len =l
-                uid2 = u.uid
-            end
-        else
-            Mark( "uid=%d", udata.uid )
-        end
-    end
-
-    local pow3 = 0
-    local uid3 = 0
-    data = dbmng:getOne().union_t:find({language={["$nin"]={self.language}},new_union_sn={["$exists"]=false},uid={["$nin"]={uid1,uid2} } })  --第三军团
-    while data:hasNext() do
-        local udata = data:next()
-        local u = unionmng.get_union(udata.uid)
-        if u  and u:check() then
-            local pow = u:union_pow()
-            if pow > pow3 then
-                pow3 = pow
-                uid3 = u.uid
-            end
-        else
-            Mark( "uid=%d", udata.uid )
-        end
-    end
-
-    local union = unionmng.get_union(uid1)
-    if union then
-        local info  = union:get_info()
-        local p = union:get_leader()
-        local l = math.pow(math.abs(p.x-self.x),2) + math.pow(math.abs(p.y-self.y),2)
-        if l < 10000 then
-            info.range = UNION_RANGE.NEAR
-        elseif l < 62500 then
-            info.range = UNION_RANGE.NORMAL
-        else
-            info.range = UNION_RANGE.FAR
-        end
-
-        info.state = resmng.UNION_STATE.NONE
-        if info.uid == self:get_uid() then
-            info.state = resmng.UNION_STATE.IN_UNION
-        elseif union:get_apply(self.pid) then
-            info.state = resmng.UNION_STATE.APPLYING
-        end
-        table.insert(ret.list,info)
-    end
-
-    union = unionmng.get_union(uid2)
-    if union then
-        local info  = union:get_info()
-        local p = union:get_leader()
-        local l = math.pow(math.abs(p.x-self.x),2) + math.pow(math.abs(p.y-self.y),2)
-        if l < 10000 then
-            info.range = UNION_RANGE.NEAR
-        elseif l < 62500 then
-            info.range = UNION_RANGE.NORMAL
-        else
-            info.range = UNION_RANGE.FAR
-        end
-        info.state = resmng.UNION_STATE.NONE
-        if info.uid == self:get_uid() then
-            info.state = resmng.UNION_STATE.IN_UNION
-        elseif union:get_apply(self.pid) then
-            info.state = resmng.UNION_STATE.APPLYING
-        end
-        table.insert(ret.list,info)
-    end
-
-    union = unionmng.get_union(uid3)
-    if union then
-        local info  = union:get_info()
-        local p = union:get_leader()
-        local l = math.pow(math.abs(p.x-self.x),2) + math.pow(math.abs(p.y-self.y),2)
-        if l < 10000 then
-            info.range = UNION_RANGE.NEAR
-        elseif l < 62500 then
-            info.range = UNION_RANGE.NORMAL
-        else
-            info.range = UNION_RANGE.FAR
-        end
-        info.state = resmng.UNION_STATE.NONE
-        if info.uid == self:get_uid() then
-            info.state = resmng.UNION_STATE.IN_UNION
-        elseif union:get_apply(self.pid) then
-            info.state = resmng.UNION_STATE.APPLYING
-        end
-        table.insert(ret.list,info)
-    end
-
-    data = dbmng:getOne().union_t:find({language=self.language,new_union_sn={["$exists"]=false},uid={["$nin"]={uid1,uid2,uid3} } })  --同语言军团
-    while data:hasNext() do
-        local udata = data:next()
-        local u = unionmng.get_union(udata.uid)
-        if u  and u:check() then
-            local info = u:get_info()
-            local p = u:get_leader()
-            local l = math.pow(math.abs(p.x-self.x),2) + math.pow(math.abs(p.y-self.y),2)
-            if l < 10000 then
-                info.range = UNION_RANGE.NEAR
-            elseif l < 62500 then
-                info.range = UNION_RANGE.NORMAL
-            else
-                info.range = UNION_RANGE.FAR
-            end
-            info.state = resmng.UNION_STATE.NONE
-            if info.uid == self:get_uid() then
-                info.state = resmng.UNION_STATE.IN_UNION
-            elseif u:get_apply(self.pid) then
-                info.state = resmng.UNION_STATE.APPLYING
-            end
-
+    local us = rank_mng.get_range(5,1,20000)
+    for k, uid in pairs( us ) do
+        if uid == 0 then break end
+        local u = unionmng.get_union(uid)
+        if u and (not u:is_new()) and u:check() then 
             if self.language == u.language then
-                if #ret.list < 101 then
-                    table.insert(ret.list,info)
+                if not u1  then 
+                    u1 = u 
                 else
-                    break
+                    local p = u:get_leader()
+                    local l = math.pow(math.abs(p.x-self.x),2) + math.pow(math.abs(p.y-self.y),2)
+                    if (l < len or len == 0) then
+                        table.insert(u4,u2)
+                        len =l
+                        u2 = u
+                    else
+                        table.insert(u4,u)
+                    end
+                end
+
+            else
+                if not u3  then 
+                    u3 = u 
+                else
+                    table.insert(u5,u)
                 end
             end
-        else
-            Mark( "uid=%d", udata.uid )
-        end
-    end
 
-    data = dbmng:getOne().union_t:find({language={["$nin"]={self.language}},new_union_sn={["$exists"]=false},uid={["$nin"]={uid1,uid2,uid3} } })  --不同语言军团
-    while data:hasNext() do
-        local u = data:next()
-        u = unionmng.get_union(u.uid)
-        if u  and u:check() then
-            local info = u:get_info()
-            local p = getPlayer(u.leader)
-            local l = math.pow(math.abs(p.x-self.x),2) + math.pow(math.abs(p.y-self.y),2)
-            if l < 10000 then
-                info.range = UNION_RANGE.NEAR
-            elseif l < 62500 then
-                info.range = UNION_RANGE.NORMAL
-            else
-                info.range = UNION_RANGE.FAR
-            end
-            info.state = resmng.UNION_STATE.NONE
-            if info.uid == self:get_uid() then
-                info.state = resmng.UNION_STATE.IN_UNION
-            elseif u:get_apply(self.pid) then
-                info.state = resmng.UNION_STATE.APPLYING
-            end
-
-            if #ret.list < 101 then
-                table.insert(ret.list,info)
-            else
+            if k > 200 and u1 and u2 and u3 and ( (#u4 or 0) + (#u5 or 0) > 197 ) then
                 break
             end
         end
+    end
+
+    local info = sort_info(self,u1)
+    if info then table.insert(ret.list,info) end
+    local info = sort_info(self,u2)
+    if info then table.insert(ret.list,info) end
+    local info = sort_info(self,u3)
+    if info then table.insert(ret.list,info) end
+    for _, v in pairs( u4 ) do
+        local info = sort_info(self,v)
+        if info then table.insert(ret.list,info) end
+    end
+    for _, v in pairs( u5 ) do
+        local info = sort_info(self,v)
+        if info then table.insert(ret.list,info) end
     end
 
     Rpc:union_list(self, ret)
@@ -1685,7 +1575,7 @@ function union_battle_room_list(self)
         table.remove(union.battle_room_ids, v)
     end
 
-    dumpTab(msg_send, "union_battle_room_list")
+    --dumpTab(msg_send, "union_battle_room_list")
     Rpc:union_battle_room_list_resp(self, msg_send)
 end
 
@@ -1926,7 +1816,7 @@ function union_battle_room_info(self, room_id)
         msg_send.is_mass = troop.is_mass
         msg_send.room_id = room_id
 
-        dumpTab(msg_send, "union_battle_room_info")
+        --dumpTab(msg_send, "union_battle_room_info")
         Rpc:union_battle_room_info_resp(self, msg_send)
     end
 end
@@ -2204,7 +2094,7 @@ function do_battle_room_detail(room)
             node.arms = tr.arms
         end
     end
-    dumpTab( info, "do_battle_room_detail" )
+    --dumpTab( info, "do_battle_room_detail" )
     room.detail = info
     return info
 end
@@ -2302,7 +2192,7 @@ function union_battle_room_detail(self, room_id)
 
     local info = do_battle_room_detail(room)
     if not info then return end
-    dumpTab(info, "battle_room_detail")
+    --dumpTab(info, "battle_room_detail")
 
     local msg_send = {}
 
@@ -2317,7 +2207,7 @@ function union_battle_room_detail(self, room_id)
     if troop:is_ready() then msg_send.is_march = 0
     else msg_send.is_march = 1 end
 
-    dumpTab( msg_send, "union_battle_room_detail" )
+    --dumpTab( msg_send, "union_battle_room_detail" )
     Rpc:union_battle_room_detail_resp(self, msg_send)
 end
 

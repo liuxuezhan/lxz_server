@@ -322,7 +322,8 @@ do_task[TASK_ACTION.HAS_HERO_NUM] = function(player, task_data, con_quality, con
         if con_quality == 0 and con_star == 0 then
             real_num = real_num + 1
         elseif con_quality == 0 and con_star ~= 0 then
-            if con_star <= v.star then
+            local prop_star = resmng.get_conf("prop_hero_star_up", v.star)
+            if con_star <= prop_star.StarStatus[1] then
                 real_num = real_num + 1
             end
         elseif con_quality ~= 0 and con_star == 0 then

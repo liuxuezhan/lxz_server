@@ -11,29 +11,27 @@ function load_player()
         if data.tm_login > (data.tm_logout or 0) then data.tm_logout = gTime - 1 end
         if (not data.culture) or data.culture < 1 or data.culture > 4 then data.culture = 1 end
 
-        local p = player_t.new(data)
-        gEtys[ p.eid ] = p
+        if  data.pid and data.account then
+            local p = player_t.new(data)
+            gEtys[ p.eid ] = p
 
-        local user_ply_info = player_t.gs_account[p.account] or {}
-        user_ply_info[p.cival] = p.pid
-        player_t.gs_account[p.account] = user_ply_info 
+            rawset(p, "eid", data.eid)
+            rawset(p, "size", 4)
+            rawset(p, "uname", "")
 
-        rawset(p, "eid", data.eid)
-        rawset(p, "size", 4)
-        rawset(p, "uname", "")
-
-        if data.uid > 0 then
-            local union = unionmng.get_union(data.uid)
-            if union then
-                rawset(p, "uname", union.alias)
+            if data.uid > 0 then
+                local union = unionmng.get_union(data.uid)
+                if union then
+                    rawset(p, "uname", union.alias)
+                end
             end
-        end
 
-        count = count + 1
-        if count >= 100 then
-            total = total + 100
-            LOG("load player %d", total)
-            count = 0
+            count = count + 1
+            if count >= 100 then
+                total = total + 100
+                LOG("load player %d", total)
+                count = 0
+            end
         end
     end
     total = total + count
@@ -93,7 +91,7 @@ function load_equip()
     for _, v in pairs( gPlys ) do v._equip = {} end
 
     local db = dbmng:getOne()
-    local info = db.troop:find({})
+    local info = db.equip:find({})
     while info:hasNext() do
         local t = info:next()
         local ply = getPlayer( t.pid )
@@ -192,7 +190,7 @@ function init_effect()
         local propid = v.culture * 1000 + v:get_castle_lv()
         if v.propid ~= propid then v.propid = propid end
         v.nprison = v:get_prison_count()
-        v:initEffect()
+        v:initEffect(true)
         etypipe.add(v)
         count = count + 1
     end
@@ -245,18 +243,16 @@ function restore_timer()
     local real = os.time()
     while info:hasNext() do
         local t = info:next()
-        if t.over > real - 36000 then 
-            timer._sns[ t._id ] = t
-            if t._id > maxSn then maxSn = t._id end
-            if t.over < minTime then
-                minTime = t.over
-            end
-            if t.what == "cron" then
-                if not isCron then 
-                    isCron = true
-                else
-                    timer._sns[ t._id ] = nil -- duplicate crontab
-                end
+        timer._sns[ t._id ] = t
+        if t._id > maxSn then maxSn = t._id end
+        if t.over < minTime then
+            minTime = t.over
+        end
+        if t.what == "cron" then
+            if not isCron then 
+                isCron = true
+            else
+                timer._sns[ t._id ] = nil -- duplicate crontab
             end
         end
     end
@@ -304,9 +300,11 @@ function restore_timer()
         c_time_set_start(minTime)
         WARN("gCompensation, from=%d, to=%d", minTime, real)
 
+
         for k, node in pairs(timer._sns) do
             addTimer(node._id, (node.over-minTime)*1000, node.tag or 0)
         end
+
 
         for _, v in pairs(retroop) do
             local speed = v.speed
@@ -441,10 +439,10 @@ function action()
     INFO("-- restore_equip done-")
     monitoring(MONITOR_TYPE.LOADDATA, "restore_equip")
 
-    INFO("-- init_effect -------------")
-    local count = init_effect()
-    INFO("-- init_effect done -------- %d", count)
-    monitoring(MONITOR_TYPE.LOADDATA, "init_effect")
+    --INFO("-- init_effect -------------")
+    --local count = init_effect()
+    --INFO("-- init_effect done -------- %d", count)
+    --monitoring(MONITOR_TYPE.LOADDATA, "init_effect")
     
     INFO("-- restore_room -----")
     load_room() 
@@ -496,6 +494,11 @@ function action()
     INFO("-- unoin_god done -----")
     monitoring(MONITOR_TYPE.LOADDATA, "unoin_god")
 
+    INFO("-- unoin_item -----")
+    union_item.load()--
+    INFO("-- unoin_item done -----")
+
+    monitoring(MONITOR_TYPE.LOADDATA, "unoin_god")
     INFO("-- gacha_world_limit -----")
     gacha_limit_t.load_gacha_world_limit()
     INFO("-- gacha_world_limit done -----")
@@ -508,6 +511,8 @@ function action()
     local compensate =  restore_timer()
     INFO("-- restore_timer done ------")
     monitoring(MONITOR_TYPE.LOADDATA, "restore_timer")
+
+    init_effect()
 
     return compensate
 end

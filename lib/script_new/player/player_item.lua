@@ -50,6 +50,8 @@ function inc_item(self, id, num, reason)
     --任务
     task_logic_t.process_task(self, TASK_ACTION.GET_ITEM, id, num)
 
+    Tlog("ItemFlow",gTime,gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
+                openid,self.pid,self.name,0,0,0, 0,0,id,num,its[idx],reason,0,0,0)
     reason = reason or VALUE_CHANGE_REASON.DEFAULT
     if reason == VALUE_CHANGE_REASON.DEFAULT then
         ERROR("inc_item: pid = %d, don't use the default reason.", self.pid)
@@ -95,6 +97,8 @@ function dec_item(self, idx, num, reason)
         LOG("[ITEM] dec_item: pid = %d, idx = %d, item_id = %d, num = %d, total = %d, reason = %d.", self.pid, idx, item[2], num, item[3], reason)
         --任务
         task_logic_t.process_task(self, TASK_ACTION.USE_ITEM, propid, num)
+    Tlog("ItemFlow",gTime,gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
+                openid,self.pid,self.name,0,0,0, 0,0,id,num,its[idx],reason,0,0,1)
         return true
     else
         LOG("[ITEM] dec_item: pid = %d, idx = %d, item_id = %d, num = %d > have = %d", self.pid, idx, item[2], num, item and item[3] or -1)
@@ -457,6 +461,8 @@ function buy_item(self, id, num, use)
             else
                 self:add_bonus("mutex_award", conf.Item,  VALUE_CHANGE_REASON.MALL_BUY, num)
             end
+            Tlog("StoreBuy",gTime,gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
+            openid,self.pid,self.name,0,0,0, 0,id,0,resmng.DEF_RES_GOLD,cost)
         end
     end
 end

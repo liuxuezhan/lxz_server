@@ -14,7 +14,7 @@ module_class("union_t", {
     donate = 0,
     note_in = "",
     note_out = "",
-    battle_room_ids = {},
+    --battle_room_ids = {},
     npc_citys = {}, -- 领土争夺占领的城市
     can_atk_citys = {}, --玩家攻击的城市
     atk_id = 0,  -- 领土争夺好招攻击的对象
@@ -503,6 +503,8 @@ function init(self)
     if not self.donate_rank then self.donate_rank = {} end
     if not self.mission then self.mission = {} end
     if not self.build then self.build = {} end
+    if not self.battle_room_ids then self.battle_room_ids = {} end
+
 end
 
 --{{{ basic
@@ -653,7 +655,7 @@ function add_buf(self, bufid, count)
         self.buf = bufs
         self._ef = nil
 
-        print(string.format("add_buf, pid=%d, bufid=%d, count=%d", self.uid, bufid, count))
+        lxz(string.format("add_buf, pid=%d, bufid=%d, count=%d", self.uid, bufid, count))
 
         if count ~= -1 then
             timer.new("union_buf", count, self.uid, bufid, tmOver)
@@ -706,7 +708,8 @@ end
 function check(self)
     if not self:is_new() then
         local p = getPlayer(self.leader)
-        if  p.uid ~=self.uid  then
+        if  (not p) or (p.uid ~=self.uid)  then
+            WARN("err union:"..self.uid)
             unionmng.rm_union(self)
             return false
         end
@@ -837,6 +840,39 @@ function rm_member(self, A,kicker)
     if f then
         unionmng.rm_union(self)
     end
+
+    if self:is_new() then
+        local u1,u3
+        local us = rank_mng.get_range(5,1,20000)
+        for k, uid in pairs( us or {}  ) do
+            if uid == 0 then break end
+            local u = unionmng.get_union(uid)
+            if u and (not u:is_new()) and u:check() then 
+                if A.language == u.language then
+                    if not u1  and A:union_enlist_check(u.uid) then
+                        u1 = u 
+                    end
+                else
+                    if not u3  and A:union_enlist_check(u.uid) then
+                        u3 = u 
+                    end
+                end
+
+                if u1 and u3 then
+                    break
+                end
+            end
+
+            if u1  then
+                local leader = getPlayer(u1.leader)
+                leader:union_invite(A.pid)
+            end
+            if u3  then
+                local leader = getPlayer(u3.leader)
+                leader:union_invite(A.pid)
+            end
+        end
+    end
     return resmng.E_OK
 end
 
@@ -962,8 +998,15 @@ end
 
 function is_legal(A, what)
     local conf = resmng.prop_union_power[A:get_rank()]
-    if not conf then return false end
-    if not conf[what] or conf[what] == 0 then return false end
+    if not conf then 
+        LOG("没军团配置:"..A:get_rank() )
+        return false 
+    end
+
+    if not conf[what] or conf[what] == 0 then 
+        LOG(A.account..":"..A:get_rank().."没军团权限:"..what)
+        return false 
+    end
     return true
 end
 
@@ -1036,7 +1079,7 @@ function notifyall(self, what, mode, data)
         or (what ==resmng.UNION_EVENT.TASK and mode ==resmng.UNION_MODE.ADD )
         or (what ==resmng.UNION_EVENT.FIGHT and mode ==resmng.UNION_MODE.ADD )
      then
-        self:add_log(what, mode,data)
+       self:add_log(what, mode,data)
     end
 end
 

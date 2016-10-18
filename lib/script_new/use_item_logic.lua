@@ -21,6 +21,10 @@ end
 --使用物品检查
 use_item_check = {}
 
+use_item_check.count = function(player, count, prop_item)
+    return player:get_item_num( prop_item.ID ) >= count
+end
+
 use_item_check.castle = function(player, lv)
 	if player:get_castle_lv() < lv then
 		return false
@@ -79,7 +83,7 @@ end
 function do_item_check(self, prop_item)
 	local con = prop_item.Check
 	for k, v in pairs(con or {}) do
-		if not use_item_check[v[1]](self, v[2]) then
+		if not use_item_check[v[1]](self, v[2], prop_item) then
 			return false
 		end
 	end
@@ -179,5 +183,22 @@ use_item_logic.BuyRes = function(player, id, num, prop_item)
     if count > 999 then count = 999 end
     extra[2] = count
     market.extra = extra
+end
+
+
+--Param = { id, num_put, num_get }
+--Check = { {"count", num_put } }
+
+use_item_logic.Compound = function(player, id, num, prop_item)
+    local id, num_put, num_get = table.unpack( prop_item.Param )
+    if id and num_put and num_get then
+        local target = resmng.get_conf( "prop_item", id )
+        if target then
+            player:add_bonus("mutex_award", {{"item", id, num_get, 10000}}, VALUE_CHANGE_REASON.COMPOUND, 1)
+            if num_put > 1 then
+                player:dec_item_by_item_id( prop_item.ID, num_put - 1, VALUE_CHANGE_REASON.USE_ITEM )
+            end
+        end
+    end
 end
 

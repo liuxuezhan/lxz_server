@@ -29,9 +29,8 @@ prop_union_mall = {
 	[SHOP_ITEM_20] = { ID = SHOP_ITEM_20, Donate = 2250, Val = 2250, ConditionLv = {8,10504}, Itemid = 3001001,},
 	[SHOP_ITEM_21] = { ID = SHOP_ITEM_21, Donate = 22500, Val = 22500, ConditionLv = {8,10504}, Itemid = 3001002,},
 	[SHOP_ITEM_22] = { ID = SHOP_ITEM_22, Donate = 142500, Val = 142500, ConditionLv = {8,10505}, Itemid = 3001003,},
-	[SHOP_ITEM_23] = { ID = SHOP_ITEM_23, Donate = 75000, Val = 75000, ConditionLv = {8,10505}, Itemid = 7023001,},
-	[SHOP_ITEM_24] = { ID = SHOP_ITEM_24, Donate = 15000, Val = 15000, ConditionLv = {8,10505}, Itemid = 1001022,},
-	[SHOP_ITEM_25] = { ID = SHOP_ITEM_25, Donate = 30000, Val = 30000, ConditionLv = {8,10506}, Itemid = 4004001,},
-	[SHOP_ITEM_26] = { ID = SHOP_ITEM_26, Donate = 60000, Val = 60000, ConditionLv = {8,10506}, Itemid = 4005001,},
-	[SHOP_ITEM_27] = { ID = SHOP_ITEM_27, Donate = 150000, Val = 150000, ConditionLv = {8,10506}, Itemid = 7024002,},
+	[SHOP_ITEM_23] = { ID = SHOP_ITEM_23, Donate = 15000, Val = 15000, ConditionLv = {8,10505}, Itemid = 1001022,},
+	[SHOP_ITEM_24] = { ID = SHOP_ITEM_24, Donate = 30000, Val = 30000, ConditionLv = {8,10506}, Itemid = 4004001,},
+	[SHOP_ITEM_25] = { ID = SHOP_ITEM_25, Donate = 30000, Val = 30000, ConditionLv = {8,10506}, Itemid = 4005001,},
+	[SHOP_ITEM_26] = { ID = SHOP_ITEM_26, Donate = 150000, Val = 150000, ConditionLv = {8,10506}, Itemid = 7024002,},
 }

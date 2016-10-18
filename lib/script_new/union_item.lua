@@ -9,7 +9,7 @@ function load()--启动加载
         local data = info:next()
         local p = getPlayer(data._id)
         if p then
-            p.union_item = data.item
+            p.union_item = data
         end
     end
 end

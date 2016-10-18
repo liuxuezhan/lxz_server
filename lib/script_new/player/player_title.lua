@@ -41,29 +41,37 @@ end
 
 function try_upgrade_titles(self)
     --local titles = self:get_title()
-    for k, _ in pairs(title_list) do
+    for k, _ in pairs(title_list or {}) do
         self:try_upgrade(k)
     end
 end
 
 function try_upgrade(self, idx)
     if check_tit(self, idx) then
-        local lv = self:get_title(idx) or 1
-        local propid = idx * 10 + lv 
-        local conf = resmng.get_conf("prop_title", propid)
-        if not conf then return end
-        local nextId = conf.NextID or 0
-        local conf1 = resmng.get_conf("prop_title", nextId)
-        if not conf1 then return end
+        local lv = self:get_title(idx) or 0
+        if type(lv) == "table" then
+            lv = 0
+        end
 
+        if lv ~= 0 then -- level 0 
+            local propid = idx * 10 + lv 
+            local conf = resmng.get_conf("prop_title", propid)
+            if not conf then return end
+            local nextId = conf.NextID or 0
+            local conf1 = resmng.get_conf("prop_title", nextId)
+            if not conf1 then return end
+        end
         set_title(self, idx, lv + 1 )
         self:try_upgrade(idx)
     end
 end
 
 function check_tit(self, idx)
-    local lv = self:get_title(idx) or 1
-    local propid = idx * 10 + lv 
+    local lv = self:get_title(idx) or 0
+    if type(lv) == "table" then
+        lv = 0
+    end
+    local propid = idx * 10 + lv + 1
     local conf = resmng.get_conf("prop_title", propid)
     if not conf then return end
 
@@ -87,15 +95,26 @@ function check_ach(self, idx)
     return ach > 0
 end
 
-function use_title_req(self, idx)
+function use_title_req(self, title)
+    local index = math.floor(title / 10)
+    local lv = title % 10
+    local real_lv = self:get_title(index) or 0
+    if type(real_lv) == "table"  then -- not title
+        return
+    end
+
+    if real_lv ~= lv then --
+        return
+    end
+
     local oldConf = resmng.get_conf("prop_title", self.title)
     if oldConf then
         self:rem_buf(oldConf.Buff)
     end
-    self.title = idx
-    local conf = resmng.get_conf("prop_title", idx)
+    self.title = title
+    local conf = resmng.get_conf("prop_title", title)
     if conf then
-        self:add_buf(conf.Buff, 1)
+        self:add_buf(conf.Buff, -1)
     end
 end
 

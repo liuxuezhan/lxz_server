@@ -229,7 +229,7 @@ function get_conf(prop_name, index)
 
     local conf = resmng[prop_name] and resmng[prop_name][index]
     if not conf then
-        INFO("get_conf: lost config. prop_name = %s, index = %s", prop_name or "nil", index or -1 .. "")
+        LOG("get_conf: lost config. prop_name = %s, index = %s", prop_name or "nil", index or -1 .. "")
         return
     else
         return conf

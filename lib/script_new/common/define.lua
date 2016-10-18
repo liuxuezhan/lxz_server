@@ -38,6 +38,7 @@ VALUE_CHANGE_REASON = {
     SPLIT = 15,
     CURE = 16,
     FORGE_CANCEL=17,
+    COMPOUND = 18,
 
 
     -- [20, 29] Build
@@ -139,6 +140,7 @@ VALUE_CHANGE_REASON = {
     REASON_GACHA_HUNXIA_ONE         = 2008,          --魂匣单抽
     REASON_GACHA_HUNXIA_TEN         = 2009,          --魂匣十连抽
     REASON_DEC_RES_RESET_SKILL      = 2010,          --重置技能
+    REASON_DEC_RES_CHANGE_HEAD      = 2011,          --改变头像
 
     --增加资源
     REASON_ADD_RES = 3000,
@@ -151,6 +153,7 @@ VALUE_CHANGE_REASON = {
     REASON_TASK_DEC_ITEM            = 4001,          --任务扣除任务物品
     REASON_GACHA_DEC_ITEM           = 4002,          --魂匣单抽扣物品
     REASON_DEC_ITEM_RESET_SKILL     = 4003,          --重置技能
+    REASON_DEC_ITEM_CHANGE_HEAD     = 4004,          --改变头像
 }
 
 RES_RATE = { 1, 1, 5, 20 }
@@ -287,6 +290,7 @@ BOSS_TYPE = {
     ELITE = 2,
     LEADER = 3,
     SUPER = 4,
+    SPECIAL = 5,
 }
 
 TW_STATE =
@@ -1420,6 +1424,8 @@ CLIENT_PARM = {
 
     ["report_lock_3"] = 2,
     ["report_read_3"] = 2,
+
+    ["guidedclass"] = 800,
 }
 
 --重置技能消耗的金币
@@ -1533,8 +1539,6 @@ PLAYER_INIT = {
     report_gather = 0,
     report_panjun = 0,
 
-    cival = 0,  --civalization,
-
     kwseason = 0, -- 王城战评价的期数,
     officer = 0,-- 王城战职务,
     vote_time = 0, -- 王城战投票购买时间,
@@ -1591,4 +1595,9 @@ PLAYER_INIT = {
     ef_ue = {}, --飞服时使用军团奇迹buf,
     cross_gs = 0, --是否跨服,
 }
+
+--改变头像金币消耗
+CHANGE_HEAD_ICON_COST = 200
+--改变头像道具ID
+CHANGE_HEAD_ICON_ITEM = resmng.ITEM_4005001
 

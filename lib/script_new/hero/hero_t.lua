@@ -8,10 +8,9 @@
 
 
 --------------------------------------------------------------------------------
-module("hero_t", package.seeall)
-_cache = _cache or {}
-
-_example = {
+--
+module_class("hero_t", 
+{
     _id          = 0,    -- 唯一ID
     pid          = 0,    -- 玩家ID
     propid       = 0,    -- 英雄ID，用于区分不同英雄
@@ -46,35 +45,9 @@ _example = {
     prisoner     = 0,    -- 俘虏
     troop        = 0,    -- 所属部队
 }
+)
 
-local hero_mt = {
-    __index = function (tab, key)
-        return tab._pro[key] or _example[key] or hero_t[key] or rawget(tab, key)
-    end,
-
-    __newindex = function (tab, key, val)
-        if _example[key] then
-            tab._pro[key] = val
-            local n = _cache[tab._id]
-            if not n then
-                n = {}
-                _cache[tab._id] = n
-            end
-            n[key] = val
-        else
-            rawset(tab, key, val)
-        end
-    end
-}
-
-
-function wrap(t)
-    local obj = {_pro = t}
-    return setmetatable(obj, hero_mt)
-end
-
-
-function new(idx, pid, propid)
+function create_hero(idx, pid, propid)
     if not idx or not pid or not propid then
         ERROR("new: idx= %d, pid = %d, propid = %d", idx or -1, pid or -1, propid or -1)
         return
@@ -128,11 +101,8 @@ function new(idx, pid, propid)
     up_attr(t)
     t.hp = t.max_hp
 
-    local hero = hero_t.wrap(t)
+    local hero = new(t)
     hero:calc_fight_power()
-
-    local db = dbmng:getOne()
-    db.hero:insert(t)
 
     local player = getPlayer(pid)
     if player then
@@ -165,24 +135,12 @@ end
 
 -- TODO: 出错处理、入库、出库处理
 -- key 以字符串方式存，捞取时tonumber
-function check_pending()
-    local pend = _cache
-    _cache = {}
-
-    local db = dbmng:tryOne()
-    if not db then return end
-
-    for sn, chgs in pairs(pend) do
-        dumpTab(chgs, string.format("update_hero[%s]", sn))
-        LOG("|")
-        db.hero:update({_id=sn}, {["$set"]=chgs})
-
-        local idx, pid = string.match(sn, "(%d+)_(%d+)")
-        local p = getPlayer(tonumber(pid))
-        if p then
-            chgs.idx = tonumber(idx)
-            Rpc:stateHero(p, chgs)
-        end
+function on_check_pending(db, sn, chgs)
+    local idx, pid = string.match(sn, "(%d+)_(%d+)")
+    local p = getPlayer(tonumber(pid))
+    if p then
+        chgs.idx = tonumber(idx)
+        Rpc:stateHero(p, chgs)
     end
 end
 
@@ -664,7 +622,7 @@ function star_up(self)
     -- 能否升星
     if not self:can_star_up() then
         local hero_basic_conf = resmng.get_conf("prop_hero_basic", self.propid)
-        ERROR("star_up: can't star up. hero._id = %s, star = %d, max_star = %d", self._id, self.star, hero_basic_conf.MaxStar)
+        WARN("star_up: can't star up. hero._id = %s, star = %d, max_star = %d", self._id, self.star, hero_basic_conf.MaxStar)
         return
     end
 

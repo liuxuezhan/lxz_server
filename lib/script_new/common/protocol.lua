@@ -319,6 +319,9 @@ Server = {
     month_award_get_award = "",
     month_award_get_extra = "",
 
+    -----act info
+    act_info_tag_req = "int act_type",
+
     ---- boss
     boss_rank_req = "",
     act_info_req = "",
@@ -415,6 +418,8 @@ Server = {
     request_fight_replay = "string replay_id",
 
     role_info = "int pid",
+
+    choose_head_icon = "int id",
 
 }
 
@@ -547,7 +552,6 @@ Client = {
     union_donate_rank = "pack info",  --捐献排名
     union_member_mark = "int pid, string mark", --联盟标记
     union_buildlv_donate = "pack info",       --更新建筑捐献
-    union_buildlv_cons = "pack info ",       --获取建筑捐献条件
     union_mall_buy = "int propid,int num",     --军团成员买道具
     union_mall_log = "pack info",              --获取军团商店的日志
     union_help_get = "pack info",--获取军团帮助
@@ -649,11 +653,14 @@ Client = {
     --瞭望塔
     add_compensation_info = "pack info",
     rm_compensation_info = "int id",
+    update_compensation_info = "int id, int tm_over",
 
     -----------------------------------------------------
     --通知显示奖励
     notify_bonus = "pack info",
     -----------------------------------------------------
+    --act info
+    act_info_tag_ack = "int tag",
     --boss
     boss_rank_ack = "pack info",
 
@@ -702,6 +709,7 @@ Client = {
     chat_account_info_ack = "int jid, int pwd", -- 请求玩家聊天账户信息
     create_chat_account = "string pid, string host, string psw ",
     create_room = "string uid, string host, string admin",
+    c_create_room = "", --客户端创建聊天室
     send_invite = "string room, pack pids",
 
     rm_npc_monster = "int eid",
@@ -737,5 +745,9 @@ Client = {
     role_info = "pack info",
 
     aid_notify = "",
+
+    be_attacked = "",
+
+    choose_head_icon_resp = "int res",
 }
 

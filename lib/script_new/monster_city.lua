@@ -31,93 +31,17 @@ module_class(
 }
 )
 
-local zset = require "frame/zset"
-
-topMcByPid = topMcByPid or {}
-topMcByUid = topMcByUid or {}
-
-initRedisList =
-{
-    "topMcByPid",
-    "topMcByUid"
-}
-
-function init_db(key)
-    local db = dbmng:getOne()
-    local info = db.status:findOne({_id = key})
-    --dumpTap(info, Key)
-    if not info then
-        info = {_id = key}
-        db.status:insert(info)
-    end
-    return info
-end
-
-function init_redis_list()
-    for k, v in pairs(initRedisList) do
-        local info = init_db(v)
-        monster_city[ v ] = init_redis(v, info) 
-    end
-end
-
-function init_redis(key, info)
-    local zset = zset.new()
-    for k, v in pairs(info) do
-        if k ~= "_id" and v ~= {} then
-            if key == "topMcByPid" then
-                --zset:add(v, k)
-              zset:add(v[ "hurt" ], v[ "pid" ])
-            elseif key == "topMcByUid" then
-                zset:add(v[ "hurt" ], v[ "uid" ] )
-              --  zset:add(v[2], v[1])
-            end
-        end
-    end
-    return zset
-end
-
 function try_update_ply_hurt(key, score)
     local org_score = rank_mng.get_score(8, key) or 0
     score = score + org_score
     rank_mng.add_data(8, key, {score})
-
-    --local pid = tostring(key)
-    --local topScore = topMcByPid:score(pid) or 0
-    --    score = score + topScore
-    --    topMcByPid:add(score, pid)
-    --    gPendingSave.status[ "topMcByPid" ][ pid ] = {[ "pid" ] = pid, ["hurt"] = score}
 end
 
 function try_update_union_hurt(key, score)
     local org_score = rank_mng.get_score(7, key) or 0
     score = score + org_score
     rank_mng.add_data(7, key, {score})
-
-    --local uid = tostring(key)
-    --local topScore = topMcByUid:score(uid) or 0
-    --    score = score + topScore
-    --    topMcByUid:add(score, uid)
-    --    gPendingSave.status[ "topMcByUid" ][ uid ] = {[ "uid" ] = uid, ["hurt"] = score}
 end
-
-function get_top_ply_rank(key)
-    local pid = tostring(key)
-    local topKillers = topMcByPid:range(1, 200) or {}
-    local myScore = topMcByPid:score(pid) or 0
-    local myRank = topMcByPid:rank(pid) or 0
-    --print( topKillers, {myScore, myRank})
-    return topKillers, myScore, myRank
-end
-
-function get_top_union_rank(key)
-    local uid = tostring(key)
-    local topKillers = topMcByUid:range(1, 200) or {}
-    local myScore = topMcByUid:score(pid) or 0
-    local myRank = topMcByUid:rank(pid) or 0
-    --print( topKillers, {myScore, myRank})
-    return topKillers, myScore, myRank
-end
-
 
 can_atk_stage =
 {
@@ -526,7 +450,6 @@ function gen_monster_and_atk(city, prop)
         city.my_troop_id = tr._id
         tr:go()
         union_hall_t.battle_room_create(tr, ROOM_TYPE.MC)
-        --player_t.get_watchtower_info(tr)
     end
 
 end
@@ -605,7 +528,8 @@ function get_conf_by_npc(npcCity)
 end
 
 function can_be_atk(city)
-    return city.be_atk_tm == 0
+    return true
+    --return city.be_atk_tm == 0
 end
 
 --怪物城被攻击
@@ -771,7 +695,6 @@ function after_atk_ply(atkTroop, defenseTroop)
         rem_ety(mc.eid)
         troop_mng.delete_troop(atkTroop._id)
     end
-    --player_t.rm_watchtower_info(atkTroop)
 
 end
 

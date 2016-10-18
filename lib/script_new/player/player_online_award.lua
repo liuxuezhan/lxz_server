@@ -82,10 +82,10 @@ function open_online_award(self)
     self.online_award_time = gTime
     self.online_award_num = 0
     self.online_award_on_day_pass = 0
-    local ship = self:get_shipyard()
-    if ship ~= nil then
-        ship.extra.next_time = self:get_online_award_next_time()
-    end
+    --local ship = self:get_shipyard()
+    --if ship ~= nil then
+    --    ship.extra.next_time = self:get_online_award_next_time()
+    --end
 end
 
 

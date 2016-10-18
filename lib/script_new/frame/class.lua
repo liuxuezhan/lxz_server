@@ -74,7 +74,7 @@ function create_module_class(name, base)
     --WARN("[DEL] use attack_wrap_ instead")
     module(name, package.seeall)
     if base then setmetatable(_ENV, {__index=base}) end
-    setfenv(2, getfenv(1))   
+    setfenv(2, getfenv(1))
 
     _example = {}
     for k, v in pairs((base and base._example) or {}) do
@@ -83,8 +83,8 @@ function create_module_class(name, base)
 
     local meta = {
         __index = function(t, k)
-            if not t._pro[k] and _example[k] then 
-                t._pro[k] = (type(_example[k]) ~= "table" and _example[k]) or copyTab(_example[k]) 
+            if not t._pro[k] and _example[k] then
+                t._pro[k] = (type(_example[k]) ~= "table" and _example[k]) or copyTab(_example[k])
             end
             return t._pro[k] or _ENV[k] or (base and base[k]) or rawget(t, k)
         end,
@@ -96,7 +96,7 @@ function create_module_class(name, base)
             _cache[t._id][k] = v
         end
     }
-    
+
     function new(t)
         if not t._id then return MARK( "no _id") end
         _cache[t._id] = t
@@ -118,7 +118,7 @@ end
 
 function attach_check_pending(example)
     --WARN("[DEL] use attack_wrap_ instead")
-    setfenv(1, getfenv(2))   
+    setfenv(1, getfenv(2))
 
     for k, v in pairs(example or {}) do
         _example[k] = _example[k] or v
@@ -192,13 +192,17 @@ function attach_wrap_(base)
 
     _meta = {
         __index=function(t, k)
-            return t._pro[k] or rawget(t, k) or _ENV[k]
+            if t._pro[k] ~= nil then
+                return t._pro[k]
+            else
+                return rawget(t, k) or _ENV[k]
+            end
         end,
         __newindex=function(t, k, v)
             if _example and _example[k] ~= nil then
-                if (not t._init) and t.on_value_change then 
+                if (not t._init) and t.on_value_change then
                     t:on_value_change(k, t._pro[k], v)
-                end 
+                end
                 t._pro[k] = v
                 return
             end
@@ -213,14 +217,14 @@ function attach_wrap_(base)
     end
 
     function deliver_(...)
-        local t = setmetatable({_pro = copyTab(_example) or {}}, _meta) 
+        local t = setmetatable({_pro = copyTab(_example) or {}}, _meta)
         t._init = true
         if init then init(t) end
         if ctor then ctor(t, ...) end
         t._init = nil
         return t
     end
-    
+
     function wrap(t)
         local cp = setmetatable({_pro = copyTab(_example) or {}}, _meta)
         if init then init(cp) end

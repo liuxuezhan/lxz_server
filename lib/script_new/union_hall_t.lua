@@ -82,7 +82,7 @@ function battle_room_update(mode, troop)
     if A then
         local union = unionmng.get_union(A.uid)
         if union then
-            if union then union:notifyall("battle_room", mode, {["room_id"]=id}) end
+           if union then union:notifyall("battle_room", mode, {["room_id"]=id}) end
         end
     end
 end

@@ -488,8 +488,8 @@ function calc_crosspoint(sx, sy, dx, dy, rect)
         local miny = math.min(sy, dy)
         local maxy = math.max(sy, dy)
 
-        if miny < rect.y1 and maxy > rect.y1 then table.insert({sx, rect.y1}) end
-        if miny < rect.y2 and maxy > rect.y2 then table.insert({sx, rect.y2}) end
+        if miny < rect.y1 and maxy > rect.y1 then table.insert(crosspoint,{sx, rect.y1}) end
+        if miny < rect.y2 and maxy > rect.y2 then table.insert(crosspoint,{sx, rect.y2}) end
 
         return crosspoint
     end

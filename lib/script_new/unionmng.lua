@@ -13,7 +13,8 @@ function add_union2(u)
 end
 
 function get_union(uid)
-    return _us[uid] or _us2[uid]
+    local u = _us[uid]
+    return u  or _us2[uid]
 end
 
 function rm_union(u)

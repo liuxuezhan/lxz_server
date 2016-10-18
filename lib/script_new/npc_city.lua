@@ -31,14 +31,6 @@ local zset = require "frame/zset"
 
 citys = citys or {}
 have = have or {}
-unionTwRank = unionTwRank  or {}
-plyTwRank = plyTwRank  or {}
-
-initRedisList =
-{
-    "unionTwRank",
-    "plyTwRank"
-}
 
 function init()
     -- to do
@@ -62,7 +54,7 @@ end
 
 function get_atk_info(unions, data)
     if data.declareUnions then
-        for k, v in pairs(data.declareUnions) do
+        for k, v in pairs(data.declareUnions or {}) do
             local union = unionmng.get_union(k)
             if union then
                 table.insert(unions, {k, union.name, union.flag or 1, union.alias})
@@ -97,50 +89,38 @@ function load_npc_city()
     init_npc_citys(have)
     --init_redis_list()
    --test_npc()
-   --test_rank()
 end
 
-
---[[function load_from_db()
-    local db = dbmng:getOne()
-    local info = db.npc_city:find({})
-    local have = {}
-    while info:hasNext() do
-        local m = info:next()
-        setmetatable(m, _mt)
-        gEtys[m.eid] = m
-        citys[m.eid] = m.eid
-        mark_eid(m.eid)
-        have[m.propid] = eid
-        print("npc m.eid = ", m.eid)
-        etypipe.add(m)
-        checkin(m)
+function on_day_pass()
+    for k, v in pairs(citys or {}) do
+        local npc = get_ety(v)
+        if npc then
+            if npc.uid ~= 0 then
+                local prop = resmng.prop_world_unit[npc.propid]
+                if prop then
+                    local score = prop.Boss_point or 0
+                    update_union_score(npc.uid, score, 14)
+                end
+            end
+        end
     end
-
-    init_npc_citys(have)
-end--]]
-
-function init_db(key)
-    local db = dbmng:getOne()
-    local info = db.status:findOne({_id = key})
-    --dumpTap(info, Key)
-    if not info then
-        info = {_id = key}
-        db.status:insert(info)
-    end
-    return info
 end
 
-function update_union_score(key, level)
+function update_act_tag()
+    act_tag = gTime
+end
+
+function update_union_score(key, level, rank_id)
+    rank_id = rank_id or 13
     local unionId = tostring(key)
     local score  = level -- to do
 
-    local org_score = rank_mng.get_score(13, key) or 0
+    local org_score = rank_mng.get_score(rank_id, key) or 0
     score = score + org_score
     if score <= 0 then
-        rank_mng.rem_data( 13, key )
+        rank_mng.rem_data( rank_id, key )
     else
-        rank_mng.add_data(13, key, {score})
+        rank_mng.add_data(rank_id, key, {score})
     end
 end
 
@@ -158,17 +138,8 @@ function update_ply_score(key, level)
     end
 end
 
-function get_ply_hurter_rank(key)
-    local pid = tostring(key)
-    local top = plyTwRank:range(1, 200) or {}
-    local myScore = plyTwRank:score(pid) or 0
-    local myRank = plyTwRank:rank(pid) or 0
-    --print( topHurts, {myScore, myRank})
-    return top, myScore, myRank
-end
-
 function init_npc_citys(have)
-    for k, v in pairs(resmng.prop_world_unit) do
+    for k, v in pairs(resmng.prop_world_unit or {}) do
         if v.Class == CLASS_UNIT.NPC_CITY and have[v.ID] == nil then
             local eid = get_eid_npc_city()
             local npcCity = init_npc_city(v, eid)
@@ -255,6 +226,7 @@ function declare_state(npcCity)
     npcCity.endTime = endTime
     format_union(npcCity)
     etypipe.add(npcCity)
+    update_act_tag()
     --mark(ncpCity)
 end
 
@@ -262,10 +234,11 @@ function prepare_state(npcCity)
     local level = resmng.prop_world_unit[npcCity.propid].Lv
     npcCity.state = TW_STATE.PREPARE
     npcCity.startTime =  gTime 
-    npcCity.endTime = gTime + resmng.prop_tw_stage[npcCity.state].Spantime[level] * 60
+    npcCity.endTime = gTime + resmng.prop_tw_stage[npcCity.state].Spantime[level]
     set_timer(npcCity)
     format_union(npcCity)
     etypipe.add(npcCity)
+    update_act_tag()
     --mark(npcCity)
 end
 
@@ -273,17 +246,18 @@ function fight_state(npcCity)
     local level = get_npc_city_lv(npcCity.propid)
     npcCity.state = TW_STATE.FIGHT
     npcCity.startTime =  gTime 
-    npcCity.endTime = gTime + resmng.prop_tw_stage[npcCity.state].Spantime[level] * 60
+    npcCity.endTime = gTime + resmng.prop_tw_stage[npcCity.state].Spantime[level]
     set_timer(npcCity)
     format_union(npcCity)
     etypipe.add(npcCity)
+    update_act_tag()
     --mark(npcCity)
 end
 
 function set_timer(npcCity, state)
     if state == nil then state = npcCity.state end
     local level = get_npc_city_lv(npcCity.propid)
-    local time = resmng.prop_tw_stage[state].Spantime[level] * 60 
+    local time = resmng.prop_tw_stage[state].Spantime[level]
     local nextState = resmng.prop_tw_stage[state].NextStage
     del_timer(npcCity)
     local timerId = timer.new("npc_city", time, npcCity.eid, nextState)
@@ -294,7 +268,7 @@ end
 
 function del_timer(npcCity)
     if npcCity.timers then
-        for k, v in pairs(npcCity.timers) do
+        for k, v in pairs(npcCity.timers or {}) do
             timer:del(id)
         end
     end
@@ -315,11 +289,12 @@ function pace_state(npcCity)
     npcCity.declareUnions = {}
     format_union(npcCity)
     etypipe.add(npcCity)
+    update_act_tag()
     --mark(npcCity)
 end
 
 function start_tw()
-    for k, v in pairs(citys) do
+    for k, v in pairs(citys or {}) do
         local npcCity = gEtys[ k ]
         if npcCity then
             declare_state(npcCity)
@@ -328,7 +303,7 @@ function start_tw()
 end
 
 function clear_union()
-    for k, v in pairs(citys) do
+    for k, v in pairs(citys or {}) do
         local npcCity = gEtys[ k ]
         if npcCity then
             npcCity.declareUnions = nil
@@ -337,7 +312,7 @@ function clear_union()
 end
 
 function fight_tw()
-    for k, v in pairs(citys) do
+    for k, v in pairs(citys or {}) do
         local npcCity = gEtys[ k ]
         if npcCity then
             fight_state(npcCity)
@@ -346,7 +321,7 @@ function fight_tw()
 end
 
 function end_tw()
-    for k, v in pairs(citys) do
+    for k, v in pairs(citys or {}) do
         local npcCity = gEtys[ k ]
         if npcCity then
             pace_state(npcCity)
@@ -363,7 +338,7 @@ end
 function clear_declare_state()
     local unions = unionmng.get_all()
     if unions then
-        for k, union in pairs(unions) do
+        for k, union in pairs(unions or {}) do
             union.declare_wars = nil
         end
     end
@@ -371,7 +346,7 @@ end
 
 function send_end_tw_award()
     local us = unionmng.get_all()
-    for k, v in pairs(us) do
+    for k, v in pairs(us or {}) do
         local award = each_union_award(v)
         if get_table_valid_count(award or {}) >= 1 then
             local _members = v:get_members()
@@ -408,7 +383,7 @@ function each_union_award(union)
 end
 
 function add_reward_pool(pool, rewards) 
-    for k, v in pairs(rewards) do
+    for k, v in pairs(rewards or {}) do
 
         local award = pool[v[2]]
         if award then
@@ -441,7 +416,7 @@ end
 
 function tw_random_award()
     local seqList = {}
-    for k, v in pairs(citys) do
+    for k, v in pairs(citys or {}) do
         local npcCity = gEtys[ k ]
         if npcCity then
             clear_award(npcCity)
@@ -449,7 +424,7 @@ function tw_random_award()
         end
     end
     local awardCitys = gen_random_list(seqList)
-    for k, v in pairs(awardCitys) do
+    for k, v in pairs(awardCitys or {}) do
         local npcCity = get_ety(v)
         if npcCity then
             local union = unionmng.get_union(npcCity.uid)
@@ -492,7 +467,7 @@ end
 
 function countTb(list)
     local count = 0
-    for k, v in pairs(list) do
+    for k, v in pairs(list or {}) do
         count = count + 1
     end
     return count
@@ -562,7 +537,7 @@ function declare_notify(atk_eid, npc_eid)
 
     local unions = {}
     
-    for k, v in pairs(npc.declareUnions) do
+    for k, v in pairs(npc.declareUnions or {}) do
         local union = unionmng.get_union(v)
         if union then
             table.insert(unions, union.name)
@@ -570,8 +545,17 @@ function declare_notify(atk_eid, npc_eid)
     end
 
     if conf.Mail then
-        player_t.send_system_to_all(conf.Mail, {},{unions, npc_conf.Name})
+    for k, v in pairs(npc.declareUnions or {}) do
+        local union = unionmng.get_union(v)
+        if union then
+            local _members = union:get_members()
+            for k, ply in pairs(_members or {}) do
+                ply:send_system_notice(conf.Mail, {},{unions, npc_conf.Name}, {})
+            end
+               -- player_t.send_system_to_all(conf.Mail, {},{unions, npc_conf.Name})
+        end
     end
+end
 
     if conf.Notify then
         Rpc:tips({pid=-1,gid=_G.GateSid}, 2, conf.Notify,{unions, npc_conf.Name, time})
@@ -619,7 +603,7 @@ function is_npc_full(npcEid)
         return true
     end
     local num = 0
-    for k, v in pairs(npcCity.declareUnions) do
+    for k, v in pairs(npcCity.declareUnions or {}) do
         num = num + 1
     end
     return num >= 5
@@ -685,7 +669,7 @@ function get_my_troop(self)
 
             if conf.Arms then
                 local arm = {}
-                for _, v in pairs(conf.Arms) do
+                for _, v in pairs(conf.Arms or {}) do
                     arm[ v[1] ] = v[ 2 ]
                 end
                 --tr:add_arm(self.propid, {live_soldier = arm})
@@ -807,9 +791,9 @@ end
 
 function deal_dead_troop(troop)
     if troop then
-        for pid, arm in pairs(troop.arms) do
+        for pid, arm in pairs(troop.arms or {}) do
             if arm.dead_soldier then
-                for k, v  in pairs(arm.dead_soldier) do
+                for k, v  in pairs(arm.dead_soldier or {}) do
                     if not arm.live_soldier then arm.live_soldier = {} end
                     if not arm.hurt_soldier then arm.hurt_soldier = {} end
                     --todo, can not fit the original live 
@@ -830,7 +814,7 @@ function send_win_award(city, maxHurtUnion)
     if prop then
         local award = prop.Base_award or {1, {{"item",2016004,50, 10000}}}
 
-        for k, v in pairs(city.dmg) do
+        for k, v in pairs(city.dmg or {}) do
             if  k == maxHurtUnion or v >= (prop.Extra_award or 0)  then
                 local u = unionmng.get_union(k)
                 if u then
@@ -857,9 +841,9 @@ function make_new_defender(ackTroop, defenseTroop, npcCity)
     local prop = resmng.prop_world_unit[npcCity.propid]
     if prop then
         local score = prop.Boss_point or 0
-        update_union_score(maxHurtUnion, score)
+        update_union_score(maxHurtUnion, score, 13)
         if npcCity.uid ~= 0 then
-            update_union_score(npcCity.uid, -score)
+            update_union_score(npcCity.uid, -score, 13)
         end
         
     end
@@ -915,36 +899,38 @@ function deal_npc_new_defender(newdefender, npcCity, ackTroop)
     end
 
     occupy_notify(npcCity)
-    local npc_conf = resmng.get_conf("prop_world_unit", npcCity.propid) or {}
 
-
-    local buff = npcCity.kw_buff or {}
-    local buf = resmng.get_conf("prop_buff", buff[1]) or {}
-    local ef_name = nil
-    local ef_value = nil
-    for k, v in pairs(buf.Value or {}) do
-        local attr = string.split(k, "_")
-        local ef_conf = resmng.prop_effect_type[attr[1]]
-        if ef_conf then
-            ef_name = ef_conf.BuffName
+    if king_city.state == KW_STATE.FIGHT then  -- notify only in fight state
+        local npc_conf = resmng.get_conf("prop_world_unit", npcCity.propid) or {}
+        local buff = npcCity.kw_buff or {}
+        local buf = resmng.get_conf("prop_buff", buff[1]) or {}
+        local ef_name = nil
+        local ef_value = nil
+        for k, v in pairs(buf.Value or {}) do
+            local attr = string.split(k, "_")
+            local ef_conf = resmng.prop_effect_type[attr[1]]
+            if ef_conf then
+                ef_name = ef_conf.BuffName
+            end
+            if attr[2]  == "A" or not attr[2] then
+                ef_value = v
+            elseif attr[2] == "R" then
+                ef_value = v * 0.0001 * 100
+                ef_value = tostring(ef_value).."%"
+            end
         end
-        if attr[2]  == "A" or not attr[2] then
-            ef_value = v
-        elseif attr[2] == "R" then
-            ef_value = v * 0.0001 * 100
-            ef_value = tostring(ef_value).."%"
-        end
-    end
 
-    local prop = resmng.get_conf("prop_act_notify", resmng.FORTRESS_BUFF)
-    if prop and ef_name and npcCity.lv == 1 then
-        local union = unionmng.get_union(newdefender)
-        if union then
-            if  prop.Chat2 then
-                union:union_chat("", prop.Chat2, {npc_conf.Name, ef_name, ef_value})
+        local prop = resmng.get_conf("prop_act_notify", resmng.FORTRESS_BUFF)
+        if prop and ef_name and npcCity.lv == 1 then
+            local union = unionmng.get_union(newdefender)
+            if union then
+                if  prop.Chat2 then
+                    union:union_chat("", prop.Chat2, {npc_conf.Name, ef_name, ef_value})
+                end
             end
         end
     end
+
     npcCity.my_troop_id = nil
     npcCity.dmg = {}
     reset_declare(npcCity.eid, npcCity.declareUnions)
@@ -954,7 +940,7 @@ end
 
 
 function reset_declare(npcEid, unions)
-    for k, v in pairs(unions) do
+    for k, v in pairs(unions or {}) do
         local union = unionmng.get_union(v)
         if union then
             local declare_wars = union.declare_wars
@@ -985,21 +971,12 @@ function find_new_defender(npcCity)
     return max_union
 end
 
-function test_rank()
-    update_union_score(190046, 100)
-    update_union_score(190044, 200)
-    update_union_score(190043, 300)
-    update_union_score(190040, 1000)
-    update_union_score(190037, 100)
-    local top = unionTwRank:range(1, 200)
-end
-
 function test_npc()
     local ply = getPlayer(70008)
     end_tw()
     start_tw()
     local npc = {}
-    for k, v in pairs(gEtys) do
+    for k, v in pairs(gEtys or {}) do
         if is_npc_city(k) then
             print(ply.eid, v.eid)
             declare_war(ply.eid, v.eid)
@@ -1027,7 +1004,7 @@ function abandon_npc(self)
     local prop = resmng.prop_world_unit[self.propid]
     if prop then
         local score = prop.Boss_point or 0
-        update_union_score(self.uid, -score)
+        update_union_score(self.uid, -score, 13)
     end
 
     local mc = union_t.get_monster_city(self.eid)
@@ -1050,7 +1027,6 @@ function abandon_npc(self)
             troop_mng.delete_troop(troop._id)
         end
     end
-
 
     self.uid = 0
     self.my_troop_id = 0
@@ -1146,24 +1122,10 @@ function try_hold_troop(self, tr)
     local ply = getPlayer(tr.owner_pid)
     local sum, max = 0, 0
 
-    if is_king_city(self) then
-        local union = unionmng.get_union(tr.owner_uid)
-        if union then
-          --  king_city.add_kw_buff(union, ply)  -- not use
-        end
-    end
-
     if ply then
         sum, max = hold_limit(self, ply)
     else
         sum, max = hold_limit(self)
-    end
-
-    if is_king_city(self) then
-        local union = unionmng.get_union(tr.owner_uid)
-        if union then
-        -- king_city.rem_kw_buff(union, ply)  -- not use
-        end
     end
 
     local hold_tr = troop_mng.get_troop(self.my_troop_id)
@@ -1209,7 +1171,7 @@ end
 function send_score_reward()
     local prop = resmng.prop_tw_person_rank_award
     if prop then
-        for k, v in pairs(prop) do
+        for k, v in pairs(prop or {}) do
             local plys = rank_mng.get_range(12, v.Rank[1], v.Rank[2])
             for idx, pid in pairs(plys or {}) do
                 local score = rank_mng.get_score(12, tonumber(pid)) or 0
@@ -1225,8 +1187,8 @@ function send_score_reward()
 
     local u_award = resmng.prop_tw_union_rank_award
     if u_award then 
-        for k, v in pairs(u_award) do
-            local unions = rank_mng.get_range(13, v.Rank[1], v.Rank[2])
+        for k, v in pairs(u_award or {}) do
+            local unions = rank_mng.get_range(14, v.Rank[1], v.Rank[2])
             for idx, uid in pairs(unions or {}) do
                 uid = tonumber(uid)
                 local union = unionmng.get_union(uid)
@@ -1248,23 +1210,3 @@ function send_score_reward()
     end
 end
 
-function on_day_pass()
-    for k, v in pairs(citys) do
-        local city = get_ety(v)
-        if city and (city.uid ~= 0 or city.uid ~= propid) then
-            local union = unionmng.get_union(city.uid)
-            if union then
-                local prop = resmng.prop_world_unit[city.propid]
-                if prop then
-                    local score = prop.Boss_point or 0
-                    local org_score = rank_mng.get_score(13, city.uid) or 0
-                    score = score + org_score
-                    if score < 0 then
-                        socre = 0
-                    end
-                    rank_mng.add_data(13, key, {score})
-                end
-            end
-        end
-    end
-end

@@ -143,11 +143,11 @@ g_eid_max = 0
 
 function get_eid(mode)
     local eid_max = g_eid_max
-    for i = 1, 65536, 1 do 
+    for i = 1, 65536, 1 do
         eid_max = eid_max + 1
         if eid_max > 65535 then eid_max = 0 end
         local eid = eid_max * 4096 + gMapID
-        if not gEtys[ eid ] then 
+        if not gEtys[ eid ] then
             g_eid_max = eid_max
             return eid
         end
@@ -222,7 +222,7 @@ end
 
 function get_ety(eid)
     local e =  gEtys[ eid ]
-    return e  
+    return e
 end
 
 
@@ -232,7 +232,7 @@ function get_ety_arms(e)
            return union_build_t.arms(e)
         else
 	        return e:get_my_troop()
-        end 
+        end
     end
 end
 
@@ -265,20 +265,35 @@ function rem_ety(eid)
                 if e.marktm then gPendingDelete.farm[ eid ] = 0 end
 
             elseif is_monster(e) then
+                if e.grade >= BOSS_TYPE.ELITE and e.grade < BOSS_TYPE.SUPER then
+                    if monster.boss[e.eid] then
+                        monster.boss[e.eid] = nil
+                    end
+                elseif e.grade == BOSS_TYPE.SPECIAL then
+                    local lv =  c_get_zone_lv(e.zx, e.zy)
+                    local boss_list = monster.boss_special[lv] or {}
+                    local idx = e.zy * 80 + e.zx
+                    if boss_list[idx] then
+                        boss_list[idx] = nil
+                        monster.boss_special[lv] = boss_list
+                    end
+                elseif e.grade == BOSS_TYPE.SUPER then
+                    super_boss = 0
+                end
                 --if e.marktm then gPendingDelete.monster[ eid ] = 0 end
                 gPendingDelete.monster[ eid ] = 0
 
             elseif is_monster_city(e) then
-                gPendingDelete.monster_city[ eid ] = 0 
+                gPendingDelete.monster_city[ eid ] = 0
 
             elseif is_lost_temple(e) then
-                gPendingDelete.lost_temple[ eid ] = 0 
+                gPendingDelete.lost_temple[ eid ] = 0
 
             elseif is_king_city(e) then
-                gPendingDelete.king_city[ eid ] = 0 
+                gPendingDelete.king_city[ eid ] = 0
 
             elseif is_npc_city(e) then
-                gPendingDelete.npc_city[ eid ] = 0 
+                gPendingDelete.npc_city[ eid ] = 0
 
             else
                 gPendingDelete.unit[ eid ] = 0
@@ -339,8 +354,9 @@ function send_invite()
 end
 
 function test()
+    gPendingInsert.test[ 1 ] = {_id=1, [1]=4, [3]=5}
 
-    Rpc:callAgent( 13, "agent_move_eye", 123, 2, 3)
+    --Rpc:callAgent( 13, "agent_move_eye", 123, 2, 3)
 
     --local p = getPlayer( 2970038 )
     --p:add_msg( "aid", {1,2,"loon0"})
@@ -475,13 +491,13 @@ function module_class(name, example)
             if _G[name][k] ~= nil then return _G[name][k] end
         end,
         __newindex = function(t, k, v)
-            if _example[k] then
+            if _example[k] ~= nil then
                 t._pro[k] = v
-                local id = t._id 
+                local id = t._id
                 local chgs = _cache[ id ]
                 if not chgs then
                     chgs = {}
-                    _cache[ id ] = chgs 
+                    _cache[ id ] = chgs
                 end
                 chgs[ k ] = v
                 chgs._n_ = nil
@@ -534,7 +550,7 @@ function module_class(name, example)
                     print( "[DB], update", name, id )
                 else
                     if chgs._a_ == 0 then
-                        db[ name ]:delete( { _id = id } ) 
+                        db[ name ]:delete( { _id = id } )
                         print( "[DB], delete", name, id )
                     else
                         local oid = chgs._id
@@ -637,6 +653,7 @@ function remove_id(tab, id)
 end
 
 function to_tool( sn, info )
+    --print("debug ", gAgent, sn, info)
     Rpc:qry_tool( gAgent, sn ,info )
 end
 
@@ -650,7 +667,7 @@ function get_replay_id()
 end
 
 gQueryAroundSn = gQueryAroundSn or 0
-function get_around_eids( eid, r ) 
+function get_around_eids( eid, r )
     gQueryAroundSn = gQueryAroundSn + 1
     c_get_around( gQueryAroundSn, eid, r )
     local eids = putCoroPend( "roi", gQueryAroundSn )
@@ -660,3 +677,7 @@ end
 
 
 --timer.new("tlog", 1)
+--
+--
+--
+--

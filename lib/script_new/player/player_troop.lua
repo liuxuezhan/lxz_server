@@ -93,7 +93,7 @@ function check_arm(self, arm)
 
     local my_troop = troop_mng.get_troop(self.my_troop_id)
     if my_troop == nil then 
-        WARN("没部队")
+        LOG("没部队")
         return false 
     end
     local live = my_troop:get_live()
@@ -102,11 +102,11 @@ function check_arm(self, arm)
     local valid_pos = {false, false, false, false} --步骑弓车，对应英雄的位置判断能不能有英雄
     for k, v in pairs(arm.live_soldier or {}) do
         if v <= 0 then 
-            WARN("人数不足")
+            WARN("人数不足1")
             return 
         end
         if live[k] == nil or live[k] < v then 
-            INFO("人数不足")
+            WARN("人数不足2")
             return false 
         end
         total_num = total_num + v
@@ -189,6 +189,13 @@ function siege(self, dest_eid, arm)
                 return 
             end
         end
+        local prop = resmng.prop_world_unit[dest.propid]
+        if prop then
+            if prop.Declare == 1 then
+                return
+            end
+        end
+
         action = TroopAction.SiegeMonster
         if self:get_sinew() < 10 then
             WARN("没体力")
@@ -271,14 +278,11 @@ function siege(self, dest_eid, arm)
         self:dec_sinew( 10 )
 
     elseif is_ply(dest) then
-        --player_t.get_watchtower_info(troop)
 
     elseif is_camp(dest) then
-        --player_t.get_watchtower_info(troop)
         union_hall_t.battle_room_create(troop)
 
     elseif is_res(dest) then
-        --player_t.get_watchtower_info(troop)
 
     end
 end
@@ -306,7 +310,12 @@ function siege_task_npc(self, task_id, dest_eid, x, y, arm)
     troop.dx = x
     troop.dy = y
     troop:set_extra("npc_task_id", task_id)
-    troop:go()
+    local speed = nil
+    if task_id == resmng.TASK_130010101 then
+        local dis = calc_line_length(self.x, self.y, x, y)
+        speed = math.ceil(dis / 10)
+    end
+    troop:go(speed) 
 end
 
 function gather(self, dest_eid, arm)
@@ -329,11 +338,6 @@ function gather(self, dest_eid, arm)
     troop:go()
 
     if is_res(dest) then farm.mark(dest) end
-
-    --瞭望塔
-    if dest.pid ~= nil and dest.pid > 0 then
-        --player_t.get_watchtower_info(troop)
-    end
 end
 
 
@@ -355,10 +359,6 @@ function spy(self, dest_eid)
     end
     local troop = troop_mng.create_troop(TroopAction.Spy, self, dest)
     troop:go()
-    --瞭望塔
-    if dest.pid ~= nil and dest.pid > 0 then
-        --player_t.get_watchtower_info(troop)
-    end
     self:add_count( resmng.ACH_COUNT_SCOUT, 1 )
 end
 
@@ -404,6 +404,12 @@ function union_mass_create(self, dest_eid, wait_time, arm)
         D.aimed = self.eid
         D:mark()
         action = TroopAction.SiegeMonster
+        local prop = resmng.prop_world_unit[D.propid]
+        if prop then
+            if prop.Declare == 0 then
+                return
+            end
+        end
     elseif is_ply(D) then
         if D.uid == self.uid then return end
         action = TroopAction.SiegePlayer
@@ -510,7 +516,7 @@ function union_mass_join(self, dest_eid, dest_troop_id, arm)
 
     local troopT = troop_mng.get_troop(dest_troop_id)
     if not troopT then 
-        INFO("没部队")
+        LOG("没部队")
         return 
     end
 
@@ -666,7 +672,6 @@ function support_arm(self, dest_eid, arm)
 
     union_hall_t.battle_room_update_ety(OPERATOR.UPDATE, dest)
     Rpc:aid_notify( self )
-    --player_t.get_watchtower_info(troop)
 end
 
 function support_res(self, dest_eid, res)
@@ -717,10 +722,9 @@ function support_res(self, dest_eid, res)
     end
 
     local troop = troop_mng.create_troop(TroopAction.SupportRes, self, dest)
-    troop:go()
     troop:add_goods( goods, VALUE_CHANGE_REASON.SUPPORT_RES)
     troop:set_extra("tax", tax)
-    --player_t.get_watchtower_info(troop, dest_load)
+    troop:go()
 end
 
 
@@ -836,7 +840,6 @@ function hold_defense(self, dest_eid, arm)
     end
     dest.hold_troop[troop._id] = 1  
     union_hall_t.battle_room_update_ety(OPERATOR.UPDATE, dest)
-    --player_t.get_watchtower_info(troop)
 end
 
 
@@ -871,8 +874,13 @@ function union_build(self, dest_eid, arm)
     local dest = get_ety(dest_eid)
     if not dest then return end
 
-    if not union_build_t.can_troop( TroopAction.UnionBuild, self, dest_eid) then return end
-    if not self:check_arm(arm)  then return end
+    if not union_build_t.can_troop( TroopAction.UnionBuild, self, dest_eid) then 
+        return 
+    end
+
+    if not self:check_arm(arm)  then 
+        return 
+    end
     local troop = troop_mng.create_troop(TroopAction.UnionBuild, self, dest, arm)
     troop:go()
     if not dest.hold_troop then  
@@ -964,7 +972,18 @@ function troop_recall(self, dest_troop_id)
                 local D = get_ety( troop.target_eid )
                 if D and D.troop_comings then
                     D.troop_comings[ troop._id ] = nil
+                    if D.on_troop_cancel then
+                        D:on_troop_cancel( self )
+                    end
                 end
+            end
+
+            if aciton == TroopAction.SiegeCamp then
+
+            end
+
+            if action == TroopAction.Gather then
+
             end
 
             if action == TroopAction.SaveRes then
@@ -1007,13 +1026,16 @@ function troop_recall(self, dest_troop_id)
                 local dest = get_ety(troop.target_eid)
                 union_hall_t.battle_room_update_ety(OPERATOR.UPDATE, dest)
             end
-            --player_t.rm_watchtower_info(troop)
         elseif troop:is_settle() then
             local dest = get_ety(troop.target_eid)
             if action == TroopAction.Gather then
                 troop:back()
-                if is_res(dest) then dest.my_troop_id = 0
-                else remove_id(dest.my_troop_id, troop._id) end
+                if is_res(dest) then 
+                    dest.my_troop_id = 0
+                    self:detach_ety( dest )
+                else 
+                    remove_id(dest.my_troop_id, troop._id) 
+                end
                 if dest then troop_mng.gather_stop(troop, dest) end
 
             elseif action == TroopAction.UnionBuild or action== TroopAction.UnionUpgradeBuild or action == TroopAction.UnionFixBuild then
@@ -1025,6 +1047,7 @@ function troop_recall(self, dest_troop_id)
                 troop:back()
                 local camp = get_ety(troop.target_eid)
                 if camp then
+                    self:detach_ety( camp )
                     rem_ety(camp.eid)
                 end
             elseif action == TroopAction.HoldDefense then
@@ -1042,6 +1065,10 @@ function troop_recall(self, dest_troop_id)
                 if get_table_valid_count(troop.arms) == 0  and dest then 
                     if is_lost_temple(camp) then
                         camp:reset_lt()
+                        local citys = self.lt_citys 
+                        if  citys then
+                            citys[ dest.eid ] = nil
+                        end
                     end
                     dest.my_troop_id = nil 
                 end
@@ -1128,7 +1155,7 @@ function troop_cure(self, troop, arms)
             local count_cure = self:get_val("CountCure")
             local count = 0
             for id, num in pairs(self.hurts or {}) do count = count + num end
-            for id, num in pairs(self.cures or {}) do count = count + num end
+            --for id, num in pairs(self.cures or {}) do count = count + num end
             
             local troop_hurt = {}
             local nhurt = 0

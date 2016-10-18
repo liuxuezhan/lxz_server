@@ -10,4 +10,8 @@ prop_cron = {
     [8] = {game="*", boot=nil, min="0", hour="0", day="*", month="*", wday="*", action="reset_kw_mall", arg={}},
     [9] = {game="*", boot=nil, min="30", hour="23", day="*", month="*", wday="*", action="try_open_lt", arg={}},
     [10] = {game="*", boot=nil, min="0", hour="0", day="*", month="*", wday="*", action="try_start_kw", arg={}},
+    [11] = {game="*", boot=nil, min="0", hour="0", day="*", month="*", wday="7", action="send_boss_award", arg={}},
+    [12] = {game="*", boot=nil, min="0", hour="0", day="*", month="*", wday="7", action="send_tw_award", arg={}},
+    [13] = {game="*", boot=nil, min="0", hour="0", day="*", month="*", wday="7", action="send_mc_award", arg={}},
+    [14] = {game="*", boot=nil, min="0", hour="0", day="*", month="*", wday="7", action="send_lt_award", arg={}},
 }

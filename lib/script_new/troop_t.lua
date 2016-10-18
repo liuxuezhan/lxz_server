@@ -152,9 +152,9 @@ function calc_troop_speed(self)
 end
 
 
-function go(self)
+function go(self, speed)
     self.action = self:get_base_action() + 100
-    self:start_march()
+    self:start_march(speed)
 end
 
 function settle(self)
@@ -224,6 +224,7 @@ function home_hurt_tr(self) --伤兵直接回城
         for k, v in pairs(arm.live_soldier or {}) do
              arm.live_soldier[k] = 0
         end
+        arm.heros = {0,0,0,0}
     end
 
     convert_hurt(arms, 0.95)
@@ -374,6 +375,7 @@ function merge(A, B)
         end
     end
     troop_mng.delete_troop(A._id)
+    B:save()
 end
 
 -- here, src, dst is means troop.arms[ Aid ], troop.arms[ Bid ]
@@ -485,7 +487,7 @@ function back_overflow_arm(self, num, hold_tr) --按个人驻守上限遣返
         else
             if (count - left) > 0 then
                 if left > num then
-                    local hold_arm = split_part_arm_and_back(self, pid, arm, (count - left + num))
+                    local hold_arm = split_part_arm_and_back(self, pid, arm, (count - left + num), hold_tr)
                     self.arms[pid] = hold_arm
                     num = 0
                 else
@@ -495,7 +497,7 @@ function back_overflow_arm(self, num, hold_tr) --按个人驻守上限遣返
                 end
             else
                 if count > num then
-                    local hold_arm = split_part_arm_and_back(self, pid, arm, num )
+                    local hold_arm = split_part_arm_and_back(self, pid, arm, num, hold_tr )
                     self.arms[pid] = hold_arm
                     num = 0
                 else
@@ -531,6 +533,7 @@ function split_tr_by_num_and_back(self, num, hold_tr) -- 部队需要遣返的�
     end
 
     if single_tot_back_num <= 0 and num <= 0 then
+        self:try_back_overflow_hero(hold_tr)
         return
     end
 
@@ -541,18 +544,43 @@ function split_tr_by_num_and_back(self, num, hold_tr) -- 部队需要遣返的�
     end
 end
 
-function split_part_arm_and_back(self, pid, arm, num)
+function try_back_overflow_hero(self, hold_tr)
+    for pid, arm in pairs(self.arms or {}) do
+        local back_heros = {}
+        for index, hero in pairs(arm.heros or {}) do
+            if is_own_hero(hold_tr, pid, index) then
+                back_heros[index] = hero
+                arm.heros[index] = nil
+            end
+        end
+        if get_table_valid_count(back_heros) > 0 then
+            local owner = getPlayer(pid)
+            local target = get_ety(self.target_eid)
+            local tr = troop_mng.create_troop(self.action, owner, target)
+            tr:add_arm(pid, {live_soldier = {}, heros = back_heros})
+            tr.curx = self.curx
+            tr.cury = self.cury
+            tr:back()
+        end
+    end
+end
+
+function split_part_arm_and_back(self, pid, arm, num, hold_tr)
 
     local live_soldier = {}
-    local live_heros = {}
+    local live_heros = {0,0,0,0}
     local back_live_soldier = arm.live_soldier or {}
     local index = 0
     for id, count in pairs(arm.live_soldier or {}) do
         index = index + 1
         if count > num then
             live_soldier[id] = count - num
-            live_heros[index] = arm.heros[index]
-            arm.heros[index] = nil
+
+            if not is_own_hero(hold_tr, pid, index) then
+                live_heros[index] = arm.heros[index]
+                arm.heros[index] = nil
+            end
+
             back_live_soldier[id] = num
             num = 0
         else
@@ -567,8 +595,8 @@ function split_part_arm_and_back(self, pid, arm, num)
     back_arm.live_soldier = back_live_soldier
 
     local remain_arm = {}
-    remain_arm.live_soldier = live_soldier
     remain_arm.heros = live_heros
+    remain_arm.live_soldier = live_soldier
     remain_arm.kill_soldier = arm.kill_soldier
     remain_arm.pid = pid
 
@@ -637,7 +665,7 @@ function split_pid(self, pid)
     end
 end
 
-function start_march(self)
+function start_march(self, default_speed)
     local have_eid = false
     if self.eid and self.eid > 0 then
         local ety = get_ety( self.eid )
@@ -648,7 +676,7 @@ function start_march(self)
 
     if not have_eid then self.eid = get_eid_troop() end
 
-    local speed = self:calc_troop_speed()
+    local speed = default_speed or self:calc_troop_speed()
     local dist, zone = calc_distance( self.curx, self.cury, self.dx, self.dy )
     zone = zone or 0
     local use_time = math.ceil( dist / speed + zone / (speed * 0.1) )
@@ -713,6 +741,25 @@ function start_march(self)
 
     self:save()
     self:notify_owner()
+
+    if is_npc_city(owner) then
+        if self.owner_uid == 0 then
+            local union = unionmng.get_union(owner.uid)
+            if union then
+                union.act_mc_tag = gTime
+            end
+        else
+            npc_city.act_tag = gTime
+        end
+    end
+
+    if is_lost_temple(owner) then
+        lost_temple.act_tag = gTime
+    end
+
+    if is_king_city(owner) then
+        king_city.act_tag = gTime
+    end
 
     if (is_npc_city(owner) or is_lost_temple(owner) or is_king_city(owner) or is_monster_city(owner) or is_monster(owner) ) and owner ~= target then
         monster_city.add_leave_troop(owner, self._id)
@@ -1483,6 +1530,20 @@ function is_robot_troop(self)
     for pid, arm in pairs(self.arms or {}) do
         if pid == 0 then
             return true
+        end
+    end
+    return false
+end
+
+function is_own_hero(self, pid, idx)
+    local arms = self.arms or {}
+    local arm = arms[pid]
+    if arm then
+        local heros = arm.heros or {}
+        if heros[idx] then
+            if heros[idx] ~= 0 then
+                return true
+            end
         end
     end
     return false

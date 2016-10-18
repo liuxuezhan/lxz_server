@@ -21,7 +21,9 @@ function handle_network(self, sid, pktype)
         self.gid = sid
         local token = "c67sahejr578aqo3l8912oic9"
         local msg = c_md5(c_md5(gTime..self.acc..token)..APP_SECRET)
-        Rpc:firstPacket(self,gMap,  1, self.pid, msg, gTime, self.acc,token)
+        local i = math.random(4)
+    --    lxz(i,self.pid)
+        Rpc:firstPacket(self,gMap,  i, self.pid, msg, gTime, self.acc,token)
     elseif pktype == 11 then -- connect fail
 
     elseif pktype == 6 then -- close
@@ -47,6 +49,7 @@ function OnError( self,id,code)
 end
 
 function onLogin(self, pid, name )
+    --print("login:",self.acc)
     g_login = (g_login  or 0) + 1
     self.pid = pid
     self.name = name
@@ -76,7 +79,6 @@ function response_empty_pos(self,x,y,pack)
         Rpc:migrate(self,x,y)
     elseif pack.key == "build" then
         Rpc:union_build_setup(self,pack.idx,pack.propid,x,y,pack.name)
-        Rpc:union_get(self,"build",self.uid)
     end
 end
 
@@ -547,16 +549,16 @@ function king(self)
     if self.uid < 10000 then
         union_add(self)
     else
-        --[[
+    --[[
         Rpc:chat(self, 0, "@startkw", 0 )
         Rpc:chat(self, 0, "@peacekw", 0 )
         Rpc:chat(self, 0, "@fightkw", 0 )
+        --]]
         local r = math.random(5)
         if  kings[r].uid ~= self.uid then
-            local  arm = {[1010]=100000,[2010]=100000,[3010]=100000,[4010]=100000,}
+            local  arm = {[1010]=1000,[2010]=1000,[3010]=1000,[4010]=1000,}
             Rpc:siege( self, kings[r].eid, { live_soldier = arm } )
         end
-        --]]
     end
 end
 
@@ -667,7 +669,7 @@ function get_target( self, func,lv )
                         if tnode then
                             for k, v in pairs( tnode ) do
                                 if func( v ) and v.level>lv then 
-                                    table.insert( its, v )
+                                    tnode[k]=nil
                                     return {v}
                                 end
                             end
@@ -677,8 +679,6 @@ function get_target( self, func,lv )
             end
         end
     end
-    print("怪物数量",#its)
-    return its
 end
 
 
@@ -904,22 +904,42 @@ funcAction.login = function(self)
     self._arm = {}
     self._ef = {}
 
---[
+    Rpc:getTime(self)
     Rpc:loadData( self, "pro" )
     Rpc:loadData( self, "build" )
-    Rpc:loadData( self, "troop" )
-    Rpc:loadData( self, "arm" )
     Rpc:loadData( self, "ef" )
-    Rpc:loadData( self, "done" )
-    Rpc:loadData( self, "task" )
+    Rpc:loadData( self, "ef_eid" )
     Rpc:loadData( self, "item" )
-    Rpc:loadData( self, "tech" )
     Rpc:loadData( self, "hero" )
+    Rpc:loadData( self, "troop" )
+    Rpc:loadData( self, "equip" )
+    Rpc:loadData( self, "arm" )
+    Rpc:loadData( self, "task" )
+    Rpc:get_gs_buf( self )
+    Rpc:loadData( self, "watch_tower" )
+    Rpc:chat_account_info_req( self )
+
+    Rpc:union_load( self, "info" )
+    Rpc:union_load( self, "member" )
+    Rpc:union_help_get( self )
+    Rpc:union_load( self, "relation" )
+    Rpc:chat(self,1,"我是机器人",0)
+    Rpc:change_language(self,40)
+    Rpc:union_load( self, "tech" )
+    Rpc:union_load( self, "mars" )
+    Rpc:union_load( self, "buf" )
+    Rpc:mail_load( self, 0 )
+    Rpc:report_load( self, 1 )
+    Rpc:report_load( self, 2 )
+    Rpc:report_load( self, 3 )
+    Rpc:syn_back_code( self, 1 )
+
 
     for _, v in pairs(gm) do
         Rpc:chat(self, 0, v, 0 )
     end
-    --]]
+
+    Rpc:loadData( self, "tech" )
     Rpc:loadData( self, "done" )
     return true
 

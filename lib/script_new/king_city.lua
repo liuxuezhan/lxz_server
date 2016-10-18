@@ -95,7 +95,7 @@ function load_kw_state()
 end
 
 function init_king_citys(have)
-    for k , v in pairs(resmng.prop_world_unit) do
+    for k , v in pairs(resmng.prop_world_unit or {}) do
         if v.Class == CLASS_UNIT.KING_CITY and have[v.ID] == nil then
             local eid = get_eid_king_city()
             local kingCity = init_king_city(v, eid)
@@ -144,7 +144,7 @@ function is_kw_unlock()
     -- 四个堡垒被占领
     local num = 0
     if npc_city.citys then
-        for k, v in pairs(npc_city.citys) do
+        for k, v in pairs(npc_city.citys or {}) do
             local npcCity = get_ety(v) 
             if npcCity.lv == 1 and (npcCity.uid ~= 0 ) then
                 num = num + 1
@@ -170,7 +170,7 @@ function try_unlock_kw()
 end
 
 function set_citys_state(state)
-    for k, v  in pairs(citys) do
+    for k, v  in pairs(citys or {}) do
         local city = get_ety(v)
         if city then
             city.state = state
@@ -182,7 +182,7 @@ end
 
 function kw_notify()
     print("king war notify timer")
-    for k, v in pairs(resmng.prop_kw_notify) do
+    for k, v in pairs(resmng.prop_kw_notify or {}) do
         local time = resmng.prop_kw_stage[state].Spantime * 60
 
         if v.BeforeTime then
@@ -255,6 +255,7 @@ function set_kw_state(newState)
 
     state = newState
     gPendingSave.status["kwState"].state = newState
+    update_act_tag()
 end
 
 function set_kw_timer(newTimerId)
@@ -265,7 +266,7 @@ function set_kw_timer(newTimerId)
 end
 
 function unlock_kw()
-    for k, v in pairs(citys) do
+    for k, v in pairs(citys or {}) do
     end
     set_kw_state(KW_STATE.UNLOCK)
     do_timer()
@@ -293,7 +294,7 @@ function fight_kw()
 end
 
 function clear_kings_debuff()
-    for k, king in pairs(kings) do
+    for k, king in pairs(kings or {}) do
         local uid = king[3]
         local union = unionmng.get_union(uid)
         if union then 
@@ -363,7 +364,7 @@ function add_last_king_debuff()
 end
 
 function clear_city_uid()
-    for k, v in pairs(citys) do
+    for k, v in pairs(citys or {}) do
         local city = get_ety(k)
         city.uid = 0  --初始化所以王城的uid都是0  这样才不会互相误伤
         --city.pid = 0
@@ -399,7 +400,7 @@ function pace_kw()
 end
 
 function do_peace_city()
-    for k, v in pairs(citys) do
+    for k, v in pairs(citys or {}) do
         local city = get_ety(v)
         if city then
             if  resmng.prop_world_unit[city.propid].Lv == CITY_TYPE.FORT then
@@ -420,7 +421,7 @@ function do_peace_city()
 end
 
 function clear_citys_timer()
-    for k, v in pairs(citys) do 
+    for k, v in pairs(citys or {}) do 
         local city = get_ety(k)
         if city then
             clear_timer(city)
@@ -456,7 +457,7 @@ function gen_atk_npc(city)
 
         else
             local arm = {}
-            for _,v in pairs(conf.Arms) do
+            for _,v in pairs(conf.Arms or {}) do
                 arm[v[1]] = v[2]
             end
             tr = troop_mng.create_troop(TroopAction.Npc, city, kingCity, arm)
@@ -467,7 +468,7 @@ function gen_atk_npc(city)
 end
 
 function get_king()
-    for k, v in pairs(citys) do 
+    for k, v in pairs(citys or {}) do 
         local city = get_ety(v)
 
         if city then
@@ -776,7 +777,7 @@ function is_super_boss()
     local num = 0
     local kingCity = get_king()
 
-    for k, v in pairs(citys) do 
+    for k, v in pairs(citys or {}) do 
         local city = get_ety(v)
         if resmng.prop_world_unit[city.propid].Lv == CITY_TYPE.FORT and city.uid ~= kingCity.uid then
             num = num + 1
@@ -804,14 +805,14 @@ function get_my_troop(self)
             else
                 local arm = {}
                 if conf.Arms  then
-                    for _, v in pairs(conf.Arms) do
+                    for _, v in pairs(conf.Arms or {}) do
                         arm[ v[1] ] = v[2]
                     end
                 end
                 tr = troop_mng.create_troop(TroopAction.HoldDefense, self, self, arm)
                 if conf.Arms then
                     local arm = {}
-                    for _, v in pairs(conf.Arms) do
+                    for _, v in pairs(conf.Arms or {}) do
                         arm[ v[1] ] = v[ 2 ]
                     end
                     tr:add_arm(0, {live_soldier = arm,heros = conf.Heros or {0,0,0,0}})
@@ -871,7 +872,7 @@ function deal_troop(atkTroop, defenseTroop)
 end
 
 function deal_other_city(kingCity)
-    for k, v in pairs(citys) do
+    for k, v in pairs(citys or {}) do
         local city = get_ety(k)
         if city then
             if resmng.prop_world_unit[city.propid].Lv == CITY_TYPE.TOWER then
@@ -1061,7 +1062,7 @@ function check_atk_win(atkTroop)
 end
 
 function clear_timer(city)
-    for k, v in pairs(city.timers) do
+    for k, v in pairs(city.timers or {}) do
         timer.del(v)
     end
         city.startTime = nil
@@ -1127,7 +1128,7 @@ function try_set_tower_range(city)
 end
 
 function set_tower_range()
-    for k, v in pairs(citys) do
+    for k, v in pairs(citys or {}) do
         local city = get_ety(v) 
         if city then
             if (get_city_type(city) or 0) == CITY_TYPE.TOWER then
@@ -1308,7 +1309,7 @@ function clear_officer()
             ply.officer = 0
         end
     end
-    for k, v in pairs(officers) do 
+    for k, v in pairs(officers or {}) do 
         local ply = getPlayer(v)
         rem_officer_buff(ply)
         if ply then
@@ -1348,4 +1349,8 @@ function rem_kw_buff(union, tr)
     for k, v in pairs(union.kw_bufs or {}) do
         tr:rem_tr_ef(buffid)
     end
+end
+
+function update_act_tag()
+    act_tag = gTime
 end

@@ -31,6 +31,11 @@ function conn_close(self, sock)
             return
         end
     end
+    local v = self.sckMap[ sock ]
+    if v then
+        self.sckMap[ sock ] = nil
+        conn.toMongo(v.host, v.port, v.dbname, v.tips)
+    end
 end
 
 function getOne(self, policy)

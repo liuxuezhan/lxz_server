@@ -20,9 +20,9 @@ function init()
             local data = info:next()
             skiplist.insert( k, data._id, table.unpack( data.v ) )
         end
-        --load_rank(k)
+        load_rank(k)
     end
-    fill()
+    --fill()
 end
 
 function load_rank( which )
@@ -76,15 +76,19 @@ function add_data( idx, key, data, init )
         gPendingSave[tab][ key ].v = data 
     end
 
-    --print( string.format( "rank, add_data, idx=%d, key=%d, data=%d, rank=%d\n", idx, key, data[1], rank ) )
-    
-    if node.tops and node.infos[ key ] then
-        node.infos[ key ][ 2 ] = data[ 1 ]
-        if rank == 0 then
-            node.time = gTime
-        else
-            node.tops = nil
-        end
+    --if node.tops and node.infos[ key ] then
+    --    node.infos[ key ][ 2 ] = data[ 1 ]
+    --end
+
+    if node.infos and node.infos[ key ] then
+        node.infos[ key ] = nil
+    end
+
+
+    if rank == 0 then
+        node.time = gTime
+    elseif rank <= node.ntop then
+        node.tops = nil
     end
 end
 
@@ -97,9 +101,11 @@ function rem_data( idx, key )
     local tab = string.format( "rank%d", idx )
     gPendingDelete[tab][ key ] = 1
 
-    if node.tops then
-        if node.infos and node.infos[ key ] then node.infos[ key ] = nil end
-        if rank > 0 and rank <= node.ntop then node.tops = nil end
+    if rank then
+        if node.tops then
+            if node.infos and node.infos[ key ] then node.infos[ key ] = nil end
+            if rank > 0 and rank <= node.ntop then node.tops = nil end
+        end
     end
 end
 
@@ -117,13 +123,28 @@ function change_name( idx, key, name )
     end
 end
 
+function change_icon( idx, key, icon )
+    local node = gRanks[ idx ]
+    if node then
+        if node.tops then
+            local i = node.infos[ key ]
+            if i then
+                i[4] = icon
+                node.time = gTime
+            end
+        end
+    end
+end
+
+
+
 function get_rank( idx, key )
     local node = gRanks[ idx ]
     if node then
         if node.tops then
             if node.ranks[ key ] then return node.ranks[ key ] end
         end
-        return skiplist.get_rank( idx, key )
+        return skiplist.get_rank( idx, key ) or 0
     end
     return 0
 end
@@ -131,12 +152,7 @@ end
 function get_range(idx, start, tail)
     local node = gRanks[ idx ]
     if node then
-        local sl = node.sl
-        local count = sl:get_count();
-        if sl then
-            local infos = sl:get_rank_range( start, tail, node.nall )
-            return infos
-        end
+        return skiplist.get_range( idx, start, tail )
     end
 end
 
@@ -150,7 +166,6 @@ rank_function[1] = function( id, score )
         if  pid < 10000 then pause() end
         table.insert( info, ply.name )
         table.insert( info, ply.photo )
-        print( "get_unon, pid = ", pid )
         local u = ply:get_union()
         if u then
             table.insert( info, u.alias )

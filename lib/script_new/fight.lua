@@ -370,9 +370,7 @@ local function _tactics_link(fires, As, Ds, round, report, who)
                     local rate = 1500
                     if bhero.cul == acul then rate = rate + 750 end
                     if bhero.per == aper then rate = rate + 750 end
-                    print( "_tactics_link", amode, mode, rate )
                     if math.random(1, 10000) < rate then
-                        print( "_tactics_link", amode, mode )
                         local A = As.arms[ mode ]
                         local D = Ds.arms[ A.hit ]
                         local k = string.format("TacticsAtk%d_R", mode)
@@ -659,6 +657,7 @@ end
 
 fight.pvp = function(action, A0, D0)
     -- Bu,1; Qi,2; Gong,3; Che 4;
+    c_tick(0)
     local total = 0
     if not D0  then
         A0.win = 1
@@ -681,6 +680,7 @@ fight.pvp = function(action, A0, D0)
     if is_ply( defer ) then
         defer:mark_action( player_t.calc_pow_arm )
         defer:mark_action( player_t.recalc_food_consume )
+        Rpc:be_attacked( defer )
     end
 
     if not propida then
@@ -727,9 +727,6 @@ fight.pvp = function(action, A0, D0)
             for mode, arm in pairs(C.arms) do
                 local pow = 0
                 local hpR = (arm.ef.Hp_R or 0) + (arm.ef[ string.format( "Hp%d_R", mode ) ] or 0) + (arm.ef.Def_R or 0) + (arm.ef[ string.format( "Def%d_R", mode ) ] or 0) 
-                if hpR > 1 then 
-                    print( "hpR", hpR )
-                end
                 for _, obj in pairs(arm.objs) do
                     if obj.num > 0 then
                         obj.pow = obj.num * obj.prop.Pow

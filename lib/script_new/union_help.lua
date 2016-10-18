@@ -35,13 +35,13 @@ function add(p,tm_sn)
     end
 
     if u.help[tm_sn] then
-        INFO("已求助:"..tm_sn)
+        LOG("已求助:"..tm_sn)
         return
     end
 
     local t = timer.get(tm_sn)
     if not t then
-        INFO("没有定时器:"..tm_sn)
+        LOG("没有定时器:"..tm_sn)
         return
     end
 
@@ -62,7 +62,7 @@ function set_one(p,cur)
     if not u.help then return end
     if not u.help[cur] then return end
     if  u.help[cur].log[p.pid] then
-        WARN("已帮助")
+        LOG("已帮助")
         return 
     end
 

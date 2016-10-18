@@ -49,6 +49,7 @@ gNetPt = {
 
 
 function loadMod()
+--  require("frame/debugger")
     require("frame/tools")
 
     dofile("../etc/config.lua")
@@ -85,7 +86,6 @@ function loadMod()
     require("resmng")
     require("task_logic_t")
     require("frame/tools")
-    --require("frame/debugger")
     require("frame/dbmng")
     require("frame/timer")
     require("frame/socket")
@@ -100,7 +100,6 @@ function loadMod()
     do_load("robot/ply")
     do_load("robot/task")
     do_load("robot/union_r")
-    do_load("robot/preload")
     do_load("robot/conf")
 end
 
@@ -423,13 +422,13 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
     end
 
     if gInit == "InitFrameDone" then
-        if gTotalConnect >= g_start and gTotalConnect <= g_over and msec > (g_tm + gTotalTime*60*1000/(g_over-g_start) ) then
-            gTotalConnect = gTotalConnect + 1
+        if (gTotalConnect == g_start) or ( gTotalConnect >= g_start and gTotalConnect <= (g_start + g_num) and msec > (g_tm + gTotalTime*1000/g_num )) then
             g_tm = msec
             local name = gName .. gTotalConnect
             local sid = connect("192.168.100.12", 8001, 0, 0)
             g_robot[ sid ] = Ply.new(name)
             g_robot[ sid ].robot_id = gTotalConnect 
+            gTotalConnect = gTotalConnect + 1
         end
         if fpk == 1 then
             while true do
@@ -475,12 +474,13 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
         end
 
         if gLogin > 0 then
-            local infos = skiplist.get_range( gRid,1, 5 ) 
+            local infos = skiplist.get_range( gRid,1, 10 ) 
             for _, v in pairs( infos or {}  ) do
                 local gid = tonumber( v )
                 local n = g_robot[ gid ]
                 if n then
                     if gTime - n.active > gInterval then
+                        --print("action:",n.acc)
                         Ply.doAction( n ,gPlan)
                         Ply.pending( n )
                     else

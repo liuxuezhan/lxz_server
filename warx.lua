@@ -8,8 +8,6 @@ local socket_id	-- listen socket
 local client_number = 0
 
 
-local server_name = "warx" 
-local conf =_list[server_name] 
 
 
 local function read(fd)
@@ -23,12 +21,12 @@ end
 
 function dispatch_msg(fd, name,msg)--分发消息，不返回
     local msg_id,msg = table.unpack(msg)
-    skynet.send(conf.room, "lua", fd,name,msg_id,msg)
+    skynet.send(g_warx.room, "lua", fd,name,msg_id,msg)
 end
 
 
 function open_fd(fd)
-    if client_number >= conf.maxclient then
+    if client_number >= g_warx.maxclient then
         return
     end
     client_number = client_number + 1
@@ -106,12 +104,11 @@ skynet.start(function()
  --   skynet.newservice("debug_console",80000)
  
     require "debugger"
-    skynet.newservice("mongo_t",conf.db_name)--数据库写中心
+    skynet.newservice("mongo_t",g_warx.db_name)--数据库写中心
     save_db()
     warx_init()
 
-    lxz(conf)
-    socket_id = socket.listen(conf.host, conf.port)
+    socket_id = socket.listen(g_warx.host, g_warx.port)
     socket.start ( socket_id , function(fd, addr)
         open_fd(fd)	-- may raise error here
         lxz(string.format("connect from %s (fd = %d)", addr, fd))

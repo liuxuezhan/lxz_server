@@ -6,10 +6,11 @@ function toGate(host, port)
             self.state = 0
             LOG("connect Gate %s:%d be close", self.host, self.port)
             timer.new("toGate", 2, self.host, self.port)
+            gConns[ self.sid ] = nil
         end,
 
         onConnectOk = function (self)
-            print( "connect gate, ok" )
+            WARN( "connecting to Gate, done")
             self.state = 1
             pushHead(self.sid, 0, gNetPt.NET_SET_MAP_ID)
             pushInt(gMapID)
@@ -22,6 +23,7 @@ function toGate(host, port)
         onConnectFail = function (self) 
             LOG("connect Gate %s:%d fail", self.host, self.port)
             timer.new("toGate", 5, self.host, self.port, self.sid)
+            gConns[ self.sid ] = nil
         end,
     }
     mt.__index = mt
@@ -39,6 +41,7 @@ function toMongo(host, port, db, tips)
             self.state = 0
             LOG("connect Mongo %s:%d be close", self.host, self.port)
             dbmng:conn_close(self.sid)
+            gConns[ self.sid ] = nil
         end,
 
         onConnectOk = function (self)
@@ -51,6 +54,7 @@ function toMongo(host, port, db, tips)
         onConnectFail = function (self) 
             LOG("connect Mongo  %s:%d fail", self.host, self.port)
             timer.new("toMongo", 5, self.host, self.port, self.db, self.tips)
+            gConns[ self.sid ] = nil
         end,
     }
     mt.__index = mt

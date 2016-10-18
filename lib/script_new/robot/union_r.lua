@@ -26,17 +26,6 @@ function union_get(self,pack)
             u.build = pack.val.build 
         end
 
-        for k, v in pairs( u.build ) do
-            Rpc:get_eye_info(self,v.eid)
-            if v.state == BUILD_STATE.CREATE  then
-                local  arm = {[1010]=100000,[2010]=100000,[3010]=100000,[4010]=100000,}
-                Rpc:union_build(self, v.eid, {live_soldier=arm} )
-            end
-        end
-
-        union_gather(self)
-        union_restore(self)
-        --lxz(u.uid,u.build)
     elseif pack.key == "mall" then
     elseif pack.key == "item" then
     elseif pack.key == "word" then
@@ -57,9 +46,33 @@ function union_on_create(self,pack)
     Rpc:union_list(self,"")
 end
 
-function union_broadcast(self,what,mode,pack)
-    if self.uid then
-        Rpc:union_get(self,what,self.uid)
+function union_broadcast(self,key,mode,data)
+    local us = get_union(self,self.uid)
+    if not us then return end
+
+    if "member" == key then         
+        if not us.member then
+            us.member = {}
+        end
+        if UNION_MODE.ADD == mode then          
+            if data.pid == self.pid then 
+                Rpc:union_load(self,"info")
+                Rpc:union_load(self,"member")    ---新加入军团，立即load最新的盟友数据
+                Rpc:union_help_get(self)        ---新加入的军团，load他们的求助列表
+                Rpc:union_load(self,"relation")  ---新加入军团，load外交关系
+            else        
+                us.member[data.pid] = data             
+            end             
+        elseif UNION_MODE.DELETE == mode then           
+            us.member[data.pid] = nil
+        else
+            us.member[data.pid] = data             
+        end
+    else     
+        --lxz(key,self.uid)
+        if self.uid then 
+        Rpc:union_get(self,key,self.uid)
+        end
     end
 end
 
@@ -85,9 +98,10 @@ function union_list(self,pack)
    -- lxz(pack)
     _union={}  
     for k, v in pairs( pack.list ) do
-        _union[v.uid] = v
-        Rpc:union_get(self,"info",v.uid)
-        Rpc:union_get(self,"ply",v.uid)
+        local t = rpchelper.decode_rpc(v,"union")
+        _union[t.uid] = t
+        --[[
+        Rpc:union_get(self,"info",v.uid) Rpc:union_get(self,"ply",v.uid)
         Rpc:union_get(self,"member",v.uid)
         Rpc:union_get(self,"apply",v.uid)
         Rpc:union_get(self,"mass",v.uid)
@@ -104,13 +118,15 @@ function union_list(self,pack)
         Rpc:union_get(self,"union_donate",v.uid)
         Rpc:union_get(self,"ef",v.uid)
         Rpc:union_help_get(self)
+        --]]
     end
 end
 
 function union_plan(self,ps)
-    union_add(self)
     for k, v in pairs( ps or {} ) do
-        if k=="rank" then
+        if k=="add" then
+            union_add(self)
+        elseif k=="rank" then
             union_rank(self,v)
         elseif k=="help" then
             union_help(self,HELP_TYPE.CONSTRUCT)
@@ -135,38 +151,34 @@ function union_add(self)
  --   if self.robot_id > 1000 then lxz(self.uid,self.robot_id) end
     if not self.uid then return end
     if self.uid < 10000 then 
+        Rpc:union_quit(self)
         if self.robot_id % g_membercount == 1 then
-            Rpc:union_quit(self)
             local name  = tostring(math.random(100,999) )
             Rpc:union_create(self,gName..name,name,40,1000)
-            Rpc:union_list(self,"")
         else 
+            Rpc:union_list(self,"")
             for k, v in pairs( _union or {} ) do
-                --lxz(v.name,gName,v.membercount)
-                if string.find(v.name,gName) and v.membercount < g_membercount  then
-                    Rpc:union_quit(self)
+                if v.name and string.find(v.name,gName) and v.membercount < g_membercount  then
                     Rpc:union_apply(self,v.uid)
                     self.uid = v.uid
                     local leader = _ply[v.leader]
                     if leader then
                         --Rpc:request_empty_pos(self,leader.x,leader.y,2,{key="move"})
                     end
-                    Rpc:union_list(self,"")
                     return
                 end
             end
-            Rpc:union_list(self,"")
         end
+    else
+        union_rank(self,resmng.UNION_RANK_4)
     end
 end
 
 function union_rank(self,r)
+    --Rpc:union_get(self,"member",self.uid)
     local u = get_union(self,self.uid) 
-    if not u  then
-        lxz()
-        return
-    end
-    if u.leader == self.name then
+    if not u  then return end
+    if u.leader==self.name then
         for _, v in pairs( u.member or {} ) do
             Rpc:union_member_rank(self, v.pid, r)
         end
@@ -221,18 +233,25 @@ function union_donate(self)
 end
 
 function union_build(self,propid)
+
     local u = get_union(self,self.uid) 
     if not u then return end
+    if u.leader~=self.name then return end
     local obj 
     if u.build and next(u.build) then
-        for _, v in pairs( u.build or {} ) do
-            local c = resmng.prop_world_unit[v.propid]
-            if v.propid == propid then
-                return 
+        for k, v in pairs( u.build  or {} ) do
+            if v.state == BUILD_STATE.CREATE  then
+                local  arm = {[1010]=1000,[2010]=1000,[3010]=1000,[4010]=1000,}
+                Rpc:union_build(self, v.eid, {live_soldier=arm} )
             end
-            if (c.Mode == resmng.CLASS_UNION_BUILD_CASTLE or c.Mode == resmng.CLASS_UNION_BUILD_MINI_CASTLE) and v.state == BUILD_STATE.WAIT  then
+
+            local c = resmng.prop_world_unit[v.propid]
+            if (c.Mode == resmng.CLASS_UNION_BUILD_CASTLE or c.Mode == resmng.CLASS_UNION_BUILD_MINI_CASTLE) then
                 obj = v
-                break
+            end
+
+            if v.propid == propid then
+                return
             end
         end
     end
@@ -242,6 +261,7 @@ function union_build(self,propid)
     else
         Rpc:request_empty_pos(self,self.x,self.y,2,{key="build",propid =10001001,idx=0,name="test" })
     end
+    Rpc:union_get(self,"build",self.uid)
 
 end
 
@@ -339,22 +359,23 @@ function union_fight(self,fun)
     local  arm = {[1010]=1000,[2010]=1000,[3010]=1000,[4010]=1000,}
     local u = get_union(self,self.uid) 
     if not u then return end
-    for _, v in pairs( u.room or {} ) do
-        if v.is_mass == 1 then
-            Rpc:union_mass_join(self,v.ack.eid, v.ack.troop_id, { live_soldier = arm } )
-            Rpc:union_battle_room_list(self)
-            return
+    if next(u.room or {} )  then
+        for _, v in pairs( u.room ) do
+            if v.is_mass == 1 then
+                Rpc:union_mass_join(self,v.ack.eid, v.ack.troop_id, { live_soldier = arm } )
+                return
+            end
         end
+    else
+        Rpc:union_battle_room_list(self)
     end
 
     local l = get_target( self, fun )
-    if not next(l) then return end
-
-    local v = l[ math.random( 1, #l ) ] 
-    Rpc:union_mass_create(self,v.eid, MassTime.Level1, { live_soldier = arm } )
---    lxz(self.acc,u.name)
-    Rpc:union_battle_room_list(self)
-    return
+    if l  then
+        local v = l[ 1 ] 
+        Rpc:union_mass_create(self,v.eid, MassTime.Level1, { live_soldier = arm } )
+        return
+    end
 end
 
 function union_battle_room_list_resp(self,pack)

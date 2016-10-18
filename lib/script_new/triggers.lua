@@ -46,6 +46,7 @@ function arrived_target(x, y, actor_eid, parm1, parm2, parm3, parm4, parm5)
                 end
             end
         end
+
         rem_ety_troop(troop)
 
         if x == troop.dx and y == troop.dy then
@@ -63,6 +64,25 @@ end
 function rem_ety_troop(troop)  -- 删除建筑上，出发和目标部队ID
     local owner = get_ety(troop.owner_eid)
     local target = get_ety(troop.target_eid)
+
+    if is_npc_city(target) then
+        if troop.owner_uid == 0 then
+            local union = unionmng.get_union(target.uid)
+            if union then
+                union.act_mc_tag = gTime
+            end
+        else
+            npc_city.act_tag = gTime
+        end
+    end
+
+    if is_lost_temple(target) then
+        lost_temple.act_tag = gTime
+    end
+
+    if is_king_city(target) then
+        king_city.act_tag = gTime
+    end
 
     if is_npc_city(owner) or is_lost_temple(owner) or is_king_city(owner) or is_monster_city(owner) or is_monster(owner) then
         monster_city.rem_leave_troop(owner, troop._id)

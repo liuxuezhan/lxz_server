@@ -27,7 +27,9 @@ end
 
 
 function stateHero(self,pack)
-    lxz(pack)
+    if  not  self._hero then  
+        self._hero={}
+    end
     self._hero[pack.idx] = pack
 end
 
@@ -48,7 +50,9 @@ function main_task(self )
         if v.task_id < 130020101 and  v.task_id > 130000101 then
             if v.task_status == TASK_STATUS.TASK_STATUS_ACCEPTED then
                 local c = resmng.prop_task_detail[v.task_id]
-                local res = task(self, v, unpack(c.FinishCondition))
+                if c then
+                    local res = task(self, v, unpack(c.FinishCondition))
+                end
             elseif (v.task_status == TASK_STATUS.TASK_STATUS_CAN_FINISH) then
                 --lxz(v)
                 Rpc:finish_task(self,v.task_id)

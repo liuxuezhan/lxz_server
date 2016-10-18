@@ -132,7 +132,6 @@ local function parseRpc( rpc, packet, rfid)
             error("paresRpc failed, wrong args") 
         end
 	end
-
     return rf.name, args
 end 
 
@@ -140,7 +139,6 @@ end
 
 local function parseFunction( funcimpl )
    	local rf = { args = {} }
-	--for t,n in string.gfind(funcimpl,"(%w+)%s+(%w+)") do
 	for t,n in string.gmatch(funcimpl,"(%w+)%s+(%w+)") do
         table.insert(rf.args, {t=t, n=n})
 	end

@@ -178,7 +178,6 @@ end
 
 -- 建造
 function construct(self, x, y, build_propid)
-    print(build_propid)
     if not x or not y or not build_propid then
         ERROR("construct: arguments error. x = %d, y = %d, build_propid = %d", x or -1, y or -1, build_propid or -1)
         ack(self, "construct", resmng.E_FAIL)
@@ -325,6 +324,10 @@ function do_upgrade(self, build_idx)
                                 if bs[ idx_new ] == nil then
                                     local build_new = build_t.create(idx_new, self.pid, build_id, 0, 0, BUILD_STATE.CREATE)
                                     bs[ idx_new ] = build_new
+                                    if build_id == 21001 then
+                                        --self:open_online_award()
+                                        build_new.extra.next_time = self:get_online_award_next_time()
+                                    end
                                     build_new.tmSn = 0
                                     self:doTimerBuild( 0, idx_new )
                                 end
@@ -350,6 +353,10 @@ function do_upgrade(self, build_idx)
             end
 
             new_union.update(self)
+            if build_idx == 1 then
+                Tlog("PlayerExpFlow",gTime,gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
+                openid,p.pid,p.name,0,0,0, 0,node.Lv-1,0,"")
+            end
             --任务
             task_logic_t.process_task(self, TASK_ACTION.CITY_BUILD_LEVEL_UP)
             task_logic_t.process_task(self, TASK_ACTION.CITY_BUILD_MUB, 1)
@@ -359,7 +366,6 @@ function do_upgrade(self, build_idx)
                 self.pow_build = self.pow_build + dst.Pow - ( node.Pow or 0 )
                 self:inc_pow(dst.Pow-node.Pow) 
             end
-
             return true
         end
     end
@@ -824,12 +830,11 @@ function train(self, idx, armid, num, quick)
 
         build.state = BUILD_STATE.WORK
         build.tmStart = gTime
-        build.tmOver = gTime + dura
         build.extra = { count = dura }
         build:recalc()
         build:set_extras({id=armid, num=num})
         reply_ok( self, "train", 0 )
-        build.tmSn = timer.new( "build", dura, self.pid, idx )
+        build.tmSn = timer.new( "build", build.tmOver-gTime, self.pid, idx )
 
     elseif quick == 1 then
         local cons = {}
@@ -948,6 +953,8 @@ end
 
 -- 研究科技
 function learn_tech(self, build_idx, tech_id, is_quick)
+    print( "learn_tech", self.pid, build_idx, tech_id, is_quick )
+
     local build = self:get_build(build_idx)
     if not build or build.state ~= BUILD_STATE.WAIT then
         ERROR("learn_tech: pid = %d, build_idx = %d, build.state(%d) ~= BUILD_STATE.WAIT", self.pid, build_idx or -1, build and build.state or -1)
@@ -972,6 +979,7 @@ function learn_tech(self, build_idx, tech_id, is_quick)
     end
 
     -- check repeat.
+    local lv = tech_conf.Lv
     for k, v in pairs(self.tech) do
         local t = resmng.get_conf("prop_tech", v)
         if not t then
@@ -979,10 +987,13 @@ function learn_tech(self, build_idx, tech_id, is_quick)
             return
         end
 
-        if t.Class == tech_conf.Class and t.Mode == tech_conf.Mode and t.Lv >= tech_conf.Lv then
-            ERROR("learn_tech: pid = %d, tech_id = %d, already have tech %d.", self.pid, tech_id, v)
-            return
+        if t.Class == tech_conf.Class and t.Mode == tech_conf.Mode then
+            if t.Lv >= lv then return end
         end
+    end
+
+    if lv > 1 then
+        if not is_in_table( self.tech, tech_id - 1 ) then return end
     end
 
     -- check & consume
@@ -1187,7 +1198,7 @@ function watchtower_get_attacked_info(self, msg_send, all_info)
             cur_watchtower_lv = prop_tab.Lv
         end
     end
-    --cur_watchtower_lv = 30
+    --cur_watchtower_lv = 29
     for i = 0, cur_watchtower_lv, 1 do
         if watchtower_attacked[i] ~= nil then
             watchtower_attacked[i](msg_send, all_info)
@@ -1199,6 +1210,7 @@ end
 watchtower_attacked[1] = function(msg, src) 
     msg.data_id = src.data_id
     msg.owner_pid = src.owner_pid
+    msg.owner_propid = src.owner_propid
     msg.owner_photo = src.owner_photo
     msg.owner_name = src.owner_name
     msg.owner_castle = src.owner_castle or nil
@@ -1232,7 +1244,7 @@ watchtower_attacked[13] = function(msg, src)
     msg.arms = copyTab(src.arms)
 end
 
-watchtower_attacked[14] = function(msg, src)
+watchtower_attacked[15] = function(msg, src)
     msg.genius = copyTab(src.genius)
 end
 
@@ -1271,7 +1283,7 @@ function get_watchtower_info(troop, dest_load)
     ack_info.owner_pid = ack.pid or 0
     ack_info.owner_photo = ack.photo or 0
     ack_info.owner_name = ack.name or ""
-    ack_info.owner_propid = 0
+    ack_info.owner_propid = ack.propid
     ack_info.owner_pos = {}
     ack_info.owner_pos[1] = troop.sx
     ack_info.owner_pos[2] = troop.sy
@@ -1283,6 +1295,9 @@ function get_watchtower_info(troop, dest_load)
     ack_info.load = dest_load
 
     ack_info.target = {}
+    if is_ply(def) then
+        ack_info.target.is_castle = 1
+    end
     ack_info.target.prop_id = def.propid
     ack_info.target.pos = {}
     ack_info.target.pos[1] = troop.dx
@@ -1293,7 +1308,7 @@ function get_watchtower_info(troop, dest_load)
     end
 
     ack_info.arrived_time = {troop.tmStart, troop.tmOver}
-    ack_info.action = troop.action
+    ack_info.action = troop:get_base_action()
 
     local owner_arms = troop:get_arm_by_pid(ack_info.owner_pid)
     if not owner_arms then
@@ -1320,21 +1335,21 @@ function get_watchtower_info(troop, dest_load)
     end
 
     ack_info.arms = {}
-    ack_info.arms[1] = 0
-    ack_info.arms[2] = 0
-    ack_info.arms[3] = 0
-    ack_info.arms[4] = 0
-
+    ack_info.arms_num = 0
+   
     for k, v in pairs(troop.arms or {}) do
         for i, j in pairs(v.live_soldier or {}) do
-            local class = math.floor(i / 1000)
-            ack_info.arms[class] = ack_info.arms[class] + j
+            if ack_info.arms[i] == nil then
+                ack_info.arms[i] = 0
+            end
+            ack_info.arms[i] = ack_info.arms[i] + j
+            ack_info.arms_num = ack_info.arms_num + j
         end
     end
-    ack_info.arms_num = 0
-    for i = 1, 4 do
-        ack_info.arms_num = ack_info.arms_num + ack_info.arms[i]
+    if ack_info.action == TroopAction.SupportArm then
+        ack_info.load = ack_info.arms_num
     end
+
 
     if is_ply(ack) then
         ack_info.genius = {}
@@ -1373,11 +1388,7 @@ function get_watchtower_info(troop, dest_load)
 end
 
 function fill_watchtower_info(self, troop)
-    if troop == nil then
-        return
-    end
-
-    if troop:is_back() == true then
+    if troop == nil or troop:is_back() == true then
         return
     end
 
@@ -1385,12 +1396,13 @@ function fill_watchtower_info(self, troop)
     if WatchTowerAction[base_action] == nil then
         return
     end
+
     local dest_load = nil
     if base_action == TroopAction.SupportRes then --如果是物资援助，要把负重算出来
         dest_load = 0
         for k, v in pairs(troop.goods or {}) do
-            if v > 0 then
-                --dest_load = dest_load + math.floor(v * ratio * RES_RATE[k])
+            if v[3] > 0 then
+                dest_load = dest_load + math.floor(v[3] * RES_RATE[k])
             end
         end
     end
@@ -1401,12 +1413,7 @@ end
 function packet_watchtower_info(self)
     for k, v in pairs(self.troop_comings or {}) do
         local troop = troop_mng.get_troop(k)
-        if troop and not troop:is_back() then
-            local base_action = troop:get_base_action() 
-            if WatchTowerAction[base_action] then
-                player_t.get_watchtower_info(troop)
-            end
-        end
+        self:fill_watchtower_info(troop)
     end
 end
 
@@ -1425,25 +1432,35 @@ function rm_watchtower_info(troop)
 end
 
 function update_watchtower_speed(troop)
-    local action = troop.action - 100
-    if action ~= TroopAction.Gather
-        and action ~= TroopAction.SiegePlayer
-        and action ~= TroopAction.SupportArm
-        and action ~= TroopAction.SupportRes
-    then
-        return
-    end
-    local ply = nil
-    ply = getPlayer(troop.target_pid)
-    if ply == nil then
-        local ety = get_ety(troop.target_eid)
-        ply = getPlayer(ety.pid)
-    end
-    if ply == nil then
-        return
-    end
+    local action = troop:get_base_action()
 
-    --Rpc:add_compensation_info(ply, troop._id, troop.tmOver)
+    if WatchTowerAction[action] then
+        local ply = get_ety(troop.target_eid)
+        local recv_ply = nil
+        if is_ply(ply) then
+            recv_ply = ply
+        else
+            local tmp_ply = getPlayer(ply.pid)
+            if tmp_ply ~= nil then
+                recv_ply = tmp_ply
+            end
+        end
+
+        if recv_ply then
+            local b = recv_ply:get_watchtower()
+            local cur_watchtower_lv = 1
+            if b ~= nil then
+                local prop_tab = resmng.prop_build[b.propid]
+                if prop_tab ~= nil then
+                    cur_watchtower_lv = prop_tab.Lv
+                end
+            end
+            --cur_watchtower_lv = 29
+            if cur_watchtower_lv >= 5 then
+                Rpc:update_compensation_info(recv_ply, troop._id, troop.tmOver)
+            end
+        end
+    end
 end
 
 function get_store_house(self)

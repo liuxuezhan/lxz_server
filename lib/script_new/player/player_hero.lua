@@ -29,7 +29,7 @@ function make_hero(self, propid)
 
     for idx = 1, 100, 1 do
         if not hs[idx] then
-            local h = hero_t.new(idx, self.pid, propid)
+            local h = hero_t.create_hero(idx, self.pid, propid)
             if h then
                 self._hero[ idx ] = h
                 --任务
@@ -450,7 +450,7 @@ function real_kill_hero(self, hero_id, new_buff_id, buff_time)
     altar:clr_extras(chg)
 
     -- new timer destroy hero.
-    timer.new("destroy_dead_hero", RELIVE_HERO_DAYS_LIMIT * 24 * 60 * 60, hero_id)
+    timer.new("destroy_dead_hero", RELIVE_HERO_DAYS_LIMIT * 24 * 60 * 60, self.pid, hero_id)
 end
 
 

@@ -39,10 +39,11 @@ end
 
 --boss reset at AM 0
 function on_day_pass()
-
     local last_tick = _G.gSysStatus.pass_day_tick or 0
     if get_diff_days(gTime, last_tick) > 0 then
-        monster.on_day_pass()
+        monster.on_day_pass()  --- boss reset
+        npc_city.on_day_pass() --- npc score
+
         INFO( "on_day_pass, system" )
         player_t.refresh_global_black_market()
 
@@ -64,6 +65,27 @@ end
 
 function try_start_kw()
     king_city.try_unlock_kw()
+end
+
+function send_boss_award()
+    monster.send_score_award()
+    rank_mng.clear(11)
+end
+
+function send_tw_award()
+    npc_city.send_score_award()
+    rank_mng.clear(12)
+    rank_mng.clear(13)
+end
+
+function send_mc_award()
+    --monster_city.send_mc_award()
+end
+
+function send_lt_award()
+    lost_temple.send_score_award()
+    rank_mng.clear(9)
+    rank_mng.clear(10)
 end
 
 

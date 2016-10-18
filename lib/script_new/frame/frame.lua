@@ -216,29 +216,56 @@ function do_threadPK()
             if gateid then
                 break
             else
-                local dels = {}
-                for pid, as in pairs(gActionQue) do
+                --local dels = {}
+                --for pid, as in pairs(gActionQue) do
+                --    local tmMark = gActionCur[ pid ]
+                --    if not tmMark or gTime - tmMark > 2 then -- maybe something wrong, so leave the gActionCur unclear
+                --        if #as == 0 then
+                --            table.insert(dels, pid)
+                --        else
+                --            while #as > 0 do
+                --                local v = table.remove(as, 1)
+                --                gActionCur[ pid ] = gTime
+                --                LOG("%d, RpcR, pid=%d, func=%s, delay do", gFrame, pid, v[1])
+                --                LOG("RpcR, pid=%d, func=%s", pid, v[1])
+                --                local p = getPlayer(pid)
+                --                if p then player_t[ v[1] ](p, unpack(v[2]) ) end
+                --                gActionCur[ pid ] = nil
+                --            end
+                --            table.insert(dels, pid)
+                --        end
+                --    end
+                --end
+
+                --for k, v in pairs(dels) do
+                --    gActionQue[ v ] = nil
+                --end
+
+                local nframe = gFrame
+                local pid = nil
+                local as = nil
+                while true do
+                    pid, as = next( gActionQue, pid )
+                    if not pid then break end
+
                     local tmMark = gActionCur[ pid ]
                     if not tmMark or gTime - tmMark > 2 then -- maybe something wrong, so leave the gActionCur unclear
                         if #as == 0 then
-                            table.insert(dels, pid)
+                            gActionQue[ pid ] = nil
                         else
                             while #as > 0 do
                                 local v = table.remove(as, 1)
                                 gActionCur[ pid ] = gTime
-                                LOG("%d, RpcR, pid=%d, func=%s, delay do", gFrame, pid, v[1])
                                 LOG("RpcR, pid=%d, func=%s", pid, v[1])
                                 local p = getPlayer(pid)
                                 if p then player_t[ v[1] ](p, unpack(v[2]) ) end
                                 gActionCur[ pid ] = nil
                             end
-                            table.insert(dels, pid)
+                            if gFrame ~= nframe then pid = nil end
                         end
                     end
                 end
-                for k, v in pairs(dels) do
-                    gActionQue[ v ] = nil
-                end
+
                 putCoroPool("pk")
             end
         end
@@ -301,7 +328,7 @@ function remote_func(map_id, func, param)
 end
 
 function remote_cast(map_id, func, param)
-    local id = getSn("qryCross")
+    local id = 0 --getSn("qryCross")
     print("debug remote call", map_id, func, param)
     Rpc:callAgent(map_id, "agent_syn_call", id, func, param)
 end
@@ -309,7 +336,7 @@ end
 function threadAction()
     if _ENV then
         xpcall(do_threadAction, function(e)
-            WARN("[ERROR]%s", e)
+            ERROR("[ERROR]%s", e)
             print(c_get_top())
         end)
     else
@@ -319,7 +346,7 @@ end
 
 function threadTimer()
     if _ENV then
-        xpcall(do_threadTimer, function(e) WARN("[ERROR]%s", e) end)
+        xpcall(do_threadTimer, function(e) ERROR("[ERROR]%s", e) end)
     else
         do_threadTimer()
     end
@@ -327,7 +354,7 @@ end
 
 function threadRoi()
     if _ENV then
-        xpcall(do_threadRoi, function(e) WARN("[ERROR]%s", e) end)
+        xpcall(do_threadRoi, function(e) ERROR("[ERROR]%s", e) end)
     else
         do_threadRoi()
     end
@@ -335,7 +362,7 @@ end
 
 function threadPk()
     if _ENV then
-        xpcall(do_threadPK, function(e) WARN("[ERROR]%s", e) end)
+        xpcall(do_threadPK, function(e) ERROR("[ERROR]%s", e) end)
     else
         do_threadPK()
     end
@@ -408,6 +435,10 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
         elseif gInit == "InitCompensate" then
             local real = os.time()
             if gCompensation < real then
+                local offset = real - gCompensation
+                if offset % 3600 == 0 then
+                    print( "Compensate, offset =", offset )
+                end
                 gCompensation = gCompensation + 1
                 c_time_step(gCompensation)
                 --WARN("Compensation, real=%d, now=%d, diff=%d", real, gCompensation, real - gCompensation)
@@ -419,6 +450,7 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
             end
 
         elseif gInit == "InitGameDone" then
+            WARN( "connecting to Gate, %s:%d", config.GateHost, config.GatePort )
             conn.toGate(config.GateHost, config.GatePort)
             crontab.initBoot()
             clean_replay() --清理战斗录像
@@ -539,7 +571,7 @@ function global_save()
                         chgs._id = id
                         db[ tab ]:update({_id=id}, {["$set"] = chgs }, true)
                         chgs._id = oid
-                        print( "[DB], update", tab, id, "global" )
+                        print( "[DB], update", tab, id,  "global" )
 
                     else
                         if chgs._a_ == 0 then
@@ -812,7 +844,7 @@ end
 
 function putCoroPool(what)
     local co = coroutine.running()
-    local pool = gCoroPool
+    local pool = gCoroPool[ what ]
     if #pool < 10 then table.insert(gCoroPool[ what ], co) end
     coroutine.yield("ok")
 end
@@ -906,7 +938,7 @@ function getId(what)
         local idx = getAutoInc(what)
         t.at=idx
         t.wait = 0
-        db = dbmng:getOne()
+        local db = dbmng:getOne()
         db.uniq:insert(t)
     end
 
