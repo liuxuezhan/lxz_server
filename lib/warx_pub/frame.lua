@@ -49,7 +49,7 @@ gNetPt = {
 gDbNum = 1
 
 function loadMod()
-    require("warx_pub/tools")
+    require("frame/tools")
 
     require("frame/socket")
 
@@ -452,6 +452,7 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
             gInit = "InitConnectGate"
 
         elseif gInit == "InitConnectGate" then
+            GateSid = 1 
             if GateSid then
                 thanks()
                 gInit = nil
@@ -841,6 +842,9 @@ function addPendSave(tab, id, key, val)
 end
 
 function getPlayer(pid)
+    if type(pid) ~= "number" then
+        pid = tonumber(pid)
+    end
     if pid then
         if pid >= 10000 then
             return gPlys[ pid ]

@@ -1,3 +1,5 @@
+-----------------------------------warx项目专用----------------------------------------------
+-- 原warx 的socket由c语言引擎统一队列处理 ，移植后由lua分发处理
 json = require "json"
 
 _list={
@@ -11,8 +13,8 @@ _list={
     warx = {   host = "192.168.103.225", port = 8888, maxclient=3000, room ="room1", db_name = "db_server1" }, 
 }
 
---g_warx = {   host = "192.168.103.225", port = 8888, maxclient=3000, room ="room1", db_name = "db_server1" } 
-g_warx = {   host = "10.0.2.15", port = 8888, maxclient=3000, room ="room1", db_name = "db_server1" } 
+--g_warx_t= {   host = "192.168.103.225", port = 8888, maxclient=3000, room ="room1", db_name = "db_server1" } 
+g_warx_t = {   host = "10.0.2.15", port = 8888, maxclient=3000, room ="room1", db_name = "db_server1" } 
 
 --数据库
 g_db = {
@@ -163,7 +165,6 @@ end
         setmetatable(_ENV[mname], {__index = _ENV})
         setfenv(2, _ENV[mname])
     end
------------------------------------warx项目专用----------------------------------------------
 
 function c_tlog_start(...)
 end
@@ -200,11 +201,19 @@ end
 function c_roi_view_start(...)
 end
 
+function   addTimer(...)
+end
+
 skiplist = {
 
  new = function (...) end,
+ insert = function (...) end,
  get_range_with_score = function (...) end,
 
+ }
+
+cmsgpack = {
+ pack = function (v) return v end,
  }
 
  function getMap(...)
