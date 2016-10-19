@@ -51,7 +51,7 @@ gDbNum = 1
 function loadMod()
     require("frame/tools")
 
-    require("frame/socket")
+--  require("frame/socket")
 
     if config.NO_DB then
         require("nodb/_conn")
@@ -71,7 +71,7 @@ function loadMod()
     require("frame/class")
 
     doLoadMod("packet", "warx_pub/rpc/packet")
-    doLoadMod("MsgPack", "warx_pub/MessagePack")
+    doLoadMod("MsgPack", "frame/MessagePack")
     doLoadMod("Array", "warx_pub/rpc/array")
 
     doLoadMod("Struct", "warx_pub/rpc/struct")
