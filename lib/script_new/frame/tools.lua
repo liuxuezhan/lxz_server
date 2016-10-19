@@ -61,35 +61,16 @@ end
 function WARN(fmt, ...)
     local s = string.format(fmt, ...)
     lwarn(s)
-
-    --local flag, info = pcall(string.format, fmt, ...)
-    --if flag then
-    --    lwarn(info)
-    --else
-    --    local co = coroutine.running()
-    --    if co then gCoroBad[ co ] = 1 end
-    --    --local s = debug.traceback()
-    --    local s = debug.stack()
-    --    lwarn(s)
-    --    error(s)
-    --end
 end
 
 function ERROR(fmt, ...)
     local s = string.format(fmt, ...)
     lwarn(s)
-    local s = debug.traceback()
-    lwarn(s)
 
-
-    --local flag, info = pcall(string.format, fmt, ...)
-    --if flag then
-    --    lwarn(info)
-    --else
-    --    local s = debug.traceback()
-    --    lwarn(s)
-    --    error(s)
-    --end
+    local stacks = debug.traceback()
+    for s in string.gmatch( stacks, "[^%c]+" ) do
+        lwarn(s)
+    end
 end
 
 

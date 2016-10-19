@@ -333,11 +333,11 @@ function remote_cast(map_id, func, param)
     Rpc:callAgent(map_id, "agent_syn_call", id, func, param)
 end
 
+
 function threadAction()
     if _ENV then
         xpcall(do_threadAction, function(e)
             ERROR("[ERROR]%s", e)
-            print(c_get_top())
         end)
     else
         do_threadAction()
@@ -346,7 +346,9 @@ end
 
 function threadTimer()
     if _ENV then
-        xpcall(do_threadTimer, function(e) ERROR("[ERROR]%s", e) end)
+        xpcall(do_threadTimer, function(e) 
+            ERROR("[ERROR]%s", e) 
+        end)
     else
         do_threadTimer()
     end
@@ -354,7 +356,9 @@ end
 
 function threadRoi()
     if _ENV then
-        xpcall(do_threadRoi, function(e) ERROR("[ERROR]%s", e) end)
+        xpcall(do_threadRoi, function(e) 
+            ERROR("[ERROR]%s", e) 
+        end)
     else
         do_threadRoi()
     end
@@ -362,7 +366,9 @@ end
 
 function threadPk()
     if _ENV then
-        xpcall(do_threadPK, function(e) ERROR("[ERROR]%s", e) end)
+        xpcall(do_threadPK, function(e) 
+            ERROR("[ERROR]%s", e) 
+        end)
     else
         do_threadPK()
     end
@@ -426,10 +432,12 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
 
         if gInit == "StateBeginInit" then
             gInit = "InitFrameAction"
+            lxz()
             action(frame_init)
 
         elseif gInit == "InitFrameDone" then
             gInit = "InitGameAction"
+            lxz()
             action(restore_game_data)
 
         elseif gInit == "InitCompensate" then
@@ -447,9 +455,11 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
                 c_time_release()
                 WARN("Compensation, real=%d, finish", real)
                 gInit = "InitGameDone"
+                print( "Compensate Done" )
             end
 
         elseif gInit == "InitGameDone" then
+            lxz()
             WARN( "connecting to Gate, %s:%d", config.GateHost, config.GatePort )
             conn.toGate(config.GateHost, config.GatePort)
             crontab.initBoot()
@@ -477,6 +487,7 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
 
         elseif gInit == "InitConnectGate" then
             if GateSid then
+                lxz(gTime)
                 thanks()
                 gInit = nil
             end

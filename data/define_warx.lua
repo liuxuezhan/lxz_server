@@ -122,6 +122,7 @@ function lxz1(...)--打印lua变量数据到日志文件
   for _,v in pairs({...}) do
         print_r(v)
   end
+
 end
 
     getfenv = getfenv or function(f)
@@ -156,88 +157,6 @@ end
         setfenv(2, _ENV[mname])
     end
 -----------------------------------warx项目专用----------------------------------------------
---
-
-function init_pending()
-    __mt_rec = {
-        __index = function (self, recid)
-            local t = self.__cache[ recid ]
-            if t then
-                self.__cache[ recid ] = nil
-                t._n_ = nil
-            else
-                t = {}
-            end
-            self[ recid ] = t
-            return t
-        end
-    }
-    __mt_tab = {
-        __index = function (self, tab)
-            local t = { __cache={} }
-            setmetatable(t, __mt_rec)
-            self[ tab ] = t
-            return t
-        end
-    }
-    setmetatable(gPendingSave, __mt_tab)
-
-
-    __mt_del_rec = {
-        __newindex = function (t, k, v)
-            gPendingSave[ t.tab_name ][ k ]._a_ = 0
-        end
-    }
-    __mt_del_tab = {
-        __index = function (self, tab)
-            local t = {tab_name=tab}
-            setmetatable(t, __mt_del_rec)
-            self[ tab ] = t
-            return t
-        end
-    }
-    setmetatable(gPendingDelete, __mt_del_tab)
-
-    __mt_new_rec = {
-        __newindex = function (t, k, v)
-            gPendingSave[ t.tab_name ][ k ] = v
-            v._a_ = 1
-        end
-    }
-    __mt_new_tab = {
-        __index = function (self, tab)
-            local t = {tab_name=tab}
-            setmetatable(t, __mt_new_rec)
-            self[ tab ] = t
-            return t
-        end
-    }
-    setmetatable(gPendingInsert, __mt_new_tab)
-
-end
-
-function load_sys_config()
-    local db = dbmng:getOne()
-    local info = db.config:findOne({_id=gMapID})
-    if info then
-        gSysConfig = info
-    else
-        gSysConfig = {_id=gMapID, create=gTime}
-        db.config:insert(gSysConfig)
-    end
-end
-
-function load_uniq()
-    local db = dbmng:getOne()
-    local info = db.uniq:find({})
-    gUniqs = {}
-    if info then
-        while info:hasNext() do
-            local b = info:next()
-            gUniqs[ b._id ] = b
-        end
-    end
-end
 
 function llog(...)
 log(...)
@@ -282,16 +201,24 @@ skiplist = {
  function c_init_log(...)
  end
 
- function connect(...)
-     if not conn then
-            conn = {}
-     end
-     table.insert(conn,{...})
-     return #conn
+ function     pushHead(...)
+ end
+ function     pushInt(...)
+ end
+ function     pushOver(...)
+ end
+ function     c_set_gate( ...)
+ end
+
+ function connect(host,port,...)
+    local socket = require "client_socket"
+    local fd = socket.connect( host,port)
+    return fd
  end
 
  function begJob (...)
      --main_loop 没消息也循环
+     g_beg = true
  end
 
  function warx_init()

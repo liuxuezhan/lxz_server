@@ -1,6 +1,6 @@
 local bson = require "bson"
-local socket = require "mongo2.socket2"
-local driver = require "mongo2.driver2"
+local driver = require "mongo.driver"
+local socket = require "mongo.socket"
 local rawget = rawget
 local assert = assert
 dofile("preload.lua")

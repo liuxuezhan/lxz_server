@@ -1565,6 +1565,7 @@ PLAYER_INIT = {
 
     hurts = {},     -- soldiers who are waiting for cure,
     cures = {},     -- soldiers who are curing,
+    lives = {},
     tm_cure = 0,     -- timer,
     cure_start = 0,     -- timer  start,
     cure_over = 0,     -- timer  over,

@@ -621,6 +621,7 @@ function split_one(self)
                 local troop = troop_mng.create_troop(self.action, owner, target, arm)
                 troop.curx = self.curx
                 troop.cury = self.cury
+                self:save()
                 return troop
             end
         end
@@ -660,6 +661,7 @@ function split_pid(self, pid)
             end
         end
         troop_mng.delete_troop( self._id )
+        self:save()
 
         return troop
     end

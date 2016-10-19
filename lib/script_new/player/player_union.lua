@@ -92,13 +92,6 @@ function union_select(self, uid,what)
         result.val.gift = union_item.show(self)
     elseif what == "aid" then
         result.val = self:get_aid_info()
-        --local tr = self:get_my_troop()
-        --for pid, v in pairs( tr.arms or {} ) do
-        --    if pid ~= self.pid then
-        --        local t = self:fill_player_info_by_arm(v, tr.action, tr.owner_pid)
-        --        table.insert(result.val, t)
-        --    end
-        --end
     elseif what == "build" then
         if not union:is_new() then
             if union.map_id then

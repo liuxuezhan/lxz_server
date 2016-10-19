@@ -528,7 +528,7 @@ reply_length(lua_State *L) {
 }
 
 int
-luaopen_mongo2_driver2(lua_State *L) {
+luaopen_mongo_driver(lua_State *L) {
 	luaL_Reg l[] ={
 		{ "query", op_query },
 		{ "reply", op_reply },

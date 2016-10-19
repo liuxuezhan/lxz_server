@@ -452,7 +452,7 @@ function load_from_db()
    try_upgrade_stage()
 end
 
-function do_check(zx, zy)
+function do_check(zx, zy, isloop)
     zx = math.floor(zx)
     zy = math.floor(zy)
     if zx >= 0 and zx < 80 and zy >= 0 and zy < 80 then
@@ -469,7 +469,7 @@ function do_check(zx, zy)
             local ety = get_ety(eid)
             if ety then
                 if ety.grade == BOSS_TYPE.NORMAL then
-                    if can_date(ety.born)  then
+                    if isloop and can_date(ety.born)  then
                         rem_ety(ety.eid)
                     else
                         normalNum = normalNum + 1
@@ -521,7 +521,7 @@ function loop()
             local zx = idx % 80
             local zy = math.floor(idx / 80)
             scan_id = idx
-            do_check(zx, zy)
+            do_check(zx, zy, true)
         end
         idx = idx + 1
     end

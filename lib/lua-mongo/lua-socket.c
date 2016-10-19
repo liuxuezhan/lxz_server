@@ -151,7 +151,7 @@ lwrite(lua_State *L) {
 }
 
 int
-luaopen_mongo2_socket2(lua_State *L) {
+luaopen_mongo_socket(lua_State *L) {
 	init_winsock();
 	luaL_Reg l[] ={
 		{ "open", lopen },

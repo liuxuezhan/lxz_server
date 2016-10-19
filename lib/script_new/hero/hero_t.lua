@@ -87,13 +87,24 @@ function create_hero(idx, pid, propid)
         prisoner     = 0,    -- 俘虏
     }
 
+    local skills = {}
     if #conf.BasicSkill > 0 then
         for _, skill_id in pairs(conf.BasicSkill) do
-            table.insert(t.basic_skill, {skill_id, 0})
+            table.insert(skills, {skill_id, 0})
         end
-    else
-        t.basic_skill = {{0,0}}
     end
+
+    local conf_start_up = resmng.get_conf( "prop_hero_star_up", t.star )
+    if conf_start_up then
+        local slot = conf_start_up.StarStatus[ 1 ]
+        local num = slot - #skills
+        if num > 0 then
+            for i = 1, num, 1 do
+                table.insert( skills, {0,0} )
+            end
+        end
+    end
+    t.basic_skill = skills
 
     t.personality = math.random(HERO_NATURE_TYPE.STRICT, HERO_NATURE_TYPE.BOLD)
 

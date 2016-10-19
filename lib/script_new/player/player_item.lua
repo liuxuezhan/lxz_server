@@ -98,7 +98,7 @@ function dec_item(self, idx, num, reason)
         --任务
         task_logic_t.process_task(self, TASK_ACTION.USE_ITEM, propid, num)
     Tlog("ItemFlow",gTime,gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
-                openid,self.pid,self.name,0,0,0, 0,0,id,num,its[idx],reason,0,0,1)
+                openid,self.pid,self.name,0,0,0, 0,0,id,num,item[3],reason,0,0,1)
         return true
     else
         LOG("[ITEM] dec_item: pid = %d, idx = %d, item_id = %d, num = %d > have = %d", self.pid, idx, item[2], num, item and item[3] or -1)

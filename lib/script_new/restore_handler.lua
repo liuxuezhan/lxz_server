@@ -12,8 +12,12 @@ function load_player()
         if (not data.culture) or data.culture < 1 or data.culture > 4 then data.culture = 1 end
 
         if  data.pid and data.account then
+            local token = data.token
+            data.token = nil
+
             local p = player_t.new(data)
             gEtys[ p.eid ] = p
+            rawset( p, "token", token )
 
             rawset(p, "eid", data.eid)
             rawset(p, "size", 4)

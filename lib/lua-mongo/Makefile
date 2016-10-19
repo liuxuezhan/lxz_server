@@ -1,4 +1,7 @@
-LUALIB=-I../../skynet/3rd/lua/ -L../../skynet.3rd/lua/ -llua5.3 
+LUALIB=-I../../skynet/3rd/lua/ -L../../skynet.3rd/lua/ -llua 
+
+#LUA_LIB=../../skynet/3rd/lua
+#LUALIB= -lm  $(LUA_LIB)/liblua.a -DLUA_USE_READLINE -ldl  -Wl,-E  -lrt
 
 SOCKETLIB=-lws2_32
 

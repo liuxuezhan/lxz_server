@@ -1,9 +1,9 @@
 module("config")
 
-Map = 14
-Tips = "map_new"
+Map = 6
+Tips = "map_6"
 
-DbHost = "127.0.0.1"
+DbHost = "192.168.100.12"
 DbPort = 27017
 
 DbHostG = "192.168.100.12"
@@ -13,7 +13,7 @@ GateHost = "192.168.100.12"
 GatePort = 9002
 
 
-Game = "actx"
+Game = "warx"
 IsEnableGm=1
 
 LogLevel = 3

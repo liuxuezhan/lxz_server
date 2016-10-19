@@ -109,8 +109,9 @@ skynet.start(function()
 --  warx_init()
     require "warx_pub/frame"
     init(os.time(),os.time())
-    while true do
-        -- main_loop(os.time(), os.time(), 1, 0, 0, 0)
+    while g_beg do
+        g_beg = nil
+        main_loop(os.time(), os.time(), 0, 0, 0, 0)
     end
 
     socket_id = socket.listen(g_warx.host, g_warx.port)

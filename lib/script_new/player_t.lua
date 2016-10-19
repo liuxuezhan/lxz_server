@@ -467,6 +467,7 @@ function firstPacket3(self, sockid, from_map, account, pasw)
 end
 
 function upload_user_info(self)
+   if config.Release then return end
    local sign = c_md5(c_md5(APP_ID..self.account..tostring(self.pid)..tostring(gMapID)..tostring(self:get_castle_lv()).. tostring(self.name)..tostring(self.culture)..self.token),APP_SECRET)
    to_tool(0, {type = "login_server", cmd = "upload_ply_info", appid = APP_ID, open_id = self.account, pid = tostring(self.pid), logic = tostring(gMapID), level = tostring(self:get_castle_lv()), name = self.name, custom = tostring(self.culture), token = self.token, signature=sign})
 end
@@ -535,7 +536,10 @@ function firstPacket2(self, sockid, from_map, cival, pid, signature, time, open_
             Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.PID_ERROR)
     end
 
-    p.token = token
+    if p.token ~= token then
+        p.token = token
+        gPendingSave.player[ p.pid ].token = token
+    end
 
     p:upload_user_info()
     p.sockid = sockid
@@ -546,7 +550,7 @@ function firstPacket2(self, sockid, from_map, cival, pid, signature, time, open_
         pushInt(from_map)
         pushInt(p.pid)
         pushOver()
-    print( string.format( "firstPacket3:%s", open_id ) )
+        print( string.format( "firstPacket3:%s", open_id ) )
         player_t.login( p, p.pid )
     end
     Tlog("PlayerLogin",gTime,gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
@@ -589,6 +593,7 @@ end
 
 function login(self, pid)
     local gid = self.gid or GateSid
+
 
     local p = getPlayer(pid)
     if p then
@@ -673,6 +678,18 @@ function get_user_info(self, pid, what)
     local pb = getPlayer(pid)
     if not pb then
         --nil
+    elseif what == "base" then
+        local union = unionmng.get_union(uid) or {}
+        t.val = {
+            pid = pb.pid,
+            name = pb.name,
+            vip_lv = pb.vip_lv,
+            lv = pb.lv,
+            uid = pb.uid,
+            uname = union.alias or "",
+            photo = pb.photo,
+            photo_url = pb.photo_url
+        }
     elseif what == "pro" then
         t.val = {
             pid = pb.pid,
@@ -4463,6 +4480,7 @@ function chat_account_info_req(self)
 end
 
 function create_chat_account(ply)
+   if config.Release then return end
     to_tool(0, {type = "chat", cmd = "create_chat", user = tostring(ply.pid), host = CHAT_HOST, password = tostring(ply.pid)})
 end
 

@@ -355,7 +355,7 @@ function do_upgrade(self, build_idx)
             new_union.update(self)
             if build_idx == 1 then
                 Tlog("PlayerExpFlow",gTime,gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
-                openid,p.pid,p.name,0,0,0, 0,node.Lv-1,0,"")
+                openid,self.pid,self.name,0,0,0, 0,node.Lv-1,0,"")
             end
             --任务
             task_logic_t.process_task(self, TASK_ACTION.CITY_BUILD_LEVEL_UP)
@@ -1436,6 +1436,7 @@ function update_watchtower_speed(troop)
 
     if WatchTowerAction[action] then
         local ply = get_ety(troop.target_eid)
+        if not ply then return end
         local recv_ply = nil
         if is_ply(ply) then
             recv_ply = ply

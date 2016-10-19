@@ -50,13 +50,7 @@ gDbNum = 1
 
 function loadMod()
     require("frame/tools")
-    require("etc/config")
-
-    if config.Release then
-
-    else
-        require("frame/debugger")
-    end
+    require("warx_pub/etc/config")
 
     require("frame/socket")
 
@@ -66,7 +60,7 @@ function loadMod()
         _G.mongo = require("nodb/_mongo")
     else
         require("frame/conn")
-        require("frame/dbmng")
+        require("warx_pub/dbmng")
         _G.mongo = require("warx_pub/mongo")
     end
 
@@ -216,31 +210,6 @@ function do_threadPK()
             if gateid then
                 break
             else
-                --local dels = {}
-                --for pid, as in pairs(gActionQue) do
-                --    local tmMark = gActionCur[ pid ]
-                --    if not tmMark or gTime - tmMark > 2 then -- maybe something wrong, so leave the gActionCur unclear
-                --        if #as == 0 then
-                --            table.insert(dels, pid)
-                --        else
-                --            while #as > 0 do
-                --                local v = table.remove(as, 1)
-                --                gActionCur[ pid ] = gTime
-                --                LOG("%d, RpcR, pid=%d, func=%s, delay do", gFrame, pid, v[1])
-                --                LOG("RpcR, pid=%d, func=%s", pid, v[1])
-                --                local p = getPlayer(pid)
-                --                if p then player_t[ v[1] ](p, unpack(v[2]) ) end
-                --                gActionCur[ pid ] = nil
-                --            end
-                --            table.insert(dels, pid)
-                --        end
-                --    end
-                --end
-
-                --for k, v in pairs(dels) do
-                --    gActionQue[ v ] = nil
-                --end
-
                 local nframe = gFrame
                 local pid = nil
                 local as = nil
@@ -387,6 +356,7 @@ function frame_init()
     wait_db_connect()
 
     INFO("$$$ done load_sys_config")
+    pause()
     load_uniq()
 
     load_sys_config()
@@ -761,30 +731,6 @@ function init(sec, msec)
     gPendingInsert = {}
     init_pending()
 
-    --__mt_rec = {
-    --    __index = function (self, recid)
-    --        local t = self.__cache[ recid ]
-    --        if t then
-    --            self.__cache[ recid ] = nil
-    --            t._n_ = nil
-    --        else
-    --            t = {}
-    --        end
-    --        self[ recid ] = t
-    --        return t
-    --    end
-    --}
-    --__mt_tab = {
-    --    __index = function (self, tab)
-    --        local t = { __cache={} }
-    --        setmetatable(t, __mt_rec)
-    --        self[ tab ] = t
-    --        return t
-    --    end
-    --}
-    --setmetatable(gPendingSave, __mt_tab)
-
-
     gInit = "StateBeginInit"
     loadMod()
 
@@ -813,6 +759,10 @@ function init(sec, msec)
     local dbnameG = string.format("%sG", name)
     if config.DbHostG then
         conn.toMongo(config.DbHostG, config.DbPortG, dbnameG, "Global")
+    end
+
+    for sid, p in pairs(gConns) do
+        p:onConnectOk()
     end
 
     begJob()
