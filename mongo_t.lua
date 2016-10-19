@@ -2,7 +2,6 @@ local skynet = require "skynet"
 local mongo = require "mongo"
 local bson = require "bson"
 
-lxz(...)
 local server_name = ...
 _db = {}
 
@@ -11,10 +10,9 @@ function test_insert_without_index(db_name,db)
 	db[db_name].testdb:drop()
 
 	local ret = db[db_name].testdb:safe_insert({test_key = 1});
-	lxz(ret )
 end
 
-function test_insert_with_index(db)
+function test_insert_with_index(db_name,db)
 
 	db[db_name].testdb:dropIndex("*")
 	db[db_name].testdb:drop()
@@ -26,7 +24,7 @@ function test_insert_with_index(db)
 
 end
 
-function test_find_and_remove(db)
+function test_find_and_remove(db_name,db)
 
 	db[db_name].testdb:dropIndex("*")
 	db[db_name].testdb:drop()
@@ -60,7 +58,7 @@ function test_find_and_remove(db)
 end
 
 
-function test_expire_index(db)
+function test_expire_index(db_name,db)
 	db[db_name].testdb:dropIndex("*")
 	db[db_name].testdb:drop()
 
@@ -164,9 +162,18 @@ end
 
 skynet.start(function()
 
-    lxz(server_name)
     require "skynet.manager"	-- import skynet.register
     skynet.register(server_name) --注册服务名字便于其他服务调用
+
+    --[[
+        local id = "db1"
+      local db=mongo.client(g_db[id]) 
+       local info = db.warx_5.status:findOne({_id=5})
+        test_insert_without_index(id,db)
+        test_insert_with_index(id,db)
+        test_find_and_remove(id,db)
+        test_expire_index(id,db)
+        --]]
 
     skynet.dispatch("lua", function(session, source, id,data,...)
     --lxz(data)
@@ -183,13 +190,7 @@ skynet.start(function()
                 end
             end
         end
-
         global_save(id,_db[id].list)
-        --[[
-        test_insert_without_index(id,_db[id].fd)
-        test_insert_with_index(db)
-        test_find_and_remove(db)
-        test_expire_index(db)
-   --]]
+
     end)
 end)

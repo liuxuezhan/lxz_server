@@ -7,6 +7,7 @@ function load(conf)
     local mongo = require "mongo"
     local db = mongo.client(conf)
     local info = db[g_sid].ply:find({})
+    --local info = db[g_sid].ply:findOne({t = 1})
     while info:hasNext() do
         local d = info:next()
         _d[d.name]=d

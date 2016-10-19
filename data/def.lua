@@ -9,12 +9,14 @@ g_sid = "warx1" --服务器id
 g_pid = g_cid*1000*1000 --玩家角色id开始 
 
 --登录服务器
-g_login={name="login1", host = "192.168.103.225", port = 8001, multilogin = true,  db="db1",  }
+g_login={name="login1", host = "192.168.100.12", port = 9001, multilogin = true,  db="db1",  }
+--g_login={name="login1", host = "192.168.103.225", port = 8001, multilogin = true,  db="db1",  }
 g_login1={name="login1", host = "192.168.103.225", port = 8001, multilogin = true,  db="db1",  }
 g_login2={name="login2", host = "127.0.0.1", port = 8001, multilogin = true,  db="db2",  }
 
 --分区服务器
-g_game={  name = "game1", host = "192.168.103.225", port = 8888, maxclient=3000, room ="room1", db = "db1" } 
+g_game={  name = "game1", host = "192.168.100.12", port = 9999, maxclient=3000, room ="room1", db = "db1" } 
+--g_game={  name = "game1", host = "192.168.103.225", port = 8888, maxclient=3000, room ="room1", db = "db1" } 
 g_game1={  name = "game1", host = "192.168.103.225", port = 8888, maxclient=3000, room ="room1", db = "db1" } 
 g_game2={  name = "game2", host = "127.0.0.1", port = 8888, maxclient=3000, room ="room1", db = "db2" } 
 

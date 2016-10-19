@@ -32,6 +32,8 @@ ansible-playbook site.yml -vv --skip-tags="ali"
 |----|:---:| 
 | wordpress | dQgjoGK5()TRNkjkpP  | 
 | Shadowsocks | ssserver -p 443 -k password -m rc4-md5  | 
+| skynet | skynet的mongo驱动同一连接只能有一次，在服务器端不能有mongo集群处理，只能在域名上切换  | 
+| lua | 协程中协程不要用  | 
 
 
 ## syslog ##

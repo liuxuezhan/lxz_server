@@ -49,8 +49,7 @@ gNetPt = {
 gDbNum = 1
 
 function loadMod()
-    require("frame/tools")
-    require("warx_pub/etc/config")
+    require("warx_pub/tools")
 
     require("frame/socket")
 
@@ -61,7 +60,6 @@ function loadMod()
     else
         require("frame/conn")
         require("warx_pub/dbmng")
-        _G.mongo = require("warx_pub/mongo")
     end
 
     require("frame/crontab")
@@ -93,6 +91,7 @@ end
 
 function handle_network(sid)
     local pktype = pullInt()
+    pktype = gNetPt.NET_MSG_CONN_COMP 
     local p = gConns[ sid ]
     if p then
         if pktype ==  gNetPt.NET_MSG_CLOSE then
@@ -115,9 +114,9 @@ function handle_db(sid)
     mongo.recvReply(sid)
 end
 
-gTagFun = {}
-gTagFun[1] = handle_network
-gTagFun[2] = handle_db
+gTagFun = {} -- 有数据包收到的处理
+gTagFun[1] = handle_network -- mongo连接
+gTagFun[2] = handle_db --mongo查询返回
 gTagFun[3] = handle_dbg
 
 function action(func, ...)
@@ -207,6 +206,7 @@ function do_threadPK()
         local gateid, tag
         while true do
             gateid, tag = pullNext()
+            gateid, tag = 1,1 
             if gateid then
                 break
             else
@@ -240,8 +240,14 @@ function do_threadPK()
         end
 
         if tag then
+            --[[
             if gTagFun[ tag ] then
                 gTagFun[ tag ](gateid)
+            end
+            --]]
+            for sid, _ in pairs(gConns) do
+                gTagFun[ 1 ](sid)
+                gTagFun[ 2 ](sid)
             end
         else
             local pid = pullInt()
@@ -356,7 +362,6 @@ function frame_init()
     wait_db_connect()
 
     INFO("$$$ done load_sys_config")
-    pause()
     load_uniq()
 
     load_sys_config()
@@ -396,7 +401,8 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
 
         if gInit == "StateBeginInit" then
             gInit = "InitFrameAction"
-            action(frame_init)
+            --action(frame_init)
+            frame_init()
 
         elseif gInit == "InitFrameDone" then
             gInit = "InitGameAction"
@@ -492,8 +498,18 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
     end
 
     if #gActions > 0 then
+        --[[
         local co = getCoroPool("action")
         local flag = coroutine.resume(co)
+        --]]
+        while #gActions > 0 do
+            local node = table.remove(gActions, 1)
+            if node[2] then
+                node[1](unpack(node[2]))
+            else
+                node[1]()
+            end
+        end
     end
 
     while #gCoroWait > 0 do
@@ -693,6 +709,7 @@ end
 
 
 function init(sec, msec)
+    require("warx_pub/etc/config")
     gTime = math.floor(sec)
     gMsec = math.floor(msec)
     gMapID = getMap()
@@ -746,23 +763,6 @@ function init(sec, msec)
 
     if config.Tips then
         c_init_log(config.Tips)
-    end
-
-    --local dbname = string.format("warx_%d", gMapID)
-    local name = config.Game or "warx"
-    local dbname = string.format("%s_%d", name, gMapID)
-    for i = 1, gDbNum, 1 do
-        lxz(config)
-        conn.toMongo(config.DbHost, config.DbPort, dbname)
-    end
-
-    local dbnameG = string.format("%sG", name)
-    if config.DbHostG then
-        conn.toMongo(config.DbHostG, config.DbPortG, dbnameG, "Global")
-    end
-
-    for sid, p in pairs(gConns) do
-        p:onConnectOk()
     end
 
     begJob()

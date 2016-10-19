@@ -3,8 +3,8 @@ json = require "json"
 _list={
 
     db_server1 ={ 
-  --      db1={ host = "192.168.100.12", port = 27017, },
-        db1={ host = "127.0.0.1", port = 27017, },
+        db1={ host = "192.168.100.12", port = 27017, },
+    --    db1={ host = "127.0.0.1", port = 27017, },
         -- db={  host = "127.0.0.1", port = 27017,username="admin",password="admin" },
     },
 
@@ -13,6 +13,13 @@ _list={
 
 --g_warx = {   host = "192.168.103.225", port = 8888, maxclient=3000, room ="room1", db_name = "db_server1" } 
 g_warx = {   host = "10.0.2.15", port = 8888, maxclient=3000, room ="room1", db_name = "db_server1" } 
+
+--数据库
+g_db = {
+    db1={ host = "192.168.100.12", port = 27017, },
+    db2={ host = "127.0.0.1", port = 27017, },
+    -- db={  host = "127.0.0.1", port = 27017,username="admin",password="admin" },
+}
 
 --基础库
 function copy(object)
@@ -97,7 +104,7 @@ function cprint(s,color)--颜色答应
     os.execute(cool) 
 end
 
-function log(...)--日志
+function log_t(...)--日志
     local info = debug.getinfo(3)
     local d = "["..(info.short_src or "FILE")..":"..(info.currentline or 0).."]"..":"
     for _,v in pairs({...}) do
@@ -158,16 +165,27 @@ end
     end
 -----------------------------------warx项目专用----------------------------------------------
 
+function c_tlog_start(...)
+end
+function c_get_top()
+end
+
+function pullInt()
+end
+
+function pullNext()
+end
+
 function llog(...)
-log(...)
+log_t(...)
 end
 
 function linfo(...)
-log(...)
+log_t(...)
 end 
 
 function lwarn(...)
-log(...)
+log_t(...)
 end 
 
 function c_add_ety(...)
@@ -190,7 +208,7 @@ skiplist = {
  }
 
  function getMap(...)
-     return 6
+     return  config.Map 
  end
 
  function c_roi_init(...)
@@ -211,8 +229,8 @@ skiplist = {
  end
 
  function connect(host,port,...)
-    local socket = require "client_socket"
-    local fd = socket.connect( host,port)
+    local driver = require "socketdriver"
+	local fd = driver.connect(host,port)
     return fd
  end
 

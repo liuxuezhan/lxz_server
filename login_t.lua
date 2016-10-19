@@ -132,8 +132,8 @@ skynet.start (
 function()
 --    local console = skynet.newservice("console")
  --   skynet.newservice("debug_console",80000)
-
     require "debugger"
+
     skynet.newservice("mongo_t",g_login.db)--数据库写中心
     time_t.new("save_db",3,g_login.db)
 
@@ -142,6 +142,8 @@ function()
 
     require "skynet.manager"
     skynet.register(g_login.name)
+
+    ply_t.load(g_db[g_login.db])--测试
 
     skynet.dispatch("lua", function(_,source,command, ...)--服务器间通信,包括集群
         skynet.ret(skynet.pack(command_handler(command, ...)))
