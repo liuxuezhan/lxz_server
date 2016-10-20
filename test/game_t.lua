@@ -75,7 +75,7 @@ skynet.start(function()
 --    local console = skynet.newservice("console")
  --   skynet.newservice("debug_console",80000)
     require "debugger"
-    skynet.newservice("mongo_t",g_game.db)--数据库写中心
+    skynet.newservice("lib/mongo_t",g_game.db)--数据库写中心
     time_t.news("save_db",3,g_game.db)
 	cluster.register(g_game.name, SERVERNAME)
 	cluster.open(g_game.name)

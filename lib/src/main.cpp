@@ -25,6 +25,7 @@ int  m_bProcExit = 0;
 int  m_exitnum = 0;
 int  g_debug = 0;
 int  next =10; //执行步数
+char lua_file[1024] = {0} ; //lua文件
 
 #define ISQ_SYSTEM_VERSION  "lxz_server-debug-2015.8.25"
 
@@ -212,7 +213,7 @@ public:
             m_probot[n] = new ROBOT(n);
 			m_probot[n]->m_l =  luaL_newstate();
 
-			reload_lua(m_probot[n]->m_l, "robot_t.lua");
+			reload_lua(m_probot[n]->m_l, lua_file);
         }
 
         if (!Start()) //创建一个主线程
@@ -434,23 +435,34 @@ void ShowSysVersion( void )
 
 int32_t main(int32_t argc, char** argv)
 {
-	int i = 1;
+    int threads = 1;
 
-	if (argc > 1 ) {
-		i = atoi(argv[1]);
-		next = atoi(argv[2]);
-	}
+    if (argc > 1 ) {
+        strcpy(lua_file,argv[1]);
+    }
+    printf("%d\n",lua_file);
 
-    signal(SIGPIPE, SIG_IGN);//socket连接断开不处理
+    if (argc > 2 ) {
+        threads = atoi(argv[2]);
+    }
+    printf("%d\n",threads);
+
+    if (argc > 3 ) {
+        printf("%d\n",argv[3]);
+        next = atoi(argv[3]);
+    }
+    printf("%d\n",next);
+
+signal(SIGPIPE, SIG_IGN);//socket连接断开不处理
 
 
-    install_sig();//安装信号
+install_sig();//安装信号
 
-    pMgr= new SERVER(i);
+pMgr= new SERVER(threads);
 
     while (1) {
 
-      //  printf("未退出线程数 = %d\n",m_exitnum);
+        //  printf("未退出线程数 = %d\n",m_exitnum);
         sleep(1);
     }
 
