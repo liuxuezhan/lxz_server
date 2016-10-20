@@ -1,5 +1,5 @@
-#include "lua.h"
-#include "lauxlib.h"
+#include <lua.h>
+#include <lauxlib.h>
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -209,7 +209,7 @@ op_reply(lua_State *L) {
 		int32_t request_id; // identifier for this message
 		int32_t response_id; // requestID from the original request
 							// (used in reponses from db)
-		int32_t opcode; // request type
+		int32_t opcode; // request type 
 		int32_t flags;
 		int32_t cursor_id[2];
 		int32_t starting;
@@ -258,13 +258,6 @@ op_reply(lua_State *L) {
 			lua_pushnil(L);
 			lua_rawseti(L, 2, i);
 		}
-	} else {
-		if (sz >= 4) {
-			sz -= get_length((document)doc);
-		}
-	}
-	if (sz != 0) {
-		return luaL_error(L, "Invalid result bson document");
 	}
 	lua_pushboolean(L,1);
 	lua_pushinteger(L, id);
@@ -290,7 +283,7 @@ op_reply(lua_State *L) {
 static int
 op_kill(lua_State *L) {
 	size_t cursor_len = 0;
-	const char * cursor_id = lua_tolstring(L, 1, &cursor_len);
+	const char * cursor_id = luaL_tolstring(L, 1, &cursor_len);
 	if (cursor_len != 8) {
 		return luaL_error(L, "Invalid cursor id");
 	}
@@ -372,7 +365,7 @@ op_get_more(lua_State *L) {
 	const char * name = luaL_checklstring(L,2,&sz);
 	int number = luaL_checkinteger(L, 3);
 	size_t cursor_len = 0;
-	const char * cursor_id = lua_tolstring(L, 4, &cursor_len);
+	const char * cursor_id = luaL_tolstring(L, 4, &cursor_len);
 	if (cursor_len != 8) {
 		return luaL_error(L, "Invalid cursor id");
 	}
@@ -495,7 +488,7 @@ op_insert(lua_State *L) {
 
 		luaL_addlstring(&b, (const char *)buf.ptr, buf.size);
 	buffer_destroy(&buf);
-
+	
 	if (lua_isuserdata(L,3)) {
 		document doc = lua_touserdata(L,3);
 		luaL_addlstring(&b, (const char *)doc, get_length(doc));
@@ -529,6 +522,7 @@ reply_length(lua_State *L) {
 
 int
 luaopen_mongo_driver(lua_State *L) {
+	luaL_checkversion(L);
 	luaL_Reg l[] ={
 		{ "query", op_query },
 		{ "reply", op_reply },
@@ -541,6 +535,6 @@ luaopen_mongo_driver(lua_State *L) {
 		{ NULL, NULL },
 	};
 
-    luaL_newlib(L,l);
+	luaL_newlib(L,l);
 	return 1;
 }

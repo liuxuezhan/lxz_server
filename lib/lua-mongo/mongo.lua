@@ -1,9 +1,8 @@
 local bson = require "bson"
-local driver = require "mongo.driver"
 local socket = require "mongo.socket"
+local driver = require "mongo.driver"
 local rawget = rawget
 local assert = assert
-dofile("preload.lua")
 
 local bson_encode = bson.encode
 local bson_encode_order = bson.encode_order
@@ -63,51 +62,6 @@ local collection_meta = {
 	end
 }
 
-local function dispatch_reply(so)
-	local len_reply	= so:read(4)
-	local reply	= so:read(driver.length(len_reply))
-	local result = { result	= {} }
-	local succ,	reply_id, document,	cursor_id, startfrom = driver.reply(reply, result.result)
-	result.document	= document
-	result.cursor_id = cursor_id
-	result.startfrom = startfrom
-	result.data	= reply
-	return reply_id, succ, result
-end
-local function __parse_addr(addr)
-	local host,	port = string.match(addr, "([^:]+):(.+)")
-	return host, tonumber(port)
-end
-
-local function mongo_auth(mongoc)
-	local user = rawget(mongoc,	"username")
-	local pass = rawget(mongoc,	"password")
-
-	return function()
-		if user	~= nil and pass	~= nil then
-			assert(mongoc:auth(user, pass))
-		end
-		local rs_data =	mongoc:runCommand("ismaster")
-		if rs_data.ok == 1 then
-			if rs_data.hosts then
-				local backup = {}
-				for	_, v in	ipairs(rs_data.hosts) do
-					local host,	port = __parse_addr(v)
-					table.insert(backup, {host = host, port	= port})
-				end
-				mongoc.__sock:changebackup(backup)
-			end
-			if rs_data.ismaster	then
-				return
-			else
-				local host,	port = __parse_addr(rs_data.primary)
-				mongoc.host	= host
-				mongoc.port	= port
-				mongoc.__sock:changehost(host, port)
-			end
-		end
-	end
-end
 function mongo.client( obj )
 	obj.port = obj.port or 27017
 	obj.__id = 0
@@ -250,42 +204,7 @@ function mongo_collection:find(query, selector)
 		__cursor = nil,
 		__document = {},
 		__flags = 0,
-		__skip = 0,
-		__sortquery = nil,
-		__limit = 0,
 	} , cursor_meta)
-end
-
-function mongo_cursor:sort(key_list)
-	self.__sortquery = bson_encode {['$query'] = self.__query, ['$orderby'] = key_list}
-	return self
-end
-
-function mongo_cursor:skip(amount)
-	self.__skip = amount
-	return self
-end
-
-function mongo_cursor:limit(amount)
-	self.__limit = amount
-	return self
-end
-
-function mongo_cursor:count(with_limit_and_skip)
-	local cmd = {
-		'count', self.__collection.name,
-		'query', self.__query,
-	}
-	if with_limit_and_skip then
-		local len = #cmd
-		cmd[len+1] = 'limit'
-		cmd[len+2] = self.__limit
-		cmd[len+3] = 'skip'
-		cmd[len+4] = self.__skip
-	end
-	local ret = self.__collection.database:runCommand(table.unpack(cmd))
-	assert(ret and ret.ok == 1)
-	return ret.n
 end
 
 function mongo_cursor:hasNext()
@@ -298,11 +217,10 @@ function mongo_cursor:hasNext()
 		local sock = conn.__sock
 		local pack
 		if self.__data == nil then
-			local query = self.__sortquery or self.__query
-			pack = driver.query(request_id, self.__flags, self.__collection.full_name, self.__skip, -self.__limit, query, self.__selector)
+			pack = driver.query(request_id, self.__flags, self.__collection.full_name,0,0,self.__query,self.__selector)
 		else
 			if self.__cursor then
-				pack = driver.more(request_id, self.__collection.full_name, -self.__limit, self.__cursor)
+				pack = driver.more(request_id, self.__collection.full_name,0,self.__cursor)
 			else
 				-- no more
 				self.__document = nil

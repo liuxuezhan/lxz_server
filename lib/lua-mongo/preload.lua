@@ -1,3 +1,23 @@
+-- This file will execute before every lua service start
+-- See config
+
+--基础库
+function split(str, reps)  --分割字符串
+    local resultStrsList = {};
+    string.gsub(str, '[^' .. reps ..']+', function(w) table.insert(resultStrsList, w) end );
+    return resultStrsList;
+end
+
+function load_file (path)--读取csv文件数据为lua表
+    local file = io.open(path,"r")
+    for line in file:lines() do
+    local t = split(line, ",");
+    for k, v in pairs(t) do
+        print(v);
+    end
+    end
+    file:close()
+end
 
 function save_file (mod,path,buf)
     local file= io.open(path,mod)
@@ -46,6 +66,6 @@ function lxz(tab)--打印lua变量数据到日志文件
     local str=">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>["..os.date("%Y-%m-%d %H:%M:%S").."]\n"
     str = to_str(tab,str,"").."\n------\n"..debug.traceback()
     print(str)
-    save_file( "a","debug".."_"..os.date("%Y").."_"..os.date("%m").."_"..os.date("%d")..".log",str)
+    save_file( "a","debug.log",str)
 end
 

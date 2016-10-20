@@ -2,12 +2,7 @@
 *.a
 *.log
 *.swp
-/skynet/skynet
-skynet//skynet.pid
-skynet/3rd/lua/lua
-skynet/3rd/lua/luac
-skynet/cservice
-skynet/luaclib
+skynet
 resmng
 *.so
 *.dSYM

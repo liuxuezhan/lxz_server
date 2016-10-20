@@ -10,7 +10,7 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
-static void
+static void	
 init_winsock() {
 	WSADATA wsaData;
 	WSAStartup(MAKEWORD(2,2), &wsaData);
@@ -24,7 +24,7 @@ init_winsock() {
 #include <unistd.h>
 #define INVALID_SOCKET (-1)
 
-static void
+static void	
 init_winsock() {
 }
 
@@ -65,7 +65,7 @@ lopen(lua_State *L) {
 		if ( sock == INVALID_SOCKET	) {
 			continue;
 		}
-
+		
 		status = connect( sock,	ai_ptr->ai_addr, ai_ptr->ai_addrlen	);
 		if ( status	!= 0 ) {
 			close(sock);
@@ -153,6 +153,7 @@ lwrite(lua_State *L) {
 int
 luaopen_mongo_socket(lua_State *L) {
 	init_winsock();
+	luaL_checkversion(L);
 	luaL_Reg l[] ={
 		{ "open", lopen },
 		{ "close", lclose },
@@ -161,7 +162,7 @@ luaopen_mongo_socket(lua_State *L) {
 		{ NULL, NULL },
 	};
 
-    luaL_newlib(L,l);
+	luaL_newlib(L,l);
 
 	return 1;
 }

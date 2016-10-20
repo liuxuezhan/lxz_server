@@ -1,40 +1,31 @@
 mongo = require "mongo"
-dofile("preload.lua")
 
 db = mongo.client { host = "192.168.100.12" }
 
-local r = db:runCommand "listDatabases"--返回不全，lua5.3中一样有问题，不是修改引起的
-lxz(r)
+local r = db:runCommand "listDatabases"
 
-local c = db.hello.world:find()--返回的id没有解析
-
-while c:hasNext() do
-	local r = c:next()
-	lxz(r)
+for k,v in ipairs(r.databases) do
+	print(v.name)
 end
 
 
-db.hello.world:insert {['name']='lxz',['age']=10}
-db.hello.world:insert {['name']='lxz',['age']=20}
-db.hello.world:insert {['name']='lxz',['age']=30}
+local loc = db:getDB "hello"
+local c = loc.system.namespaces:find()
+
+while c:hasNext() do
+	local r = c:next()
+	print(r.name)
+end
+
+print "==============="
+
+db.hello.world:insert {}
+local r = db:runCommand ("getLastError",1,"w",1)
+print(r.ok)
 
 local c = db.hello.world:find()
 
 while c:hasNext() do
 	local r = c:next()
-	lxz(r)
---	lxz(mongo.type(r._id))
+	print(mongo.type(r._id))
 end
-
-
-
-db.hello.world:delete{['age']=10} 
-
-local c = db.hello.world:find()
-
-while c:hasNext() do
-	local r = c:next()
-	lxz(r)
-end
-
-

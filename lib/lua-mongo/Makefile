@@ -11,9 +11,9 @@ all :
 	@echo Please do \'make PLATFORM\' where PLATFORM is one of these:
 	@echo win linux
 
-win: mongo.dll
+win: mongo.dll bson.dll
 
-linux: mongo.so
+linux: mongo.so bson.so
 
 mongo.dll : lua-mongo.c lua-socket.c
 	gcc --shared -Wall -g $^ -o$@ $(LUALIB) $(SOCKETLIB)
@@ -21,5 +21,11 @@ mongo.dll : lua-mongo.c lua-socket.c
 mongo.so : lua-mongo.c lua-socket.c
 	gcc --shared -Wall -fPIC -g $^ -o$@ 
 
+bson.dll : bson.c
+	gcc --shared -Wall -O2 $^ -o$@ $(LUALIB) $(SOCKETLIB)
+
+bson.so : bson.c
+	gcc --shared -Wall -fPIC -O3 $^ -o$@ $(LUALIB)
+
 clean:
-	rm -f mongo.dll mongo.so
+	rm -f mongo.dll mongo.so bson.so bson.dll
