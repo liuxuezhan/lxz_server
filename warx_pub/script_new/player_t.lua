@@ -999,7 +999,7 @@ function initEffect(self, init)
     local ptab = resmng.prop_buff
     for k, v in pairs(self.bufs or {}) do
         local bufid = v[1]
-        local over = v[3]
+        local over = v[3] or 0 
         if over >= gTime then
             local node = ptab[ bufid ]
             if node and node.Value then

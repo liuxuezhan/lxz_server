@@ -1,16 +1,21 @@
 #!/bin/sh
 
-if [ $# == 1 ]
+if [ $# -gt 0 ]
 then
-    if [ $1 == "warx" ]
+    if [ $1 == "warx_pub" ]
     then
-        sed -i "s/preload.*/preload = \"data\/define_warx.lua\" /g" data/skynet.conf
+        skynet/skynet $1/etc/skynet.conf
     else
-        sed -i "s/preload.*/preload = \"data\/def.lua\" /g" data/skynet.conf
+        if [ $# -gt 1 ]
+        then
+            sed -i "s/preload.*/preload = \"$1\/etc\/def.lua\" /g" $1/etc/skynet.conf
+            sed -i "s/start.*/start = \"$1\/$2\" /g" $1/etc/skynet.conf
+            skynet/skynet $1/etc/skynet.conf
+        else
+            echo "服务名字 "
+        fi
     fi
 
-    sed -i "s/start.*/start = \"$1\" /g" data/skynet.conf
-    skynet/skynet data/skynet.conf
 else
-    echo "you must set lua_file "
+    echo "指定目录 "
 fi
