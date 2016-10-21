@@ -1,6 +1,6 @@
---机器人发消息模块
-dofile("../test/etc/def.lua")
-package.cpath =package.cpath..";../skynet/luaclib/?.so"
+package.path =package.path..";lib/?.lua"
+package.cpath =package.cpath..";lib/?.so"..";skynet/luaclib/?.so"
+dofile("test/etc/def.lua")
 local crypt = require "crypt"
 local socket = require "client_socket"
 require "debugger"
