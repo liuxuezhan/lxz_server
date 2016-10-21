@@ -2,6 +2,7 @@
 -- 原warx 的socket由c语言引擎统一队列处理 ，移植后由lua分发处理
 json = require "json"
 require "lib_tools"
+g_host = "192.168.103.225" 
 
 _list={
 
@@ -14,13 +15,11 @@ _list={
     warx = {   host = "192.168.103.225", port = 8888, maxclient=3000, room ="room1", db_name = "db_server1" }, 
 }
 
---g_warx_t= {   host = "192.168.103.225", port = 8888, maxclient=3000, room ="room1", db_name = "db_server1" } 
-g_warx_t = {   host = "192.168.100.12", port = 8888, maxclient=3000, room ="room1", db_name = "db_server1" } 
+g_warx_t = {   port = 60003, maxclient=3000, room ="room1", db_name = "db_server1" } 
 
 --数据库
 g_db = {
     db1={ host = "192.168.100.12", port = 27017, },
-    db2={ host = "127.0.0.1", port = 27017, },
     -- db={  host = "127.0.0.1", port = 27017,username="admin",password="admin" },
 }
 
@@ -111,9 +110,13 @@ skiplist = {
 
  }
 
-cmsgpack = {
- pack = function (v) return v end,
+mathx = {
+ frexp = function (v) return v end,
  }
+
+ cmsgpack = {
+  pack = function (v) return v end,
+   }
 
  function getMap(...)
      return  config.Map 
@@ -147,139 +150,4 @@ cmsgpack = {
      g_beg = true
  end
 
- function warx_init()
-     _G.GateSid = 1 
-    _G.gAgent = {pid=0, account="@ConGate", gid=_G.gGateSid}
-    gTime = os.time() 
-    gMapNew = 1
 
-    gActions = {}
-    gSns = {}
-    gFrame = 0
-    gConns = {}
-    gPlys = {}
-    gAccs = {}
-    gAccounts = {}
-    gEtys = {}
-
-    gPendingSave = {}
-    gPendingDelete = {}
-    gPendingInsert = {}
-    init_pending()
-
-    gInit = "StateBeginInit"
-    require("etc/config")
-    require("frame/tools")
-    --require("frame/debugger")
-    require("frame/conn")
-    require("frame/crontab")
-    require("warx_pub/dbmng")
-    require("frame/timer")
-    require("frame/socket")
-    require("frame/class")
-    require("frame/frame")
-    doLoadMod("packet", "warx_pub/rpc/packet")
-    doLoadMod("MsgPack", "warx_pub/MessagePack")
-    doLoadMod("Array", "warx_pub/rpc/array")
-    doLoadMod("Struct", "warx_pub/rpc/struct")
-    doLoadMod("RpcType", "warx_pub/rpc/rpctype")
-    doLoadMod("Rpc", "warx_pub/rpc/rpc")
-    require("frame/player_t")
-
-    gSysMailSn = 0
-    gSysMail = {}
-    gSysStatus = {}
-
-    do_load("resmng")
-    do_load("game")
-    do_load("mem_monitor")
-    do_load("common/define")
-    --do_load("common/tools")
-    do_load("warx_pub/tools")
-    do_load("common/protocol")
-    do_load("common/rpc_parse")
-
-    do_load("timerfunc")
-
-    do_load("public_t")
-
-    do_load("player_t")
-    do_load("player/player_item")
-    do_load("player/player_mail")
-    do_load("player/player_union")
-    do_load("player/player_res")
-    do_load("player/player_hero")
-    do_load("player/player_build")
-    do_load("player/player_task")
-    do_load("player/player_online_award")
-    do_load("player/player_month_award")
-    do_load("player/player_skill")
-    do_load("player/player_gacha")
-
-    do_load("build_t")
-
-    do_load("player/player_troop")
-    do_load("troop_t")
-    do_load("troop_mng")
-
-
-    do_load("heromng")
-    do_load("hero/hero_t")
-
-    do_load("fight")
-    do_load("farm")
-    do_load("restore_handler")
-
-    do_load("unionmng")
-    do_load("union_t")
-    do_load("union_member_t")
-    do_load("union_tech_t")
-    do_load("union_build_t")
-    do_load("union_hall_t")
-    do_load("union_help")
-    do_load("union_item")
-    do_load("union_relation")
-    do_load("union_god")
-
-    do_load("npc_city")
-    do_load("king_city")
-    do_load("monster")
-    do_load("monster_city")
-    do_load("crontab")
-    do_load("room")
-    do_load("union_mall")
-    do_load("union_task")
-    do_load("union_mission")
-    do_load("union_word")
-    do_load("union_buildlv")
-    do_load("new_union")
-    do_load("triggers")
-    do_load("task_logic_t")
-    do_load("msglist")
-    do_load("lost_temple")
-    do_load("gacha_limit_t")
-    do_load("kw_mall")
-    do_load("use_item_logic")
-    do_load("rank_mng")
-
-    do_load("gmmng")
-    local rt = restore_handler.action()
-    if rt == "Compensation" then
-        gInit = "InitCompensate"
-    else
-        gInit = "InitGameDone"
-    end
-
-    gMapID=1 
-    load_sys_config()
-    load_uniq()
-end
-
-function check_pending()
-    player_t.check_pending()
-    build_t.check_pending()
-    hero_t.check_pending()
-    union_t.check_pending()
-    room.check_pending()
-    npc_city.check_pending()
-end

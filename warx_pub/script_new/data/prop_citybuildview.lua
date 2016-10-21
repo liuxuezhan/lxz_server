@@ -15,7 +15,7 @@ prop_citybuildview = {
 	[OPEN_MARKET] = { ID = OPEN_MARKET, PropId = 5001, Bborn = 0, OpenCond = {7,130010409}, OpenCastleLv = 8,},
 	[OPEN_BLACKMARKET] = { ID = OPEN_BLACKMARKET, PropId = 6001, Bborn = 0, OpenCond = {7,130010412}, OpenCastleLv = 8,},
 	[OPEN_RESOURCESMARKET] = { ID = OPEN_RESOURCESMARKET, PropId = 7001, Bborn = 0, OpenCond = {7,130010420}, OpenCastleLv = 8,},
-	[OPEN_PRISON] = { ID = OPEN_PRISON, PropId = 8001, Bborn = 0, OpenCond = {7,130010706}, OpenCastleLv = 11,},
+	[OPEN_PRISON] = { ID = OPEN_PRISON, PropId = 8001, Bborn = 0, OpenCond = {7,130010706}, OpenCastleLv = 10,},
 	[OPEN_FORGE] = { ID = OPEN_FORGE, PropId = 9001, Bborn = 0, OpenCond = {7,130010255}, OpenCastleLv = 6,},
 	[OPEN_ACADEMY] = { ID = OPEN_ACADEMY, PropId = 10001, Bborn = 0, OpenCond = {7,130010143}, OpenCastleLv = 4,},
 	[OPEN_HALLOFHERO] = { ID = OPEN_HALLOFHERO, PropId = 11001, Bborn = 0, OpenCond = {7,130010127}, OpenCastleLv = 4,},

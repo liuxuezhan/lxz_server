@@ -2268,18 +2268,29 @@ function do_kick_mass(troop, pid)
         one.cury = dy
         one:back()
         A:rem_busy_troop(troop._id)
+
     else
-        for _, tid in pairs(troop.mark_troop_ids or {}) do
-            local one = troop_mng.get_troop(tid)
-            if one and one.owner_pid == pid  then
-                troop:rem_mark_id(tid)
-                local x, y = c_get_actor_pos(one.eid)
-                if x then
-                    one.curx, one.cury = x, y
-                    one.tmCur = gTime
-                    one:back()
+        local target 
+        if troop:is_ready() then
+            target = get_ety( troop.owner_eid )
+
+        elseif troop:is_settle() then
+            target = get_ety( toop.target_eid )
+        end
+
+        if target then
+            for tid, action in pairs( target.troop_comings or {} ) do
+                local one = troop_mng.get_troop( tid )
+                if one and one:is_go() and one.dest_troop_id == troop._id then
+                    if one.owner_pid == pid then
+                        local x, y = c_get_actor_pos(one.eid)
+                        if x then
+                            one.curx, one.cury = x, y
+                            one.tmCur = gTime
+                            one:back()
+                        end
+                    end
                 end
-                return
             end
         end
     end
@@ -2301,16 +2312,21 @@ function dismiss_mass(troop)
             A:rem_busy_troop(troop._id)
         end
     end
+
     troop:home()
 
-    for _, tid in pairs(troop.mark_troop_ids or {}) do
-        local one = troop_mng.get_troop(tid)
-        if one then
-            local x, y = c_get_actor_pos(one.eid)
-            if x then
-                one.curx, one.cury = x, y
-                one.tmCur = gTime
-                one:back()
+    if T then
+        for tid, action in pairs( T.troop_comings or {} ) do
+            if action == TroopAction.JoinMass then
+                local one = troop_mng.get_troop( tid )
+                if one and one:is_go() and one.dest_troop_id == troop._id then
+                    local x, y = c_get_actor_pos(one.eid)
+                    if x then
+                        one.curx, one.cury = x, y
+                        one.tmCur = gTime
+                        one:back()
+                    end
+                end
             end
         end
     end

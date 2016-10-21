@@ -1424,6 +1424,7 @@ CLIENT_PARM = {
 
     ["report_lock_3"] = 2,
     ["report_read_3"] = 2,
+    ["curguiding"] = 3,
 
     ["guidedclass"] = 800,
 }

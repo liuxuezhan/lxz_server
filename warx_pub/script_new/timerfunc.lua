@@ -21,7 +21,7 @@ _funs["cron"] = function(sn)
     fight.clean_report()
     _G.gSysStatus.tick = gTime
     gPendingSave.status[ gMapID ].tick = gTime
-    Tlog("GameSvrState",config.GameHost )
+    Tlog("GameSvrState",config.GameHost,(player_t.g_online_num or 0),get_sys_status("start"),0 )
 end
 
 _funs["monitor"] = function(sn, num)

@@ -225,6 +225,7 @@ function declare_state(npcCity)
     npcCity.startTime = startTime
     npcCity.endTime = endTime
     format_union(npcCity)
+    del_timer(npcCity)
     etypipe.add(npcCity)
     update_act_tag()
     --mark(ncpCity)
@@ -269,8 +270,9 @@ end
 function del_timer(npcCity)
     if npcCity.timers then
         for k, v in pairs(npcCity.timers or {}) do
-            timer:del(id)
+            timer:del(v)
         end
+        npcCity.timers= {}
     end
 end
 
@@ -280,7 +282,7 @@ function pace_state(npcCity)
     if union then
        union_t.set_default_start(union)
     end
-
+    del_timer(npcCity)
     local state, startTime, endTime = get_npc_state()
     npcCity.state = TW_STATE.PACE
     npcCity.endTime = endTime
@@ -1028,6 +1030,8 @@ function abandon_npc(self)
         end
     end
 
+    del_timer(self)
+
     self.uid = 0
     self.my_troop_id = 0
     --self.pid = 0
@@ -1069,7 +1073,7 @@ function hold_limit(self, ply)
     if not self then return end
     local num ,limit=0,0
     local u = unionmng.get_union(self.uid)
-    if not u then return end
+    if not u then return  0, 0 end
 
     local tr = troop_mng.get_troop(self.my_troop_id)
     if tr then 
@@ -1084,6 +1088,7 @@ function hold_limit(self, ply)
             limit = limit+b.Default
         end
     end
+    limit = limit or 100
     return num,limit
 end
 

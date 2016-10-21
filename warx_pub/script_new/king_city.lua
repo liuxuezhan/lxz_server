@@ -374,6 +374,7 @@ end
 
 
 function fight_again()
+    clean_timer()
     set_kw_state(KW_STATE.FIGHT)
     local kingCity = get_king()
     if kingCity then
@@ -1065,8 +1066,9 @@ function clear_timer(city)
     for k, v in pairs(city.timers or {}) do
         timer.del(v)
     end
-        city.startTime = nil
-        city.endTime = nil
+    city.startTime = nil
+    city.endTime = nil
+    city.timers = nil
     etypipe.add(city)
 end
 

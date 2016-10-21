@@ -39,14 +39,14 @@ use_item_check.level = function(player, lv)
 	return true
 end
 
-use_item_check.mutex_buff = function(player, buff_id)
-    --for k, v in pairs( self.bufs or {} ) do
-    --    if v[1] == buff_id then
-    --        if v[3] == 0 or v[3] > gTime then
-    --            return false
-    --        end
-    --    end
-    --end
+use_item_check.band_buff = function(player, buff_id)
+    for k, v in pairs( player.bufs or {} ) do
+        if v[1] == buff_id then
+            if v[3] == 0 or v[3] > gTime then
+                return false
+            end
+        end
+    end
 	return true
 end
 

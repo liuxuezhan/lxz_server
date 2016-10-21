@@ -127,10 +127,19 @@ function load_lost_temple()
     --init_activity()
     --init_redis_list()
     init_pool()
-    start_time = gPendingSave.status["lostTemple"].start_time or 0
-    end_time = gPendingSave.status["lostTemple"].end_time or 0
-    actState = gPendingSave.status["lostTemple"].actState or 0
+    load_lt_state()
+end
 
+function load_lt_state()
+    local db = dbmng:getOne()
+    local info = db.status:findOne({_id = "lostTemple"})
+    if not info then
+        info = {_id = "lostTemple"}
+        db.status:insert(info)
+    end
+    start_time = info.start_time or 0
+    end_time = info.end_time or 0
+    actState = info.actState or 0
 end
 
 function add_seq_citys(city)
@@ -523,6 +532,7 @@ end
 function clear_timer(self)
     if self then
         timer.del(self.timers)
+        self.timers = nil
     else
         timer.del(actTimer)
         gPendingSave.status["lostTemple"].timer = 0

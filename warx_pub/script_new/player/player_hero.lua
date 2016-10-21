@@ -1267,8 +1267,6 @@ function kill_hero(self, hero_id, buff_idx)
 
     local kill_time = conf.Param.kill_time
     local buff_time = conf.Param.buff_time
-    --todo
-    kill_time = 30
 
     local tmOver = gTime + kill_time
     hero.status = HERO_STATUS_TYPE.BEING_EXECUTED

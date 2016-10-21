@@ -1,9 +1,9 @@
-local bson = require "bson"
+--local bson = require "bson"
 --local socket = require "mongo.socket"
-local socket = require "socket"
---local socket = socket
-local driver = require "mongo.driver"
---local driver = mongo_driver
+--local socket = require "socket"
+local socket = socket
+--local driver = require "mongo.driver"
+local driver = mongo_driver
 local rawget = rawget
 local assert = assert
 

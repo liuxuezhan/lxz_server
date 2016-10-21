@@ -355,10 +355,13 @@ end
 
 function test()
 
-    local b = a.hello + 5
+    local db = dbmng:getOne()
+    local info = db:runCommand( "isMaster" )
+    dumpTab( info, "test info" )
+    
+    --local b = a.hello + 5
 
-
-    gPendingInsert.test[ 1 ] = {_id=1, [1]=4, [3]=5}
+    --gPendingInsert.test[ 1 ] = {_id=1, [1]=4, [3]=5}
 
     --Rpc:callAgent( 13, "agent_move_eye", 123, 2, 3)
 

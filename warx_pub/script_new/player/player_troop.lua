@@ -491,19 +491,17 @@ end
 function get_mass_count( T, troopT )
     local dest_troop_id = troopT._id
     local num = troopT:get_troop_total_soldier()
-    print( "get_mass_count, self", num )
     local comings = T.troop_comings
     if comings then
         for tid, action in pairs( comings ) do
             if action == TroopAction.JoinMass then
                 local troop = troop_mng.get_troop( tid )
-                if troop and troop.dest_troop_id == dest_troop_id then
+                if troop and troop:is_go() and troop.dest_troop_id == dest_troop_id then
                     num = num + troop:get_troop_total_soldier()
                 end
             end
         end
     end
-    print( "get_mass_count, self+coming", num )
     return num
 end
 
@@ -970,11 +968,21 @@ function troop_recall(self, dest_troop_id)
         if troop:is_go() then
             if action ~= TroopAction.Camp then
                 local D = get_ety( troop.target_eid )
-                if D and D.troop_comings then
-                    D.troop_comings[ troop._id ] = nil
-                    if D.on_troop_cancel then
-                        D:on_troop_cancel( self )
-                    end
+                if D then
+                    if D.troop_comings then
+                        D.troop_comings[ troop._id ] = nil
+                        if D.on_troop_cancel then
+                            D:on_troop_cancel( troop )
+                        end
+                   end
+                   if not is_ply( D ) and D.pid and D.pid >= 10000 then
+                       local B = getPlayer( D.pid )
+                       if B then
+                           if B.on_troop_cancel then
+                               B:on_troop_cancel( troop )
+                           end
+                       end
+                   end
                 end
             end
 

@@ -438,6 +438,9 @@ function etypipe.add(data)
         data.be_atk_list = data.be_atk_list or {}
         data.mcid = data.mcid or 0
         c_add_troop(data.propid, data.eid, data.sx, data.sy, data.dx, data.dy, etypipe.pack(node, data))
+        print( "============================ add_troop, ", data._id, data.propid )
+        --print( debug.traceback() )
+        
     else
         if not data.size then WARN("no size, propid=%d", data.propid) end
 

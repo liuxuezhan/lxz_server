@@ -3,6 +3,7 @@
 module(..., package.seeall)
 
 function load()--启动加载
+    --[[
     local db = dbmng:getOne()
     local info = db.union_help:find({})
     while info:hasNext() do
@@ -18,10 +19,11 @@ function load()--启动加载
             end
         end
     end
+    --]]
 end
 
 function clear(uid)--删除军团时清除数据
-    gPendingDelete.union_help[uid] = 0 
+ --  gPendingDelete.union_help[uid] = 0 
 end
 
 function add(p,tm_sn)
@@ -45,12 +47,18 @@ function add(p,tm_sn)
         return
     end
 
+    if t.is_help then
+        LOG("已帮助:"..tm_sn)
+        return
+    end
+
     if (t.what =="build" or t.what =="cure" or t.what =="hero_cure") and p.pid == t.param[1] then
         u.help[tm_sn]={id=tm_sn,log={}}
         local d = get_one(u.help[tm_sn])
         u:notifyall(resmng.UNION_EVENT.HELP, resmng.UNION_MODE.ADD, d)
         --任务
         task_logic_t.process_task(p, TASK_ACTION.UNION_HELP_NUM, 1)
+        t.is_help = 1 
     end
 
 
@@ -66,7 +74,7 @@ function set_one(p,cur)
         return 
     end
 
-    local num = #(u.help[cur].log or {} )
+    local num = get_table_valid_count(u.help[cur].log or {} )
 
     local t = timer.get(u.help[cur].id)
         local pid = t.param[1]

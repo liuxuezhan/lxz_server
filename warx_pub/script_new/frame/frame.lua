@@ -22,7 +22,8 @@ function thanks()
     table.insert(t, [[^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^]])
 
     for k, v in ipairs(t) do
-        print(v)
+        --print(v)
+        WARN( v )
     end
     INFO("[GameStart], map=%d", _G.gMapID)
 end
@@ -121,9 +122,9 @@ function handle_db(sid)
     mongo.recvReply(sid)
 end
 
-gTagFun = {} -- 有数据包收到的处理
-gTagFun[1] = handle_network -- mongo连接
-gTagFun[2] = handle_db --mongo查询返回
+gTagFun = {}
+gTagFun[1] = handle_network
+gTagFun[2] = handle_db
 gTagFun[3] = handle_dbg
 
 function action(func, ...)
@@ -216,6 +217,31 @@ function do_threadPK()
             if gateid then
                 break
             else
+                --local dels = {}
+                --for pid, as in pairs(gActionQue) do
+                --    local tmMark = gActionCur[ pid ]
+                --    if not tmMark or gTime - tmMark > 2 then -- maybe something wrong, so leave the gActionCur unclear
+                --        if #as == 0 then
+                --            table.insert(dels, pid)
+                --        else
+                --            while #as > 0 do
+                --                local v = table.remove(as, 1)
+                --                gActionCur[ pid ] = gTime
+                --                LOG("%d, RpcR, pid=%d, func=%s, delay do", gFrame, pid, v[1])
+                --                LOG("RpcR, pid=%d, func=%s", pid, v[1])
+                --                local p = getPlayer(pid)
+                --                if p then player_t[ v[1] ](p, unpack(v[2]) ) end
+                --                gActionCur[ pid ] = nil
+                --            end
+                --            table.insert(dels, pid)
+                --        end
+                --    end
+                --end
+
+                --for k, v in pairs(dels) do
+                --    gActionQue[ v ] = nil
+                --end
+
                 local nframe = gFrame
                 local pid = nil
                 local as = nil
@@ -387,7 +413,6 @@ function clean_replay()
 end
 
 function main_loop(sec, msec, fpk, ftimer, froi, deb)
-    --lxz(sec, msec, fpk, ftimer, froi, deb)
     gFrame = gFrame + 1
     --LOG("gFrame = %d, fpk=%d, ftimer=%d, froi=%d, deb=%d, gInit=%s", gFrame, fpk, ftimer, froi, deb, gInit or "unknown")
 
@@ -408,12 +433,12 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
 
         if gInit == "StateBeginInit" then
             gInit = "InitFrameAction"
-            lxz()
+            lxz(gInit)
             action(frame_init)
 
         elseif gInit == "InitFrameDone" then
             gInit = "InitGameAction"
-            lxz()
+            lxz(gInit)
             action(restore_game_data)
 
         elseif gInit == "InitCompensate" then
@@ -435,7 +460,7 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
             end
 
         elseif gInit == "InitGameDone" then
-            lxz()
+            lxz(gInit)
             WARN( "connecting to Gate, %s:%d", config.GateHost, config.GatePort )
             conn.toGate(config.GateHost, config.GatePort)
             crontab.initBoot()
@@ -463,7 +488,7 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
 
         elseif gInit == "InitConnectGate" then
             if GateSid then
-                lxz(gTime)
+                lxz(gInit)
                 thanks()
                 gInit = nil
             end

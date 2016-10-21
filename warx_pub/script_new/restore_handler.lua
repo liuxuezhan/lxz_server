@@ -179,7 +179,8 @@ end
 
 function load_sys_status()
     local db = dbmng:getOne()
-    local info = db.status:findOne({_id=config.Map})
+    local info = db.status:findOne({_id=gMapID})
+    dumpTab(info, "SysStatus")
     if not info then
         info = {_id=gMapID, start=gTime, ids={}}
         db.status:insert(info)

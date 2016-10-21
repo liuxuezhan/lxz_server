@@ -162,9 +162,10 @@ function get_boss_mod(date, civil, grade, lv)
         local tip = tostring(civil) .. "_" .. tostring(lv)
         bossList = resmng.prop_boss_mod_by_date[tonumber(date)][tip][grade]
     end
-        if not bossList or not next(bossList) then
-            return
-        end
+
+    if (not bossList) or (not next(bossList)) then
+        return
+    end
 
     index=  math.random(#bossList)
     return bossList[index]
@@ -286,6 +287,8 @@ function respawn(tx, ty, grade, npc_id)
                     if not boss_list[idx] then
                         boss_list[idx] = m.eid
                         boss_special[lv] = boss_list
+                    else
+                        rem_ety(m)
                     end
                     m:mark()
                 elseif m.grade == BOSS_TYPE.SUPER then
@@ -440,6 +443,8 @@ function load_from_db()
                 if not boss_list[idx] then
                     boss_list[idx] = m.eid
                     boss_special[lv] = boss_list
+                else
+                    rem_ety(m)
                 end
             end
             etypipe.add(m)

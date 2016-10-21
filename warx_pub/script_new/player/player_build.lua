@@ -355,7 +355,7 @@ function do_upgrade(self, build_idx)
             new_union.update(self)
             if build_idx == 1 then
                 Tlog("PlayerExpFlow",gTime,gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
-                openid,self.pid,self.name,0,0,0, 0,node.Lv-1,0,"")
+                openid,self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.account,1,self.language,self.gold, 0,node.Lv-1,0,"")
             end
             --任务
             task_logic_t.process_task(self, TASK_ACTION.CITY_BUILD_LEVEL_UP)

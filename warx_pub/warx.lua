@@ -114,7 +114,7 @@ skynet.start(function()
         main_loop(os.time(), os.time(), 0, 0, 0, 0)
     end
 
-    socket_id = socket.listen(g_warx_t.host, g_warx_t.port)
+    socket_id = socket.listen(g_warx_t.host or g_host, g_warx_t.port)
     socket.start ( socket_id , function(fd, addr)
         open_fd(fd)	-- may raise error here
         lxz(string.format("connect from %s (fd = %d)", addr, fd))

@@ -166,6 +166,15 @@ function mail_new(self, v, isload)
     if self:is_online() then
         Rpc:mail_notify( self, v )
     end
+
+    local got = its 
+    if got ~= 0 then got = 1 end
+    local sys = v.from 
+    if sys ~= 0 then sys = 1 end
+
+    Tlog("PlayerMailFlow",gTime,gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
+          openid,self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.account,1,self.language,
+          got, sys, v.from )
 end
 
 function test_mail_all(self, class, title, content, its)

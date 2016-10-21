@@ -50,29 +50,20 @@ function load_data(data)
                 monster_city.add_leave_troop(owner, data._id)
             end
 
-            if target then
-                if(is_npc_city(target) or is_lost_temple(target) or is_king_city(target) or is_monster_city(target) or is_monster(target)) then
-                    monster_city.add_atk_troop(target, data._id)
-
-                elseif is_union_building(target) then
-                    if data:get_base_action() == TroopAction.Gather then
-                        if not target.my_troop_id then
-                            target.my_troop_id = {} 
-                        end
-                        table.insert(target.my_troop_id,data._id)
-                    else
-                        target.my_troop_id = data._id
-                    end
-                end
+            if target and (is_npc_city(target) or is_lost_temple(target) or is_king_city(target) or is_monster_city(target) or is_monster(target)) then
+                monster_city.add_atk_troop(target, data._id)
             end
+            data:add_link()
         end
 
-        if target and not data:is_settle() and data.action ~= TroopAction.Camp + 100 then
-            local comings = target.troop_comings
-            if not comings then
-                target.troop_comings = { [ data._id ] = data.action }
-            else
-                comings[ data._id ] = data.action 
+        if data:is_settle() then
+            if target and is_union_building( target ) then
+                if data:get_base_action() == TroopAction.Gather then
+                    if not target.my_troop_id then target.my_troop_id = {} end
+                    table.insert(target.my_troop_id,data._id)
+                else
+                    target.my_troop_id = data._id
+                end
             end
         end
     end
@@ -82,6 +73,38 @@ function load_data(data)
     if not data.soldier_num then data.soldier_num = {1,0,0,0} end
     return data
 end
+
+function add_link( self )
+    if self:is_go() then
+        local action = self:get_base_action()
+        if action ~= TroopAction.Camp then
+            local dest = get_ety( self.target_eid )
+            if dest then
+                local comings = dest.troop_comings
+                if not comings then
+                    dest.troop_comings = { [ self._id ] = action } 
+                else
+                    comings[ self._id ] = action
+                end
+
+                if not is_ply( dest ) then
+                    if dest.pid and dest.pid >= 10000 then
+                        local A = getPlayer( dest.pid )
+                        if A and A ~= dest then
+                            local comings = A.troop_comings
+                            if not comings then
+                                A.troop_comings = { [ self._id ] = action } 
+                            else
+                                comings[ self._id ] = action
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
 
 function save(self)
     if self:get_base_action() ~= TroopAction.Monster then
@@ -771,39 +794,8 @@ function start_march(self, default_speed)
         monster_city.add_atk_troop(target, self._id)
     end
 
-    if self:is_go() then
-        local action = self:get_base_action()
-        if action ~= TroopAction.Camp then
-            local D = get_ety( self.target_eid )
-            if D then
-                local comings = D.troop_comings
-                if not comings then
-                    D.troop_comings = { [ self._id ] = action }
-                else
-                    comings[ self._id ] = action
-                end
-                if D.on_troop_coming then
-                    D:on_troop_coming( self )
-                end
-
-                if D.pid and D.pid >= 10000 then
-                    local B = getPlayer( D.pid )
-                    if B and B ~= D then
-                        local comings = B.troop_comings
-                        if not comings then
-                            B.troop_comings = { [ self._id ] = action }
-                        else
-                            comings[ self._id ] = action
-                        end
-                        if B.on_troop_coming then
-                            B:on_troop_coming( self )
-                        end
-                    end
-                end
-            end
-        end
-    end
-
+    self:add_link()
+    
     monitoring(MONITOR_TYPE.TROOP)
 end
 
@@ -821,6 +813,7 @@ function notify_owner(self)
     else
         for pid, _ in pairs(self.arms) do table.insert(pids, pid) end
     end
+    print( "notify_owner", self._id )
     Rpc:stateTroop(pids, info)
 end
 
@@ -1226,33 +1219,6 @@ function add_goods(self, goods, reason)
 end
 
 
-function add_mark_id(self, troop_id)
-    if not self.mark_troop_ids then self.mark_troop_ids = {} end
-    for k, v in pairs(self.mark_troop_ids or {}) do
-        if v == troop_id then
-            return true
-        end
-    end
-    table.insert(self.mark_troop_ids, troop_id)
-    self:save()
-end
-
-
-function rem_mark_id(self, troop_id)
-    local pos = 0
-    for k, v in pairs(self.mark_troop_ids or {}) do
-        if v == troop_id then
-            table.remove(self.mark_troop_ids, k)
-            self:save()
-            return true
-        end
-    end
-end
-
-function get_arm_by_pid(self, pid)
-    return self.arms[pid]
-end
-
 function get_troop_total_soldier(self)
     local t = 0
     for pid, arm in pairs(self.arms) do
@@ -1551,76 +1517,7 @@ function is_own_hero(self, pid, idx)
     return false
 end
 
---function sort_soldier( ida, idb )
---    local a = resmng.get_conf("prop_arm", ida[1])
---    local b = resmng.get_conf("prop_arm", idb[1])
---    if a and b then
---        if a.Lv > b.Lv then return true end
---        if a.Lv < b.Lv then return false end
---        if a.Mode > b.Mode then return true end
---    end
---    return false
---end
---
+function get_arm_by_pid(self, pid)
+    return self.arms[pid]
+end
 
--- it can use
---function cure( troop )
---    for pid, arm in pairs( troop.arms or {} ) do
---        if pid >= 10000 then
---            local owner = getPlayer( pid )
---            if owner then
---                local cure_max = owner:get_val( "CountCure" )
---                local cure_cur = 0
---
---                for id, num in pairs(owner.hurts or {}) do cure_cur = cure_cur + num end
---                for id, num in pairs(owner.cures or {}) do cure_cur = cure_cur + num end
---
---                local troop_hurt = {}
---                local nhurt = 0
---                for id, num in pairs( arm.hurt_soldier or {} ) do
---                    if num > 0 then
---                        table.insert( troop_hurt, {id, num} )
---                        nhurt = nhurt + num
---                    end
---                end
---
---                local thurt = arm.hurt_soldier or {}
---                local tcure = {}
---
---                if cure_cur < cure_max then
---                    if cure_cur + nhurt <= cure_max then
---                        tcure = thurt
---                        thurt = {}
---                    else
---                        table.sort( troop_hurt, sort_soldier )
---                        for _, v in ipairs( troop_hurt ) do
---                            local id = v[1]
---                            local num = v[2]
---                            if cure_cur + num <= cure_max then
---                                cure_cur = cure_cur + num
---                                thurt[ id ] = nil
---                                tcure[ id ] = num
---                            else
---                                local remain = cure_max - cure_cur
---                                if remain > 0 then
---                                    thurt[ id ] = thurt[ id ] - remain
---                                    tcure[ id ] = remain
---                                end
---                                break
---                            end
---                        end
---                    end
---                end
---
---                for id, num in pairs( arm.dead_soldier or {} ) do
---                    thurt[ id ] = ( thurt[ id ] or 0 ) + num
---                end
---
---                arm.dead_soldier = thurt
---                arm.hurt_soldier = tcure
---                
---            end
---        end
---    end
---end
---

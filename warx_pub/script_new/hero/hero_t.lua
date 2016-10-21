@@ -282,9 +282,9 @@ function gain_exp(self, exp_num)
             if total < need then break end
 
             if lv >= maxlv then
-                if total > need then 
-                    total = need 
-                end
+                --if total > need then 
+                --    total = need 
+                --end
                 break
             else
                 lv = lv + 1

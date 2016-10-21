@@ -516,8 +516,8 @@ function firstPacket2(self, sockid, from_map, cival, pid, signature, time, open_
             return
         end
         monitoring(MONITOR_TYPE.PLY)
-        Tlog("PlayerRegister",gTime,gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
-                openid,p.pid,p.name,0,0,0,"iphone6","ios","oper","wifi","800","600",2000)
+        Tlog("PlayerRegister",gTime,gTime,0,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
+                openid,p.pid,p.name,p:get_castle_lv(),p.vip_lv,(p.rmb or 0),p.account,1,p.language,"iphone6","ios","oper","wifi","800","600",2000)
             end
 
 
@@ -554,7 +554,7 @@ function firstPacket2(self, sockid, from_map, cival, pid, signature, time, open_
         player_t.login( p, p.pid )
     end
     Tlog("PlayerLogin",gTime,gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
-                openid,p.pid,p.name,0,0,0,"iphone6","ios","oper","wifi","800","600",2000)
+                openid,p.pid,p.name,p:get_castle_lv(),p.vip_lv,(p.rmb or 0),p.account,1,p.language,p.gold,0,"iphone6","ios","oper","wifi","800","600",2000)
 end
 
 function first_login(self)
@@ -625,6 +625,7 @@ function login(self, pid)
         if self.foodUse == 0 then self:recalc_food_consume() end
         if not self.tm_check then self.tm_check = timer.new( "check", math.random(1800,3600), pid ) end
 
+        g_online_num = (g_online_num  or 0) + 1 
         return
     end
     LOG("player:login, pid=%d, gid=%d, not found player", pid, gid)
@@ -650,8 +651,11 @@ function onBreak(self)
     self.gid = nil
     self._mail = nil
     self:remEye()
+    if g_online_num and  g_online_num  > 0 then
+        g_online_num = g_online_num  - 1 
+    end
     Tlog("PlayerLogout",gTime,gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
-                openid,self.pid,self.name,0,0,0)
+    openid,self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.account,1,self.language,self.gold,0)
 end
 
 function is_online(self)
@@ -999,7 +1003,7 @@ function initEffect(self, init)
     local ptab = resmng.prop_buff
     for k, v in pairs(self.bufs or {}) do
         local bufid = v[1]
-        local over = v[3] or 0 
+        local over = v[3] or 0
         if over >= gTime then
             local node = ptab[ bufid ]
             if node and node.Value then
@@ -1009,6 +1013,7 @@ function initEffect(self, init)
     end
 
     self._ef = ef
+
     local hit = {}
     for k, v in pairs( ef ) do
         local f = g_ef_notify[ k ]
@@ -2252,18 +2257,6 @@ function remEye(self)
     end
 end
 
-function addEye(self)
-    local x = self.x
-    local y = self.y
-    local lv = 0
-    if x < 0 or x >= 1280 then return end
-    if y < 0 or y >= 1280 then return end
-    c_add_eye(x, y, lv, self.pid, self.gid)
-end
-
-function remEye(self)
-    c_rem_eye(self.pid)
-end
 
 --function movEye(self, x, y)
 --    if x < 0 or x >= 1280 then return end
@@ -2556,7 +2549,7 @@ function do_dec_res(self, mode, num, reason)
                 self[ key ] = math.floor(self[ key ] - num)
                 if  mode ==resmng.DEF_RES_GOLD  then
                     Tlog("MoneyFlow",gTime,gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
-                    openid,self.pid,self.name,0,0,0, 0,num,resmng.DEF_RES_GOLD,1,self[key],reason )
+                        openid,self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.account,1,self.language,0,num,resmng.DEF_RES_GOLD,1,self[key],reason )
                     union_mission.ok(self,UNION_MISSION_CLASS.COST, num)
                 end
             else
@@ -3699,23 +3692,17 @@ function get_hold_limit(self,dp)
     if not u then return end
 
     local tr = troop_mng.get_troop(dp.my_troop_id)
-    if tr then
-        num = tr:get_troop_total_soldier()
-        for k, v in pairs(tr.mark_troop_ids or {}) do
-            local tm_troop = troop_mng.get_troop(v)
-            if tm_troop then
-                num = num + tm_troop:get_troop_total_soldier()
+    if tr then num = tr:get_troop_total_soldier() end
+
+    for tid, action in pairs( self.troop_comings or {} ) do
+        if action == TroopAction.SupportArm then
+            local troop = troop_mng.get_troop( tid )
+            if troop and troop:is_go() then
+                num = num + troop:get_troop_total_soldier()
             end
         end
     end
-
-    for k, _ in pairs(dp.hold_troop  or {}) do
-        local tm_troop = troop_mng.get_troop(k)
-        if tm_troop then
-            num = num + tm_troop:get_troop_total_soldier()
-        end
-    end
-
+    
     local c = resmng.get_conf("prop_world_unit",dp.propid)
     if c then
         limit = get_val_by("CountGarrison",c.Buff,u:get_ef(),self._ef, kw_mall.gsEf)
@@ -3728,47 +3715,37 @@ function get_hold_limit(self,dp)
 end
 
 function get_hold_info(self,dp)
-    local troop = {}
-    local tr = troop_mng.get_troop(dp.my_troop_id)
-    if tr then
-        --找出加入这个军队的玩家
-        for k, v in pairs(tr.arms) do
-            local single = self:fill_player_info_by_arm(v, tr.action, tr.owner_pid)
+    local troops = {}
+    local troop = troop_mng.get_troop(dp.my_troop_id)
+    if troop then
+        for k, v in pairs(troop.arms) do
+            local single = self:fill_player_info_by_arm(v, troop.action, troop.owner_pid)
             if single then
-                single._id = tr._id
+                single._id = troop._id
                 single.tmStart = 0
                 single.tmOver = 0
-                single.count = tr:get_troop_total_soldier()
-                single.action = tr.action
-                table.insert(troop, single)
-            end
-        end
-        for k, v in pairs(tr.mark_troop_ids or {}) do
-            local tm_troop = troop_mng.get_troop(v)
-            if tm_troop then
-                local single = self:fill_player_info_by_arm(tm_troop:get_arm_by_pid(tm_troop.owner_pid), tm_troop.action, tm_troop.owner_pid)
-                single._id = tm_troop._id
-                single.tmStart = tm_troop.tmStart
-                single.tmOver = tm_troop.tmOver
-                single.count = tm_troop:get_troop_total_soldier()
-                single.action = tm_troop.action
-                table.insert(troop, single)
+                single.count = troop:get_troop_total_soldier()
+                single.action = troop.action
+                table.insert(troops, single)
             end
         end
     end
-    for k, _ in pairs(dp.hold_troop  or {}) do
-        local tm_troop = troop_mng.get_troop(k)
-        if tm_troop then
-            local single = self:fill_player_info_by_arm(tm_troop:get_arm_by_pid(tm_troop.owner_pid), tm_troop.action, tm_troop.owner_pid)
-            single._id = tm_troop._id
-            single.tmStart = tm_troop.tmStart
-            single.tmOver = tm_troop.tmOver
-            single.count = tm_troop:get_troop_total_soldier()
-            single.action = tm_troop.action
-            table.insert(troop, single)
+
+    for tid, action in pairs( dp.troop_comings or {} ) do
+        if action == TroopAction.SupportArm or action == TroopAction.HoldDefense then
+            local troop = troop_mng.get_troop( tid )
+            if troop and troop:is_go() then
+                local single = self:fill_player_info_by_arm(troop:get_arm_by_pid(troop.owner_pid), troop.action, troop.owner_pid)
+                single._id = troop._id
+                single.tmStart = troop.tmStart
+                single.tmOver = troop.tmOver
+                single.count = troop:get_troop_total_soldier()
+                single.action = troop.action
+                table.insert(troops, single)
+            end
         end
     end
-    return troop
+    return troops
 end
 
 function get_eye_info(self,eid)--查询大地图建筑信息
@@ -4146,11 +4123,17 @@ function find_player_by_name_req(self, name)
     local pack = {}
     local db = dbmng:getOne()
     local info = db.player:findOne({name = name})
+    pack.name = name
     if info  then
         pack.pid = info.pid
         pack.name = info.name
         pack.photo = info.photo
+        pack.photo_url = info.photo_url
         pack.lv = info.lv
+        pack.vip_lv = info.vip_lv
+        local union = unionmng.get_union(info.uid) or {}
+        pack.uid = info.uid
+        pack.uname = union.alias or ""
     end
     Rpc:find_player_by_name_ack(self, pack)
 end
@@ -4549,6 +4532,9 @@ function vip_add_exp( self, exp )
             self:add_buf( node.Buf, buf[3] - gTime )
         end
         self:vip_enable( (tolv-lv) * 24 * 3600 )
+    Tlog("PlayerVipExpFlow",gTime,gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
+                openid,self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.account,1,self.language,
+                exp,lv,0,0)
     end
 end
 
@@ -4706,6 +4692,11 @@ function set_client_parm(self, key, data)
     end
 
     gPendingSave.client_parm[self.pid][key] = data
+    if key == "curguiding"  then
+    Tlog("QuestComplete",gTime,gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
+          openid,self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.account,1,self.language,
+          tonumber(data) )
+    end
 end
 
 function get_union_ef( self )
