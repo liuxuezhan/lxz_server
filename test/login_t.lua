@@ -113,27 +113,25 @@ local function accept(fd, addr)
 
     local s = svrs[ins.sid]
     if not s then
-        log("")
+        log_t("")
     end
     local msg = msg_t.zip("sc_login",{nid=p.nid,pid=pid,host=s.host,port=s.port})
     lxz(msg)
     msg = msg_t.pack(msg)
 	write(fd,  crypt.base64encode(msg))
 
-    log(p._id,"认证通过")
+    log_t(p._id,"认证通过")
 	local s = cluster.query(g_game.name,g_game.name)
     lxz(p)
 	cluster.call(g_game.name,s, "login", msg_t.pack(p))
 --    socket.abandon(fd)	-- never raise error here
 end
 
-
-skynet.start (
-function()
+skynet.start ( function()
 --    local console = skynet.newservice("console")
  --   skynet.newservice("debug_console",80000)
+ print("开始")
     require "debugger"
-
     skynet.newservice("lib/mongo_t",g_login.db)--数据库写中心
     time_t.new("save_db",3,g_login.db)
 
@@ -143,14 +141,15 @@ function()
     require "skynet.manager"
     skynet.register(g_login.name)
 
+    g_db[g_login.db].host = g_db[g_login.db].host or g_host 
     ply_t.load(g_db[g_login.db])--测试
 
     skynet.dispatch("lua", function(_,source,command, ...)--服务器间通信,包括集群
         skynet.ret(skynet.pack(command_handler(command, ...)))
     end)
 
-    skynet.error(string.format("login server listen at : %s %d", g_login.host, g_login.port))
-    local s = socket.listen(g_login.host, g_login.port)--客户端通信
+    skynet.error(string.format("login server listen at : %s %d", g_host, g_login.port))
+    local s = socket.listen(g_login.host or g_host, g_login.port)--客户端通信
     socket.start ( s , function(fd, addr)
         socket.start(fd)	-- may raise error here
     --    socket.limit(fd, 8192) -- set socket buffer limit (8K),If the attacker send large package, close the socket
@@ -162,6 +161,5 @@ function()
         end
         socket.close_fd(fd)	-- We haven't call socket.start, so use socket.close_fd rather than socket.close.
     end)
-end
-)
+end)
 

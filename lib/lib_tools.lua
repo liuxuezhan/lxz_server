@@ -1,5 +1,104 @@
 -- warx项目common/tool.lua 移植
 
+function tab_add(...)--合并buff值
+    local t = {}
+    for _, ts in pairs({...}) do
+        for k, v in pairs(ts) do
+            t[k] = (t[k] or 0 ) + v 
+        end
+    end
+    return t  
+end
+
+
+function diff_days(timestamp1, timestamp2) --计算两个时间戳间隔的天数
+    local days1 = math.floor((timestamp1 + TIME_ZONE) / 86400)
+    local days2 = math.floor((timestamp2 + TIME_ZONE) / 86400)
+    return math.abs(days1 - days2)
+end
+
+
+function cur_hour(timestamp)--计算这个时间戳是当天的第几个小时
+    local s = timestamp % 86400
+    return math.floor(s / 3600)
+end
+
+function t_random(t)--序列化随机
+    local n =0
+    for _,v in pairs (t) do
+        n = n+v
+    end
+    local p = math.random(n)
+    n=0
+    for k,v in pairs (t) do
+        n = n+v
+        if p <= n then
+            return k
+        end
+    end
+end
+
+function next_day() -- 第二天零点
+    local now = os.date("*t", gTime)
+    local temp = { year=now.year, month=now.month, day=now.day, hour=0, min=0,sec=0 }
+    return os.time(temp) + 24 * 3600
+end
+
+function date(time)--是否跨天
+    if (not time) or (time == 0)  then
+        return true
+    end
+
+    if os.date("%d")~=os.date("%d",time) then
+        return true
+    end
+    return false
+end
+
+function month(time)--是否跨月
+
+    if (not time) or (time == 0)  then
+        return true
+    end
+
+    if os.date("%m")~=os.date("%m",time) then
+        return true
+    end
+    return false
+end
+
+function tm_str(time)--时间串
+    return os.date("%Y-%m-%d %X", time or os.time() )
+end
+
+function tab_num(t)--计算表项数
+    local num = 0
+    if t then
+        for _, v in pairs(t) do
+            num=num+1
+        end
+    end
+    return num
+end
+function copy(object) --拷贝表
+    local lookup_table = {}
+    local function _copy(object)
+        if type(object) ~= "table" then
+            return object
+        elseif lookup_table[object] then
+            return lookup_table[object]
+        end  -- if
+        local new_table = {}
+        lookup_table[object] = new_table
+        for index, value in pairs(object) do
+            new_table[_copy(index)] = _copy(value)
+        end  -- for
+        return new_table
+        --return setmetatable(new_table, getmetatable(object))
+    end  -- function _copy
+    return _copy(object)
+end  -- function deepcopy
+
 function string.split(str, delimiter)
     if str == nil or str == "" or delimiter == nil then
         return nil
@@ -12,7 +111,120 @@ function string.split(str, delimiter)
     return results
 end
 
--- Zhao@2016年1月28日:字符串扩展
+function split(str, reps)  --分割字符串
+    local resultStrsList = {};
+    string.gsub(str,'[^'..reps..']+', function(w) table.insert(resultStrsList, w) end );
+    return resultStrsList;
+end
+
+function load_file (path)--读取csv文件数据为lua表
+    local file = io.open(path,"r")
+    for line in file:lines() do
+    local t = split(line, ",");
+    for k, v in pairs(t) do
+        print(v);
+    end
+    end
+    file:close()
+end
+
+function save_file (mod,path,buf)
+    local file= io.open(path,mod)
+    file:write("\n"..buf)
+    file:close()
+end
+------------------------------------------打印相关-------------------------------------------
+function print_tab(sth,h)
+
+    if type(sth) ~= "table" then
+        if type(sth) == "boolean" then
+            if sth then
+                cprint(h.."true",1) 
+            else 
+                cprint(h.."true",1)
+            end 
+        elseif type(sth) == "function" then 
+            cprint(h.."function",1)
+        elseif type(sth) == "string" and (not string.find(sth,'^[_%a][_.%w]*$')) then
+            cprint(h.."\""..sth.."\"",1)
+        else
+            cprint(h..sth,1)
+        end
+        return
+    end
+
+    cprint(h,1)
+
+    local space, deep = string.rep(' ', 2), 0
+
+    local function _dump(t)
+        local temp = {}
+        for k,v in pairs(t) do
+            local key = tostring(k)
+            if type(k)=="number" then
+                key = "["..key.."]"
+            elseif type(k) == 'string' and (not string.find(k,'^[_%a][_.%w]*$')) then
+                key = "[\""..key.."\"]"
+            end
+
+            if type(v) == "table" then
+
+                deep = deep + 2
+                cprint(string.format( "%s%s = {", string.rep(space, deep - 1), key )) 
+                _dump(v)
+                cprint(string.format("%s}",string.rep(space, deep-1)))
+                deep = deep - 2
+            elseif type(v) == "string" and (not string.find(v,'^[_%a][_.%w]*$')) then
+                cprint(string.format("%s%s = \"%s\"", string.rep(space, deep + 1), key, v)) 
+            else
+                cprint(string.format("%s%s = %s", string.rep(space, deep + 1), key, v)) 
+            end 
+        end 
+    end
+
+    cprint("{")
+    _dump(sth)
+    cprint("}")
+end
+
+function cprint(s,num)--颜色答应
+    if not s  then return end
+    local c = "echo -e \"\\033[40;31;2m"-- 红色
+    if num == 1 then --蓝色
+        c =  "echo -e \"\\033[40;34;2m"
+    end
+    local cool = c..s.." \\033[0m \"" 
+    os.execute(cool.."|jg") 
+end
+
+function log_t(...)--日志
+    local info = debug.getinfo(2)
+    local d = "["..(info.short_src or "FILE")..":"..(info.currentline or 0).."]"..":"
+    for _,v in pairs({...}) do
+        d = d..json.encode(v).."@"
+    end
+    cprint(d)
+    os.execute("logger -p local0.info "..d )
+end
+
+function lxz(...)--打印lua变量数据到日志文件
+    local info = debug.getinfo(2)
+    local h = "["..tm_str(time).."]".."["..(info.short_src or "FILE")..":"..(info.name or "")..":"..(info.currentline or 0).."]:"
+
+    for _,v in pairs({...}) do
+        print_tab(v,h)
+    end
+end
+
+function lxz1(...)--打印lua变量数据到日志文件
+    local info = debug.getinfo(2)
+    cprint(debug.traceback(),1)
+    for _,v in pairs({...}) do
+        print_tab(v)
+    end
+end
+
+-----------------------字符串扩展----------------------------------------------------------------
 function string.starts_with(str,start_str)
     if str == start_str then return true end
     if not str or not start_str then return false end
@@ -147,13 +359,6 @@ function basename(path)
     return ((path):gsub(".*[\\/]", ""))
 end
 
---清理table数据
-function table.clear(tb)
-    for k,v in pairs(tb) do
-        tb[k] = nil
-    end
-end
-
 --clone一个table
 function table.clone(table)
     local save_t = {}
@@ -219,38 +424,6 @@ function table.loop_find(tab,...)
     end
 end
 
---[[
--- >stack>stack>[file:line]
-function debug.stack(level)
-    level = level or 0
-    level = level + 2
-    local info = debug.getinfo(level)
-
-    local result = ""
-
-    local dep = 3
-    repeat
-        result = result.. string.format("@%s:%s:%s",
-            basename(info.short_src or ""), info.name or "", info.currentline or ""
-        )
-
-        level = level + 1
-        info = debug.getinfo(level)
-        dep = dep - 1
-    until not info or dep < 0
-
-    return result
-end
---]]
-
--- Hx@2015-11-30 :
-function handler(obj, method)
-    assert(obj)
-    assert(method)
-    return function(...)
-        method(obj, ...)
-    end
-end
 
 function class(base, _ctor)
     local c = {}    -- a new class instance
@@ -293,35 +466,6 @@ function class(base, _ctor)
     end
     setmetatable(c, mt)
     return c
-end
-
-function tojson(tbl,indent)
-    assert(tal==nil)
-    if not indent then indent = 0 end
-
-    local tab=string.rep("  ",indent)
-    local havetable=false
-    local str="{"
-    local sp=""
-    if tbl then
-        for k, v in pairs(tbl) do
-            if type(v) == "table" then
-                havetable=true
-                if(indenct==0) then
-                    str=str..sp.."\r\n  "..tostring(k)..":"..tojson(v,indent+1)
-                else
-                    str=str..sp.."\r\n"..tab..tostring(k)..":"..tojson(v,indent+1)
-                end
-            else
-                str=str..sp..tostring(k)..":"..tostring(v)
-            end
-            sp=";"
-        end
-    end
-
-    if(havetable) then      str=str.."\r\n"..tab.."}"   else        str=str.."}"    end
-
-    return str
 end
 
 
@@ -377,76 +521,7 @@ function timestamp_to_str(timestamp)
     return os.date("%Y-%m-%d %X", timestamp or 0)
 end
 
-
-etypipe = {}
-etypipe[EidType.Player] =       {"propid", "eid", "x", "y", "uid", "pid", "photo", "name", "uname", "officer", "nprison", "state","uflag"}
-etypipe[EidType.Res]    =       {"propid", "eid", "x", "y", "uid", "pid", "val", "extra"}
-etypipe[EidType.Troop]  =       {"propid", "eid", "culture","action", "owner_eid", "owner_pid", "owner_uid", "target_eid", "target_pid", "target_uid", "sx", "sy", "dx", "dy", "tmCur", "curx", "cury", "speed", "tmStart", "tmOver", "soldier_num","be_atk_list", "flag", "name", "mcid", "alias", "heros", "target_propid"}
-etypipe[EidType.Troop]  =       {"propid", "eid", "culture","action", "owner_eid", "owner_pid", "owner_uid", "target_eid", "target_pid", "target_uid", "sx", "sy", "dx", "dy", "tmCur", "curx", "cury", "speed", "tmStart", "tmOver", "soldier_num","be_atk_list", "flag", "name", "mcid", "alias", "heros", "target_propid"}
-etypipe[EidType.Monster]=       {"propid", "eid", "x", "y", "hp", "level","born"}
-etypipe[EidType.UnionBuild] =   {"propid", "eid", "x", "y", "uid","alias", "sn","idx","hp","state","name","val","culture","holding","build_speed","fire_speed"}
-etypipe[EidType.NpcCity]=       {"propid", "eid", "x", "y", "state", "startTime","endTime", "unions", "randomAward", "declareUnions", "getAwardMember"}
-etypipe[EidType.KingCity]=      {"propid", "eid", "x", "y", "state", "status","startTime", "endTime", "occuTime","uid", "uname"}
-etypipe[EidType.MonsterCity]=   {"propid", "eid", "x", "y", "state", "class", "startTime", "endTime"}
-etypipe[EidType.Camp]    =      {"propid", "eid", "x", "y", "pid", "uid"}
-etypipe[EidType.LostTemple]=    {"propid", "eid", "x", "y", "state", "startTime", "endTime", "uid", "uname", "born"}
-
-
-function etypipe.pack(filter, xs)
-    local val = {}
-    for k, v in pairs(filter) do
-        if xs[v] then
-            val[k] = xs[v]
-        else
-            val[k] = 0
-            --WARN( "ety add lack key: " .. v)
-        end
-    end
-    return cmsgpack.pack(val)
-end
-
-function etypipe.unpack(filter, data)
-    local val = {}
-    for k, v in pairs(filter) do
-        val[v] = data[k]
-    end
-    return val
-end
-
-function etypipe.parse(data)
-    local propid = data[1]
-    local mode = math.floor(propid / 1000000)
-    local node = etypipe[ mode ]
-    if node then
-        return etypipe.unpack(node, data)
-    else
-        WARN("no etypipid, eid=0x%08x", propid)
-        return data
-    end
-end
-
-function etypipe.add(data)
-    local mode = math.floor(data.propid / 1000000)
-    local node = etypipe[ mode ]
-    if not node then
-        WARN("what type, etypipe.add??")
-        dumpTab(data, "etypipe.add error")
-        return
-    end
-
-    if is_troop(data) then 
-        data.be_atk_list = data.be_atk_list or {}
-        data.mcid = data.mcid or 0
-        c_add_troop(data.propid, data.eid, data.sx, data.sy, data.dx, data.dy, etypipe.pack(node, data))
-    else
-        if not data.size then WARN("no size, propid=%d", data.propid) end
-
-        if not data.size or data.size == 0 then data.size = 4 end
-        c_add_ety(data.propid, data.eid, data.x, data.y, data.size, 0, etypipe.pack(node, data))
-    end
-end
-
-function get_val_by(what, ...)
+function get_val_by(what, ...)--计算buff值
     local bidx = what
     local ridx = string.format("%s_R", what)
     local eidx = string.format("%s_A", what)
@@ -460,7 +535,8 @@ function get_val_by(what, ...)
 end
 
 
-function get_nums_by(what, ...)
+function get_nums_by(what, ...)--计算一个buff各种加成
+
     local bidx = what
     local ridx = string.format("%s_R", what)
     local eidx = string.format("%s_A", what)
@@ -481,8 +557,7 @@ function get_num_by(what, ...)
     return val
 end
 
---直线与矩形相交
-function calc_crosspoint(sx, sy, dx, dy, rect)
+function calc_crosspoint(sx, sy, dx, dy, rect) --直线与矩形相交
     local crosspoint = {}
     if sx == dx then
         local miny = math.min(sy, dy)
@@ -499,16 +574,6 @@ function calc_crosspoint(sx, sy, dx, dy, rect)
     local b = sy - k * sx
     function get_linear_y(x) return k * x + b end
     function get_linear_x(y) return (y - b) / k end
-
-    --[[ 
-    local prop_build = resmng.prop_world_unit[self.propid]
-    local rect = {
-        x1 = self.x - self:get_range(),
-        y1 = self.x + prop_build.Size + self:get_range(),
-        x2 = self.y - self:get_range()
-        y2 = self.y + prop_build.Size + self:get_range()
-    }
-    --]]
 
     local crosspoint = {}
     local y1 = get_linear_y(rect.x1)
@@ -533,17 +598,9 @@ function calc_crosspoint(sx, sy, dx, dy, rect)
 
     if #crosspoint > 0 then return crosspoint end
 
-    --if #crosspoint == 2 then
-    --    --print(crosspoint[1][1], crosspoint[1][2])
-    --    --print(crosspoint[2][1], crosspoint[2][2])
-    --    return crosspoint
-    --else
-    --    return nil
-    --end
 end
 
---两点间距离
-function calc_line_length(sx, sy, dx, dy)
+function calc_line_length(sx, sy, dx, dy) --两点间距离
     return math.sqrt((dy - sy) ^ 2 + (dx - sx) ^ 2)
 end
 
@@ -583,8 +640,7 @@ function get_diff_days(timestamp1, timestamp2)
     return math.abs(days1 - days2)
 end
 
---计算1970年1月1日到当前的天数
-function get_days(timestamp)
+function get_days(timestamp) --计算1970年1月1日到当前的天数
     return math.floor((timestamp + TIME_ZONE) / 86400)
 end
 
@@ -599,20 +655,6 @@ function get_next_day_stamp(timestamp)
     return (dest_days * 86400)
 end
 
-
-function get_building(builds, class, mode, seq)
-    if builds then
-        if seq then
-            return builds[class * 10000 + mode * 100 + seq]
-        else
-            for i=1,BUILD_MAX_NUM[class][mode] do
-                if builds[class * 10000 + mode * 100 + i] then
-                    return builds[class * 10000 + mode * 100 + i]
-                end
-            end
-        end
-    end
-end
 
 function get_one_building(builds, class, mode )
 end
@@ -664,164 +706,6 @@ function can_month(time)--是否跨月
 end
 
 
-function get_ety_offset(ety)
-    local conf = resmng.get_conf("prop_world_unit", ety.propid)
-    if conf then
-        return conf.Size * 0.5
-    end
-    WARN("ety.eid = %d, no conf", ety.eid)
-    return 1
-end
-
-function get_ety_pos(ety)
-    local offset = 1
-    local conf = resmng.get_conf("prop_world_unit", ety.propid)
-    if not conf.Size then
-        WARN("ety.propid = %d, no size", ety.propid)
-        return 
-    end
-    if conf then
-        offset = conf.Size * 0.5
-        if offset < 1 then offset = 1 end
-    end
-    return math.floor(ety.x + offset), math.floor(ety.y + offset)
-end
-
-function calc_pow(lv, builds, arms, equips, techs, genius, heros)
-    local pow = 0
-
-    local conf = resmng.get_conf("prop_level", lv)
-    if conf then
-        pow = pow + conf.Pow
-    end
-
-    for _, v in pairs(builds or {}) do
-        local conf = resmng.get_conf("prop_build", v.propid)
-        if conf then
-            if conf.Pow then
-                pow = pow + (conf.Pow or 0)
-            else
-                print("build no pow, id = ", conf.ID)
-            end
-        end
-    end
-
-    for id, num in pairs(arms or {}) do
-        local conf = resmng.get_conf("prop_arm", id)
-        if conf then
-            pow = pow + conf.Pow * num
-        end
-    end
-
-    for _, v in pairs(equips or {}) do        
-        if v.pos > 0 then
-            local conf = resmng.get_conf("prop_equip", v.propid)
-            if conf then
-                pow = pow + (conf.Pow or 0)
-            end
-        end
-    end
-
-    for _, v in pairs(techs or {}) do
-        local conf = resmng.get_conf("prop_tech", v)
-        if conf then
-            pow = pow + (conf.Pow or 0)
-        end
-    end
-
-    for _, v in pairs(genius or {}) do
-        local conf = resmng.get_conf("prop_genius", v)
-        if conf then
-            pow = pow + (conf.Pow or 0)
-
-        end
-    end
-   
-    for _,v in pairs(heros or {}) do
-        if v.status == HERO_STATUS_TYPE.FREE or v.status == HERO_STATUS_TYPE.BUILDING or 
-           v.status == HERO_STATUS_TYPE.MOVING or v.status == HERO_STATUS_TYPE.BEING_CURED then
-           pow = pow + (v.fight_power or 0)
-        end
-    end
-
-    return math.ceil(pow)
-end
-
-function calc_res(res_id,res_num) --计算资源单位量
-    local prop = resmng.get_conf("prop_resource", res_id)
-    if not prop then return res_num end
-    return res_num * prop.Mul
-end
-
-function calc_acc_gold(total)
-    local orig = total
-    if total < 1 then return 0 end
-    local cost = 0
-    for k, v in ipairs(CLEAR_CD_COST) do
-        if total >= v[1] then
-            cost = cost + v[2]
-            total = total - v[1]
-        else
-            cost = cost + math.ceil(total * v[2] / v[1])
-            total = 0
-            break
-        end
-    end
-    if total > 0 then
-        local v = BUY_RES_COST[ #CLEAR_CD_COST ]
-        cost = cost + math.ceil(total * v[2] / v[1])
-    end
-    -- print("time_to_gold", orig, cost)
-    return cost
-end
-
-function calc_buyres_gold(res_num, res_id)
-    local orig = res_num
-    local total = RES_RATE[ res_id ]  * res_num
-    if total < 1 then return 0 end
-    local cost = 0
-    for k, v in ipairs(BUY_RES_COST) do
-        if total >= v[1] then
-            cost = cost + v[2]
-            total = total - v[1]
-        else
-            cost = cost + math.ceil(total * v[2] / v[1])
-            total = 0
-            break
-        end
-    end
-    if total > 0 then
-        local v = BUY_RES_COST[ #BUY_RES_COST ]
-        cost = cost + math.ceil(total * v[2] / v[1])
-    end
-    -- print("res_to_gold", res_id, orig, cost)
-    return cost
-end
-
-function get_taxrate(propid,effect)--获取税率
-    local c = resmng.get_conf("prop_build",propid)
-    if c.Mode ~= BUILD_FUNCTION_MODE.MARKET then
-        return 45
-    end
-    return (c.Effect.CountTax + (effect or 0))
-end
-
-function get_castle_count(member_count)
-    local count = 0
-    if member_count < UNION_CASTALCOUNT_LIMIT[1] then
-        return count
-    end
-    count = 1 + math.floor((member_count - UNION_CASTALCOUNT_LIMIT[1]) / UNION_CASTALCOUNT_LIMIT[2])    
-    return count
-end
-
-function get_can_occupycity_count(member_count)    
-    if member_count < UNION_OCCUPY_LIMIT[1] then
-        return 0
-    end    
-    return 1 + math.floor((member_count - UNION_OCCUPY_LIMIT[1]) / UNION_OCCUPY_LIMIT[2])
-end
-
 function table_count(tab)
     local n = 0
     for k, v in pairs(tab or {}) do
@@ -843,116 +727,6 @@ function recalc_sinew( val, tm, now, mul )
     else
         return val, now
     end
-end
-
---------------------------------------------------------------------
---解析奖励
---------------------------------------------------------------------
-function analysis_award(tab, close_open)    
-    local list = {}
-    local box = {}
-    
-    for k, v in pairs(tab) do
-        local unit = {}
-        unit.type, unit.id, unit.num = unpack(v)
-        local prop_tmp = nil
-        if unit.type == "item" then
-            local array = ana_item(unit, close_open)
-            if array ~= nil then
-                for i = 1, #array, 1 do
-                    table.insert(list, array[i])
-                end
-            end
-
-            --第一层物品信息
-            local prop_tab = resmng.prop_itemById(unit.id)
-            if prop_tab ~= nil and prop_tab.Open == 1 then
-                local temp = {}
-                temp.icon = prop_tab.Icon
-                temp.grade = prop_tab.Color or 1
-                temp.name = prop_tab.Name
-                table.insert(box, temp)
-            end
-
-        elseif unit.type == "res" or unit.type == "respicked" then
-            ana_res(unit)
-            table.insert(list, unit)
-
-        elseif unit.type == "hero" then
-            ana_hero(unit)
-            table.insert(list, unit)
-
-        elseif unit.type == "soldier" then
-            ana_solider(unit)
-            table.insert(list, unit)
-        end
-    end   
-    return list, box
-end
-
-function ana_item(unit, close_open)
-    local prop_tab = resmng.prop_itemById(unit.id)
-    if prop_tab == nil then
-        return nil
-    end
-    local list = {}
-    if prop_tab.Open == 0 or close_open == true then
-        unit.icon = prop_tab.Icon
-        unit.grade = prop_tab.Color or 1
-        unit.name = prop_tab.Name
-        table.insert(list, unit)
-    else
-        for _, info in pairs(prop_tab.Param) do
-            for k, v in pairs(info[2]) do
-                local tmp = {}
-                tmp.type, tmp.id, tmp.num = unpack(v)
-                if tmp.type == "item" then
-                    local prop_tmp = resmng.prop_itemById(tmp.id)
-                    if prop_tmp ~= nil then
-                        tmp.icon = prop_tmp.Icon
-                        tmp.grade = prop_tmp.Color or 1
-                        tmp.name = prop_tmp.Name
-                    end
-                elseif tmp.type == "res" or tmp.type == "respicked" then
-                    ana_res(tmp)
-                elseif tmp.type == "hero" then
-                    ana_hero(tmp)
-                end
-                table.insert(list, tmp)
-            end
-        end
-    end
-    return list
-end
-
-function ana_res(unit)
-    local prop_tab = resmng.prop_resourceById(unit.id)
-    if prop_tab == nil then
-        return
-    end
-    unit.icon = prop_tab.Icon
-    unit.grade = prop_tab.Color or 1
-    unit.name = prop_tab.Name
-end
-
-function ana_hero(unit)
-    local prop_tab = resmng.prop_hero_basicById(unit.id)
-    if prop_tab == nil then
-        return
-    end
-    unit.icon = prop_tab.Icon
-    unit.grade = prop_tab.Quality or 1
-    unit.name = prop_tab.Name
-end
-
-function ana_solider(unit)
-    local prop_arm = resmng.prop_armById(unit.id)
-    if prop_arm == nil then
-        return
-    end
-    unit.icon = prop_arm.Icon
-    unit.grade = 1
-    unit.name = prop_arm.Name
 end
 
 function is_in_black_land( x, y )
@@ -1022,46 +796,4 @@ function can_enter( lv_castle, lv_pos )
     if lv_castle < 15 then return lv_pos <= 4 end
     return true
 end
-
-function check_union_cross(union)
-    if not union then
-        return
-    end
-    local u = {}
-    if type(union) == "number" then
-        u = unionmng:get_union(union) or {}
-    else
-        u = union
-    end
-    if not u.map_id then
-        return false
-    end
-    return true
-end
-
-function check_ply_cross(ply)
-    local union = unionmng.get_union(ply.uid)
-    if union then
-        return check_union_cross(union)
-    end
-    return false
---    local p = {}
---    if type(ply) == "number" then
---        p = getPlayer(ply) or {}
---    else
---        p = ply
---    end
---    if not p.map_id then
---        return false
---    end
- --   return true
-end
-
---------------------------------------------------------------------
---------------------------------------------------------------------
-
-
---------------------------------------------------------------------------------
--- 常用调试函数，简写函数名
-p = dumpTab
 

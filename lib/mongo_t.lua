@@ -179,6 +179,7 @@ skynet.start(function()
     --lxz(data)
         data = msg_t.unpack(data)
         if not _db[id] then
+            g_db[id].host = g_db[id].host or g_host
             _db[id]={fd = mongo.client(g_db[id]) }
         end
 

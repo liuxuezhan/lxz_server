@@ -74,6 +74,7 @@ end
 skynet.start(function()
 --    local console = skynet.newservice("console")
  --   skynet.newservice("debug_console",80000)
+ print("开始")
     require "debugger"
     skynet.newservice("lib/mongo_t",g_game.db)--数据库写中心
     time_t.news("save_db",3,g_game.db)
@@ -85,13 +86,15 @@ skynet.start(function()
     skynet.register(g_game.name) --注册服务名字便于其他服务调用
 
 	local s = cluster.query(g_login.name, g_login.name)
-	cluster.call(g_login.name,s, "register_gate", g_game.name, g_game.host,g_game.port)
+	cluster.call(g_login.name,s, "register_gate", g_game.name, g_host,g_game.port)
+
+    g_db[g_game.db].host = g_db[g_game.db].host or g_host 
     ply_t.load(g_db[g_game.db])
 
     skynet.newservice("room",g_game.room)--模块服务器
 
     lxz(g_game)
-    socket_id = socket.listen(g_game.host, g_game.port)
+    socket_id = socket.listen(g_host, g_game.port)
     socket.start ( socket_id , function(fd, addr)
         open_fd(fd)	-- may raise error here
         lxz(string.format("connect from %s (fd = %d)", addr, fd))

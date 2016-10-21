@@ -161,10 +161,10 @@ function get_boss_mod(date, civil, grade, lv)
     else
         local tip = tostring(civil) .. "_" .. tostring(lv)
         bossList = resmng.prop_boss_mod_by_date[tonumber(date)][tip][grade]
-        if not bossList or bossList == {} then
+    end
+        if not bossList or not next(bossList) then
             return
         end
-    end
 
     index=  math.random(#bossList)
     return bossList[index]
