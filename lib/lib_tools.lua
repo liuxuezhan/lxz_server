@@ -194,7 +194,9 @@ function cprint(s,num)--颜色答应
         c =  "echo -e \"\\033[40;34;2m"
     end
     local cool = c..s.." \\033[0m \"" 
-    os.execute(cool.."|jg") 
+    os.execute(cool) 
+    --os.execute(cool.."|jg") 
+
 end
 
 function log_t(...)--日志

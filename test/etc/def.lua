@@ -14,10 +14,10 @@ g_path = "test"
 g_host = "192.168.100.12" 
 
 --登录服务器
-g_login={name="login1", port = 9001, multilogin = true,  db="db1", }
+g_login={name="login1", port = 60001, multilogin = true,  db="db1", }
 
 --分区服务器
-g_game={  name = "game1", port = 9002, maxclient=3000, room ="room1", db = "db1" }
+g_game={  name = "game1", port = 60002, maxclient=3000, room ="room1", db = "db1" }
 
 --数据库
 g_db = {
