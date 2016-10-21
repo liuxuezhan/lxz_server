@@ -3,6 +3,7 @@ if [ $# -gt 1 ];then
     ip=$1
     path=${2%/*}
     name=${2##*/}
+    name=${name%.*}
 
     if [ $name != ""  ]; then
         if [ $name == "robot_t"  ]; then
