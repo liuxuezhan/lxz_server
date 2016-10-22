@@ -2,7 +2,7 @@
 -- 原warx 的socket由c语言引擎统一队列处理 ，移植后由lua分发处理
 json = require "json"
 require "my_tools"
-g_host = "192.168.103.225" 
+g_host = "10.0.2.15"
 
 _list={
 
@@ -141,7 +141,7 @@ mathx = {
 
  function connect(host,port,...)
     local driver = require "socketdriver"
-	local fd = driver.connect(host,port)
+    local fd = driver.connect(host,port)
     return fd
  end
 
@@ -149,5 +149,6 @@ mathx = {
      --main_loop 没消息也循环
      g_beg = true
  end
+
 
 
