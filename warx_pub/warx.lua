@@ -105,8 +105,7 @@ skynet.start(function()
  
     require "debugger"
     skynet.newservice("lib/mongo_t",g_warx_t.db_name)--数据库写中心
-    --save_db()
---  warx_init()
+    save_db()
     require "warx_pub/frame"
     init(os.time(),os.time())
     while g_beg do
