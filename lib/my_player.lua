@@ -1,6 +1,5 @@
 --warx项目frame/player_t.lua
 module(..., package.seeall)
-_cache = _cache or {}
 _example = { account="Unknown", pid=-2 }
 mode = ...
 
@@ -21,9 +20,7 @@ local player_mt = {
     __newindex = function(t, k, v)
         if _example[k] ~= nil then
             t._pro[k] = v
-            if not _cache[t._id] then _cache[t._id] = {} end
-            _cache[t._id][k] = v
-            _cache[t._id]._n_ = nil
+            save_t.data[_name][t._id][k] = v
         else
             rawset(t, k, v)
         end
@@ -48,49 +45,12 @@ function new(t)
     return obj
 end
 
--- just for example
--- just for example
--- just for example
-function check_pending()
-    local db = dbmng:tryOne(1)
-    if not db then return end
-
-    local hit = false
-    local cur = gFrame
-    for pid, chgs in pairs(_cache) do
-        if not chgs._n_ then
-            db.player:update({_id=pid}, {["$set"]=chgs}, true)
-            dumpTab(chgs, "update player")
-            local p = getPlayer(pid)
-            if p and p.notify then p:notify(chgs) end
-            chgs._n_ = cur
-            hit =true
-        end
-    end
-    if hit then get_db_checker(db, gFrame)() end
+function del(t)
+    gPlys[ t.pid ] = nil
+    gAccs[ t.account ] = nil
+    gAccounts[ t.account ] = nil
+    save_t.del[_name][t._id] = 1
 end
 
-function get_db_checker(db, frame)
-    local f = function( )
-        local info = db:runCommand("getPrevError")
-        if info.ok then
-            local dels = {}
-            local its = _cache
-            local cur = gFrame
 
-            for k, v in pairs(its) do
-                local n = v._n_
-                if n then
-                    if n == frame then
-                        table.insert(dels, k)
-                    elseif cur - n > 100 then
-                        v._n_ = nil
-                    end
-                end
-            end
-            for _, v in pairs(dels) do its[ v ] = nil end
-        end
-    end
-    return coroutine.wrap(f)
-end
 

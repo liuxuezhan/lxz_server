@@ -799,3 +799,35 @@ function can_enter( lv_castle, lv_pos )
     return true
 end
 
+-----------------------------warx模块支持-------------------------------------------------------------------------------------
+getfenv = getfenv or function(f)
+    f = (type(f) == 'function' and f or debug.getinfo(f + 1, 'f').func)
+    local name, val
+    local up = 0
+    repeat
+        up = up + 1
+        name, val = debug.getupvalue(f, up)
+    until name == '_ENV' or name == nil
+    return val
+end
+
+setfenv = setfenv or function(f, t) --lua5.3 没有,模拟一个
+    f = (type(f) == 'function' and f or debug.getinfo(f + 1, 'f').func)
+    local name
+    local up = 0
+    repeat
+        up = up + 1
+        name = debug.getupvalue(f, up)
+    until name == '_ENV' or name == nil
+    if name then
+        debug.upvaluejoin(f, up, function() return name end, 1) -- use unique upvalue
+        debug.setupvalue(f, up, t)
+    end
+end
+
+
+module = module or function(mname)  --lua5.3 没有,模拟一个
+    _ENV[mname] = _ENV[mname] or {}
+    setmetatable(_ENV[mname], {__index = _ENV})
+    setfenv(2, _ENV[mname])
+end

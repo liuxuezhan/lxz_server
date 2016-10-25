@@ -83,83 +83,6 @@ function test_expire_index(db_name,db)
 	assert(false, "test expire index failed");
 end
 
-
-function check_save(db,data, frame)
-    local info = db:runCommand("getLastError")
-    if info.ok then
-        local code = info.code
-        for tab, doc in pairs(data) do
-            local cache = doc._bak
-            local dels = {}
-            for id, chgs in pairs(cache) do
-                if chgs._n_ == frame then
-                    --print("ack", id, frame, gFrame)
-                    rawset( chgs, "_n_", nil )
-                    table.insert(dels, id)
-                    if code then lxz(chgs, "maybe error") end
-                elseif chgs._n_ < frame - 10 then
-                    rawset( chgs, "_n_", nil )
-                    doc[ id ] = chgs
-                    print("retry", id, frame, gFrame)
-                    table.insert(dels, id)
-                end
-            end
-            if #dels > 0 then
-                for _, v in pairs(dels) do
-                    cache[ v ] = nil
-                end
-            end
-        end
-
-        if info.code then
-            lxz(info, "check_save")
-        end
-    end
-end
-
-function global_save(sid,data)
-    local gFrame = (gFrame or 0) + 1
-    db = _db[sid].fd
-    local db_name = sid 
-    if db then
-        local update = false
-        for tab, doc in pairs(data) do
-            local cache = doc._bak
-            for id, chgs in pairs(doc) do
-                if chgs ~= cache then
-                    if not chgs._a_ then
-                        -- require "debugger"
-                        local oid = chgs._id
-                        chgs._id = id
-                        db[db_name][tab]:update({_id=id}, {["$set"] = chgs }, true) 
-                        chgs._id = oid
-                        if tab ~= "status" then print("update", tab, id) end
-                    else
-                        if chgs._a_ == 0 then
-                            print("delete", tab, id)
-                            db[db_name][ tab ]:delete({_id=id})
-                        else
-                            print("insert", tab, id)
-                            local oid = chgs._id
-                            rawset( chgs, "_a_", nil )
-                            rawset( chgs, "_id", id )
-                            db[db_name][ tab ]:update({_id=id}, chgs, true)
-                            rawset( chgs, "_a_", 1)
-                            rawset( chgs, "_id", oid )
-                        end
-                    end
-                    update = true
-                    chgs._n_ = gFrame
-                    doc[ id ] = nil
-                    cache[ id ] = chgs
-                end
-            end
-        end
-
-        if update then check_save(db, data,gFrame) end
-    end
-end
-
 skynet.start(function()
 
     require "skynet.manager"	-- import skynet.register
@@ -191,7 +114,8 @@ skynet.start(function()
                 end
             end
         end
-        global_save(id,_db[id].list)
+        --global_save(id,_db[id].list)
+        save_t.save_mongo(_db[id].list, _db[id].fd,id)
 
     end)
 end)
