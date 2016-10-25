@@ -80,7 +80,8 @@ function tab_num(t)--计算表项数
     end
     return num
 end
-function copy(object) --拷贝表
+
+function copyTab(object)
     local lookup_table = {}
     local function _copy(object)
         if type(object) ~= "table" then
