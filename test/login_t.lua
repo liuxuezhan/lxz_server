@@ -36,26 +36,11 @@ end
 local socket_error = {}
 
 local function write( fd, text)
-    --[[
-    local ok  = pcall(socket.write,fd, text.."\n")
-    if not ok then
-		skynet.error(string.format("socket(%d) write fail", fd))
-		error(socket_error)
-    end
-    --]]
-    msg_t.write(fd,text)
+    msg_t.write(socket.write,fd,text)
 end
 
 local function read(fd)
-    --[[
-    local ok ,ret = pcall(socket.readline,fd)
-    if not ok then
-		skynet.error(string.format("socket(%d) read fail", fd))
-		error(socket_error)
-    end
-    return ret
-    --]]
-    return msg_t.write(fd)
+    return msg_t.read(socket.readline,fd)
 end
 
 local function accept(fd, addr)

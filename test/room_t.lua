@@ -7,13 +7,6 @@ local _online={}--玩家在线列表
 
 require "ply_t"	
 
-local function write( fd, text)
-    local ok  = pcall(socket.write,fd, json.encode(text).."\n")
-    if not ok then
-		skynet.error(string.format("socket(%d) write fail", fd))
-    end
-end
-
 local  function save_db()
     skynet.timeout(3*100, function() 
         if next(save_t.data) then

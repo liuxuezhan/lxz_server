@@ -7,13 +7,12 @@ local assert = assert
 local socket_id	-- listen socket
 local client_number = 0
 
+local function write( fd, text)
+    msg_t.write(socket.write,fd,text)
+end
 
 local function read(fd)
-   local ok ,ret = pcall(socket.readline,fd)
-    if not ok then
-		skynet.error(string.format("socket(%d) read fail", fd))
-    end
-    return ret
+    return msg_t.read(socket.readline,fd)
 end
 
 
