@@ -1,4 +1,5 @@
 local json = require "json"
+local socket = require "socket"
 local msg = {}
 
 msg.cs_login = {"name","pwd","sid","pid"} 
@@ -100,6 +101,25 @@ end
 function msg.unzip(what,src)
     return unzip(msg[what],src)
 end
+
+function msg.read(fd)
+    local ok ,ret = pcall(socket.readline,fd)
+    if not ok then
+        lxz(ret)
+        return
+    end
+    return ret
+end
+
+function msg.write(fd,msg)
+    local ok  = pcall(socket.write,fd, msg.."\n")
+    if not ok then
+        lxz(ret)
+        return
+    end
+    return ok
+end
+
 
 return msg
 
