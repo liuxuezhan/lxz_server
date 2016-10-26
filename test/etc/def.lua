@@ -11,7 +11,7 @@ g_nid = 1000  --玩家id开始
 g_sid = "warx1" --服务器id
 g_pid = g_cid*1000*1000 --玩家角色id开始 
 g_path = "test" 
-g_host = "192.168.100.12"
+g_host = "192.168.103.225"
 
 --登录服务器
 g_login={name="login1", port = 60001, multilogin = true,  db="db1", }
