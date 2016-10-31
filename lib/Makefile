@@ -9,10 +9,7 @@ all :
 	@echo Please do \'make PLATFORM\' where PLATFORM is one of these:
 	@echo win linux
 
-linux: client_socket.so robot
-
-client_socket.so : src/robot_socket.c
-	cc -g -Wall -O2 -I$(LUA_LIB) -fPIC --shared  $^ -o $@  -lpthread
+linux:  robot
 
 robot : src/main.cpp
 	g++  $(CFLAGS)  -I$(LUA_LIB) $^ -o $@  $(LUALIB)

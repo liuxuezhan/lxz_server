@@ -2,7 +2,8 @@ package.path =package.path..";lib/?.lua"
 package.cpath =package.cpath..";lib/?.so"..";skynet/luaclib/?.so"
 dofile("test/etc/def.lua")
 local crypt = require "crypt"
-local socket = require "client_socket"
+--local socket = require "client_socket"
+local socket = require "clientsocket"
 require "debugger"
 
 
