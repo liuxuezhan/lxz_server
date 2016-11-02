@@ -49,21 +49,16 @@ gNetPt = {
 
 
 function loadMod()
---  require("frame/debugger")
-    require("frame/tools")
 
-    dofile("../etc/config.lua")
+    require("frame/tools")
+    lxz( c_get_conf() )
+    dofile( c_get_conf() )
+    if not config.Release then require("frame/debugger") end
     require("frame/socket")
 
-    if config.NO_DB then
-        require("nodb/_conn")
-        require("nodb/_dbmng")
-        _G.mongo = require("nodb/_mongo")
-    else
         require("frame/conn")
         require("frame/dbmng")
         _G.mongo = require("frame/mongo")
-    end
 
     require("frame/crontab")
     require("frame/timer")
@@ -95,12 +90,10 @@ function loadMod()
     require("common/rpc_parse")
 
     -- rpc
-    dofile("../etc/config.lua")
     do_load("common/protocol")
     do_load("robot/ply")
     do_load("robot/task")
     do_load("robot/union_r")
-    do_load("robot/conf")
 end
 
 function handle_dbg(sid)
@@ -384,7 +377,7 @@ function clean_replay()
 end
 
 function main_loop(sec, msec, fpk, ftimer, froi, deb)
---    lxz(msec)
+-- lxz(sec, msec, fpk, ftimer, froi, deb)
     gFrame = gFrame  + 1
     LOG("gFrame = %d, fpk=%d, ftimer=%d, froi=%d, deb=%d, gInit=%s", gFrame, fpk, ftimer, froi, deb, gInit or "unknown")
 
@@ -422,12 +415,16 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
     end
 
     if gInit == "InitFrameDone" then
-        if (gTotalConnect == g_start) or ( gTotalConnect >= g_start and gTotalConnect <= (g_start + g_num) and msec > (g_tm + gTotalTime*1000/g_num )) then
+        if (gTotalConnect == config.g_start) 
+            or ( gTotalConnect >= config.g_start and gTotalConnect <= (config.g_start + config.g_num) 
+            and msec > (config.g_tm + config.gTotalTime*1000/config.g_num )) then
             g_tm = msec
-            local name = gName .. gTotalConnect
-            local sid = connect("192.168.100.12", 8001, 0, 0)
+            local name = config.gName .. gTotalConnect
+            local sid = connect("192.168.100.12", config.g_client_port, 0, 0)
             g_robot[ sid ] = Ply.new(name)
             g_robot[ sid ].robot_id = gTotalConnect 
+            g_robot[ sid ].fd = sid 
+            g_name[name] =  g_robot[ sid ] 
             gTotalConnect = gTotalConnect + 1
         end
         if fpk == 1 then
@@ -474,6 +471,8 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
         end
 
         if gLogin > 0 then
+            config.robot_plan()
+            --[[
             local infos = skiplist.get_range( gRid,1, 10 ) 
             for _, v in pairs( infos or {}  ) do
                 local gid = tonumber( v )
@@ -488,6 +487,7 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
                     end
                 end
             end
+            --]]
         end
 
     end
@@ -724,7 +724,7 @@ function init(sec, msec)
     gAccounts = {}
 
 
-    gTotalConnect = g_start
+    gTotalConnect = config.g_start
     g_tm = 0
     gInterval = 1
     gNames = {} 
@@ -785,6 +785,7 @@ function init(sec, msec)
 
 
     g_robot = {}--机器人
+    g_name = {}--机器人
 
 
     Rpc:init("client")

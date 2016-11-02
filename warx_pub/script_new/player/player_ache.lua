@@ -194,8 +194,12 @@ end
 func_ache.count_hero_star = function ( self, id, param )
     local count = 0
     local ts = self:get_hero() 
+    local tab = resmng.prop_hero_star_up
     for _, v in pairs( ts or {}) do
-        if v.star >= param then count = count + 1 end
+        local node = tab[ v.star ]
+        if node then
+            if node.StarStatus[ 1 ] >= param then count = count + 1 end
+        end
     end
     return count
 end

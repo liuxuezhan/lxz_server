@@ -381,8 +381,7 @@ end
 etypipe = {}
 etypipe[EidType.Player] =       {"propid", "eid", "x", "y", "uid", "pid", "photo", "name", "uname", "officer", "nprison", "state","uflag"}
 etypipe[EidType.Res]    =       {"propid", "eid", "x", "y", "uid", "pid", "val", "extra"}
-etypipe[EidType.Troop]  =       {"propid", "eid", "culture","action", "owner_eid", "owner_pid", "owner_uid", "target_eid", "target_pid", "target_uid", "sx", "sy", "dx", "dy", "tmCur", "curx", "cury", "speed", "tmStart", "tmOver", "soldier_num","be_atk_list", "flag", "name", "mcid", "alias", "heros", "target_propid"}
-etypipe[EidType.Troop]  =       {"propid", "eid", "culture","action", "owner_eid", "owner_pid", "owner_uid", "target_eid", "target_pid", "target_uid", "sx", "sy", "dx", "dy", "tmCur", "curx", "cury", "speed", "tmStart", "tmOver", "soldier_num","be_atk_list", "flag", "name", "mcid", "alias", "heros", "target_propid"}
+etypipe[EidType.Troop]  =       {"propid", "eid", "culture","action", "owner_eid", "owner_pid", "owner_uid", "target_eid", "target_pid", "target_uid", "sx", "sy", "dx", "dy", "tmCur", "curx", "cury", "speed", "tmStart", "tmOver", "soldier_num","be_atk_list", "flag", "name", "mcid", "alias", "heros", "target_propid", "fid"}
 etypipe[EidType.Monster]=       {"propid", "eid", "x", "y", "hp", "level","born"}
 etypipe[EidType.UnionBuild] =   {"propid", "eid", "x", "y", "uid","alias", "sn","idx","hp","state","name","val","culture","holding","build_speed","fire_speed"}
 etypipe[EidType.NpcCity]=       {"propid", "eid", "x", "y", "state", "startTime","endTime", "unions", "randomAward", "declareUnions", "getAwardMember"}
@@ -438,7 +437,6 @@ function etypipe.add(data)
         data.be_atk_list = data.be_atk_list or {}
         data.mcid = data.mcid or 0
         c_add_troop(data.propid, data.eid, data.sx, data.sy, data.dx, data.dy, etypipe.pack(node, data))
-        print( "============================ add_troop, ", data._id, data.propid )
         --print( debug.traceback() )
         
     else

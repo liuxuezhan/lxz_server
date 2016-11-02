@@ -208,8 +208,8 @@ function get_task_award(self, task_id)
     local bonus = resmng.prop_task_detail[task_id].Bonus
     self:add_bonus(bonus_policy, bonus, VALUE_CHANGE_REASON.REASON_TASK)
 
-    Tlog("QuestComplete",gTime,gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
-          openid,self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.account,1,self.language,
+    Tlog("QuestComplete",tms2str(),gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
+          tostring(openid),self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.smap,self.account,1,self.language,
           task_id )
     return true
 end

@@ -1,5 +1,6 @@
 module("player_t", package.seeall)
 _cache = _cache or {}
+_name = "player_t"
 _example = { account="Unknown", pid=-2 }
 
 local player_mt = {
@@ -35,13 +36,15 @@ function new(t)
 
     local acc = gAccounts[ t.account ]
     if not acc then
-        acc = { [ t.pid ] = { map=gMapID, smap=t.smap or gMapID } } 
+        acc = {}
         gAccounts[ t.account ] =  acc
     end
+    acc[ t.pid ] = { map=gMapID, smap=t.smap or gMapID }
 
     setmetatable(obj, player_mt)
-    if player_t.initObj then
-        player_t.initObj(obj)
+    _cache[ t.pid ] = t
+    if initObj then
+        initObj(obj)
     end
     return obj
 end
@@ -65,7 +68,10 @@ function check_pending()
             hit =true
         end
     end
-    if hit then get_db_checker(db, gFrame)() end
+    --if hit then get_db_checker(db, gFrame)() end
+    if hit then 
+        gen_checker(db, cur, _cache, "player") 
+    end
 end
 
 function get_db_checker(db, frame)

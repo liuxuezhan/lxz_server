@@ -1,4 +1,4 @@
-module("triggers_t")
+module("triggers_t", package.seeall)
 
 triggers_funcs = {} 
 

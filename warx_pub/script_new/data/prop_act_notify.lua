@@ -25,4 +25,6 @@ prop_act_notify = {
 	[MIDDLE_LT_REFRESH] = { ID = MIDDLE_LT_REFRESH, Notify = 60038, Chat1 = 60070, Chat2 = nil, SendMail = nil,},
 	[LT_START] = { ID = LT_START, Notify = 60078, Chat1 = 60080, Chat2 = nil, SendMail = nil,},
 	[LT_END] = { ID = LT_END, Notify = 60079, Chat1 = 60081, Chat2 = nil, SendMail = nil,},
+	[KW_START] = { ID = KW_START, Notify = 60083, Chat1 = 60085, Chat2 = nil, SendMail = nil,},
+	[KW_END] = { ID = KW_END, Notify = 60084, Chat1 = 60086, Chat2 = nil, SendMail = nil,},
 }

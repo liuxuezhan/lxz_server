@@ -69,7 +69,7 @@ function destroy_hero(hero_id)
 
     -- 删除数据库信息
     local db = dbmng:getOne()
-    db.hero:delete({_id = hero._id})
+    db.hero_t:delete({_id = hero._id})
 
     LOG("destroy_hero: succ.")
     dumpTab(hero)
@@ -198,7 +198,7 @@ function get_fight_attr(hero_id)
 
     local hero = get_hero_by_uniq_id(hero_id)
     if not hero then
-        ERROR("get_fight_attr: get_hero_by_uniq_id(hero_id = %d) failed.", hero_id or -1)
+        ERROR("get_fight_attr: get_hero_by_uniq_id(hero_id = %s) failed.", hero_id or -1)
         return
     else
         local ret = {

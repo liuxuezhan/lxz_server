@@ -275,7 +275,7 @@ function siege(self, dest_eid, arm)
 
     if is_monster(dest) then
         dest:mark()
-        self:dec_sinew( 10 )
+        self:dec_sinew( 5 )
 
     elseif is_ply(dest) then
 
@@ -957,6 +957,7 @@ end
 function troop_recall(self, dest_troop_id)
     local troop = troop_mng.get_troop(dest_troop_id)
     if troop then
+        troop.fid = nil
         if troop.delay then return end
 
         if not (troop.owner_pid == self.pid or (troop.arms and troop.arms[ self.pid ] ) ) then 
@@ -1154,6 +1155,66 @@ function troop_arrive_at_time(self, tid, secs)
     end
 end
 
+function sort_soldier( ida, idb )
+    local a = resmng.get_conf("prop_arm", ida[1])
+    local b = resmng.get_conf("prop_arm", idb[1])
+    if a and b then
+        if a.Lv > b.Lv then return true end
+        if a.Lv < b.Lv then return false end
+        if a.Mode > b.Mode then return true end
+    end
+    return false
+end
+
+-- return cure, not_cure
+function trans_to_hospital( self, arm )
+    local count_cure = self:get_val("CountCure")
+    local count = 0
+    local hurts = self.hurts
+    for id, num in pairs( hurts ) do count = count + num end
+    local nhurt = 0
+    local thurt = {}
+    for id, num in pairs( arm ) do
+        table.insert( thurt, {id, num} )
+        nhurt = nhurt + num
+    end
+
+    if count >= count_cure then return {}, overs end
+
+    if count + nhurt <= count_cure then
+        for id, num in pairs( arm ) do
+            hurts[ id ] = ( hurts[ id ] or 0 ) + num 
+        end
+        self.hurts = hurts
+        return arm, {} 
+    else
+        table.sort( thurt, sort_soldier )
+        local cures = {}
+        local overs = {}
+        for _, v in pairs( thurt ) do
+            local id = v[1]
+            local num = v[2]
+            if count + num <= count_cure then
+                hurts[ id ] = ( hurts[ id ] or 0 ) + num 
+                cures[ id ] = num
+                count = count + num
+            else
+                local remain = count_cure - count
+                if remain > 0 then
+                    hurts[ id ] = ( hurts[ id ] or 0 ) + remain
+                    cures[ id ] = remain
+                    overs[ id ] = num - remain
+                    count = count_cure
+                else
+                    overs[ id ] = num
+                end
+            end
+        end
+        self.hurts = hurts
+        return cures, overs
+    end
+end
+
 
 function troop_cure(self, troop, arms)
     local arms = arms or troop.arms or {}
@@ -1246,6 +1307,8 @@ function troop_cure(self, troop, arms)
     end
     return 0
 end
+
+
 
 function cure_on( self, start, over, timer_sn)
     local class = BUILD_CLASS.FUNCTION

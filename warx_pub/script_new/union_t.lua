@@ -1,4 +1,6 @@
 -- Hx@2015-11-30 : 军团类
+module( "union_t", package.seeall )
+
 module_class("union_t", {
     uid = 0,
     _id = 0,
@@ -20,9 +22,11 @@ module_class("union_t", {
     atk_id = 0,  -- 领土争夺好招攻击的对象
     def_id =  0, -- 领土争夺好招防御的对象
     declare_wars = {}, -- 宣战的城市
+    abd_city_time = 0,  -- npc 弃城的时间，每天只能弃城一次
     last_declare_time = 0, --上次成功宣战的时间
     monster_city_stage = 0, -- 怪物攻城的波次
     mc_timer = 0, -- 怪物攻城定时器
+    mc_ntf_timer = 0, -- 怪物攻城定时器
     set_mc_time = 999, -- 设置mc 开始的时间
     mc_start_time = 20, -- 设置mc 开始的时间
     mc_reward_pool = {}, -- 怪物攻城的奖励池
@@ -130,6 +134,7 @@ function set_mc_start(self, time, ply)
     end
 
         timer.del(self.mc_timer)
+        timer.del(self.mc_ntf_timer)
         local leftTime = get_left_time(time)
         self.mc_start_time = time
         self.set_mc_time = gTime
@@ -150,7 +155,7 @@ function set_mc_start(self, time, ply)
             leftTime = 10
         end
 
-        self.mc_timer = timer.new("mc_notify", mc_ntf_time, resmng.MC_PREPARE, self.uid)
+        self.mc_ntf_timer = timer.new("mc_notify", mc_ntf_time, resmng.MC_PREPARE, self.uid)
 
         self.mc_timer = timer.new("monster_city", leftTime, self.uid, 1)
     else
@@ -159,6 +164,9 @@ function set_mc_start(self, time, ply)
 end
 
 function mc_notify(self, notify_id)
+    for k, v in pairs(self.npc_citys) do
+        local city = get_monster_city(v)
+    end
     local prop = resmng.get_conf("prop_act_notify", notify_id)
     if prop then
         if prop.Chat2 then
@@ -187,13 +195,17 @@ function set_default_start(self)
         self.mc_start_time =  get_default_time(self)
     end
     timer.del(self.mc_timer)
+    timer.del(self.mc_ntf_timer)
     local time = get_left_time(self.mc_start_time)
     if player_t.debug_tag then
         time = 10
     end
-    mc_ntf_time = time - 30 * 60
+    local mc_ntf_time = time - 30 * 60
+    if mc_ntf_time <= 0 then
+        mc_ntf_time = 10
+    end
 
-    timer.new("mc_notify", mc_ntf_time, resmng.MC_PREPARE, self.uid)
+    self.mc_ntf_timer = timer.new("mc_notify", mc_ntf_time, resmng.MC_PREPARE, self.uid)
     self.mc_timer = timer.new("monster_city", time, self.uid, 1)
 end
 
@@ -265,6 +277,10 @@ function set_mc_state(self, stage)
     local time = prop.Spantime
     if prop.NextStage ~= stage then
         set_mc_timer(self, time, prop.NextStage)
+    end
+
+    if prop.NextStage == stage then
+        self.monster_city_stage = 0
     end
 
 end
@@ -862,15 +878,15 @@ function rm_member(self, A,kicker)
                     break
                 end
             end
+        end
 
-            if u1  then
-                local leader = getPlayer(u1.leader)
-                leader:union_invite(A.pid)
-            end
-            if u3  then
-                local leader = getPlayer(u3.leader)
-                leader:union_invite(A.pid)
-            end
+        if u1  then
+            local leader = getPlayer(u1.leader)
+            leader:union_invite(A.pid)
+        end
+        if u3  then
+            local leader = getPlayer(u3.leader)
+            leader:union_invite(A.pid)
         end
     end
     return resmng.E_OK

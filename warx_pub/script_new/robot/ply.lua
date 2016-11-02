@@ -5,7 +5,7 @@ local _mt = {__index = Ply}
 function new(acc)
     local pid = -1
     for k, v in pairs( gNames[acc] or {} ) do
-        if v.smap and v.smap == gMap then--源服务器
+        if v.smap and v.smap == config.Map then--源服务器
             pid =  tonumber(k)
             break
         end
@@ -21,14 +21,17 @@ function handle_network(self, sid, pktype)
         self.gid = sid
         local token = "c67sahejr578aqo3l8912oic9"
         local msg = c_md5(c_md5(gTime..self.acc..token)..APP_SECRET)
-        local i = math.random(4)
-    --    lxz(i,self.pid)
-        Rpc:firstPacket(self,gMap,  i, self.pid, msg, gTime, self.acc,token)
+        lxz(self.pid)
+        Rpc:firstPacket(self,config.Map,  config.get_cival(self), self.pid, msg, gTime, self.acc,token)
     elseif pktype == 11 then -- connect fail
 
     elseif pktype == 6 then -- close
 
     end
+end
+
+function robot_first(self)
+    handle_network(self, self.fd, 10)
 end
 
 gActionIndex = 0
@@ -119,16 +122,16 @@ function loadData(self, data)
             for zy = y - move, y + move, 10 do
                 if zx > 0 and zx < 1280 then
                     if zy > 0 and zy < 1280 then
-                        Rpc:movEye( self, gMap, zx, zy )
+                        Rpc:movEye( self, config.Map, zx, zy )
                     end
                 end
             end
         end
-        Rpc:movEye( self, gMap, 640, 640 )
-        Rpc:movEye( self, gMap, 640, 610 )
-        Rpc:movEye( self, gMap, 610, 640 )
-        Rpc:movEye( self, gMap, 640, 670 )
-        Rpc:movEye( self, gMap, 670, 640 )
+        Rpc:movEye( self, config.Map, 640, 640 )
+        Rpc:movEye( self, config.Map, 640, 610 )
+        Rpc:movEye( self, config.Map, 610, 640 )
+        Rpc:movEye( self, config.Map, 640, 670 )
+        Rpc:movEye( self, config.Map, 670, 640 )
 
 --[[
         if string.byte( data.val.name, 1, 1 ) == 75 then
@@ -180,7 +183,7 @@ end
 function upd_arm( self, info )
     --lxz(info)
     for k, v in pairs(info) do 
-        local check = g_check.arm 
+        local check = config.g_check.arm 
         if check and  v < check.num then
             Rpc:chat(self, 0, "@addarm="..k.."="..check.num, 0 )
         end
@@ -434,12 +437,12 @@ function statePro(self,pack)
     else
         for k, v in pairs(pack) do self[k] = v end
     end
-    local check = g_check.gold
+    local check = config.g_check.gold
     if pack.gold and check and pack.gold < check.num then
         Rpc:chat(self, 0, "@addgold="..check.num, 0 )
         self.gold = check.num
     end
-    if pack.sinew and g_check.sinew then 
+    if pack.sinew and config.g_check.sinew then 
         print("体力",pack.sinew)
         if pack.sinew < 100 then Rpc:buy_item(self,43, 2, 1) end
     end
@@ -935,7 +938,7 @@ funcAction.login = function(self)
     Rpc:syn_back_code( self, 1 )
 
 
-    for _, v in pairs(gm) do
+    for _, v in pairs(config.gm) do
         Rpc:chat(self, 0, v, 0 )
     end
 
@@ -968,6 +971,20 @@ function build_train(self, class, mode,a_lv)
 
     self:build_up(class,mode,lv)
     return 0
+end
+
+function check_test(self, check)
+        self._check = {}
+    for k, v in pairs(check) do
+        self._check[k].ret = v
+        self._check[k].src = self[ k ]
+    end
+end
+
+function print_check(self)
+    for k, v in pairs(self._check or {} ) do
+        WARN(self.acc,k,v.ret,v.src,self[k])
+    end
 end
 
 function fight(self, cmd, eid,arms)
@@ -1031,31 +1048,6 @@ function train(self,a_mode,a_lv,num )
     for i = 1,num do
         Rpc:train(self,idx,id, 10,1) 
     end
-
---[[
-    local prop = resmng.prop_arm[ id ]
-    if prop.Cons then
-        local flag, class, mode, lv = self:condCheck(prop.Cons)
-        if not flag then
-            if class == resmng.CLASS_RES then
-                self:addAction("get", class, mode, lv)
-                return
-            end
-        end
-    end
-
-    if self:build_train( 0,a_mode,a_lv) == 1 then --前提建筑
-        local n = self:getBuildNum(0, 18)
-        if n==0 then
-            self:addAction("construct", 0, 18,  1)
-            return 
-        end
-
-        self:addAction("train",id,num )--造兵 
-        return
-    end
-      self:addAction("train",id,num )--造兵 
-    --]]
 end
 
 

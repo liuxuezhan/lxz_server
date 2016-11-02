@@ -1,4 +1,5 @@
-module("msglist")
+module("msglist", package.seeall)
+
 _mt_msglist = {__index = msglist}
 g_msglists = {}
 

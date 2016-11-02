@@ -1,3 +1,4 @@
+module( "lost_temple", package.seeall )
 module_class("lost_temple",
 {
     _id = 0,
@@ -33,11 +34,12 @@ cityPool = cityPool or {}
 citys = citys or {}
 seq_citys = seq_citys or {}
 
+--每个npccity 的 lv  等于 poolRule k 的
 poolRule = {
-    {2, 4},
-    {2, 4},
     {1, 4},
-    {1, 2},
+    {2, 10},
+    {1, 10},
+    {1, 10},
 }
 
 function mark(m)

@@ -62,7 +62,25 @@ function try_upgrade(self, idx)
             if not conf1 then return end
         end
         set_title(self, idx, lv + 1 )
+        try_use_title(self)
         self:try_upgrade(idx)
+    end
+end
+
+function try_use_title(self)
+    local index = math.floor(self.title / 10)
+    local lv = self.title % 10
+    local real_lv = self:get_title(index) or 0
+    if real_lv ~= lv then
+        local oldConf = resmng.get_conf("prop_title", self.title)
+        if oldConf then
+            self:rem_buf(oldConf.Buff)
+        end
+        self.title = index * 10 + real_lv
+        local conf = resmng.get_conf("prop_title", self.title)
+        if conf then
+            self:add_buf(conf.Buff, -1)
+        end
     end
 end
 

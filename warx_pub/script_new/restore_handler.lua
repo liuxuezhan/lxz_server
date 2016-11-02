@@ -163,7 +163,7 @@ end
 
 function load_hero()
     local db = dbmng:getOne()
-    local info = db.hero:find({})
+    local info = db.hero_t:find({})
     while info:hasNext() do
         local b = info:next()
         local p = getPlayer(b.pid)
@@ -513,7 +513,7 @@ function action()
 
     INFO("-- restore_timer -----------")
     local compensate =  restore_timer()
-    INFO("-- restore_timer done ------")
+    INFO("-- restore_timer done ------, %s", compensate or "none")
     monitoring(MONITOR_TYPE.LOADDATA, "restore_timer")
 
     init_effect()

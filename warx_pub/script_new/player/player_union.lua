@@ -517,7 +517,7 @@ function union_list(self,name)
     local len = math.huge
 
     local us = rank_mng.get_range(5,1,20000)
-    for k, uid in pairs( us ) do
+    for k, uid in pairs( us or {}  ) do
         if uid == 0 then break end
         local u = unionmng.get_union(uid)
         if u and (not u:is_new()) and u:check() then 
@@ -861,18 +861,18 @@ function union_mall_add(self,propid,num)
 
     local u = unionmng.get_union(self:get_uid())
     if not u then
-        WARN("")
+        LOG("")
         return
     end
 
     if not union_t.is_legal(self, "AddItem") then
-        WARN("没权限")
+        LOG("没权限")
         return
     end
 
     local c = resmng.get_conf("prop_union_mall",propid)
     if not c then
-        WARN("")
+        LOG("")
         return
     end
 
@@ -880,12 +880,12 @@ function union_mall_add(self,propid,num)
     if u._tech[1005] then
         local cur = resmng.get_conf("prop_union_tech",u._tech[1005].id)
         if cur.Lv < cc.Lv then
-            WARN("不能进货")
+            LOG("不能进货1")
             return
         end
     else
         if 0 < cc.Lv then
-            WARN("不能进货")
+            LOG("不能进货2")
             return
         end
     end
@@ -1107,6 +1107,7 @@ function union_set_note_in(self, what)
     if not union then
         ack(self, "union_set_note_in", resmng.E_NO_UNION) return
     end
+    union:set_note_in(self.pid,what)
 
 end
 

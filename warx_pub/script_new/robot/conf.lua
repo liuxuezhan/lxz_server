@@ -1,31 +1,108 @@
-gMap = 6 --服务器id  
-g_start = 8000 
-g_num = 1000 
+module("config")
+
+-- Map 跟 Tips 每个服务器都不一样，要改
+Map = 5
+Tips = "robot"
+
+-- 脚本所在目录，可以不改，也可以用全路径
+StartScript = "robot/robot.lua"
+
+--以下配置各个服务器基本一致, 可以不改动
+Game = "warx"
+DbPort = 27017
+DbHost = "192.168.100.12"
+
+Daemon = 0
+DbPortG = 27017
+DbHostG = "192.168.100.12"
+GateHost = "192.168.100.12"
+GatePort = 8002 
+
+LogLevel = 3
+Release = true
+BuddySize = 128
+
+IsEnableGm = 1
+
+GameHost = "192.168.100.12"
+APP_ID = "warx_test" 
+SERVER_ID =  Tips 
+PLAT_ID = 1 
+TlogSwitch = 1
+---------------------------------------------机器人专用
+
+g_start = 3000 
+g_num = 70 
 gName ="robot" 
-gTotalTime = 1  --登录秒数 
-g_membercount = 50 --军团人数
-gPlan ={ 
-    union = {
-        add = 1, --加入军团 热点
-        fight = "is_monster",                    --军团战争 
-        build = 100004001,                       --军团建筑
-        --[[
-        rank = resmng.UNION_RANK_4,              --设置军阶
-        help = HELP_TYPE.CONSTRUCT,              --帮助类型
-        donate = 0,                              --科技捐献
-        buildlv = UNION_CONSTRUCT_TYPE.MIRACAL,  --建筑捐献
-        god = 0 ,                                --膜拜战神
-        word = 0,                                --留言
-        --]]
-    },
+gTotalTime = 60  --登录秒数 
+g_client_port = 8001
+
+function robot_plan()
+     WARN("ssedeff")
+  --  move()
+ --   robot_union_build()
+    Ply.union_mission()
+
+end
+
+function get_cival(self)
+    if  self.robot_id > 1 then
+        return 1
+    end
+    return 2
+end
+
+lvtable = {1,5,8,10,12,14,16,18,20,22,23,24,25,26,27,28,29,30} --城堡外观等级设置
+
+setx = 100  --指定迁城坐标x值
+sety = 0  --指定迁城坐标y值
+
+function get_cival(self)
+        --return self.robot_id % 4 + 1 --创建机器人时对应设置文明
+        if self.robot_id >= g_start and self.robot_id <= g_start + 17 then return 1 end
+        if self.robot_id > g_start + 17 and self.robot_id <= g_start + 35 then return 2 end
+        if self.robot_id > g_start + 35 and self.robot_id <= g_start + 53 then return 3 end
+        if self.robot_id > g_start + 53 and self.robot_id <= g_start + 71 then return 4 end
+end
+
+function setname(self)
+    for i = g_start,g_start+g_num do
+        local name = gName..tostring(i)
+        local self = g_name[name]
+    end
+end
+
+function setlvbuild(start,last)
+    local lv = 1
+    for l = start,last do
+        if self.active and gTime - self.active  > gInterval then
+            Rpc:chat(self, 0, "@lvbuild=0=0="..tostring(lvtable[lv]), 0 )  --建筑等级到lvtable[i]等级
+            lv = lv + 1
+        end       
+    end
+end
 
 
-        build = {lv=30},                       --主城等级
-        task = {},                             --主线任务
---[[
-        king = {},                             --王城战
-        --]]
-} 
+function move()
+    local movex = 200
+    local movey = 200
+    for i = g_start,g_start+g_num do
+        local name = gName..tostring(i)
+        local self = g_name[name]
+        local x,y = setx,sety  --指定迁城坐标
+        if self and self.active and gTime - self.active  > 1 then
+            Ply.pending( self )
+            if self.name ~= self.acc then
+                Rpc:change_name(self,self.acc)
+            end
+            if self.x < x + movex and self.x > 0 and self.y < y + movey and self.y > 0 then  --设置迁城坐标和范围，范围由x，y后面加的值控制
+            else 
+                Rpc:request_empty_pos(self,x,y,2,{key="move"})  --移动到指定范围
+            end
+        end
+    end 
+end
+
 
 gm = { --登录加载gm命令
 
@@ -63,10 +140,7 @@ gm = { --登录加载gm命令
 }
 
 g_check = { --被动执行gm
---[[
     arm = {num=100000,gm={} }, --士兵小于num 时执行
     sinew = {num=100 }, --体力小于num 时执行
     gold = {num=1000000 }, --金币小于num 时执行
-    --]]
-
 }

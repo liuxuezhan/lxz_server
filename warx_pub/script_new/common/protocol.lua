@@ -139,7 +139,7 @@ Server = {
     mail_lock_by_sn = "pack sns",
     mail_unlock_by_sn= "pack sns",
     mail_send_player = "int to_player_id, string title, string content",
-    mail_send_union = "pack plys, string title, string content",--发送军团邮件
+    mail_send_union = "string title, string content",--发送军团邮件
     -- todo, just for test
     test_mail_all = "int class, string title, string content, pack its",
 

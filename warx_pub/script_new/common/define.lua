@@ -368,6 +368,10 @@ MAIL_CLASS = {
     SYSTEM = 3,  -- 系统
     REPORT = 4,  -- 报告
 }
+MAIL_PLAYER_MODE = {
+    CHAT = 1,  --玩家聊天
+    UNION_ANNOUNCE = 2, --军团公告
+}
 MAIL_FIGHT_MODE = {
     SPY = 1,  -- 侦查
     BE_SPY = 2,  -- 被侦查
@@ -401,6 +405,12 @@ MAIL_SYSTEM_SEQ = {
     CONTENT = 3,        -- 内容文字
     AWARD = 4,          -- 奖励
     RESPONSE = 5,       -- 应答按钮
+}
+
+MAIL_UNREAD_OP = {
+    CLEAR_ALL = 1,
+    ADD = 2,
+    CONSUME = 3,
 }
 
 -- Zhao@2015年12月3日 ：Language

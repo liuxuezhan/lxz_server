@@ -15,6 +15,7 @@ from tornado.options import define, options
 define("port", default=9000, help="输入端口号", type=int)
 define("name", default="robot", help="输入机器人名字", type=str)
 define("path", default=sys.argv[1], help="路径", type=str)
+conf="conf.lua"
 
 
 gHandle = 0
@@ -36,7 +37,7 @@ class Start_robot(tornado.web.RequestHandler):
         a = subprocess.Popen(cmd, cwd=path, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
         a.wait()
 
-        cmd = '%s/bin/robot 0 robot robot/robot.lua'%(options.path)
+        cmd = '%s/bin/robot %s'%(options.path,conf)
         path = '%s/bin'%(options.path)
         sub = subprocess.Popen(cmd, cwd=path, shell=True)
         gHandle = sub
@@ -60,27 +61,12 @@ class Stop_robot(tornado.web.RequestHandler):
 
 class GetLog_robot(tornado.web.RequestHandler):
     def get(self):
-        num = self.get_argument("num")
-        if num == '0':
-            self.write( "begin<br/>" )
-            self.finsh()
-            cmd = 'tail -f  /var/log/localA.log | grep %s' %(options.name)
-            import time
-            while True:
-                a = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
-                logs = a.stdout.read()
-                a.wait()
-                for log in logs.split("\n"):
-                    self.write( "%s<br/>"%log )
-                    self.flush() 
-                time.sleep(1)
-        else:
-            cmd = 'grep %s /var/log/localA.log | tail -n %s'%(options.name,num)
-            a = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
-            logs = a.stdout.read()
-            a.wait()
-            for log in logs.split("\n"):
-                self.write( "%s<br/>"%log )
+        cmd = 'grep %s /var/log/localA.log | tail -n 100'%(options.name)
+        a = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+        logs = a.stdout.read()
+        a.wait()
+        for log in logs.split("\n"):
+            self.write( "%s<br/>"%log )
 
 class UploadFileHandler(tornado.web.RequestHandler):
     def post(self):
@@ -88,9 +74,10 @@ class UploadFileHandler(tornado.web.RequestHandler):
         #提取表单中‘name’为‘file’的文件元数据
         file_metas=self.request.files['file']    
         for meta in file_metas:
-            #filename=meta['filename']
-            filename="conf.lua"
-            filepath=os.path.join(options.path,filename)
+            conf=meta['filename']
+            #options.conf="conf.lua"
+            filepath=os.path.join(options.path+"/bin",conf)
+            print filepath
             #有些文件需要已二进制的形式存储，实际中可以更改
             with open(filepath,'wb') as up:      
                 up.write(meta['body'])
@@ -143,7 +130,7 @@ if __name__ == "__main__":
         (r"/Start_robot", Start_robot),
         (r"/Stop_robot", Stop_robot),
         (r"/GetLog_robot", GetLog_robot),
-        (r'/file',UploadFileHandler),
+        (r"/file",UploadFileHandler),
         (r"/down", down),  
         (r"/new", new),  
         (r"/(.*)", MyFile, {"path":"./"}),  

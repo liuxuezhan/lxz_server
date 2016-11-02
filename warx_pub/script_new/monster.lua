@@ -37,7 +37,7 @@ lv_1_boss =
 }
 
 lv_1_boss_num = 80
-lv_1_block_num = 300
+lv_1_block_num = 3380
 
 npc_boss_rule =
 {
@@ -862,7 +862,18 @@ function make_reward_num(key, rewards, factor, pid, monster)
     end
 end
 
-function get_jungle_reward(self, pid, mkdmg, totalDmg , hp_lost)
+function trans_num(reward, rate)
+    for k, v in pairs(reward or {}) do
+        v[3] =  math.floor( v[3] * rate)
+    end
+    return reward
+end
+
+function get_jungle_reward(self, pid, mkdmg, totalDmg , hp_lost, is_mass)
+    local rate = 1
+    if is_mass ~= 1 then
+        rate= 0.5
+    end
     if not hp_lost then
         hp_lost = 0
     end
@@ -870,13 +881,13 @@ function get_jungle_reward(self, pid, mkdmg, totalDmg , hp_lost)
     for k, v in pairs(self.rewards or {}) do
         local val = copyTab(v)
         if k == "fix" then  -- fix award
-            rewards[ k ] = val
+            rewards[ k ] = trans_num(val , rate)
         elseif k == "base"  then  -- base  extra award
             make_reward_num(k, val, mkdmg / totalDmg * hp_lost, pid, self )
             if totalDmg == 0 then
-                rewards[ k ] = val
+                rewards[ k ] = trans_num(val , rate)
             else
-                rewards[ k ] = val
+                rewards[ k ] = trans_num(val , rate)
             end
         elseif k == "extra" then
             rewards[ k ] = val

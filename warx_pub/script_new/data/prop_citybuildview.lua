@@ -12,7 +12,7 @@ prop_citybuildview = {
 	[OPEN_WALLS] = { ID = OPEN_WALLS, PropId = 2001, Bborn = 1, OpenCond = nil, OpenCastleLv = nil,},
 	[OPEN_DAILYQUEST] = { ID = OPEN_DAILYQUEST, PropId = 3001, Bborn = 0, OpenCond = nil, OpenCastleLv = 7,},
 	[OPEN_STOREHOUSE] = { ID = OPEN_STOREHOUSE, PropId = 4001, Bborn = 1, OpenCond = {7,130010129}, OpenCastleLv = 4,},
-	[OPEN_MARKET] = { ID = OPEN_MARKET, PropId = 5001, Bborn = 0, OpenCond = {7,130010409}, OpenCastleLv = 8,},
+	[OPEN_MARKET] = { ID = OPEN_MARKET, PropId = 5001, Bborn = 0, OpenCond = {7,130010408}, OpenCastleLv = 8,},
 	[OPEN_BLACKMARKET] = { ID = OPEN_BLACKMARKET, PropId = 6001, Bborn = 0, OpenCond = {7,130010412}, OpenCastleLv = 8,},
 	[OPEN_RESOURCESMARKET] = { ID = OPEN_RESOURCESMARKET, PropId = 7001, Bborn = 0, OpenCond = {7,130010420}, OpenCastleLv = 8,},
 	[OPEN_PRISON] = { ID = OPEN_PRISON, PropId = 8001, Bborn = 0, OpenCond = {7,130010706}, OpenCastleLv = 10,},

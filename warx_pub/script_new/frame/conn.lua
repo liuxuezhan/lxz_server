@@ -61,7 +61,7 @@ function toMongo(host, port, db, tips)
     local sid = connect(host, port, 0, 2)
     local t = { host=host, port=port, sid=sid, state=0, db=db, tips=tips }
     gConns[ sid ] = t
-    print( "connect", host, port )
+    print( "connect", host, port, sid )
     return setmetatable(t, mt)
 end
 

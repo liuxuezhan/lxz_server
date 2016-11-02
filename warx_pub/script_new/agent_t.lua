@@ -1,4 +1,4 @@
-module( "agent_t" )
+module( "agent_t", package.seeall )
 
 function agent_move_eye( self, pid, x, y )
     c_mov_eye(pid, x, y)

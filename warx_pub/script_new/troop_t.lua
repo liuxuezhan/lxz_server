@@ -26,6 +26,7 @@ function load_data(data)
     else
         if data.arms then
             for pid, _ in pairs(data.arms) do
+                pid = tonumber(pid)
                 if pid >= 10000 then
                     local ply = getPlayer(pid)
                     if ply then
@@ -86,6 +87,7 @@ function add_link( self )
                 else
                     comings[ self._id ] = action
                 end
+                if dest.on_troop_coming then dest:on_troop_coming( self ) end
 
                 if not is_ply( dest ) then
                     if dest.pid and dest.pid >= 10000 then
@@ -97,6 +99,7 @@ function add_link( self )
                             else
                                 comings[ self._id ] = action
                             end
+                            if A.on_troop_coming then A:on_troop_coming( self ) end
                         end
                     end
                 end
@@ -162,7 +165,7 @@ function calc_troop_speed(self)
                 elseif action == TroopAction.King then
                     speed = speed * ( 1 + owner:get_num( "SpeedMarch_R" ) * 0.0001 )
                 elseif action == TroopAction.JoinMass then
-                    speed = speed * ( 1 + ( owner:get_num( "SpeedMarch_R") + owner:get_num( "SpeedMarchMass_R") ) * 0.0001 )
+                    speed = speed * ( 1 + ( owner:get_num( "SpeedMarch_R") + owner:get_num( "SpeedRally_R") ) * 0.0001 )
                 else
                     speed = speed * ( 1 + owner:get_num( "SpeedMarch_R") * 0.0001 )
                 end
@@ -219,6 +222,7 @@ function back(self, delay)
                 local ply = getPlayer(pid)
                 if ply then
                     local troop = troop_mng.create_troop(action, ply, target, arm)
+                    troop.fid = fid
                     troop.curx, troop.cury = curx, cury
                     if delay then 
                         troop.delay = gTime
@@ -239,7 +243,6 @@ function back(self, delay)
 end
 
 function home_hurt_tr(self) --伤兵直接回城
-
     if self.owner_pid == 0 then return end
 
     local arms = copyTab(self.arms or {})
@@ -344,7 +347,11 @@ function home(self)
         end
     end
     owner:add_soldiers( arm.live_soldier )
-    owner:troop_cure(self)
+    if arm.amend then
+        if arm.amend.relive then
+            owner:add_soldiers( arm.amend.relive )
+        end
+    end
 
     for _, hid in pairs(arm.heros or {}) do
         if hid ~= 0 then
@@ -695,11 +702,15 @@ function start_march(self, default_speed)
     if self.eid and self.eid > 0 then
         local ety = get_ety( self.eid )
         if not ety or ety == self then
-            have_eid = true
+            have_eid = self.eid
         end
     end
 
-    if not have_eid then self.eid = get_eid_troop() end
+    if not have_eid then 
+        self.eid = get_eid_troop() 
+    else
+        gRemEty[ self.eid ] = nil
+    end
 
     local speed = default_speed or self:calc_troop_speed()
     local dist, zone = calc_distance( self.curx, self.cury, self.dx, self.dy )
@@ -750,6 +761,7 @@ function start_march(self, default_speed)
         self.target_propid = resmng.CAMP_WEST_1
     end
 
+    self.fid = self.fid or 0
     self.alias = ""
     if is_ply( owner ) then
         local u = owner:get_union()
@@ -813,7 +825,6 @@ function notify_owner(self)
     else
         for pid, _ in pairs(self.arms) do table.insert(pids, pid) end
     end
-    print( "notify_owner", self._id )
     Rpc:stateTroop(pids, info)
 end
 
@@ -992,13 +1003,13 @@ function get_tr_pow(self)
     return pow
 end
 
-function calc_pow(self, pid)
+function calc_dmg(self, pid)
     local pow = 0
     local arm = self.arms and self.arms[ pid ]
     if arm then
         local prop_arm = resmng.prop_arm
-        if arm.live_soldier then
-            for id, num in pairs(arm.live_soldier) do
+        if arm.kill_soldier_soldier then
+            for id, num in pairs(arm.kill_soldier) do
                 local prop = prop_arm[ id ]
                 if prop and prop.Pow then
                     pow = pow + (prop.Pow or 0) * num
@@ -1012,6 +1023,53 @@ function calc_pow(self, pid)
     return pow
 end
 
+function calc_pow(self, pid)
+    local pow = 0
+    local arm = self.arms and self.arms[ pid ]
+    if arm then
+        local prop_arm = resmng.prop_arm
+        if arm.live_soldier then
+            for id, num in pairs(arm.live_soldier) do
+                local prop = prop_arm[ id ]
+                if prop and prop.Pow then
+                    pow = pow + (prop.Pow or 0) * num
+                end
+            end
+
+        end
+        local amend = arm.amend
+        if amend then
+            for id, num in pairs( amend.relive or {} ) do
+                local prop = prop_arm[ id ]
+                if prop and prop.Pow then
+                    pow = pow + (prop.Pow or 0) * num
+                end
+            end
+        end
+    end
+    return pow
+end
+
+
+function lost_pow_by_hurt(self, pid)
+    local pow = 0
+    local arm = self.arms and self.arms[ pid ]
+    if arm then
+        local prop_arm = resmng.prop_arm
+        if arm.hurt_soldier then
+            for id, num in pairs(arm.hurt_soldier or {}) do
+                local prop = prop_arm[ id ]
+                if prop and prop.Pow then
+                    pow = pow + (prop.Pow or 0) * num
+                else
+                    Mark("calc_pow, id = %d", id)
+                    dumpTab(self, "calc_pow_error")
+                end
+            end
+        end
+    end
+    return pow
+end
 
 function lost_pow(self, pid)
     local pow = 0
@@ -1289,43 +1347,11 @@ function has_alive( self )
     return false
 end
 
-function dead_to_hurt( self, rate, who )
-    rate = rate or 1
-    if not who then who = self.owner_pid end
-    for pid, arm in pairs( self.arms or {} ) do
-        if pid == who then
-            local dead = arm.dead_soldier
-            if not dead then return end
-
-            local hurt = arm.hurt_soldier
-            if not hurt then
-                hurt = {}
-                arm.hurt_soldier = hurt
-            end
-
-            for k, v in pairs( dead ) do
-                local d2h = math.floor( v * rate )
-                if d2h > 0 then
-                    dead[ k ] = v - d2h
-                    hurt[ k ] = ( hurt[ k ] or 0 ) + d2h
-                end
-            end
-        end
-    end
-end
-
-function dead_to_live_and_hurt( self, rate )
-    return convert_hurt(self.arms or {}, rate)
-end
-
-function convert_hurt(arms, rate)
+function dead_to_hurt(self, rate)
     local result = {}
     rate = rate or 1
     local prop_arm = resmng.prop_arm
-    for pid, arm in pairs( arms or {} ) do
-        local nlive = 0
-        local nhurt = 0
-        local nlost = 0
+    for pid, arm in pairs( self.arms or {} ) do
 
         local dead = arm.dead_soldier
         if not dead then
@@ -1345,18 +1371,40 @@ function convert_hurt(arms, rate)
             arm.live_soldier = live
         end
 
-        for id, num in pairs( live ) do
-            local ndead = dead[ id ]
-            if ndead and ndead > 0 then
-                local n1 = math.floor( ndead * rate )
-                local n2 = ndead - n1
-                hurt[ id ] = (hurt[ id ] or 0) + n2
-                nhurt = nhurt + n2
-                live[ id ] = live[ id ] + n1
-                nlost = nlost + prop_arm[ id ].Pow * n2
-            end
-            nlive = nlive + live[ id ]
+        for id, num in pairs( dead ) do
+            local n1 = math.floor( num * rate )
+            hurt[ id ] = ( hurt[ id ] or 0 ) + n1 
+            dead[ id ] = dead[ id ] - n1
         end
+
+        if pid >= 10000 then
+            local owner = getPlayer( pid )
+            if owner then
+                local to_cure, to_over = owner:trans_to_hospital( hurt )
+                hurt = to_cure
+                for id, num in pairs( to_over or {} ) do
+                    dead[ id ] = ( dead[ id ] or 0 ) + num
+                end
+            end
+        end
+
+        local nlive = 0
+        local nhurt = 0
+        local nlost = 0
+
+        for id, num in pairs( live ) do nlive = nlive + num end
+
+        for id, num in pairs( hurt ) do 
+            nhurt = nhurt + num 
+            local conf = prop_arm[ id ]
+            if conf then nlost = nlost + conf.Pow * num end
+        end
+
+        for id, num in pairs( dead ) do 
+            local conf = prop_arm[ id ]
+            if conf then nlost = nlost + conf.Pow * num end
+        end
+
         result[ pid ] = { live=nlive, hurt=nhurt, lost = nlost }
         arm.dead_soldier = {}
 
@@ -1374,6 +1422,179 @@ function convert_hurt(arms, rate)
     end
     return result
 end
+
+
+function dead_to_live_and_hurt( self, rate )
+    return convert_hurt(self.arms or {}, rate)
+end
+
+
+function convert_hurt(arms, rate)
+    local result = {}
+    rate = rate or 1
+    local prop_arm = resmng.prop_arm
+    for pid, arm in pairs( arms or {} ) do
+        if pid >= 10000 then
+            local owner = getPlayer( pid )
+            if owner then
+                local nlive = 0
+                local nhurt = 0
+                local nlost = 0
+
+                local dead = arm.dead_soldier or {}
+                local live = arm.live_soldier or {}
+
+                local hurt = {}
+                for id, num in pairs( dead ) do
+                    if num > 0 then
+                        local n1 = math.floor( num * rate )
+                        local n2 = num - n1
+                        hurt[ id ] = n2
+                        live[ id ] = ( live[ id ] or 0 ) + n1
+                    end
+                end
+                local to_cure, to_over = owner:trans_to_hospital( hurt )
+
+                hurt = to_cure
+                dead = to_over
+
+                local nlive = 0
+                for id, num in pairs( live ) do nlive = nlive + num end
+
+                local nhurt = 0
+                for id, num in pairs( hurt ) do nhurt = nhurt + num end
+
+                local nlost = 0
+                for id, num in pairs( dead ) do nlost = nlost + prop_arm[ id ].Pow * num end
+                for id, num in pairs( hurt ) do nlost = nlost + prop_arm[ id ].Pow * num end
+
+                arm.live_soldier = live
+                arm.hurt_soldier = hurt
+                arm.dead_soldier = dead
+
+                result[ pid ] = { live=nlive, hurt=nhurt, lost = nlost }
+
+                for mode, id in pairs( arm.heros or {} ) do
+                    if id ~= 0 then
+                        local h = heromng.get_hero_by_uniq_id( id )
+                        if h and h.lost then
+                            h.hp = math.floor( h.hp +  h.lost * rate )
+                            if h.hp < 0 then h.hp = 0 end
+                            if h.hp > h.max_hp then h.hp = h.max_hp end
+                            h.lost = nil
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return result
+end
+
+function statics( troop )
+    local infos = {}
+    for pid, arm in pairs( troop.arms or {} ) do
+        local live = 0
+        local hurt = 0
+        local lost = 0
+
+        for id, num in pairs( arm.live_soldier or {} ) do live = live + num end
+
+        local amend = arm.amend
+        if amend then
+            local conf = resmng.prop_arm
+            for id, num in pairs( amend.relive or {} ) do live = live + num end
+            for id, num in pairs( amend.back or {} ) do live = live + num end
+
+            for id, num in pairs( amend.cure or {} ) do 
+                hurt = hurt + num 
+                local node = conf[ id ]
+                if node then lost = lost + node.Pow * num end
+            end
+
+            for id, num in pairs( amend.dead or {} ) do 
+                local node = conf[ id ]
+                if node then lost = lost + node.Pow * num end
+            end
+        else
+            for id, num in pairs( arm.dead_soldier or {} ) do
+                local node = conf[ id ]
+                if node then lost = lost + node.Pow * num end
+            end
+        end
+        infos[ pid ] = { live = live, hurt = hurt, lost = lost }
+    end
+    return infos
+end
+
+function handle_dead( troop, mode, to_live, to_back, to_cure )
+    for pid, arm in pairs( troop.arms ) do
+        local info = {}
+        if arm.dead_soldier then
+            local dead = copyTab( arm.dead_soldier )
+            info.dead = dead
+            if to_live > 0 then
+                local node = {}
+                for k, v in pairs( dead ) do
+                    local n = math.floor( v * to_live )
+                    node[ k ] = n
+                    dead[ k ] = v - n
+                end
+                info.relive = node
+
+                for _, id in pairs( arm.heros or {} ) do
+                    if id ~= 0 then
+                        local h = heromng.get_hero_by_uniq_id( id )
+                        if h and h.lost then
+                            h.hp = math.floor( h.hp +  h.lost * to_live )
+                            if h.hp < 0 then h.hp = 0 end
+                            if h.hp > h.max_hp then h.hp = h.max_hp end
+                            h.lost = nil
+                        end
+                    end
+                end
+            end
+
+            if to_back > 0 then
+                local node = {}
+                for k, v in pairs( dead ) do
+                    local n = math.floor( v * to_back )
+                    node[ k ] = n
+                    dead[ k ] = v - n
+                end
+                info.back = node
+                if pid >= 10000 then
+                    local owner = getPlayer( pid )
+                    if owner then
+                        owner:add_soldiers( node )
+                    end
+                end
+            end
+
+            if to_cure > 0 then
+                if pid >= 10000 then
+                    local owner = getPlayer( pid )
+                    if owner then
+                        local node = {}
+                        for k, v in pairs( dead ) do
+                            local n = math.floor( v * to_cure )
+                            node[ k ] = n
+                            dead[ k ] = v - n
+                        end
+                        local cure, over = owner:trans_to_hospital( node )
+                        info.cure = cure
+                        info.to_hurt = node
+                        for k, v in pairs( over or {}) do
+                            dead[ k ] = dead[ k ] + v
+                        end
+                    end
+                end
+            end
+        end
+        arm.amend = info
+    end
+end
+
 
 function acc_march(troop, ratio)
     if troop:is_go() or troop:is_back() then

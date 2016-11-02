@@ -1,4 +1,4 @@
-module("player_t")
+module("player_t", package.seeall)
 
 --使用背包物品
 function use_item(self, idx, num)

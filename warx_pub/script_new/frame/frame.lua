@@ -51,13 +51,10 @@ gDbNum = 1
 
 function loadMod()
     require("frame/tools")
-    dofile("../etc/config.lua")
 
-    if config.Release then
+    dofile( c_get_conf() )
 
-    else
-        require("frame/debugger")
-    end
+    if not config.Release then require("frame/debugger") end
 
     require("frame/socket")
 
@@ -175,7 +172,6 @@ function do_threadTimer()
             LOG("Coro, threadTimer, i should go away, %s", co)
             return
         end
-
     end
 end
 
@@ -217,31 +213,6 @@ function do_threadPK()
             if gateid then
                 break
             else
-                --local dels = {}
-                --for pid, as in pairs(gActionQue) do
-                --    local tmMark = gActionCur[ pid ]
-                --    if not tmMark or gTime - tmMark > 2 then -- maybe something wrong, so leave the gActionCur unclear
-                --        if #as == 0 then
-                --            table.insert(dels, pid)
-                --        else
-                --            while #as > 0 do
-                --                local v = table.remove(as, 1)
-                --                gActionCur[ pid ] = gTime
-                --                LOG("%d, RpcR, pid=%d, func=%s, delay do", gFrame, pid, v[1])
-                --                LOG("RpcR, pid=%d, func=%s", pid, v[1])
-                --                local p = getPlayer(pid)
-                --                if p then player_t[ v[1] ](p, unpack(v[2]) ) end
-                --                gActionCur[ pid ] = nil
-                --            end
-                --            table.insert(dels, pid)
-                --        end
-                --    end
-                --end
-
-                --for k, v in pairs(dels) do
-                --    gActionQue[ v ] = nil
-                --end
-
                 local nframe = gFrame
                 local pid = nil
                 local as = nil
@@ -278,7 +249,7 @@ function do_threadPK()
         else
             local pid = pullInt()
             local pktype = pullInt()
-            --print(rpc.localF[pktype].type)
+            --print(Rpc.localF[pktype].name)
             local fname, args = Rpc:parseRpc(packet, pktype)
             if fname then
                 if pid == 0 then
@@ -397,13 +368,14 @@ function frame_init()
     load_uniq()
 
     load_sys_config()
-
+    
     INFO("$$$ done load_uniq")
 
     gInit = "InitFrameDone"
     begJob()
 
     c_tlog_start( "../etc/tlog.xml" )
+    
 end
 
 function clean_replay()
@@ -492,8 +464,35 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
                 thanks()
                 gInit = nil
             end
-        end
 
+        elseif gInit == "Shutdown" then
+            set_sys_status( "tick", gTime )
+            gInit = "Saving"
+
+        elseif gInit == "Saving" then
+            WARN( "shutdown, frame = %d", gFrame )
+            if not check_pending_before_shutdown or not check_pending_before_shutdown() then
+                local have = false
+                for tab, doc in pairs( gPendingSave ) do
+                    local cache = doc.__cache
+                    for id, chgs in pairs( doc ) do
+                        if chgs == cache then
+                            for k, v in pairs( cache ) do
+                                have =true
+                                INFO( "shutdown, save %s : %s, n = %d", tab, k, v, v._n_ or 0 )
+                            end
+                        else
+                            have = true
+                            INFO( "shutdown, save %s : %s", tab, id )
+                        end
+                    end
+                end
+                if not have then 
+                    WARN( "save done" )
+                    os.exit( 0 )
+                end
+            end
+        end
         begJob()
     end
 
@@ -557,30 +556,29 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
         check_pending()
         global_save()
     end
-
-    --gPendingSave.test0[ gFrame + 0 ].hello = gPlys
-    --gPendingSave.test1[ gFrame + 1 ].hello = timer._sns
-    --gPendingSave.test2[ gFrame + 2 ].hello = "world"
-    --begJob()
-
 end
 
 
+
+gUpdateCallBack = {}
 
 --so when you want to save data, just write down like
 --gPendingSave.mail[ "1_270130" ].tm_lock = gTime
 function global_save()
     local db = dbmng:tryOne(1)
     if db then
+        local cbs = gUpdateCallBack
         local update = false
         local cur = gFrame
         for tab, doc in pairs(gPendingSave) do
             local cache = doc.__cache
+            local cb = nil
             for id, chgs in pairs(doc) do
                 if chgs ~= cache then
                     if not chgs._a_ then
                         local oid = chgs._id
                         chgs._id = id
+                        dumpTab( chgs, "global_save"..tab )
                         db[ tab ]:update({_id=id}, {["$set"] = chgs }, true)
                         chgs._id = oid
                         print( "[DB], update", tab, id,  "global" )
@@ -598,23 +596,37 @@ function global_save()
                             rawset( chgs, "_a_", 1)
                             rawset( chgs, "_id", oid )
                             print( "[DB], create", tab, id, "global" )
+
                         end
                     end
                     update = true
                     rawset( chgs, "_n_", cur )
                     doc[ id ] = nil
                     cache[ id ] = chgs
+
+                    if cb == nil then
+                        cb = cbs[ tab ]
+                        if cb == nil then
+                            cb = _G[ tab ] and _G[ tab ].on_check_pending
+                            if cb == nil then cb = false end
+                            cbs[ tab ] = cb
+                        end
+                    end
+
+                    if cb then
+                        cb( db, id, chgs )
+                    end
                 end
             end
         end
-        if update then check_save(db, cur)() end
+        if update then gen_global_checker( db, cur ) end
     end
 end
 
-
-function check_save(db, frame)
-    local f = function()
-        if gFrame - frame > 10 then WARN( "[DB], check, elaps %d frame", gFrame - frame ) end
+gGlobalChecker = {}
+function global_save_checker()
+    while true do
+        local db, frame = coroutine.yield()
 
         local info = db:runCommand("getLastError")
         if info.ok then
@@ -632,7 +644,7 @@ function check_save(db, frame)
                             dumpTab(chgs, tips..id)
                         end
 
-                    elseif chgs._n_ < frame - 10 then
+                    elseif chgs._n_ < frame - 100 then
                         WARN("mongo_error, %s:%s, %s, %s, %s", tab, id, chgs._n_, frame, gFrame)
                         dumpTab( chgs, "mongo_error" )
                         rawset( chgs, "_n_", nil )
@@ -653,8 +665,24 @@ function check_save(db, frame)
                 dumpTab(info, "check_save")
             end
         end
+        if #gGlobalChecker < 20 then 
+            local co = coroutine.running()
+            table.insert( gGlobalChecker, co )
+        end
     end
-    return coroutine.wrap(f)
+end
+
+
+function gen_global_checker( db, frame )
+    local co
+    if #gGlobalChecker > 0 then
+        co = table.remove( gGlobalChecker )
+        coroutine.resume( co, db, frame )
+    else
+        co = coroutine.create( global_save_checker )
+        coroutine.resume( co )
+        coroutine.resume( co, db, frame )
+    end
 end
 
 
@@ -772,30 +800,6 @@ function init(sec, msec)
     gPendingDelete = {}
     gPendingInsert = {}
     init_pending()
-
-    --__mt_rec = {
-    --    __index = function (self, recid)
-    --        local t = self.__cache[ recid ]
-    --        if t then
-    --            self.__cache[ recid ] = nil
-    --            t._n_ = nil
-    --        else
-    --            t = {}
-    --        end
-    --        self[ recid ] = t
-    --        return t
-    --    end
-    --}
-    --__mt_tab = {
-    --    __index = function (self, tab)
-    --        local t = { __cache={} }
-    --        setmetatable(t, __mt_rec)
-    --        self[ tab ] = t
-    --        return t
-    --    end
-    --}
-    --setmetatable(gPendingSave, __mt_tab)
-
 
     gInit = "StateBeginInit"
     loadMod()
@@ -972,10 +976,6 @@ function getId(what)
     local id = t.at * 10000 + t.sn
     t.sn = t.sn + 1
 
-    --addPendSave("uniq", what, "sn", t.sn)
-    --addPendSave("uniq", what, "at", t.at)
-    --addPendSave("uniq", what, "state", t.state)
-
     local n = gPendingSave.uniq[ what ]
     n.sn = t.sn
     n.at = t.at
@@ -995,7 +995,55 @@ function getAutoInc(what)
 end
 
 
+
 -- change to new gate
 -- 1. rpc, send_mul
 -- 2. first packet
 --
+--
+--
+gCheckers = {}
+function save_checker()
+    while true do
+        local db, frame, cache, name = coroutine.yield()
+        local info = db:runCommand("getPrevError")
+        if info.ok then
+            local dels = {}
+            for k, v in pairs(cache) do
+                local n = v._n_
+                if n then
+                    if n == frame then
+                        table.insert(dels, k)
+                    elseif n < frame - 100 then
+                        WARN("mongo_error, %s:%s, %s, %s, %s", name, k, n, frame, gFrame)
+                        dumpTab( v, "mongo_error" )
+                        v._n_ = nil
+                    end
+                end
+            end
+            if #dels > 0 then
+                for _, v in pairs(dels) do
+                    cache[v] = nil
+                end
+            end
+        end
+        if #gCheckers < 20 then 
+            local co = coroutine.running()
+            table.insert( gCheckers, co )
+        end
+    end
+end
+
+function gen_checker( db, frame, cache, name )
+    local co
+    if #gCheckers > 0 then 
+        co = table.remove(gCheckers)
+        coroutine.resume( co, db, frame, cache, name )
+    else 
+        co = coroutine.create( save_checker ) 
+        coroutine.resume( co )
+        coroutine.resume( co, db, frame, cache, name )
+    end
+end
+
+

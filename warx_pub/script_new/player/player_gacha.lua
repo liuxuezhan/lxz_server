@@ -1,4 +1,4 @@
-module("player_t")
+module("player_t" )
 
 --[[
 gacha_yinbi_num = 0  --银币抽卡次数

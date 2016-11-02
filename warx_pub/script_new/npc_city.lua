@@ -1,5 +1,6 @@
 --module("npc_city", package.seeall)
 --
+module( "npc_city", package.seeall )
 module_class("npc_city", 
 {
     _id = 0,
@@ -20,7 +21,6 @@ module_class("npc_city",
     declareUnions = {},
     getAwardMember = {},
     randomAward = {},
-    timer = {},
     --size = 0,
     kw_buff = {}
     --atk_troops= {},    --攻击该城市的部队
@@ -224,6 +224,8 @@ function declare_state(npcCity)
     npcCity.state = TW_STATE.DECLARE
     npcCity.startTime = startTime
     npcCity.endTime = endTime
+    reset_declare(npcCity.eid, npcCity.declareUnions or {})
+    npcCity.declareUnions = {}
     format_union(npcCity)
     del_timer(npcCity)
     etypipe.add(npcCity)
@@ -270,7 +272,8 @@ end
 function del_timer(npcCity)
     if npcCity.timers then
         for k, v in pairs(npcCity.timers or {}) do
-            timer:del(v)
+            INFO("del timer %d %d", npcCity.eid, v)
+            timer.del(v)
         end
         npcCity.timers= {}
     end
@@ -753,35 +756,35 @@ function deal_troop(atkTroop, defenseTroop)
     if check_atk_win(atkTroop, defenseTroop) then
         local npcCity = get_ety(atkTroop.target_eid) 
         if is_ply(defenseTroop.owner_eid) then 
-            troop_t.dead_to_live_and_hurt( defenseTroop, 0.95 )
+            --troop_t.dead_to_live_and_hurt( defenseTroop, 0.95 )
             defenseTroop:back()
         else
             troop_mng.delete_troop(defenseTroop._id)
         end
 
         if npcCity.uid ~= atkTroop.owner_uid then
-            troop_t.dead_to_live_and_hurt( atkTroop, 0.95 )
+            --troop_t.dead_to_live_and_hurt( atkTroop, 0.95 )
             atkTroop:back()
         else
-            atkTroop:home_hurt_tr()
+            --atkTroop:home_hurt_tr()
             try_hold_troop(npcCity, atkTroop)
         end
     else
         if is_ply(atkTroop.owner_eid) then
-            troop_t.dead_to_live_and_hurt( atkTroop, 0.95 )
+            --troop_t.dead_to_live_and_hurt( atkTroop, 0.95 )
             atkTroop:back()
         else
             troop_mng.delete_troop(atkTroop._id)
         end
 
-        defenseTroop:home_hurt_tr()
+        --defenseTroop:home_hurt_tr()
     end
 end
 
 function clear_timer(npcCity)
-    local timeId = npcCity.timer[1]
+    local timeId = npcCity.timers[1]
     if not timerId then timer:del(timeId) end
-    npcCity.timer = {}
+    npcCity.timers = {}
 end
 
 function save_npc_dmg(self, ackTroop, defenseTroop)
@@ -1019,6 +1022,7 @@ function abandon_npc(self)
         local npcs = union.npc_citys
         npcs[self.eid] = nil
         union.npc_citys = npcs
+        union.abd_city_time = gTime
     end
 
     local troop = self:get_my_troop()

@@ -1,4 +1,5 @@
 -- Hx@2015-11-30 : 军团类
+module( "union2_t", package.seeall )
 module_class("union2_t", {
     uid = 0,
     _id = 0,
@@ -18,6 +19,7 @@ module_class("union2_t", {
     battle_room_ids = {},
     npc_citys = {}, -- 领土争夺占领的城市
     can_atk_citys = {}, --玩家攻击的城市
+    abd_city_time = 0,  -- npc 弃城的时间，每天只能弃城一次
     atk_id = 0,  -- 领土争夺好招攻击的对象
     def_id =  0, -- 领土争夺好招防御的对象
     declare_wars = {}, -- 宣战的城市
@@ -184,6 +186,9 @@ function set_mc_start(self, time, ply)
 end
 
 function mc_notify(self, notify_id)
+    for k, v in pairs(self.npc_citys) do
+        local city = get_monster_city(v)
+    end
     local prop = resmng.get_conf("prop_act_notify", notify_id)
     if prop then
         if prop.Chat2 then
@@ -294,6 +299,10 @@ function set_mc_state(self, stage)
     local time = prop.Spantime
     if prop.NextStage ~= stage then
         set_mc_timer(self, time, prop.NextStage)
+    end
+
+    if prop.NextStage == stage then
+        self.monster_city_stage = 0
     end
 
     if prop.NextStage == stage then

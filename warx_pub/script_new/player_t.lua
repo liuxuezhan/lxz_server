@@ -1,127 +1,11 @@
-module("player_t")
+module( "player_t" )
 
 function init()
     _example = PLAYER_INIT
-
-    --_example.map = 0
-    --_example.tm_create = 0
-    --_example.lv = 1
-    --_example.exp = 0
-
-    --_example.tm_lv = 0
-    --_example.tm_lv_castle = 0
-    --_example.vip_lv = 1
-    --_example.vip_lv_old = 1
-    --_example.vip_exp = 0
-    --_example.vip_login = 0
-    --_example.vip_nlogin = 0
-    --_example.vip_gift = 0
-    --_example.build_queue = { 0 }
-    --_example.photo = 1
-    --_example.name = "unknown"
-    --_example.photo_url = ""
-    --_example.x = 0
-    --_example.y = 0
-    --_example.eid = 0
-    --_example.pid = 0
-    --_example.uid = 0
-    --_example.rmb = 0
-    --_example.gold = 0
-    --_example.silver = 0
-    --_example.sinew = 100
-    --_example.tm_sinew = 0
-    --_example.culture = 1
-    --_example.propid = 1001
-    --_example.field = 2
-    --_example.state = 0
-    --_example.tm_login = 0
-    --_example.tm_logout = 0
-    --_example.kw_gold = 0
-    --_example.manor_gold = 0
-    --_example.relic_gold = 0
-    --_example.monster_gold = 0
-
-    --_example.cds = {}
-    --_example.bufs = {}
-    --_example.report_idx = {0,0,0}
-
-    --_example.res={{100000,0},{100000,0},{0,0},{0,0}} -- for protect resource
-
-    --_example.foodUse = 0
-    --_example.foodTm = gTime
-    --_example.talent = 0
-    --_example.genius = {}
-    --_example.tech = {}
-    --_example.my_troop_id = 0
-    --_example.busy_troop_ids = {}
-
-    --_example.mail_sys = 0
-    --_example.mail_max = 0
-    --_example.report_gather = 0
-    --_example.report_panjun = 0
-
-    --_example.cival = 0  --civalization
-
-    --_example.kwseason = 0 -- 王城战评价的期数
-    --_example.officer = 0 -- 王城战职务
-    --_example.vote_time = 0 -- 王城战投票购买时间
-    --_example.tm_union = 0 -- 进入军团的时间
-
-    --_example.activity = 0  --每日任务活跃度
-    --_example.activity_box = {}  --每日活跃度箱子领取
-    --_example.daily_refresh_num = 0 --每日任务免费刷新剩余次数
-    --_example.daily_refresh_time = 0 --每日任务免费刷新时间
-
-    --_example.def_heros = {}  -- 守城英雄
-
-    --_example.online_award_on_day_pass = 0 --跨天标记
-    --_example.online_award_time = 0 --上一次在线奖励时间
-    --_example.online_award_num = 0 --在线奖励领奖进度
-
-    --_example.cross_time = 0 --玩家跨天时间记录
-
-    --_example.month_award_1st = 0    --玩家月登陆第一次时间
-    --_example.month_award_cur = 0    --玩家月登录最后一次时间
-    --_example.month_award_mark = 0   --玩家月登陆签到次数
-    --_example.month_award_count = 0  --玩家补签次数
-    --_example.month_award_round = 1    --玩家月登陆第N轮
-
-    --_example.hurts = {}     -- soldiers who are waiting for cure
-    --_example.cures = {}     -- soldiers who are curing
-    --_example.tm_cure = 0     -- timer
-    --_example.cure_start = 0     -- timer  start
-    --_example.cure_over = 0     -- timer  over
-    --_example.cure_rate = 0     -- CountConsumeCure_R for cure time
-
-    --_example.language = 10000
-
-    --_example.gacha_yinbi_num = 0  --银币抽卡次数
-    --_example.gacha_yinbi_free_num = 0  --银币抽卡免费次数
-    --_example.gacha_yinbi_cd = 0  --银币抽卡CD
-    --_example.gacha_yinbi_index = 1  --银币抽卡的位置
-    --_example.gacha_jinbi_num = 0  --金币抽卡次数
-    --_example.gacha_jinbi_free_num = 0  --金币抽卡免费次数
-    --_example.gacha_jinbi_cd = 0  --金币抽卡CD
-    --_example.gacha_jinbi_index = 1 --金币抽卡的位置
-    --_example.gacha_hunxia_index = 1  --魂匣抽卡的位置
-    --_example.gacha_gift = 0  --抽卡奖励值
-    --_example.gacha_box = 0  --抽卡奖励值箱子
-
-    --_example.chat_account = "" --聊天账号
-    --_example.chat_psw = ""    --聊天密码
-    --_example.gacha_yinbi_first = false  --银币首抽
-    --_example.gacha_jinbi_first = false  --金币首抽
-    --_example.title = 0 --称号
-    --_example.lt_time = 0 -- lt 领奖时间
-    --_example.lt_award_st = {}  --lt 领奖状态
-    --_example.ef_eid = 0  --影响自己的奇迹
-    --_example.ef_u = {} --飞服时使用军团buf
-    --_example.ef_ue = {} --飞服时使用军团奇迹buf
-    --_example.cross_gs = 0 --是否跨服
 end
 
+gDelayAction = gDelayAction or {}
 can_ply_join_act = {}  --玩家是否可以参加活动
-
 can_ply_opt_act = {}   --玩家时刻可以设操控活动
 
 function can_move_to(self, x, y)
@@ -149,25 +33,6 @@ function create(account, map, pid, cival)
     if cival < 1 or cival > 4 then cival = 1 end
 
     local x, y = c_get_pos_born( cival )
-    --for i = 1, 160, 1 do
-    --    local x, y = c_get_pos_by_lv(1,4,4)
-    --    if x and y then
-    --        local culture = c_get_culture( x, y );
-    --        if culture == cival then
-    --            p.x = x
-    --            p.y = y
-    --            if culture and culture >= 1 and culture <= 4 then
-    --                p.culture = culture
-    --                p.propid = culture * 1000 + 1
-    --            else
-    --                p.culture = 1
-    --                p.propid = 1001
-    --            end
-    --            place = true
-    --            break
-    --        end
-    --    end
-    --end
     if not x then return WARN("pid=%d, no room", pid) end
     p.x = x
     p.y = y
@@ -186,15 +51,25 @@ function create(account, map, pid, cival)
     p.account = account
     p.language = 10000
     p.tm_sinew = gTime
-    p.cross_time = gTime
+    --p.cross_time = gTime
     p.tm_lv = gTime
     p.tm_lv_castle = gTime
     p.mail_sys = gSysMailSn
     p.tm_create = gTime
     p.month_award_1st = gTime
 
-
     local ply = player_t.new(p)
+
+    --gPlys[ pid ] = ply
+    --gAccs[ account ] = ply
+    --local acc = gAccounts[ account ]
+    --if not acc then
+    --    acc = {}
+    --    gAccounts[ account ] = acc
+    --end
+    --acc[ pid ] = { map=gMapID, smap=map }
+    --ply:initObj()
+
     rawset( ply, "eid", eid )
 
     local default_build = {}
@@ -226,7 +101,7 @@ function create(account, map, pid, cival)
     ply:initEffect()
     gPendingInsert.item[ pid ] = {}
 
-    player_t._cache[pid] = p
+    --player_t._cache[pid] = p
     gEtys[ eid ] = ply
     ply.uname = ""
     ply.size = 4
@@ -516,8 +391,8 @@ function firstPacket2(self, sockid, from_map, cival, pid, signature, time, open_
             return
         end
         monitoring(MONITOR_TYPE.PLY)
-        Tlog("PlayerRegister",gTime,gTime,0,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
-                openid,p.pid,p.name,p:get_castle_lv(),p.vip_lv,(p.rmb or 0),p.account,1,p.language,"iphone6","ios","oper","wifi","800","600",2000)
+        Tlog("PlayerRegister",tms2str(),gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
+                tostring(open_id),p.pid,p.name,p:get_castle_lv(),p.vip_lv,(p.rmb or 0),p.smap,p.account,1,p.language,"iphone6","ios","oper","wifi","800","600",2000)
             end
 
 
@@ -553,8 +428,8 @@ function firstPacket2(self, sockid, from_map, cival, pid, signature, time, open_
         print( string.format( "firstPacket3:%s", open_id ) )
         player_t.login( p, p.pid )
     end
-    Tlog("PlayerLogin",gTime,gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
-                openid,p.pid,p.name,p:get_castle_lv(),p.vip_lv,(p.rmb or 0),p.account,1,p.language,p.gold,0,"iphone6","ios","oper","wifi","800","600",2000)
+    Tlog("PlayerLogin",tms2str(),gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
+          tostring(open_id),p.pid,p.name,p:get_castle_lv(),p.vip_lv,(p.rmb or 0),p.smap,p.account,1,p.language,p.gold,0,"iphone6","ios","oper","wifi","800","600",2000)
 end
 
 function first_login(self)
@@ -654,8 +529,8 @@ function onBreak(self)
     if g_online_num and  g_online_num  > 0 then
         g_online_num = g_online_num  - 1 
     end
-    Tlog("PlayerLogout",gTime,gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
-    openid,self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.account,1,self.language,self.gold,0)
+    Tlog("PlayerLogout",tms2str(),gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
+    tostring(openid),self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.smap,self.account,1,self.language,self.gold,0)
 end
 
 function is_online(self)
@@ -879,10 +754,16 @@ function get_db_checker(db, frame)
     return coroutine.wrap(f)
 end
 
+--function on_check_pending(db, _id, chgs)
+--    local p = getPlayer(_id)
+--    if p then Rpc:statePro(p, chgs) end
+--end
+--
 
 function check_pending()
     local db = dbmng:tryOne(1)
     if not db then return end
+
     local hit = false
     local cur = gFrame
     for pid, chgs in pairs(_cache) do
@@ -895,7 +776,11 @@ function check_pending()
             hit =true
         end
     end
-
+    if hit then 
+        gen_checker(db, cur, _cache, "player") 
+        hit = false
+    end
+    
     for pid, chgs in pairs(_cache_items) do
         if not chgs._n_ then
             db.item:update({_id=pid}, {["$set"]=chgs})
@@ -914,8 +799,21 @@ function check_pending()
             end
         end
     end
+    if hit then gen_checker(db, cur, _cache_items, "item")  end
+    
+    for pid, actions in pairs( gDelayAction ) do
+        local A = getPlayer( pid )
+        if A then
+            for func, v in pairs( actions ) do
+                if v == 0 then
+                    func( A )
+                    actions[ func ] = 1
+                end
+            end
+        end
+    end
+    gDelayAction = {}
 
-    if hit then get_db_checker(db, gFrame)() end
 end
 
 
@@ -1618,6 +1516,26 @@ function gm_user(self, cmd)
     if choose == "addexp" then
         local value = get_parm(1)
         self:add_exp(tonumber(value))
+    elseif choose == "build_exp" then
+        local mode = tonumber(get_parm(1))
+        local exp = tonumber(get_parm(2))
+        union_buildlv.get_buildlv(self.uid,mode)
+        local u = unionmng.get_union(self.uid)
+        u.buildlv.data[mode].exp = u.buildlv.data[mode].exp + exp 
+    elseif choose == "build_lv" then
+        local mode = tonumber(get_parm(1))
+        local lv = tonumber(get_parm(2))
+        union_buildlv.get_buildlv(self.uid,mode)
+        local u = unionmng.get_union(self.uid)
+        u.buildlv.data[mode].lv = u.buildlv.data[mode].lv + exp 
+    elseif choose == "god_exp" then
+        local exp = get_parm(1)
+        union_god.add_exp(self,exp)
+    elseif choose == "tech_exp" then
+        local idx = tonumber(get_parm(1))
+        local exp = tonumber(get_parm(2))
+        local tech = union:get_tech(idx)
+        union_tech_t.add_exp(tech,exp)
 
     elseif choose == "showef" then
         for k, v in pairs( self._ef ) do
@@ -1704,7 +1622,8 @@ function gm_user(self, cmd)
     elseif choose == "mcaward" then
         monster_city.send_score_reward()
     elseif choose  == "setmc" then -- 开启怪物攻城
-        self:set_mc_start_time_req(20)
+        local time = tonumber(tb[2])
+        self:set_mc_start_time_req(time)
     elseif choose  == "startmc" then -- 开启怪物攻城
         local union = self:union()
         if union then
@@ -1895,11 +1814,8 @@ function gm_user(self, cmd)
         self.cures = {}
         self.res = { {0,0},{0,0},{0,0},{0,0} }
         local troop = self:get_my_troop()
-        --troop.arms[ self.pid ].live_soldier = { [1010]=5000, [2009]=5000, [3008]=5000, [4007]=5000 }
         troop.arms[ self.pid ].live_soldier = { }
         for _, h in pairs(self._hero or {}) do h.hp = 0 end
-        --troop.arms[ self.pid ].live_soldier = { [1001]=10000, [2001]=10000, [3001]=10000, [4001]=10000 }
-        --troop.arms[ self.pid ].live_soldier = { [1001]=10000}
         self:ef_add( {CountSoldier = 40000 } )
         Rpc:upd_arm(self, troop:get_live(self.pid))
 
@@ -1928,6 +1844,17 @@ function gm_user(self, cmd)
         local mode = tonumber(tb[2])
         local num = tonumber(tb[3])
         self:do_inc_res_normal(mode, num, VALUE_CHANGE_REASON.DEBUG)
+
+    elseif choose == "initres" then
+        self.res = { {100000,0}, {100000,0}, {100000,0}, {100000,0} }
+
+    elseif choose == "initarm" then
+        self.cures = {}
+        self.hurts = {}
+        local troop = self:get_my_troop()
+        troop.arms[ self.pid ].live_soldier = { [1001]=10000, [2001]=10000, [3001]=10000, [4001]=10000 }
+        Rpc:upd_arm(self, troop:get_live(self.pid))
+
 
     elseif choose == "back" then
         for _, tid in pairs(self.busy_troop_ids) do
@@ -2248,9 +2175,10 @@ function movEye(self, map, x, y)
 end
 
 function remEye(self)
+    if self.pid < 0  then return end
     c_rem_eye(self.pid)
     if self.eyes then
-        for k, v in pairs( self.eyes ) do
+        for map, v in pairs( self.eyes ) do
             Rpc:callAgent( map, "agent_remove_eye", self.pid)
         end
         self.eyes = nil
@@ -2548,8 +2476,8 @@ function do_dec_res(self, mode, num, reason)
             if self[ key ] and self[ key ] >= num then
                 self[ key ] = math.floor(self[ key ] - num)
                 if  mode ==resmng.DEF_RES_GOLD  then
-                    Tlog("MoneyFlow",gTime,gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
-                        openid,self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.account,1,self.language,0,num,resmng.DEF_RES_GOLD,1,self[key],reason )
+                    Tlog("MoneyFlow",tms2str(),gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
+                        tostring(openid),self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.smap,self.account,1,self.language,0,num,resmng.DEF_RES_GOLD,1,self[key],reason )
                     union_mission.ok(self,UNION_MISSION_CLASS.COST, num)
                 end
             else
@@ -3369,6 +3297,8 @@ function act_info_tag_req(self, act_type)
     elseif act_type == ACT_TYPE.LT then
         tag = lost_temple.act_tag
     end
+
+    tag = tag or 0
     
     Rpc:act_info_tag_ack(self, tag)
 
@@ -3610,6 +3540,15 @@ function abandon_npc(self, eid)
         if not player_t.debug_tag then
             return
         end
+    end
+
+    local union = unionmng.get_union(self.uid)
+    if union then
+        if not can_date(union.abd_city_time) then
+            ack(self, "abandon_npc", resmng.E_DISALLOWED )
+        end
+    else
+        return
     end
     local npc = get_ety(eid)
     if npc and (npc.uid ~= 0 or npc.uid ~= npc.propid) then
@@ -4153,6 +4092,7 @@ end
 function get_res_over_store(self)
     local stores = self:get_store()
     self:refresh_food()
+
     local res = {0,0,0,0}
     for k, v in pairs(self.res) do
         if v[1] > stores[ k ] then
@@ -4532,8 +4472,8 @@ function vip_add_exp( self, exp )
             self:add_buf( node.Buf, buf[3] - gTime )
         end
         self:vip_enable( (tolv-lv) * 24 * 3600 )
-    Tlog("PlayerVipExpFlow",gTime,gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
-                openid,self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.account,1,self.language,
+    Tlog("PlayerVipExpFlow",tms2str(),gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
+                tostring(openid),self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.smap,self.account,1,self.language,
                 exp,lv,0,0)
     end
 end
@@ -4693,8 +4633,8 @@ function set_client_parm(self, key, data)
 
     gPendingSave.client_parm[self.pid][key] = data
     if key == "curguiding"  then
-    Tlog("QuestComplete",gTime,gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
-          openid,self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.account,1,self.language,
+    Tlog("QuestComplete",tms2str(),gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
+          tostring(openid),self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.smap,self.account,1,self.language,
           tonumber(data) )
     end
 end

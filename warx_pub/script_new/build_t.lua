@@ -1,3 +1,5 @@
+
+module( "build_t", package.seeall )
 module_class("build_t", {
     _id = "0_0",
     idx = 0,
@@ -12,6 +14,7 @@ module_class("build_t", {
     extra = {},
     bufs = {},
     hero_idx = 0,
+    module_name = "build_t"
 })
 
 function create(idx, pid, propid, x, y, state, tmStart, tmOver)

@@ -1,3 +1,4 @@
+module( "king_city", package.seeall )
 module_class("king_city",
 {
     _id = 0,
@@ -92,6 +93,7 @@ function load_kw_state()
     kings = info.kings or {}
     officers = info.officers or {}
     season = info.season or 0
+    timerId = info.timer or 0
 end
 
 function init_king_citys(have)
@@ -128,7 +130,12 @@ function init_king_state(kingCity)
     if prop then
         time = prop.Spantime
     end
-    kingCity.endTime = gTime + time
+    local k_prop = resmng.prop_world_unit[kingCity.propid]
+    if k_prop then
+        if k_prop.Lv ~= CITY_TYPE.FORT then
+            kingCity.endTime = gTime + time
+        end
+    end
 end
 
 function is_kw_unlock()
@@ -182,6 +189,15 @@ end
 
 function kw_notify()
     print("king war notify timer")
+    local prop = resmng.get_conf("prop_act_notify", resmng.KW_END)
+    if prop then
+        if prop.Notify then
+            Rpc:tips({pid=-1,gid=_G.GateSid}, 2, prop.Notify,{})
+        end
+        if prop.Chat1 then
+            Rpc:chat({pid=-1,gid=_G.GateSid}, 0, 0, 0, "system", "", prop.Chat1, {})
+        end
+    end
     for k, v in pairs(resmng.prop_kw_notify or {}) do
         local time = resmng.prop_kw_stage[state].Spantime * 60
 
@@ -281,6 +297,15 @@ function prepare_kw()
 end
 
 function fight_kw()
+    local prop = resmng.get_conf("prop_act_notify", resmng.KW_START)
+    if prop then
+        if prop.Notify then
+            Rpc:tips({pid=-1,gid=_G.GateSid}, 2, prop.Notify,{})
+        end
+        if prop.Chat1 then
+            Rpc:chat({pid=-1,gid=_G.GateSid}, 0, 0, 0, "system", "", prop.Chat1, {})
+        end
+    end
     clear_officer()
     kw_mall.rem_all_buf()
     gen_npc_buf()

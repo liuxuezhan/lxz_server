@@ -354,8 +354,8 @@ function do_upgrade(self, build_idx)
 
             new_union.update(self)
             if build_idx == 1 then
-                Tlog("PlayerExpFlow",gTime,gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
-                openid,self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.account,1,self.language,self.gold, 0,node.Lv-1,0,"")
+                Tlog("PlayerExpFlow",tms2str(),gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
+                self.account,self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.smap,self.account,1,self.language,0,node.Lv-1,0,0)
             end
             --任务
             task_logic_t.process_task(self, TASK_ACTION.CITY_BUILD_LEVEL_UP)
@@ -844,6 +844,9 @@ function train(self, idx, armid, num, quick)
 
         if self:do_consume_quick( cons, dura, VALUE_CHANGE_REASON.TRAIN ) then
             self:add_soldier( armid, num )
+
+            self:add_count( resmng.ACH_COUNT_TRAIN, num )
+
             reply_ok( self, "train", 0 )
 
             --成就
@@ -1006,6 +1009,8 @@ function learn_tech(self, build_idx, tech_id, is_quick)
         local dura = math.ceil( tech_conf.Dura / ( 1 + self:get_num( "SpeedTech_R" ) * 0.0001 ) )
         if not self:do_consume_quick( tech_conf.Cons, dura, VALUE_CHANGE_REASON.LEARN_TECH) then return end
         self:do_learn_tech( build, tech_id)
+        self:add_count( resmng.ACH_COUNT_RESEARCH, 1 )
+
         return reply_ok( self, "learn_tech", 0)
 
     else
@@ -1116,6 +1121,7 @@ function get_castle_lv(self)
 
     local conf = resmng.get_conf("prop_build", castle.propid)
     if not conf then
+        pause()
         WARN("get_castle_lv: no way!!!, pid=%d", self.pid)
         return 1
     else
@@ -2069,7 +2075,7 @@ function wall_repair( self, mode ) -- mode == 0, free, mode == 1, use gold
         wall:set_extra( "last", gTime )
 
     else
-        local cost = math.ceil( (max - cur) * 20 / 300 )
+        local cost = math.ceil( ( max - cur ) / 300 ) * 20
         if cost < 1 then return end
         if self.gold < cost then return end
         self:do_dec_res( resmng.DEF_RES_GOLD, cost, VALUE_CHANGE_REASON.WALL_REPAIR)

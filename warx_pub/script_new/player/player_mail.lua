@@ -172,8 +172,8 @@ function mail_new(self, v, isload)
     local sys = v.from 
     if sys ~= 0 then sys = 1 end
 
-    Tlog("PlayerMailFlow",gTime,gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
-          openid,self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.account,1,self.language,
+    Tlog("PlayerMailFlow",tms2str(),gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
+          tostring(openid),self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.smap,self.account,1,self.language,
           got, sys, v.from )
 end
 
@@ -181,30 +181,18 @@ function test_mail_all(self, class, title, content, its)
     mail_all({class=class, title=title, content=content, its=its})
 end
 
---RPC
-function mail_send_player(self, to, title, content)
-    local p = getPlayer(to)
-    if p then
-        local m = {class=MAIL_CLASS.PLAYER, from=self.pid, name=self.name, title=title, content=content, its=0}
-        p:mail_new(m)
-        self:reply_ok("mail_send_player")
-    end
-end
-
-function mail_send_union(self, to, title, content)
-    for _, pid in pairs(to) do
-        local p = getPlayer(pid)
-        if p then
-            local m = {class=MAIL_CLASS.PLAYER, from=self.pid, name=self.name, title=title, content=content, its=0}
-            p:mail_new(m)
-            self:reply_ok("mail_send_player")
+function mail_send_union(self, title, content)
+    local union = self:get_union()
+    if union then
+        local m = {class=MAIL_CLASS.PLAYER, mode=MAIL_PLAYER_MODE.UNION_ANNOUNCE, from=self.pid, title=title, content=content, its=0}
+        local members = union:get_members()
+        if members then
+            for _, p in pairs( members ) do
+                p:mail_new( m )
+            end
         end
     end
 end
-
-
-
-
 
 function generate_fight_mail(ack_troop, def_troop, is_win, catch_hero, rages, total_round)
     --攻击方邮件
@@ -253,9 +241,11 @@ function generate_fight_mail(ack_troop, def_troop, is_win, catch_hero, rages, to
         unit.hurt = arm.hurt_soldier
         unit.death = arm.dead_soldier
         unit.live = arm.live_soldier
+        unit.amend = arm.amend
 
         ack_mail.arms[pid] = unit
     end
+
 
     ack_mail.res = {}
     ack_mail.res_flag = 1
@@ -272,8 +262,8 @@ function generate_fight_mail(ack_troop, def_troop, is_win, catch_hero, rages, to
     local def_mail = {}
     local def_obj = get_ety(ack_troop.target_eid)
     def_mail.propid = def_obj.propid
-    def_mail.x = ack_troop.dx   --战斗发生的地点
-    def_mail.y = ack_troop.dy   --战斗发生的地点
+    def_mail.x = def_obj.x   --战斗发生的地点
+    def_mail.y = def_obj.y   --战斗发生的地点
 
     if def_troop == nil then
         def_mail.notroop = true
@@ -322,6 +312,7 @@ function generate_fight_mail(ack_troop, def_troop, is_win, catch_hero, rages, to
             unit.hurt = arm.hurt_soldier
             unit.death = arm.dead_soldier
             unit.live = arm.live_soldier
+            unit.amend = arm.amend
 
             def_mail.arms[pid] = unit
         end

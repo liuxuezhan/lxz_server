@@ -1,4 +1,4 @@
-module("rank_mng")
+module("rank_mng", package.seeall)
 
 gRanks = gRanks or {}
 

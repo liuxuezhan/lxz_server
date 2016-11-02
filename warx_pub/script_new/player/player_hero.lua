@@ -939,8 +939,11 @@ function get_defense_heros(self)
         for _, arm in pairs( troop.arms or {} ) do
             for k, v in pairs( arm.live_soldier or {} ) do
                 if v > 0 then
-                    local mode = math.floor( k / 1000 )
-                    soldier[ mode ] = soldier[ mode ] + v
+                    local conf = resmng.get_conf( "prop_arm", k )
+                    if conf then
+                        local mode = conf.Mode
+                        soldier[ mode ] = soldier[ mode ] + v
+                    end
                 end
             end
         end

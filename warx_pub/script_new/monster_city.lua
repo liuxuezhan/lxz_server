@@ -1,3 +1,4 @@
+module( "monster_city", package.seeall )
 module_class(
 "monster_city",
 {
@@ -732,7 +733,7 @@ end
 function eye_info(city, pack) 
     local ety= get_ety(city.atk_eid)
     if  city.class == MC_TYPE.DEF_ATK then
-        local mc = get_ety(city.parent_id)
+        local mc = get_ety(city.band_eid)
         if mc then
             pack.parent_id = mc.propid
             pack.parent_x = mc.x

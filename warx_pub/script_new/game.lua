@@ -101,9 +101,9 @@ end
 function restore_game_data()
     local rt = restore_handler.action()
     if rt == "Compensation" then
-        gInit = "InitCompensate"
+        _G.gInit = "InitCompensate"
     else
-        gInit = "InitGameDone"
+        _G.gInit = "InitGameDone"
     end
 end
 
@@ -249,7 +249,15 @@ function save_ety(e)
     end
 end
 
-function rem_ety(eid)
+
+gRemEty = gRemEty or {}
+function rem_ety( eid )
+    if gEtys[ eid ] then
+        gRemEty[ eid ] = 1
+    end
+end
+
+function do_rem_ety(eid)
     local e = gEtys[ eid ]
     if e then
         if is_union_building(e) then
@@ -354,66 +362,9 @@ function send_invite()
 end
 
 function test()
-
     local db = dbmng:getOne()
     local info = db:runCommand( "isMaster" )
     dumpTab( info, "test info" )
-    
-    --local b = a.hello + 5
-
-    --gPendingInsert.test[ 1 ] = {_id=1, [1]=4, [3]=5}
-
-    --Rpc:callAgent( 13, "agent_move_eye", 123, 2, 3)
-
-    --local p = getPlayer( 2970038 )
-    --p:add_msg( "aid", {1,2,"loon0"})
-    --p:add_msg( "aid", {1,2,"loon1"})
-    --p:add_msg( "aid", {1,2,"loon2"})
-    --p:add_msg( "aid", {1,2,"loon3"})
-
-    --local msg = p:load_msg( "aid" )
-    --dumpTab( msg, "load_msg" )
-
-
-    --get_around_eids( p.eid, 20 )
-    --for i = 1, 3200, 1 do
-    --    monster.loop()
-    --end
-
-    --local mons = {}
-    --local ress = {}
-
-    --for k, v in pairs( gEtys ) do
-    --    if is_res( v ) or is_monster( v ) then
-    --        local x = math.floor( v.x / 16 )
-    --        local y = math.floor( v.y / 16 )
-    --        local idx = y * 80 + x
-
-    --        if is_res( v ) then
-    --            if not ress[ idx ] then
-    --                ress[ idx ] = { v }
-    --            else
-    --                table.insert( ress[ idx ], v )
-    --            end
-    --        else
-    --            if not mons[ idx ] then
-    --                mons[ idx ] = { v }
-    --            else
-    --                table.insert( mons[ idx ], v )
-    --            end
-    --        end
-    --    end
-    --end
-
-    --for k, v in pairs( mons ) do
-    --    if #v > 2 then
-    --        print( "mons", k, #v )
-    --        for _, mon in pairs( v ) do
-    --            print( "mon", mon.eid, mon.propid, mon.hp, mon.x, mon.y, mon.born, mon.grade, mon.level )
-    --            INFO( "mons_num, %d,%d,%d,%d,%d,%d,%d,%d,%d", k, mon.eid, mon.propid, mon.hp, mon.x, mon.y, mon.born, mon.grade, mon.level )
-    --        end
-    --    end
-    --end
 end
 
 function test4()
@@ -421,32 +372,39 @@ function test4()
 end
 
 function check_pending()
+    for eid, _ in pairs( gRemEty ) do
+        do_rem_ety( eid )
+    end
+    gRemEty = {}
+
+    --if not gPendingModule then
+    --    gPendingModule = { player_t, build_t, hero_t, union_t, npc_city, monster_city, king_city, lost_temple }
+    --end
+
+    --local mods = gPendingModule
+    --for _, mod in pairs( mods ) do
+    --    mod.check_pending()
+    --end
     player_t.check_pending()
-    build_t.check_pending()
-    hero_t.check_pending()
-    union_t.check_pending()
-    room.check_pending()
-    npc_city.check_pending()
-    monster_city.check_pending()
-    king_city.check_pending()
-    lost_temple.check_pending()
+end
 
 
-    for pid, actions in pairs( gDelayAction ) do
-        local A = getPlayer( pid )
-        if A then
-            for func, v in pairs( actions ) do
-                if v == 0 then
-                    func( A )
-                    actions[ func ] = 1
-                end
-            end
+function check_pending_before_shutdown()
+    if not gPendingModule then
+        gPendingModule = { player_t, build_t, hero_t, union_t, npc_city, monster_city, king_city, lost_temple }
+    end
+
+    local mods = gPendingModule
+    local update = false
+    for _, mod in pairs( mods ) do
+        for k, v in pairs( mod._cache ) do
+            INFO( "shutdown, save %s : %s, n = %d", mod._name, k, v._n_ or 0 )
+            update = true
         end
     end
-    gDelayAction = {}
-
-    --dirty_sync()
+    return update
 end
+
 
 function mem_info()
     local heap, alloc, mlua, mbuf, mobj, nbuf = c_get_engine_mem()
@@ -478,136 +436,170 @@ end
 -- 如果obj中不存在class则会去全局找module_class，因此找到本全局函数，造成错误
 -- 所以一定类成员不要和全局函数同名!!!!
 -- -----------------------------------------------------------------------------
-function module_class(name, example)
-    assert(example._id, "must have _id as pk")
-    module(name, package.seeall)
-    setfenv(2, getfenv(1))
-    _cache = _cache or {}
-    _example = example
+--function module_class(name, example)
+--    assert(example._id, "must have _id as pk")
+--    --module(name, package.seeall)
+--    --setfenv(2, getfenv(1))
+--    local mod = _G[ name ]
+--    _ENV = mod
+--
+--    local _cache = mod._cache or {}
+--    local _example = example
+--    local _name = name
+--
+--    local mt = {
+--        __index = function(t, k)
+--            if t._pro[k] ~= nil then return t._pro[k] end
+--            if _example[k] ~= nil then
+--                if type(_example[k]) == "table" then
+--                    t._pro[k] = copyTab(_example[k])
+--                    return t._pro[k]
+--                else
+--                    return _example[k]
+--                end
+--            end
+--            if _G[_name][k] ~= nil then return _G[_name][k] end
+--        end,
+--        __newindex = function(t, k, v)
+--            if _example[k] ~= nil then
+--                t._pro[k] = v
+--                local id = t._id
+--                local chgs = _cache[ id ]
+--                if not chgs then
+--                    chgs = {}
+--                    _cache[ id ] = chgs
+--                end
+--                chgs[ k ] = v
+--                chgs._n_ = nil
+--            else
+--                rawset(t, k, v)
+--            end
+--        end
+--    }
+--
+--    function wrap(t)
+--        return setmetatable({_pro=t}, mt)
+--    end
+--
+--    function new(t)
+--        if not t._id  then return MARK( "no _id") end
+--        _cache[t._id] = t
+--        local self = {_pro=t}
+--        t._a_ = 1
+--        setmetatable(self, mt)
+--        self:init()
+--
+--        -- in order to detect add event when check_pending()
+--        -- Hx@2016-01-07 : do it in init() by your self. some module did not want that
+--        --_cache[self._id] = self._pro
+--
+--        return self
+--    end
+--
+--    function clr(t)
+--        _cache[ t._id ] = {_a_=0}
+--    end
+--
+--    function init(self)
+--        --override
+--    end
+--
+--    function check_pending()
+--        local db = dbmng:tryOne(1)
+--        if not db then return end
+--
+--        local update = false
+--        local cur = gFrame
+--        for id, chgs in pairs(_cache) do
+--            if not chgs._n_ then
+--                if not chgs._a_ then
+--                    local oid = chgs._id
+--                    chgs._id = id
+--                    db[ _name ]:update({_id=id}, {["$set"] = chgs }, true)
+--                    chgs._id = oid
+--                    print( "[DB], update", _name, id )
+--                    dumpTab( chgs, _name )
+--                else
+--                    if chgs._a_ == 0 then
+--                        db[ _name ]:delete( { _id = id } )
+--                        print( "[DB], delete", _name, id )
+--                    else
+--                        local oid = chgs._id
+--                        rawset( chgs, "_a_", nil )
+--                        rawset( chgs, "_id", id )
+--                        db[ _name ]:update( {_id=id}, chgs, true )
+--                        rawset( chgs, "_a_", 1)
+--                        rawset( chgs, "_id", oid )
+--                        print( "[DB], create", _name, id )
+--                    end
+--                end
+--                update = true
+--                rawset( chgs, "_n_", cur )
+--                if mod.on_check_pending then mod.on_check_pending( db, id, chgs ) end
+--            end
+--        end
+--
+--        if update then gen_checker( db, gFrame, _cache, _name ) end
+--
+--        return update
+--    end
+--end
+
+
+function module_class( name, example ) 
+    local mod = _G[ name ]
+    _ENV = mod
+
+    local _example = example
+    local _name = name
+    mod._example = _example
+    mod._name = _name
+
     local mt = {
-        __index = function(t, k)
-            if t._pro[k] ~= nil then return t._pro[k] end
-            if _example[k] ~= nil then
-                if type(_example[k]) == "table" then
-                    t._pro[k] = copyTab(_example[k])
-                    return t._pro[k]
+        __index = function ( t, k )
+            if t._pro[ k ] then return t._pro[ k ] end
+            if _example[ k ] then
+                local v = _example[ k ]
+                if type( v ) == "table" then
+                    t._pro[ k ] = copyTab( v )
+                    return t._pro[ k ]
                 else
-                    return _example[k]
+                    return v
                 end
             end
-            if _G[name][k] ~= nil then return _G[name][k] end
+            if _G[ _name ][ k ] then return _G[ _name ][ k ] end
         end,
-        __newindex = function(t, k, v)
-            if _example[k] ~= nil then
-                t._pro[k] = v
-                local id = t._id
-                local chgs = _cache[ id ]
-                if not chgs then
-                    chgs = {}
-                    _cache[ id ] = chgs
-                end
-                chgs[ k ] = v
-                chgs._n_ = nil
+        
+        __newindex = function( t, k, v )
+            if _example[ k ] then
+                t._pro[ k ] = v
+                _G.gPendingSave[ _name ][ t._id ][ k ] = v
             else
-                rawset(t, k, v)
+                rawset( t, k, v )
             end
         end
     }
 
-    function wrap(t)
-        return setmetatable({_pro=t}, mt)
+
+    function wrap( t )
+        return setmetatable( { _pro = t }, mt )
     end
 
-    function new(t)
+    function new( t )
         if not t._id  then return MARK( "no _id") end
-        _cache[t._id] = t
-        local self = {_pro=t}
-        t._a_ = 1
-        setmetatable(self, mt)
+        gPendingInsert[ _name ][ t._id ] = t
+        local self = { _pro = t }
+        setmetatable( self, mt )
         self:init()
-
-        -- in order to detect add event when check_pending()
-        -- Hx@2016-01-07 : do it in init() by your self. some module did not want that
-        --_cache[self._id] = self._pro
-
         return self
     end
 
-    function clr(t)
-        _cache[ t._id ] = {_a_=0}
+    function clr( t )
+        gPendingDelete[ _name ][ t._id ] = 1
     end
 
-    function init(self)
+    function init( self )
         --override
-    end
-
-    function check_pending()
-        local db = dbmng:tryOne(1)
-        if not db then return end
-
-        local update = false
-        local cur = gFrame
-        for id, chgs in pairs(_cache) do
-            if not chgs._n_ then
-                if not chgs._a_ then
-                    local oid = chgs._id
-                    chgs._id = id
-                    db[ name ]:update({_id=id}, {["$set"] = chgs }, true)
-                    chgs._id = oid
-                    print( "[DB], update", name, id )
-                else
-                    if chgs._a_ == 0 then
-                        db[ name ]:delete( { _id = id } )
-                        print( "[DB], delete", name, id )
-                    else
-                        local oid = chgs._id
-                        rawset( chgs, "_a_", nil )
-                        rawset( chgs, "_id", id )
-                        db[ name ]:update( {_id=id}, chgs, true )
-                        rawset( chgs, "_a_", 1)
-                        rawset( chgs, "_id", oid )
-                        print( "[DB], create", name, id )
-                    end
-                end
-                update = true
-                rawset( chgs, "_n_", cur )
-                if on_check_pending then on_check_pending( db, id, chgs ) end
-            end
-        end
-        if update then get_db_checker(db, cur)() end
-    end
-
-    --function on_check_pending(db, _id, chgs)
-    --    WARN("override this!!!")
-    --    --override
-    --end
-
-    function get_db_checker(db, frame)
-        local f = function()
-            local info = db:runCommand("getPrevError")
-            if info.ok then
-                local dels = {}
-                for k, v in pairs(_cache) do
-                    local n = v._n_
-                    if n then
-                        if n == frame then
-                            table.insert(dels, k)
-                        elseif n < frame - 100 then
-                            WARN("mongo_error, %s:%s, %s, %s, %s", name, k, n, frame, gFrame)
-                            dumpTab( v, "mongo_error" )
-                            v._n_ = nil
-
-                        end
-                    end
-                end
-                if #dels > 0 then
-                    for _, v in pairs(dels) do
-                        _cache[v] = nil
-                    end
-                end
-            end
-        end
-        return coroutine.wrap(f)
     end
 end
 
@@ -629,10 +621,7 @@ function get_material_group_by_rare(rare)
 end
 
 function Mark(fmt, ...)
-    --[[
-    if fmt then lwarn( string.format(fmt, ...).. " ".. debug.stack(1))
-    else lwarn(debug.stack(1)) end
-    --]]
+    if fmt then lwarn( string.format(fmt, ...).. " ".. debug.stack(1)) else lwarn(debug.stack(1)) end
     return false
 end
 
@@ -680,11 +669,3 @@ function get_around_eids( eid, r )
     local eids = putCoroPend( "roi", gQueryAroundSn )
     return eids
 end
-
-
-
---timer.new("tlog", 1)
---
---
---
---

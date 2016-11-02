@@ -9,6 +9,7 @@
 
 --------------------------------------------------------------------------------
 --
+module( "hero_t", package.seeall )
 module_class("hero_t", 
 {
     _id          = 0,    -- 唯一ID
@@ -208,7 +209,30 @@ function get_ef(self)
         local skillid = skill[1] 
         if skillid ~= 0 then
             local conf = resmng.get_conf("prop_skill", skillid)
-            if conf and conf.Class ~= 20 then -- 20 is Talent Skill
+            if conf and conf.Type == 2 then
+                for _, v in pairs(conf.Effect) do
+                    if v[1] == "AddBuf" and v[3] == 0 then
+                        local buf = resmng.get_conf("prop_buff", v[2])
+                        if buf then
+                            for key, val in pairs(buf.Value) do
+                                ef[ key ] = (ef[key] or 0) + val
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return ef
+end
+
+function get_ef_after_fight( self )
+    local ef = {}
+    for _, skill in pairs(self.basic_skill) do
+        local skillid = skill[1] 
+        if skillid ~= 0 then
+            local conf = resmng.get_conf("prop_skill", skillid)
+            if conf and conf.Type == 3 then  -- skill after fight
                 for _, v in pairs(conf.Effect) do
                     if v[1] == "AddBuf" and v[3] == 0 then
                         local buf = resmng.get_conf("prop_buff", v[2])

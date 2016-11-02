@@ -23,7 +23,6 @@ g_db = {
     -- db={  host = "127.0.0.1", port = 27017,username="admin",password="admin" },
 }
 
-
     getfenv = getfenv or function(f)
         f = (type(f) == 'function' and f or debug.getinfo(f + 1, 'f').func)
         local name, val
@@ -76,7 +75,7 @@ function pullNext()
 end
 
 function llog(...)
-lxz(...)
+--lxz(...)
 end
 
 function linfo(...)
@@ -150,5 +149,7 @@ mathx = {
      g_beg = true
  end
 
+function gen_checker(... )
+end
 
 

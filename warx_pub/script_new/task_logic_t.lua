@@ -1,4 +1,4 @@
-module("task_logic_t")
+module("task_logic_t", package.seeall)
 
 --[[
 local task_info = {}

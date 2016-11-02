@@ -17,7 +17,6 @@ function do_load(mod)
     package.loaded[ mod ] = nil
     require( mod )
     INFO("load module %s", mod)
-    print("load module", mod)
 end
 
 
@@ -231,36 +230,36 @@ function copyTab(object)
     return _copy(object)
 end  -- function deepcopy
 
-setfenv = setfenv or function(f, t)
-    f = (type(f) == 'function' and f or debug.getinfo(f + 1, 'f').func)
-    local name
-    local up = 0
-    repeat
-        up = up + 1
-        name = debug.getupvalue(f, up)
-    until name == '_ENV' or name == nil
-    if name then
-        debug.upvaluejoin(f, up, function() return name end, 1) -- use unique upvalue
-        debug.setupvalue(f, up, t)
-    end
-end
-
-getfenv = getfenv or function(f)
-    f = (type(f) == 'function' and f or debug.getinfo(f + 1, 'f').func)
-    local name, val
-    local up = 0
-    repeat
-        up = up + 1
-        name, val = debug.getupvalue(f, up)
-    until name == '_ENV' or name == nil
-    return val
-end
-
-module = module or function(mname, what)
-    _ENV[mname] = _ENV[mname] or {}
-    if not getmetatable(_ENV[mname]) then setmetatable(_ENV[mname], {__index = _ENV}) end
-    setfenv(2, _ENV[mname])
-end
+--setfenv = setfenv or function(f, t)
+--    f = (type(f) == 'function' and f or debug.getinfo(f + 1, 'f').func)
+--    local name
+--    local up = 0
+--    repeat
+--        up = up + 1
+--        name = debug.getupvalue(f, up)
+--    until name == '_ENV' or name == nil
+--    if name then
+--        debug.upvaluejoin(f, up, function() return name end, 1) -- use unique upvalue
+--        debug.setupvalue(f, up, t)
+--    end
+--end
+--
+--getfenv = getfenv or function(f)
+--    f = (type(f) == 'function' and f or debug.getinfo(f + 1, 'f').func)
+--    local name, val
+--    local up = 0
+--    repeat
+--        up = up + 1
+--        name, val = debug.getupvalue(f, up)
+--    until name == '_ENV' or name == nil
+--    return val
+--end
+--
+--module = module or function(mname, what)
+--    _ENV[mname] = _ENV[mname] or {}
+--    if not getmetatable(_ENV[mname]) then setmetatable(_ENV[mname], {__index = _ENV}) end
+--    setfenv(2, _ENV[mname])
+--end
 
 unpack = unpack or table.unpack
 loadstring = loadstring or load
@@ -325,7 +324,15 @@ function Tlog(log_name, ...)
         return
     end
 
-    local info = table.concat({log_name, config.APP_ID, config.SERVER_ID, config.PLAT_ID, tms2str(), gTime, ...}, '|')
+    local info = {log_name, config.APP_ID, config.SERVER_ID, config.PLAT_ID, tms2str(), gTime, ...}
+
+    if config.Game == "warx" then
+        for i=1,10 do
+            table.insert(info,"null")
+        end
+        --lxz(info)
+    end
+    info = table.concat(info, '|')
     c_tlog(info)
 end
 
@@ -344,58 +351,84 @@ function trim(s, r)
     return rtrim(ltrim(s, r), r)
 end
 
-function print_r(sth)
+function print_tab(sth,h)
+
     if type(sth) ~= "table" then
         if type(sth) == "boolean" then
             if sth then
-                cprint("true")
-            else
-                cprint("true")
-            end
-        elseif type(sth) == "function" then
-            cprint("function")
+                cprint(h.."true",1) 
+            else 
+                cprint(h.."true",1)
+            end 
+        elseif type(sth) == "function" then 
+            cprint(h.."function",1)
+        elseif type(sth) == "string" and (not string.find(sth,'^[_%a][_.%w]*$')) then
+            cprint(h.."\""..sth.."\"",1)
         else
-            cprint(sth.."")
+            cprint(h..sth,1)
         end
         return
     end
 
+    cprint(h,1)
+
     local space, deep = string.rep(' ', 2), 0
+
     local function _dump(t)
         local temp = {}
-
         for k,v in pairs(t) do
             local key = tostring(k)
+            if type(k)=="number" then
+                key = "["..key.."]"
+            elseif type(k) == 'string' and (not string.find(k,'^[_%a][_.%w]*$')) then
+                key = "[\""..key.."\"]"
+            end
 
             if type(v) == "table" then
 
                 deep = deep + 2
-                cprint(string.format( "%s[%s]=\n%s(", string.rep(space, deep - 1), key, string.rep(space, deep)))
+                cprint(string.format( "%s%s = {", string.rep(space, deep - 1), key )) 
                 _dump(v)
-                cprint(string.format("%s)",string.rep(space, deep)))
+                cprint(string.format("%s}",string.rep(space, deep-1)))
                 deep = deep - 2
-
+            elseif type(v) == "string" and (not string.find(v,'^[_%a][_.%w]*$')) then
+                cprint(string.format("%s%s = \"%s\"", string.rep(space, deep + 1), key, v)) 
             else
-                cprint(string.format("%s[%s]=%s", string.rep(space, deep + 1), key, v))
-            end
-        end
+                cprint(string.format("%s%s = %s", string.rep(space, deep + 1), key, v)) 
+            end 
+        end 
     end
-    cprint("(")
+
+    cprint("{")
     _dump(sth)
-    cprint(")")
+    cprint("}")
 end
 
-function cprint(s,color)--颜色答应
-    color = color or "echo -e \"\\033[40;31;2m"
-    local cool = color..s.." \\033[0m \""
-    os.execute(cool)
+function cprint(s,num)--颜色答应
+    if not s  then return end
+    local c = "echo -e \"\\033[40;31;2m"-- 红色
+    if num == 1 then --蓝色
+        c =  "echo -e \"\\033[40;34;2m"
+    end
+    local cool = c..s.." \\033[0m \"" 
+    os.execute(cool) 
+    --os.execute(cool.."|jg") 
+
 end
 
 function lxz(...)--打印lua变量数据到日志文件
     local info = debug.getinfo(2)
-    local head = "["..(info.short_src or "FILE")..":"..(info.name or "")..":"..(info.currentline or 0).."]["..os.date("%Y-%m-%d %X").."]:"
-    cprint(head,"echo -e \"\\033[40;34;2m")
+    local h = "["..(info.short_src or "FILE")..":"..(info.name or "")..":"..(info.currentline or 0).."]:"
+
     for _,v in pairs({...}) do
-        print_r(v)
+        print_tab(v,h)
+    end
+end
+
+function lxz1(...)--打印lua变量数据到日志文件
+    local info = debug.getinfo(2)
+    cprint(debug.traceback(),1)
+    for _,v in pairs({...}) do
+        print_tab(v)
     end
 end
