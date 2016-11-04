@@ -68,29 +68,16 @@ class Stop_robot(tornado.web.RequestHandler):
         self.write( "done" )
 
 
-class GetLog_robot(tornado.web.RequestHandler):
+class do_cmd(tornado.web.RequestHandler):
     def get(self):
-        num = self.get_argument("num")
-        if num == '0':
-            self.write( "begin<br/>" )
-            self.finsh()
-            cmd = 'tail -f  /var/log/localA.log | grep %s' %(options.name)
-            import time
-            while True:
-                a = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
-                logs = a.stdout.read()
-                a.wait()
-                for log in logs.split("\n"):
-                    self.write( "%s<br/>"%log )
-                    self.flush() 
-                time.sleep(1)
-        else:
-            cmd = 'grep %s /var/log/localA.log | tail -n %s'%(options.name,num)
-            a = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
-            logs = a.stdout.read()
-            a.wait()
-            for log in logs.split("\n"):
-                self.write( "%s<br/>"%log )
+        cmd = self.get_argument("select")
+        print cmd
+        if cmd == "":
+            cmd = self.get_argument("cmd")
+        a = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+        logs = a.stdout.read()
+        a.wait()
+        self.write( "%s<br/>"%logs )
 
 class UploadFileHandler(tornado.web.RequestHandler):
     def post(self):
@@ -152,7 +139,7 @@ if __name__ == "__main__":
         (r"/",main),
         (r"/Start_robot", Start_robot),
         (r"/Stop_robot", Stop_robot),
-        (r"/GetLog_robot", GetLog_robot),
+        (r"/cmd", do_cmd),
         (r'/file',UploadFileHandler),
         (r"/down", down),  
         (r"/new", new),  

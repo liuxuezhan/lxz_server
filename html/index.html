@@ -2,42 +2,52 @@
 <html>
 <head>
   <meta charset="utf-8"> 
-  <title>Bootstrap 实例 - 输入框组中分割的下拉菜单按钮</title>
+  <title>管理</title>
   <link rel="stylesheet" href="http://cdn.static.runoob.com/libs/bootstrap/3.3.7/css/bootstrap.min.css">  
   <script src="http://cdn.static.runoob.com/libs/jquery/2.1.1/jquery.min.js"></script>
   <script src="http://cdn.static.runoob.com/libs/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+  <script type="text/javascript">
+    function check(form) {
+      form.submit();
+    }
+  </script>
 </head>
 <body>
 
-<div style="padding: 100px 100px 10px;">
-  <form class="bs-example bs-example-form" role="form">
-    <div class="row">
-      <div class="col-lg-4">
-        <div class="input-group">
-          <div class="input-group-btn">
+  <div style="padding: 100px 100px 10px;">
+    <form class="bs-example bs-example-form" action="/cmd" role="form">
+      <div class="row">
+        <div class="col-lg-6">
 
-            <button type="button" class="btn btn-default" tabindex="-1">下拉菜单
-
-            </button>
-            <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" tabindex="-1">
-              <span class="caret"></span>
-              <span class="sr-only">切换下拉菜单</span>
-            </button>
-            <ul class="dropdown-menu">
-              <li><a href="#">功能</a></li>
-              <li><a href="#">另一个功能</a></li>
-              <li><a href="#">其他</a></li>
-              <li class="divider"></li>
-              <li><a href="#">分离的链接</a></li>
-            </ul>
-          <input type="text" class="form-control">
-          </div><!-- /btn-group -->
-
-        </div><!-- /input-group -->
-      </div><!-- /.col-lg-6 --><br>
-    </div><!-- /.row -->
-  </form>
-</div>
+          <div class="input-group">
+            <div class="input-group-btn">
+            <select name="select" class="btn btn-default" onchange="check(this.form)" >
+              <option value='' selected="selected" >--请选择--</option>
+              <option value="" >执行</option>
+              <option value="htop">htop</option>
+            </select> 
+            </div><!-- /btn-group -->
+            <input type="text" name="cmd" placeholder="命令" class="form-control">
+          </div><!-- /input-group -->
+        </div><!-- /.col-lg-6 --><br>
+      </form>
+      <br>
+      <form class="bs-example bs-example-form" action="/file" role="form">
+        <div class="col-lg-6">
+          <div class="input-group">
+            <div class="input-group-btn">
+              <select name="select" type="submit" class="btn btn-default"  >
+              <option value='' selected="selected" >--请选择--</option>
+              <option value=0>上传</option>
+              <option value=1>下载</option>
+            </select> 
+            </div><!-- /btn-group -->
+            <input type='file' name='file' class="form-control">
+          </div><!-- /input-group -->
+        </div><!-- /.col-lg-6 -->
+      </div><!-- /.row -->
+    </form>
+  </div>
 
 </body>
 </html>
