@@ -21,9 +21,9 @@
 
           <div class="input-group">
             <div class="input-group-btn">
-            <select name="select" class="btn btn-default" onchange="check(this.form)" >
-              <option value='' selected="selected" >--请选择--</option>
-              <option value="" >执行</option>
+              <button type="button" class="btn btn-default" onclick="check(this.form)"  >执行 </button>
+            <select name="select" class="btn btn-default" >
+              <option value="ls" >命令</option>
               <option value="htop">htop</option>
             </select> 
             </div><!-- /btn-group -->

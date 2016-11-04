@@ -12,7 +12,7 @@ import sys
 from datetime import *
 
 from tornado.options import define, options
-define("port", default=9010, help="输入端口号", type=int)
+define("port", default=9123, help="输入端口号", type=int)
 define("name", default="robot", help="输入机器人名字", type=str)
 define("path", default="", help="路径", type=str)
 
@@ -77,7 +77,8 @@ class do_cmd(tornado.web.RequestHandler):
         a = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
         logs = a.stdout.read()
         a.wait()
-        self.write( "%s<br/>"%logs )
+        for log in logs.split("\n"):
+            self.write( "%s<br/>"%log )
 
 class UploadFileHandler(tornado.web.RequestHandler):
     def post(self):
