@@ -81,24 +81,6 @@ function tab_num(t)--计算表项数
     return num
 end
 
-function copyTab(object)
-    local lookup_table = {}
-    local function _copy(object)
-        if type(object) ~= "table" then
-            return object
-        elseif lookup_table[object] then
-            return lookup_table[object]
-        end  -- if
-        local new_table = {}
-        lookup_table[object] = new_table
-        for index, value in pairs(object) do
-            new_table[_copy(index)] = _copy(value)
-        end  -- for
-        return new_table
-        --return setmetatable(new_table, getmetatable(object))
-    end  -- function _copy
-    return _copy(object)
-end  -- function deepcopy
 
 function string.split(str, delimiter)
     if str == nil or str == "" or delimiter == nil then
@@ -190,9 +172,9 @@ end
 
 function cprint(s,num)--颜色答应
     if not s  then return end
-    local c = "echo -e \"\\033[40;31;2m"-- 红色
+    local c = "echo -e \"\\033[31;2m"-- 红色
     if num == 1 then --蓝色
-        c =  "echo -e \"\\033[40;34;2m"
+        c =  "echo -e \"\\033[34;2m"
     end
     local cool = c..s.." \\033[0m \"" 
     os.execute(cool) 
