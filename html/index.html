@@ -22,12 +22,12 @@
           <div class="input-group">
             <div class="input-group-btn">
               <button type="button" class="btn btn-default" onclick="check(this.form)"  >执行 </button>
-            <select name="select" class="btn btn-default" >
-              <option value="ls" >命令</option>
-              <option value="htop">htop</option>
-            </select> 
             </div><!-- /btn-group -->
-            <input type="text" name="cmd" placeholder="命令" class="form-control">
+            <input list="cmd"  type="text" name="cmd" placeholder="命令" class="form-control">
+            <datalist id="cmd">
+              <option>Bavette</option>
+              <option>Tagliatelle</option>
+            </datalist>
           </div><!-- /input-group -->
         </div><!-- /.col-lg-6 --><br>
       </form>
