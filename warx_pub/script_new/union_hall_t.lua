@@ -11,7 +11,7 @@ function load_data(data)
         local A = get_ety(troop.owner_eid)
         if A then
             local union = unionmng.get_union(A.uid)
-            if union then union:add_room_id(id) end
+            if union then setIns( union.battle_room_ids, id) end
         end
 
         local A = get_ety(troop.target_eid)
@@ -19,18 +19,9 @@ function load_data(data)
             if not A.rooms then A.rooms = {} end
             table.insert(A.rooms, id)
             local union = unionmng.get_union(A.uid)
-            if union then union:add_room_id(id) end
+            if union then  setRem( union.battle_room_ids, id) end
         end
     end
-
-    --local ack_union = unionmng.get_union(data.ack_uid)
-    --if ack_union ~= nil then
-    --    ack_union:add_room_id(data._id)
-    --end
-    --local defense_union = unionmng.get_union(data.defense_uid)
-    --if defense_union ~= nil then
-    --    defense_union:add_room_id(data._id)
-    --end
 end
 
 function generate_battle_id()
@@ -49,26 +40,10 @@ function get_battle_room(room_id)
     return  troop_mng.get_troop(room_id) and union_battle_room[room_id]
 end
 
---function battle_room_update(mode, troopA, troopD)
---    --local id = string.format("%d_%d", troopA._id, troopD._id)
---    local id = troopA._id
---    local room = union_battle_room[ id ]
---    if not room then return end
---
---    local union = unionmng.get_union(room.ack_uid)
---    if union then union:notifyall("battle_room", mode, {["room_id"]=id}) end
---    
---    union = unionmng.get_union(room.defense_uid)
---    if union then union:notifyall("battle_room", mode, {["room_id"]=id}) end
---end
---
-
 function battle_room_update(mode, troop)
     local id = troop._id
     local room = union_battle_room[ troop._id ]
     if not room then return end
-    room.info = nil
-    room.detail = nil
 
     local A = get_ety(troop.owner_eid)
     if A then
@@ -89,9 +64,7 @@ end
 
 
 function battle_room_update_ety(mode, ety)
-
     if not ety then return end
-
     for _, rid in pairs(ety.rooms or {}) do
         local troop = troop_mng.get_troop(rid) 
         if troop then
@@ -116,10 +89,14 @@ function battle_room_create(troopA, class)
     union_battle_room[id] = room
     gPendingSave.room[id] = room
 
+    local info = player_t.make_room_list( troopA )
+    info.id = troopA._id
     local union = unionmng.get_union(troopA.owner_uid)
     if union then 
-        union:add_room_id(id) 
-        union:notifyall("battle_room", OPERATOR.ADD, {room_id=id})
+        if setIns( union.battle_room_ids, id ) then
+            union.battle_list = nil
+            union:notifyall("battle_room", OPERATOR.ADD, {room_id=id, list=info})
+        end
     end
 
     local D = get_ety(troopA.target_eid)
@@ -131,8 +108,10 @@ function battle_room_create(troopA, class)
         local union = unionmng.get_union(D.uid)
         if union then 
             room.defense_uid = union._id
-            union:add_room_id(id) 
-            union:notifyall("battle_room", OPERATOR.ADD, {room_id=id})
+            if setIns( union.battle_room_ids, id ) then
+                union.battle_list = nil
+                union:notifyall("battle_room", OPERATOR.ADD, {room_id=id, list=info})
+            end
         end
         local troopD = troop_mng.get_my_troop(D)
         if troopD then room.defense_troop_id = troopD._id end
@@ -150,7 +129,10 @@ function battle_room_remove(troopA)
 
     local union = unionmng.get_union(troopA.owner_uid)
     if union then 
-        if remove_id(union.battle_room_ids or {}, id) then union:notifyall("battle_room", OPERATOR.DELETE, {room_id=id}) end
+        if setRem( union.battle_room_ids, id ) then
+            union.battle_list = nil
+            union:notifyall("battle_room", OPERATOR.DELETE, {room_id=id}) 
+        end
     end
 
     local D = get_ety(troopA.target_eid)
@@ -158,7 +140,10 @@ function battle_room_remove(troopA)
         remove_id(D.rooms or {}, id) 
         union = unionmng.get_union(D.uid)
         if union then
-            if remove_id(union.battle_room_ids or {}, id) then union:notifyall("battle_room", OPERATOR.DELETE, {room_id=id}) end
+            if setRem( union.battle_room_ids, id ) then
+                union.battle_list = nil
+                union:notifyall("battle_room", OPERATOR.DELETE, {room_id=id})
+            end
         end
     end
 end

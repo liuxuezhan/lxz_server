@@ -72,6 +72,12 @@ function ERROR(fmt, ...)
     end
 end
 
+function STACK(err)
+    lwarn(debug.traceback(err, 2))
+    if perfmon and perfmon.on_exception then
+        perfmon.on_exception()
+    end
+end
 
 function MONITOR(fmt, ...)
     local s = string.format(fmt, ...)
@@ -94,6 +100,25 @@ function tabNum(t)
     end
     return num
 end
+
+function setIns(tab, val)
+    for k, v in pairs( tab ) do
+        if v == val then return false end
+    end
+    table.insert( tab, val )
+    return true
+end
+
+function setRem(tab, val)
+    for k, v in pairs( tab ) do
+        if v == val then
+            table.remove( tab, k )
+            return true
+        end
+    end
+    return false
+end
+
 
 function mkSpace(num)
     -- return "|" .. string.rep(" ", num)
@@ -274,14 +299,14 @@ function basename(path)
 end
 
 -- @stack@stack@[file:fun:line]
-function debug.stack(level)
+function debug.stack(level, dep)
     level = level or 0
     level = level + 2
     local info = debug.getinfo(level)
 
     local result = ""
 
-    local dep = 9
+    local dep = dep or 9
     repeat
         result = result.. string.format("@%s:%s:%s",
             basename(info.short_src or ""), info.name or "", info.currentline or ""
@@ -330,7 +355,7 @@ function Tlog(log_name, ...)
         for i=1,10 do
             table.insert(info,"null")
         end
-        --lxz(info)
+       -- lxz(info)
     end
     info = table.concat(info, '|')
     c_tlog(info)
@@ -406,9 +431,9 @@ end
 
 function cprint(s,num)--颜色答应
     if not s  then return end
-    local c = "echo -e \"\\033[40;31;2m"-- 红色
+    local c = "echo -e \"\\033[;31;2m"-- 红色
     if num == 1 then --蓝色
-        c =  "echo -e \"\\033[40;34;2m"
+        c =  "echo -e \"\\033[;34;2m"
     end
     local cool = c..s.." \\033[0m \"" 
     os.execute(cool) 

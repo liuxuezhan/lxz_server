@@ -278,12 +278,7 @@ end
 -- Others   : 调用接口前需要做道具验证和扣除
 --------------------------------------------------------------------------------
 function gain_exp(self, exp_num)
-    if not self:is_valid() then
-        ERROR("gain_exp: hero_id(%s) isn't valid.", self._id)
-        return false
-    end
-
-    if not self or not exp_num or exp_num <= 0 then
+    if not self or not exp_num or exp_num < 0 then
         ERROR("gain_exp: exp_num = %d", exp_num or -1)
         return false
     end
@@ -508,7 +503,7 @@ end
 -- Others   : 满级或者达到城主等级不能继续升级
 --------------------------------------------------------------------------------
 function can_lv_up(self)
-    if not self:is_valid() then
+    if not self:is_valid() and self.status ~= HERO_STATUS_TYPE.BEING_CURED  then
         ERROR("can_lv_up: hero_id(%s) isn't valid.", self._id)
         return
     end
@@ -1001,18 +996,22 @@ end
 -- Others   : 英雄处于被俘虏或者监禁状态时, 城主不能对其进行操作
 --------------------------------------------------------------------------------
 function is_valid(self)
-    local invalid_status = {
-        [HERO_STATUS_TYPE.BEING_CURED]      = true,
-        [HERO_STATUS_TYPE.BEING_CAPTURED]   = true,
-        [HERO_STATUS_TYPE.BEING_IMPRISONED] = true,
-        [HERO_STATUS_TYPE.BEING_EXECUTED]   = true,
-        [HERO_STATUS_TYPE.DEAD]             = true,
-    }
-    if invalid_status[self.status] then
-        return false
-    else
-        return true
-    end
+    return self.status == HERO_STATUS_TYPE.FREE 
+
+    --local invalid_status = {
+    --    [HERO_STATUS_TYPE.BUILDING]      = true,
+    --    [HERO_STATUS_TYPE.MOVING]      = true,
+    --    [HERO_STATUS_TYPE.BEING_CURED]      = true,
+    --    [HERO_STATUS_TYPE.BEING_CAPTURED]   = true,
+    --    [HERO_STATUS_TYPE.BEING_IMPRISONED] = true,
+    --    [HERO_STATUS_TYPE.BEING_EXECUTED]   = true,
+    --    [HERO_STATUS_TYPE.DEAD]             = true,
+    --}
+    --if invalid_status[self.status] then
+    --    return false
+    --else
+    --    return true
+    --end
 end
 
 

@@ -174,32 +174,33 @@ function attach_check_pending(example)
     end
 end
 
-function attach_wrap_(base)
-    local upval = getfenv(2)
-    if base then
-        assert(upval ~= _G, "[attach_wrap_] attemp to set index of _G")
-    end
-    setfenv(1, upval)
+function attach_wrap_(env, base)
+    env._base = base
 
-    _base = base
-    if _base then setmetatable(_ENV, {__index=_base}) end
-
-    for k, v in pairs(_base and _base._example or {}) do
-        _example[k] = _example[k] or v
+    for k, v in pairs(env._base and env._base._example or {}) do
+        if not env._example then env._example = {} end
+        env._example[k] = env._base._example[k]
     end
 
-    function init() end
+    env.init = function() end
 
-    _meta = {
+    env._meta = {
         __index=function(t, k)
             if t._pro[k] ~= nil then
                 return t._pro[k]
             else
-                return rawget(t, k) or _ENV[k]
+                local v = rawget(t, k) or rawget(env, k)
+                if v then return v end
+                local base = env
+                repeat
+                    v = base._base and rawget(base._base, k)
+                    base = base._base
+                until v ~= nil or base == nil
+                return v
             end
         end,
         __newindex=function(t, k, v)
-            if _example and _example[k] ~= nil then
+            if env._example and env._example[k] ~= nil then
                 if (not t._init) and t.on_value_change then
                     t:on_value_change(k, t._pro[k], v)
                 end
@@ -210,27 +211,27 @@ function attach_wrap_(base)
         end
     }
 
-    function deliver()
-        local t = setmetatable({_pro = copyTab(_example) or {}}, _meta)
-        if init then init(t) end
+    env.deliver = function()
+        local t = setmetatable({_pro = copyTab(env._example) or {}}, env._meta)
+        env.init(t)
         return t
     end
 
-    function deliver_(...)
-        local t = setmetatable({_pro = copyTab(_example) or {}}, _meta)
+    env.deliver_ = function(...)
+        local t = setmetatable({_pro = copyTab(env._example) or {}}, env._meta)
         t._init = true
-        if init then init(t) end
-        if ctor then ctor(t, ...) end
+        env.init(t)
+        if env.ctor then env.ctor(t, ...) end
         t._init = nil
         return t
     end
 
-    function wrap(t)
-        local cp = setmetatable({_pro = copyTab(_example) or {}}, _meta)
-        if init then init(cp) end
+    env.wrap = function(t)
+        local cp = setmetatable({_pro = copyTab(env._example) or {}}, env._meta)
+        env.init(cp)
         local function trans(d, t)
             for k, v in pairs(t) do
-                if _example and _example[k] ~= nil then d._pro[k] = v else d[k] = v end
+                if env._example and env._example[k] ~= nil then d._pro[k] = v else d[k] = v end
             end
         end
         trans(cp, rawget(t, "_pro") or {})

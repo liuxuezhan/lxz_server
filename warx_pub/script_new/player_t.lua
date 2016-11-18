@@ -8,6 +8,8 @@ gDelayAction = gDelayAction or {}
 can_ply_join_act = {}  --玩家是否可以参加活动
 can_ply_opt_act = {}   --玩家时刻可以设操控活动
 
+--setmetatable( gDelayAction, { __mode = "kv" } )
+
 function can_move_to(self, x, y)
     if x < 0 or y < 0 then return false end
     if x >= 1280 or y >= 1280 then return false end
@@ -48,6 +50,7 @@ function create(account, map, pid, cival)
     p.map = gMapID
     p.smap = map
     p.name = string.format("K%da%d", gMapID, p.pid)
+    p.reg_name = p.name
     p.account = account
     p.language = 10000
     p.tm_sinew = gTime
@@ -94,7 +97,7 @@ function create(account, map, pid, cival)
     ply._item = {{1,4002014,10}}
     ply._hero = {}
     ply._mail = {}
-    
+
     local troop = troop_mng.create_troop(TroopAction.DefultFollow, ply, ply)
     ply.my_troop_id = troop._id
 
@@ -342,9 +345,10 @@ function firstPacket3(self, sockid, from_map, account, pasw)
 end
 
 function upload_user_info(self)
-   if config.Release then return end
+   if config.Robot then return end
    local sign = c_md5(c_md5(APP_ID..self.account..tostring(self.pid)..tostring(gMapID)..tostring(self:get_castle_lv()).. tostring(self.name)..tostring(self.culture)..self.token),APP_SECRET)
    to_tool(0, {type = "login_server", cmd = "upload_ply_info", appid = APP_ID, open_id = self.account, pid = tostring(self.pid), logic = tostring(gMapID), level = tostring(self:get_castle_lv()), name = self.name, custom = tostring(self.culture), token = self.token, signature=sign})
+   to_tool(0, {url = "http://common.walihudong.com/index.php/LoginClass/uploaduserinfo", method = "post", appid = APP_ID, open_id = self.account, pid = tostring(self.pid), logic = tostring(gMapID), level = tostring(self:get_castle_lv()), name = self.name, custom = tostring(self.culture), token = self.token, signature=sign})
 end
 
 function upload_user_ack(self)
@@ -360,6 +364,11 @@ end
 
 function is_token_overdue(time)
     return false
+end
+
+function pre_tlog(self)
+    return tms2str(),gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
+        self.account,self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.smap,self.reg_name,1,self.language
 end
 
 function firstPacket2(self, sockid, from_map, cival, pid, signature, time, open_id, token)
@@ -391,15 +400,15 @@ function firstPacket2(self, sockid, from_map, cival, pid, signature, time, open_
             return
         end
         monitoring(MONITOR_TYPE.PLY)
-        Tlog("PlayerRegister",tms2str(),gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
-                tostring(open_id),p.pid,p.name,p:get_castle_lv(),p.vip_lv,(p.rmb or 0),p.smap,p.account,1,p.language,"iphone6","ios","oper","wifi","800","600",2000)
-            end
-
+        Tlog("PlayerRegister",p:pre_tlog(),"iphone6","ios","oper","wifi","800","600",2000)
+    end
 
     p = getPlayer(pid)
 
     if not p then
-        if config.IsEnableGm == 1 then
+        --Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.TOKEN_OUT_OF_DATE)
+        --return
+        if not config.Release then
             p = player_t.create(open_id, gMapID, pid, cival)
         else
             Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.TOKEN_OUT_OF_DATE)
@@ -428,8 +437,7 @@ function firstPacket2(self, sockid, from_map, cival, pid, signature, time, open_
         print( string.format( "firstPacket3:%s", open_id ) )
         player_t.login( p, p.pid )
     end
-    Tlog("PlayerLogin",tms2str(),gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
-          tostring(open_id),p.pid,p.name,p:get_castle_lv(),p.vip_lv,(p.rmb or 0),p.smap,p.account,1,p.language,p.gold,0,"iphone6","ios","oper","wifi","800","600",2000)
+    Tlog("PlayerLogin",p:pre_tlog(),p.gold,0,"iphone6","ios","oper","wifi","800","600",2000)
 end
 
 function first_login(self)
@@ -500,7 +508,7 @@ function login(self, pid)
         if self.foodUse == 0 then self:recalc_food_consume() end
         if not self.tm_check then self.tm_check = timer.new( "check", math.random(1800,3600), pid ) end
 
-        g_online_num = (g_online_num  or 0) + 1 
+        g_online_num = (g_online_num  or 0) + 1
         return
     end
     LOG("player:login, pid=%d, gid=%d, not found player", pid, gid)
@@ -527,10 +535,9 @@ function onBreak(self)
     self._mail = nil
     self:remEye()
     if g_online_num and  g_online_num  > 0 then
-        g_online_num = g_online_num  - 1 
+        g_online_num = g_online_num  - 1
     end
-    Tlog("PlayerLogout",tms2str(),gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
-    tostring(openid),self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.smap,self.account,1,self.language,self.gold,0)
+    Tlog("PlayerLogout",self:pre_tlog(),self.gold,0)
 end
 
 function is_online(self)
@@ -710,8 +717,8 @@ function initObj(self)
     --if not self._troop then self._troop = {} end
 end
 
-function getTime(self)
-    Rpc:getTime(self, gTime)
+function getTime(self, tag)
+    Rpc:getTime(self, tag, gTime, gMsec)
 end
 
 
@@ -776,11 +783,11 @@ function check_pending()
             hit =true
         end
     end
-    if hit then 
-        gen_checker(db, cur, _cache, "player") 
+    if hit then
+        gen_checker(db, cur, _cache, "player")
         hit = false
     end
-    
+
     for pid, chgs in pairs(_cache_items) do
         if not chgs._n_ then
             db.item:update({_id=pid}, {["$set"]=chgs})
@@ -800,7 +807,7 @@ function check_pending()
         end
     end
     if hit then gen_checker(db, cur, _cache_items, "item")  end
-    
+
     for pid, actions in pairs( gDelayAction ) do
         local A = getPlayer( pid )
         if A then
@@ -902,7 +909,7 @@ function initEffect(self, init)
     for k, v in pairs(self.bufs or {}) do
         local bufid = v[1]
         local over = v[3] or 0
-        if over >= gTime then
+        if over >= gTime or over == -1 then
             local node = ptab[ bufid ]
             if node and node.Value then
                 for ek, ev in pairs( node.Value ) do ef[ ek ] = ( ef[ ek ] or 0 ) + ev end
@@ -912,14 +919,14 @@ function initEffect(self, init)
 
     self._ef = ef
 
-    local hit = {}
-    for k, v in pairs( ef ) do
-        local f = g_ef_notify[ k ]
-        if f and not hit[ f ] then
-            hit[ f ] = 1
-            f( self )
-        end
-    end
+    --local hit = {}
+    --for k, v in pairs( ef ) do
+    --    local f = g_ef_notify[ k ]
+    --    if f and not hit[ f ] then
+    --        hit[ f ] = 1
+    --        f( self )
+    --    end
+    --end
 
     pow = pow + self:do_calc_pow_arm()
 
@@ -927,6 +934,7 @@ function initEffect(self, init)
     if pow ~= old_pow then
         self.pow = pow
         if not init then rank_mng.add_data(3, self.pid, {self.pow}) end
+
         local union = self:get_union()
         if union then
             union.pow = ( union.pow or 0) + ( pow - old_pow )
@@ -1009,7 +1017,7 @@ function ef_add(self, eff, init)
         res[ k ] = t[k]
         --LOG( "ef_add, pid=%d, k=%s, v=%s", self.pid, k, v )
 
-        if g_ef_notify[ k ] then notifys[ g_ef_notify[ k ] ] = 1 end
+        if not init and g_ef_notify[ k ] then notifys[ g_ef_notify[ k ] ] = 1 end
 
         if math.abs(t[k]) <= 0.00001 then t[k] = nil end
         if not init then LOG("ef_add, pid=%d, what=%s, num=%d", self.pid, k, v) end
@@ -1153,6 +1161,7 @@ g_ef_notify = {
     SpeedRes4_R =   recalc_build_res,
     SpeedTrain_R =  recalc_build_train,
     SpeedConsume_R =recalc_food_consume,
+    SpeedRecover_R = do_recalc_sinew,
 
     SpeedGather =   recalc_troop_gather,
     SpeedGather1=   recalc_troop_gather,
@@ -1235,13 +1244,13 @@ function doCondCheck(self, class, mode, lv, ...)
             end
         end
     elseif class == resmng.CLASS_GENIUS then
-        local t = Data.prop_genius[ mode ]
+        local t = resmng.prop_genius[ mode ]
         if t then
-            local c = t.class
-            local m = t.mode
-            local l = t.lv
+            local c = t.Class
+            local m = t.Mode
+            local l = t.Lv
             for _, v in pairs(self.genius) do
-                local n = Data.prop_genius[ v ]
+                local n = resmng.prop_genius[ v ]
                 if n and n.Class == c and n.Mode == m and n.Lv >= l then return true end
             end
         end
@@ -1519,27 +1528,33 @@ function gm_user(self, cmd)
     elseif choose == "build_exp" then
         local mode = tonumber(get_parm(1))
         local exp = tonumber(get_parm(2))
-        union_buildlv.get_buildlv(self.uid,mode)
-        local u = unionmng.get_union(self.uid)
-        u.buildlv.data[mode].exp = u.buildlv.data[mode].exp + exp 
+        local t = union_buildlv.get_buildlv(self.uid,mode)
+        t.exp = exp
     elseif choose == "build_lv" then
         local mode = tonumber(get_parm(1))
         local lv = tonumber(get_parm(2))
-        union_buildlv.get_buildlv(self.uid,mode)
-        local u = unionmng.get_union(self.uid)
-        u.buildlv.data[mode].lv = u.buildlv.data[mode].lv + exp 
+        local t = union_buildlv.get_buildlv(self.uid,mode)
+        t.id = mode*1000 + lv
     elseif choose == "god_exp" then
         local exp = get_parm(1)
         union_god.add_exp(self,exp)
     elseif choose == "tech_exp" then
         local idx = tonumber(get_parm(1))
         local exp = tonumber(get_parm(2))
-        local tech = union:get_tech(idx)
+        local u = unionmng.get_union(self.uid)
+        local tech = u:get_tech(idx)
         union_tech_t.add_exp(tech,exp)
 
     elseif choose == "showef" then
         for k, v in pairs( self._ef ) do
             self:add_debug( "[EF], %s = %d", k, v )
+        end
+    elseif choose == "showuef" then
+        local u = unionmng.get_union(self.uid)
+        if u then
+            for k, v in pairs( u:get_ef() or {} ) do
+                self:add_debug( "[EF], %s = %d", k, v )
+            end
         end
 
     elseif choose == "initef" then
@@ -1726,7 +1741,7 @@ function gm_user(self, cmd)
         Rpc:callAgent(8, "agent_syn_call", 1, "hahah", {1,1})
     elseif choose == "jump" then --跨服
         local map_id = tonumber(tb[2])
-        self:cross_migrate(8, 1200, 1200) 
+        self:cross_migrate(8, 1200, 1200)
 
     elseif choose == "daypass" then  -- 世界boss跨天
         monster.on_day_pass()
@@ -1748,8 +1763,8 @@ function gm_user(self, cmd)
     elseif choose == "skill" then
         self:launch_talent_skill(tonumber(get_parm(1)))
     elseif choose == "reload" then
-        os.execute("./reload.sh")
-        do_load("resmng")
+        --os.execute("./reload.sh")
+        do_reload()
         Rpc:chat(self, 0, 0, 0, "system", "ok", 0, {})
 
     elseif choose == "ef_add" then
@@ -1852,7 +1867,7 @@ function gm_user(self, cmd)
         self.cures = {}
         self.hurts = {}
         local troop = self:get_my_troop()
-        troop.arms[ self.pid ].live_soldier = { [1001]=10000, [2001]=10000, [3001]=10000, [4001]=10000 }
+        troop.arms[ self.pid ].live_soldier = { [1010]=10000, [2010]=10000, [3010]=10000, [4010]=10000 }
         Rpc:upd_arm(self, troop:get_live(self.pid))
 
 
@@ -1929,19 +1944,14 @@ function gm_user(self, cmd)
         local task_id = tonumber(get_parm(1))
         self:gm_accept_task(task_id)
     elseif choose == "cleargacha" then
-        self.gacha_yinbi_num = 0  --银币抽卡次数
-        self.gacha_jinbi_num = 0  --金币抽卡次数
-        self.gacha_yinbi_cd = 0
-        self.gacha_jinbi_cd = 0
-        self.gacha_gift = 0  --抽卡奖励值
-        self.gacha_box = 0  --抽卡奖励值箱子
-        self:inc_item(20001003, 100, VALUE_CHANGE_REASON.DEBUG)
+        self:gacha_on_day_pass()
+
     elseif choose == "setvip" then
         self.vip_lv = tonumber(get_parm(1))
     elseif choose == "sysmail" then
         self:send_system_notice(10001)
         self:send_system_notice(10002)
-        self:send_system_city_move(20001, 1510001, {x=1170, y=1210, target_pid=100000}, {"jim"})
+        self:send_system_city_move(20001, 1510001, {x=1170, y=1210, target_pid=100000,icon=1}, {"jim"})
 
     elseif choose == "reset_hero" then
         for k, v in pairs( self:get_hero() ) do
@@ -1967,7 +1977,14 @@ function gm_user(self, cmd)
 
     elseif choose == "setphoto" then
         self.photo =  tonumber(get_parm(1))
-    
+
+    elseif choose == "robot" then
+        if tonumber( get_parm( 1 ) ) == 1 then
+            config.Robot = true
+        else
+            config.Robot = nil
+        end
+
     elseif choose == "lvbuild" then
         local class = tonumber(get_parm(1))
         local mode = tonumber(get_parm(2))
@@ -2316,8 +2333,8 @@ function refresh_food(self)
 end
 
 function get_sinew( self )
-    local sinew, tm = recalc_sinew( self.sinew, self.tm_sinew, gTime, 1)
-    return sinew
+    self:do_recalc_sinew()
+    return self.sinew
 end
 
 
@@ -2336,7 +2353,9 @@ function inc_sinew( self, num )
 end
 
 function do_recalc_sinew( self )
-    self.sinew, self.tm_sinew = recalc_sinew( self.sinew, self.tm_sinew, gTime, 1)
+    self.sinew = recalc_sinew( self.sinew, self.sinew_tm, gTime, 1 + self.sinew_speed * 0.0001 )
+    self.sinew_tm = gTime
+    self.sinew_speed = self:get_num( "SpeedRecover_R" )
 end
 
 function recalc_food_consume(self)
@@ -2476,8 +2495,7 @@ function do_dec_res(self, mode, num, reason)
             if self[ key ] and self[ key ] >= num then
                 self[ key ] = math.floor(self[ key ] - num)
                 if  mode ==resmng.DEF_RES_GOLD  then
-                    Tlog("MoneyFlow",tms2str(),gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
-                        tostring(openid),self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.smap,self.account,1,self.language,0,num,resmng.DEF_RES_GOLD,1,self[key],reason )
+                    Tlog("MoneyFlow",self:pre_tlog(),0,num,resmng.DEF_RES_GOLD,1,self[key],reason )
                     union_mission.ok(self,UNION_MISSION_CLASS.COST, num)
                 end
             else
@@ -2622,10 +2640,14 @@ function chat(self, channel, word, sn)
         end
     end
 
+    local lvip = nil
+    if self:is_vip_enable() then
+        lvip = self.vip_lv
+    end
     if channel == resmng.ChatChanelEnum.World then
         --local count = math.random(1,1024)
         --word = string.rep( word, count, "_" )
-        Rpc:chat({pid=-1,gid=_G.GateSid}, channel, self.pid, self.photo, self.name, word, 0, {})
+        Rpc:chat({pid=-1,gid=_G.GateSid}, channel, self.pid, self.photo, self.name, word, 0, {vip=lvip})
         --Rpc:chat({self.pid}, channel, self.pid, self.photo, self.name, word, 0, {})
 
 
@@ -2639,7 +2661,7 @@ function chat(self, channel, word, sn)
                 table.insert(pids, pid)
             end
         end
-        Rpc:chat(pids, channel, self.pid, self.photo, self.name, word, 0, {})
+        Rpc:chat(pids, channel, self.pid, self.photo, self.name, word, 0, {vip=lvip})
 
     elseif channel == resmng.ChatChanelEnum.Culture then
         local pids = {}
@@ -2649,7 +2671,7 @@ function chat(self, channel, word, sn)
                 table.insert(pids, pid)
             end
         end
-        Rpc:chat(pids, channel, self.pid, self.photo, self.name, word, 0, {})
+        Rpc:chat(pids, channel, self.pid, self.photo, self.name, word, 0, {vip=lvip})
     end
 
     reply_ok(self, "chat", sn)
@@ -2689,7 +2711,7 @@ function do_genius(self, id)
         return
     end
 
-    if not self:condCheck(conf.cond) then return end
+    if not self:condCheck(conf.Cond) then return end
 
     local tab = self.genius or {}
     if conf.Lv > 1 then
@@ -2830,15 +2852,32 @@ function migrate_zone( self, itemid )
 end
 
 function migrate( self, x, y )
-    self:do_migrate( x, y )
-    if true then return end
-
-    local itemid = resmng.ITEM_ADVANCEDMOVE
-    if self:get_item_num( itemid ) < 1 then return self:add_debug( "no item ITEM_RANDOMMOVE" ) end
-    if self:do_migrate( x, y ) == "ok" then
-        self:dec_item_by_item_id( itemid, 1, VALUE_CHANGE_REASON.USE_ITEM)
+    local tab = {
+        [1] = resmng.ITEM_ZONEMOVE1,
+        [2] = resmng.ITEM_ZONEMOVE2,
+        [3] = resmng.ITEM_ZONEMOVE3,
+        [4] = resmng.ITEM_ZONEMOVE4,
+        [5] = resmng.ITEM_ZONEMOVE5,
+        [6] = resmng.ITEM_ADVANCEDMOVE
+    }
+    local lv = get_pos_lv( x, y )
+    local itemid = tab[ lv ]
+    if self:get_item_num( itemid ) < 1 then
+        itemid = resmng.ITEM_ADVANCEDMOVE
+        if self:get_item_num( itemid ) < 1 then
+            itemid = nil
+            if self.gold < 2000 then return end
+        end
     end
-    reply_ok( self, "migrate", 0)
+
+    if self:do_migrate( x, y ) == "ok" then
+        if itemid then
+            self:dec_item_by_item_id( itemid, 1, VALUE_CHANGE_REASON.MIGRATE )
+        else
+            self:dec_gold( 2000, VALUE_CHANGE_REASON.MIGRATE )
+        end
+        reply_ok( self, "migrate", 0)
+    end
 end
 
 function do_migrate(self, x, y)
@@ -2853,22 +2892,6 @@ function do_migrate(self, x, y)
     local sx = self.x
     local sy = self.y
 
-    if math.abs( sx - x ) >= 4 or math.abs( sy - y ) >= 4 then
-        if c_map_test_pos(x, y, 4) ~= 0 then return ack(self, "migrate", resmng.E_NO_ROOM, 0) end
-    else
-        for tx = x, x + 3, 1 do
-            if tx >= 1280 then return false end
-            for ty = y, y + 3, 1 do
-                if ty >= 1280 then return false end
-                if math.abs( tx - sx ) > 3 or math.abs( ty - sy ) > 3 then
-                    if c_map_test_pos( tx, ty, 1 ) ~= 0 then
-                        self:add_debug( "overlap" )
-                    end
-                end
-            end
-        end
-    end
-
     local comings = self.troop_comings
     if comings then
         for tid, action in pairs( comings ) do
@@ -2876,8 +2899,8 @@ function do_migrate(self, x, y)
             if troop and troop:is_go() then
                 local action = troop:get_base_action()
                 if action == TroopAction.SiegePlayer or action == TroopAction.MonsterAtkPly or action == TroopAction.SupportArm then
-                    troop.curx, troop.cury = get_ety_pos( self )
-                    troop_mng.trigger_event( troop )
+                    c_troop_set_speed( troop.eid, 2000, 1 )
+                    triggers_t.arrived_target( troop.dx, troop.dy, troop.eid )
                 end
             end
         end
@@ -2901,10 +2924,29 @@ function do_migrate(self, x, y)
         end
     end
 
+    if math.abs( sx - x ) >= 4 or math.abs( sy - y ) >= 4 then
+        if c_map_test_pos(x, y, 4) ~= 0 then return ack(self, "migrate", resmng.E_NO_ROOM, 0) end
+    else
+        for tx = x, x + 3, 1 do
+            if tx >= 1280 then return false end
+            for ty = y, y + 3, 1 do
+                if ty >= 1280 then return false end
+                if math.abs( tx - sx ) > 3 or math.abs( ty - sy ) > 3 then
+                    if c_map_test_pos( tx, ty, 1 ) ~= 0 then
+                        self:add_debug( "overlap" )
+                        return
+                    end
+                end
+            end
+        end
+    end
+
+
     c_rem_ety(self.eid)
     self.x = x
     self.y = y
     etypipe.add(self)
+
     self:add_count( resmng.ACH_COUNT_MIGRATE, 1 )
     reply_ok(self, "migrate", y*65536+x)
     union_build_t.ply_move(self)
@@ -2961,6 +3003,13 @@ function on_level_up(self, old_level, new_level)
     --升级要触发事情
     --任务
     task_logic_t.process_task(self, TASK_ACTION.ROLE_LEVEL_UP)
+
+    local hs = self:get_hero()
+    for _, h in pairs( hs ) do
+        if h.lv == old_level then
+            h:gain_exp( 0 )
+        end
+    end
 end
 
 function on_day_pass(self)
@@ -3067,9 +3116,9 @@ function equip_on(self, id)
     local prop = resmng.get_conf("prop_equip", n.propid)
     if not prop then return end
 
-    if prop.Lv > self.lv then 
-        ack(self, "equip_on", resmng.E_LV) 
-        return 
+    if prop.Lv > self.lv then
+        ack(self, "equip_on", resmng.E_LV)
+        return
     end
 
     local idx = prop.Pos
@@ -3299,7 +3348,7 @@ function act_info_tag_req(self, act_type)
     end
 
     tag = tag or 0
-    
+
     Rpc:act_info_tag_ack(self, tag)
 
 end
@@ -3524,14 +3573,14 @@ function npc_info_req(self, eid)
     local npc = get_ety(eid)
     if npc then
         npc_city.format_union(npc)
+        pack.unions = npc.unions or {}
+        pack.state = npc.state
+        pack.startTime = npc.startTime
+        pack.endTime = npc.endTime
+        pack.eid = npc.eid
+        pack.propid = npc.propid
+        Rpc:npc_info_ack(self, pack)
     end
-    pack.unions = npc.unions or {}
-    pack.state = npc.state
-    pack.startTime = npc.startTime
-    pack.endTime = npc.endTime
-    pack.eid = npc.eid
-    pack.propid = npc.propid
-    Rpc:npc_info_ack(self, pack)
 end
 
 function abandon_npc(self, eid)
@@ -3641,7 +3690,7 @@ function get_hold_limit(self,dp)
             end
         end
     end
-    
+
     local c = resmng.get_conf("prop_world_unit",dp.propid)
     if c then
         limit = get_val_by("CountGarrison",c.Buff,u:get_ef(),self._ef, kw_mall.gsEf)
@@ -3818,10 +3867,7 @@ function get_eye_info(self,eid)--查询大地图建筑信息
             return
         end
 
-        local cc = resmng.get_conf("prop_world_unit",dp.propid)
-        if not cc then WARN("") return end
-
-        if cc.Mode == resmng.CLASS_UNION_BUILD_RESTORE then
+        if is_union_restore(dp.propid) then
             pack.limit = union_build_t.get_restore_limit(self,dp)
             local u = unionmng.get_union(self.uid)
             if u and u.restore then
@@ -3830,12 +3876,11 @@ function get_eye_info(self,eid)--查询大地图建筑信息
                 pack.res =  {}
             end
             Rpc:get_eye_info(self,eid,pack)
-        elseif cc.Mode == resmng.CLASS_UNION_BUILD_CASTLE or cc.Mode == resmng.CLASS_UNION_BUILD_MINI_CASTLE
-            or cc.Mode == resmng.CLASS_UNION_BUILD_TUTTER1 or cc.Mode == resmng.CLASS_UNION_BUILD_TUTTER2 then
+        elseif is_union_miracal(dp.propid) then
             pack.troop = self:get_hold_info(dp)
             Rpc:get_eye_info(self,eid,pack)
             return
-        else--采集
+        elseif is_union_superres(dp.propid) then
 
             local troop = {}
             if type(dp.my_troop_id)=="table" then
@@ -3996,6 +4041,7 @@ function honour_wall_req(self)
     local pack = {}
     local kings = {}
     local season = king_city.season
+    local start_year = os.date("%Y", _G.gSysStatus.start) or 0
     for k, v in pairs(king_city.kings) do
         local ply = getPlayer(v[2])
         local plyName = ""
@@ -4007,10 +4053,9 @@ function honour_wall_req(self)
         if union then
             unionName = union.alias
         end
-        table.insert(kings, {k, v[2], plyName, unionName, v[4], v[5]})
-    end
-    if kings == {} then
-        kings = {{1, self._id, self.name, "aaa" , 999, gTime}}
+        local year = os.date("%Y", v[5]) or 0
+
+        table.insert(kings, {k, v[2], plyName, unionName, v[4], v[5], math.floor(year - start_year + 1), ply.photo})
     end
     pack.kings = kings
     --pack.canVote = (self.kwseason ~= season)
@@ -4364,7 +4409,7 @@ function inc_pow(self, num)
         rank_mng.add_data(3, self.pid, {self.pow})
 
         local union = self:get_union()
-        if union and not union:is_new() then
+        if union then
             union.pow = (union.pow or 0) + num
             rank_mng.add_data( 5, union.uid, { union.pow } )
         end
@@ -4378,7 +4423,7 @@ function dec_pow(self, num)
         self.pow = self.pow - num
         rank_mng.add_data(3, self.pid, {self.pow})
         local union = self:get_union()
-        if union and not union:is_new() then
+        if union then
             union.pow = union.pow - num
             rank_mng.add_data( 5, union.uid, { union.pow } )
         end
@@ -4403,7 +4448,7 @@ function chat_account_info_req(self)
 end
 
 function create_chat_account(ply)
-   if config.Release then return end
+   if config.Robot then return end
     to_tool(0, {type = "chat", cmd = "create_chat", user = tostring(ply.pid), host = CHAT_HOST, password = tostring(ply.pid)})
 end
 
@@ -4472,9 +4517,7 @@ function vip_add_exp( self, exp )
             self:add_buf( node.Buf, buf[3] - gTime )
         end
         self:vip_enable( (tolv-lv) * 24 * 3600 )
-    Tlog("PlayerVipExpFlow",tms2str(),gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
-                tostring(openid),self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.smap,self.account,1,self.language,
-                exp,lv,0,0)
+    Tlog("PlayerVipExpFlow",self:pre_tlog(),exp,lv,0,0)
     end
 end
 
@@ -4543,7 +4586,7 @@ function vip_buy_gift( self, idx )
 end
 
 function report_new( self, mode, val )
-    if mode < 1 or mode > 5 then return end
+    if mode < MAIL_REPORT_MODE.GATHER or mode > MAIL_REPORT_MODE.LOSTTEMPLE then return end
     local maxid = self.report_max
     if not maxid then
         maxid = 0
@@ -4559,7 +4602,11 @@ function report_new( self, mode, val )
 
     local db = dbmng:getOne()
     local tab = string.format("report%d", mode)
-    db[tab]:update( {_id=self.pid}, { ["$push"]={ vs={["$each"]={val}, ["$slice"]=-20 }} }, true )
+    --db[tab]:update( {_id=self.pid}, { ["$push"]={ vs={["$each"]={val}, ["$slice"]=-20 }} }, true )
+    --todo
+    db[tab]:update( {_id=self.pid}, { ["$push"]={ vs=val}}, true )
+
+
     --dumpTab( val, "report" )
     if self:is_online() then
         Rpc:report_notify( self, mode, val )
@@ -4572,6 +4619,15 @@ function report_load( self, mode )
     local info = db[tab]:find({_id=self.pid})
     if info:hasNext() then
         local t = info:next()
+
+        local count = #(t.vs)
+        if count > 50 then
+            local vs = t.vs
+            for i = count, 50, -1 do
+                table.remove( vs, 1 )
+            end
+        end
+
         Rpc:report_load(self, mode, t.vs )
         return
     end
@@ -4633,9 +4689,7 @@ function set_client_parm(self, key, data)
 
     gPendingSave.client_parm[self.pid][key] = data
     if key == "curguiding"  then
-    Tlog("QuestComplete",tms2str(),gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
-          tostring(openid),self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.smap,self.account,1,self.language,
-          tonumber(data) )
+    Tlog("QuestComplete",self:pre_tlog(),tonumber(data) )
     end
 end
 
@@ -4945,4 +4999,38 @@ function choose_head_icon(self, id)
 
     Rpc:choose_head_icon_resp(self, 0)
 end
+
+function get_buff(self, what)--本函数严禁加日志
+    local val = self:get_val(what)
+    Rpc:get_buff(self,what,val)
+end
+
+
+function get_uname_by_propid(self, propid)
+    local eid = npc_city.get_npc_eid_by_propid(propid)
+    local city = get_ety(eid)
+    if not city then
+        return
+    end
+
+    local union = unionmng.get_union(city.uid)
+    if union == nil then
+        return false
+    end
+
+    local data = {}
+    data.uname = union.name
+    data.alias = union.alias
+    Rpc:get_uname_by_propid_resp(self, data)
+
+end
+
+
+
+
+
+
+
+
+
 

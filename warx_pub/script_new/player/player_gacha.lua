@@ -20,8 +20,12 @@ HUNXIA_LIMIT_VIP = 10
 ITEM_HUNXIA_ID = 20001003
 
 function gacha_on_day_pass(self)
-	self.gacha_yinbi_num = 0  --银币抽卡次数
+    self.gacha_yinbi_num = 0  --银币抽卡次数
+    self.gacha_yinbi_free_num = 0 --银币抽卡免费次数
+    self.gacha_yinbi_cd = 0  --银币抽卡CD
     self.gacha_jinbi_num = 0  --金币抽卡次数
+    self.gacha_jinbi_free_num = 0  --金币抽卡免费次数,
+    self.gacha_jinbi_cd = 0  --金币抽卡CD
     self.gacha_gift = 0  --抽卡奖励值
     self.gacha_box = 0  --抽卡奖励值箱子
 end
@@ -112,12 +116,14 @@ function do_gacha(self, type)
 		task_num = 10
 	elseif type == GACHA_TYPE.HUNXIA_ONE then
 		self:do_hunxia_one(msg_send)
+		task_num = 1
 	elseif type == GACHA_TYPE.HUNXIA_TEN then
 		self:do_hunxia_ten(msg_send)
+		task_num = 10
 	end
 
 	task_logic_t.process_task(self, TASK_ACTION.GACHA_MUB, task_type, task_num)
-    self:add_count( resmng.ACH_COUNT_GACHA, 1 )
+    self:add_count( resmng.ACH_COUNT_GACHA, task_num )
 
 	msg_send.gift = self.gacha_gift
 	msg_send.type = type
@@ -332,7 +338,12 @@ function do_hunxia_one(self, msg_send)
 
 	local item_num = self:get_item_num(ITEM_HUNXIA_ID)
 	if item_num <= 0 then
-		if self.vip_lv < HUNXIA_LIMIT_VIP then
+		local vip = 0
+		if self:is_vip_enable() then
+			vip = self.vip_lv
+		end
+
+		if vip < HUNXIA_LIMIT_VIP then
 			msg_send.result = 4
 			return
 		end
@@ -378,7 +389,11 @@ function do_hunxia_ten(self, msg_send)
 		msg_send.result = 1
 		return
 	end
-	if self.vip_lv < HUNXIA_LIMIT_VIP then
+	local vip = 0
+	if self:is_vip_enable() then
+		vip = self.vip_lv
+	end
+	if vip < HUNXIA_LIMIT_VIP then
 		msg_send.result = 2
 		return
 	end

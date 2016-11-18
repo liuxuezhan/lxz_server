@@ -24,7 +24,12 @@ end
 
 --到达目的地
 function arrived_target(x, y, actor_eid, parm1, parm2, parm3, parm4, parm5)
+    print( "arrive", actor_eid )
     local troop = get_ety(actor_eid)
+    if not troop then
+        WARN( "arrive_target, eid = %d, not found", actor_eid )
+        return
+    end
     if troop ~= nil then
         local action = troop:get_base_action()
         if action ~= TroopAction.Camp then
@@ -48,7 +53,7 @@ function arrived_target(x, y, actor_eid, parm1, parm2, parm3, parm4, parm5)
         end
 
         rem_ety_troop(troop)
-
+        
         if x == troop.dx and y == troop.dy then
             troop.curx = troop.dx
             troop.cury = troop.dy
@@ -56,7 +61,6 @@ function arrived_target(x, y, actor_eid, parm1, parm2, parm3, parm4, parm5)
             troop_mng.trigger_event(troop)
         else
             troop:back()
-            print("arrive", x, y, troop.dx, troop.dy)
         end
     end
 end
@@ -129,7 +133,9 @@ function triggers_enter_world_unit(x, y, actor_eid, scanner_eid, ...)
     if prop_unit == nil then return end
 
     if is_king_city(world_unit) and prop_unit.Lv ==  CITY_TYPE.TOWER then -- 如果是箭塔
-        king_city.pass_troop_enter(world_unit, troop_unit._id)
+        if TroopSpeed[troop_unit.action] ~= nil then
+            king_city.pass_troop_enter(world_unit, troop_unit._id)
+        end
     end
 end
 

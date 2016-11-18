@@ -119,19 +119,16 @@ function remove(e)
     local u = unionmng.get_union(e.uid)
     if not u then return end
 
-    local bcc = resmng.get_conf("prop_world_unit",e.propid)
-    if not bcc then return false end
-
-    if bcc.Mode == resmng.CLASS_UNION_BUILD_CASTLE or bcc.Mode == resmng.CLASS_UNION_BUILD_MINI_CASTLE then
+    if is_union_miracal(e.propid) then
         union_build_t.buf_close(e)
     end
     union_build_t.remove_build(e)
 
     --拆除奇迹相关建筑
-    if bcc.Mode == resmng.CLASS_UNION_BUILD_CASTLE or bcc.Mode == resmng.CLASS_UNION_BUILD_MINI_CASTLE then
+    if is_union_miracal(e.propid) then
         for k, v in pairs(u.build) do
             local cc = resmng.get_conf("prop_world_unit",v.propid)
-            if cc.Mode ~= resmng.CLASS_UNION_BUILD_CASTLE and cc.Mode ~= resmng.CLASS_UNION_BUILD_MINI_CASTLE then
+            if cc and (not is_union_miracal(v.propid)) then
                 if not u:can_castle(v.x,v.y,cc.Size/2) then
                     remove_build(v)
                 end
@@ -160,7 +157,7 @@ function remove_build(e)
         return
     end
 
-    if bcc.Mode == resmng.CLASS_UNION_BUILD_CASTLE or bcc.Mode ==resmng.CLASS_UNION_BUILD_MINI_CASTLE then   --驻守返回
+    if is_union_miracal(e.propid) then
         local tr = troop_mng.get_troop(e.my_troop_id)
         if tr then
             for _, v in pairs(tr.arms) do
@@ -173,10 +170,7 @@ function remove_build(e)
         end
         del(e)
 
-    elseif bcc.Mode == resmng.CLASS_UNION_BUILD_FARM
-        or bcc.Mode ==resmng.CLASS_UNION_BUILD_LOGGINGCAMP
-        or bcc.Mode ==resmng.CLASS_UNION_BUILD_MINE
-        or bcc.Mode ==resmng.CLASS_UNION_BUILD_QUARRY  then     --采集返回
+    elseif is_union_superres(e.propid) then
 
         if type(e.my_troop_id)=="table" then
             for k, v in pairs(e.my_troop_id or {} ) do
@@ -190,7 +184,7 @@ function remove_build(e)
         del(e)
         u.build[e.idx] = nil
         gPendingDelete.union_buid[e._id] = 0 
-    elseif bcc.Mode == resmng.CLASS_UNION_BUILD_RESTORE then--仓库
+    elseif is_union_restore(e.propid) then
         for _, v in pairs(u.build ) do
             local c = resmng.get_conf("prop_world_unit",v.propid)
             if v.eid ~= e.eid and c.Mode == resmng.CLASS_UNION_BUILD_RESTORE and v.state~= BUILD_STATE.DESTORY then--仓库
@@ -200,6 +194,7 @@ function remove_build(e)
         end
         restore_del_res(e.uid)--取出资源
         del(e)
+        --[[
     elseif bcc.Mode == resmng.CLASS_UNION_BUILD_MARKET then        --市场
         for _, v in pairs(u.build ) do
             local c = resmng.get_conf("prop_world_unit",v.propid)
@@ -210,6 +205,7 @@ function remove_build(e)
         end
         market_del(e)--取出
         del(e)
+        --]]
     end
 end
 
@@ -539,7 +535,7 @@ function can_troop(action, p, eid, res)--行军队列发出前判断
                 end
             end
 
-            if cc.Mode == resmng.CLASS_UNION_BUILD_CASTLE or cc.Mode == resmng.CLASS_UNION_BUILD_MINI_CASTLE then
+            if is_union_miracal(dp.propid) then
                 local sum,max = p:get_hold_limit(dp)
                 if sum <= max then
                     return true
@@ -548,7 +544,7 @@ function can_troop(action, p, eid, res)--行军队列发出前判断
         end
     elseif action == TroopAction.SiegeUnion then
         if p.uid ~= dp.uid then
-            if cc.Mode == resmng.CLASS_UNION_BUILD_CASTLE or cc.Mode == resmng.CLASS_UNION_BUILD_MINI_CASTLE then
+            if is_union_miracal(dp.propid) then
                 return true
             end
         end
@@ -565,10 +561,7 @@ function can_troop(action, p, eid, res)--行军队列发出前判断
                 end
             end
         --todo
-            if cc.Mode == resmng.CLASS_UNION_BUILD_MINE
-			or cc.Mode == resmng.CLASS_UNION_BUILD_FARM
-			or cc.Mode == resmng.CLASS_UNION_BUILD_LOGGINGCAMP
-			or cc.Mode == resmng.CLASS_UNION_BUILD_QUARRY then
+            if is_union_superres(dp.propid) then
                 return true
             end
         end
@@ -583,7 +576,7 @@ function can_troop(action, p, eid, res)--行军队列发出前判断
 
     elseif action == resmng.TroopAction.SaveRes then
         if dp.uid == p.uid then
-            if cc.Mode == resmng.CLASS_UNION_BUILD_RESTORE then
+            if is_union_restore(dp.propid) then
                 for mode, num in pairs(res or {} ) do
                     if num > p:get_res_num_normal(mode) then
                         return false
@@ -611,7 +604,7 @@ function can_troop(action, p, eid, res)--行军队列发出前判断
     elseif action == TroopAction.GetRes then
         local u = unionmng.get_union(dp.uid)
         if dp.uid == p.uid then
-            if cc.Mode == resmng.CLASS_UNION_BUILD_RESTORE then
+            if is_union_restore(dp.propid) then
                 if can_res(u,p.pid,res) then
                     return true
                 end
@@ -749,6 +742,7 @@ function building(obj) --部队修理
     end
 
 
+    local obj_id = obj.propid
     if obj.state == BUILD_STATE.UPGRADE then 
         local c = resmng.get_conf("prop_world_unit",obj.propid)
         if not c  then 
@@ -769,12 +763,13 @@ function building(obj) --部队修理
         end
 
         if c.Lv < cc.Lv then
-            obj.propid = obj.propid - c.Lv + cc.Lv  
+            obj_id = obj.propid - c.Lv + cc.Lv  
         end
     end
 
-    local maxhp = resmng.get_conf("prop_world_unit", obj.propid).Hp
+    local maxhp = resmng.get_conf("prop_world_unit", obj_id).Hp
     if obj.hp >=  maxhp then 
+        obj.propid = obj_id
         obj.hp = maxhp 
         obj.tmStart_b = 0
         obj.tmOver_b = 0
@@ -915,7 +910,7 @@ end
 
 function fire(obj,s)
     local tm = s or 10 
-    obj.fire_speed = -1000
+    obj.fire_speed = -0.5
 
     if obj.hp + obj.fire_speed*tm  < 0  then
         tm = math.ceil(-obj.hp/obj.fire_speed)
@@ -935,7 +930,7 @@ end
 
 function buf_open(e)--奇迹生成
     local c = resmng.get_conf("prop_world_unit", e.propid)
-    if c.Mode == resmng.CLASS_UNION_BUILD_CASTLE or c.Mode == resmng.CLASS_UNION_BUILD_MINI_CASTLE then
+    if is_union_miracal(e.propid) then
         local es = get_around_eids( e.eid, c.Range ) 
         if not es then return end
         for _, eid in pairs( es ) do
@@ -965,7 +960,7 @@ end
 
 function buf_close(e)--奇迹移除
     local c = resmng.get_conf("prop_world_unit", e.propid)
-    if c.Mode == resmng.CLASS_UNION_BUILD_CASTLE or c.Mode == resmng.CLASS_UNION_BUILD_MINI_CASTLE then
+    if is_union_miracal(e.propid) then
         local es = get_around_eids( e.eid, c.Range ) 
         if not es then return end
         for _, eid in pairs( es ) do
@@ -979,8 +974,7 @@ function buf_close(e)--奇迹移除
                         for _, eid in pairs( builds ) do
                             if is_union_building(eid) then
                                 local b = get_ety(eid) 
-                                local cc = resmng.get_conf("prop_world_unit", b.propid)
-                                if cc.Mode == resmng.CLASS_UNION_BUILD_CASTLE or cc.Mode == resmng.CLASS_UNION_BUILD_MINI_CASTLE then
+                                if is_union_miracal(b.propid) then
                                     if b.sn < sn then
                                         ply.ef_eid = b.eid
                                     end
@@ -1004,8 +998,7 @@ function ply_move(ply)--迁城变奇迹影响
     for _, eid in pairs( builds ) do
         if is_union_building(eid) then
             local e = get_ety(eid) 
-            local cc = resmng.get_conf("prop_world_unit", e.propid)
-            if cc.Mode == resmng.CLASS_UNION_BUILD_CASTLE or cc.Mode == resmng.CLASS_UNION_BUILD_MINI_CASTLE then
+            if is_union_miracal(e.propid) then
                 if  union_build_t.can_ef(e,ply) then
                     if e.sn < sn then
                         ply.ef_eid = e.eid

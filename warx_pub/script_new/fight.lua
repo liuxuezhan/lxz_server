@@ -659,7 +659,6 @@ fight.pvp = function(action, A0, D0)
 
     c_tick(0)
 
-    local fid = A0.eid
 
     local total = 0
     if not D0  then
@@ -667,6 +666,7 @@ fight.pvp = function(action, A0, D0)
         return true, 0
     end
 
+    local fid = A0.eid
     A0.fid = fid
     D0.fid = fid
 
@@ -699,6 +699,7 @@ fight.pvp = function(action, A0, D0)
     end
 
     LOG("fight, owner_eidA=%d, target_eidA=%d, troopidA=%d, owner_eidD=%d, troopidD=%d", A0.owner_eid or 0, A0.target_eid or 0, A0._id or 0, D0.owner_eid or 0, D0._id or 0)
+
 
     local report = {{0,0,A0.eid, A0.owner_eid, A0.target_eid, A.heroid, D.heroid, D0.sx, D0.sy, propida, propidd }}
     table.insert(report, {0, 1, _get_num(A), _get_num(D), A.herohp, D.herohp })
@@ -806,8 +807,8 @@ fight.pvp = function(action, A0, D0)
     table.insert(losts, lostD)
     table.insert(report, losts)
 
-    calc_kill( action, A0, make_dmgA, dead_numD, dead_lvlD ) 
-    calc_kill( action, D0, make_dmgD, dead_numA, dead_lvlA )
+    calc_kill( action, A0, make_dmgA, lostD, dead_numD, dead_lvlD ) 
+    calc_kill( action, D0, make_dmgD, lostA, dead_numA, dead_lvlA )
 
     local win = 0
 
@@ -831,7 +832,7 @@ fight.pvp = function(action, A0, D0)
         pid = atker.pid
         uid = atker.uid
     end
-
+    
     if action == TroopAction.SiegeTaskNpc then
         Rpc:battle(atker, A0.eid, A0.owner_eid, A0.target_eid, A0.owner_pid, A0.owner_uid)
     else
@@ -841,11 +842,8 @@ fight.pvp = function(action, A0, D0)
 
     ---------replay
     local replay_id = get_replay_id()
-    gPendingSave.replay[replay_id] = {gTime, report}
+    gPendingInsert.replay[ replay_id ] = { gTime, report }
     A0.replay_id = replay_id
-    ---------replay
-
-    --dumpTab( report, "report" )
 
     return (win == 1), round
 end
@@ -1541,7 +1539,7 @@ function rage(troop, D)
     return gets
 end
 
-function calc_kill(action, troop, make_dmg, kill_num, kill_lvl)
+function calc_kill(action, troop, make_dmg, lost_powD, kill_num, kill_lvl)
     if make_dmg < 1 then return end
 
     local calc = 0
@@ -1588,12 +1586,12 @@ function calc_kill(action, troop, make_dmg, kill_num, kill_lvl)
                         for id, mkdmg in pairs( kill ) do
                             local n = math.floor( mkdmg * kill_num / make_dmg )
                             kill[ id ] = n
-                            --print( "kill", make_dmg, arm.mkdmg, mkdmg, id, n )
                             calc = calc + n
                             last = {kill, id, n}
                         end
                     end
                 end
+                arm.mkdmg = arm.mkdmg * lost_powD / make_dmg
             end
         end
     end

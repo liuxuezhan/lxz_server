@@ -60,6 +60,7 @@ function initBoot()
             end
         end
     end
+    _G.gInit = "InitCronBootDone"
 end
 
 function loop()
@@ -73,7 +74,7 @@ function loop()
                     local fun = crontab[ v.action ]
                     if fun then
                         INFO("[CRONTAB]:%s", v.action)
-                        fun(unpack(v.arg or {}))
+                        action(fun, unpack(v.arg or {}))
                     end
                 end
             end

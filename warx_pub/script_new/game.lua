@@ -98,6 +98,22 @@ function reload()
     do_reload()
 end
 
+function tool_test()
+    for i=1 , 500 , 1 do
+        --to_tool(0, {type = "login_server", cmd = "upload_ply_info", appid = APP_ID, open_id = tostring(i), pid = tostring(i), logic = tostring(gMapID), level = tostring(1), name = "tool_test", custom = "1", token = 1, signature=1})
+        to_tool(0, {url = "http://192.168.100.12:18083/", method = "post", appid = APP_ID, open_id = tostring(i), pid = tostring(i), logic = tostring(gMapID), level = tostring(i), name = tostring(i), custom = tostring(i), token = i, signature=i})
+    end
+    print("do tool test ")
+    timer.new("tool_test", 1)
+end
+
+function chat_test()
+    for i=1 , 1000 , 1 do
+        print("tool chat id ", i)
+        to_tool(0, {type = "chat", cmd = "create_chat", user = "user"..tostring(i), host = CHAT_HOST, password = "user"..tostring(i)})
+    end
+end
+
 function restore_game_data()
     local rt = restore_handler.action()
     if rt == "Compensation" then
@@ -212,6 +228,13 @@ function get_eid_camp()
     return get_eid(EidType.Camp)
 end
 
+function get_home_troop( e )
+    if e.get_my_troop then return e:get_my_troop() end
+    if e.my_troop_id then
+        return troop_mng.get_troop( e.my_troop_id )
+    end
+end
+
 function get_mode_by_eid(eid)
     if eid == -1 then return -1 end
     local e = get_ety( eid )
@@ -265,7 +288,8 @@ function do_rem_ety(eid)
                 WARN("燃烧不能回收")
                 return
             end
-            union_build_t.remove(e)
+            action( union_build_t.remove, e )
+            --union_build_t.remove(e)
         else
             gEtys[ eid ] = nil
             c_rem_ety(eid)
@@ -302,6 +326,8 @@ function do_rem_ety(eid)
 
             elseif is_npc_city(e) then
                 gPendingDelete.npc_city[ eid ] = 0
+
+            elseif is_troop( e ) then
 
             else
                 gPendingDelete.unit[ eid ] = 0
@@ -361,10 +387,35 @@ function send_invite()
 
 end
 
+
 function test()
-    local db = dbmng:getOne()
-    local info = db:runCommand( "isMaster" )
-    dumpTab( info, "test info" )
+    for i = 1, 10, 1 do
+        do_reload()
+    end
+    --local db = dbmng:getOne()
+    --local info = db.count:findOne( {_id={["$in"] = {3610031, 361}}} )
+    --dumpTab( info, "findOne" )
+
+    --db.test:update( {_id=1}, {[ "$set"] = { a = true} }, true )
+
+    --local info = db.test:findOne( {_id=1} )
+    --dumpTab( info, "test") 
+
+    --print( c_get_zone_lv( math.floor( 1055/16 ), math.floor( 224 / 16 ) ) )
+
+    --c_roi_chk_troop()
+    --local db = dbmng:getOne()
+    ----local info = db:runCommand( "isMaster" )
+    ----dumpTab( info, "test info" )
+
+    --local id = 6
+    ----db.report1:insert( {_id=id} )
+    --local val = {a=1, b=2, foo="bar", hello="world"}
+    ----db.report1:update( {_id=id}, { ["$push"]={ vs={["$each"]={val, val}, ["$slice"]=-20 }} }, true )
+
+    --db.report1:update( {_id=id}, { ["$push"]={ vs=val, ["$clice"]=-5 }}, true )
+    --local info = db:runCommand("getLastError")
+    --dumpTab( info, "test")
 end
 
 function test4()
@@ -376,22 +427,25 @@ function check_pending()
         do_rem_ety( eid )
     end
     gRemEty = {}
-
-    --if not gPendingModule then
-    --    gPendingModule = { player_t, build_t, hero_t, union_t, npc_city, monster_city, king_city, lost_temple }
-    --end
-
-    --local mods = gPendingModule
-    --for _, mod in pairs( mods ) do
-    --    mod.check_pending()
-    --end
     player_t.check_pending()
 end
 
+function on_shutdown()
+    for id, troop in pairs( troop_mng.troop_id_map or {} ) do
+        if troop:is_go() or troop:is_back() then
+            troop.curx, troop.cury = c_get_actor_pos( troop.eid )
+            troop.tmCur = gTime
+            troop:save()
+            print( "save troop", troop.curx or troop.sx, troop.cury or troop.sy, troop.tmCur )
+        end
+    end
+    _G.gInit = "SystemSaving"
+end
 
 function check_pending_before_shutdown()
     if not gPendingModule then
-        gPendingModule = { player_t, build_t, hero_t, union_t, npc_city, monster_city, king_city, lost_temple }
+        --gPendingModule = { player_t, build_t, hero_t, union_t, npc_city, monster_city, king_city, lost_temple }
+        gPendingModule = { player_t }
     end
 
     local mods = gPendingModule
@@ -649,7 +703,11 @@ function remove_id(tab, id)
 end
 
 function to_tool( sn, info )
-    --print("debug ", gAgent, sn, info)
+    if sn == 0 then sn = getSn("to_tool")  end
+    local val = {}
+    val._t_ = gTime
+    val.info = info
+    gPendingToolAck[sn] = val
     Rpc:qry_tool( gAgent, sn ,info )
 end
 
@@ -669,3 +727,21 @@ function get_around_eids( eid, r )
     local eids = putCoroPend( "roi", gQueryAroundSn )
     return eids
 end
+
+function get_mall_item( itemid )
+    for _, conf in pairs( resmng.prop_mall ) do
+        if type(conf.Item) == "table" and #conf.Item == 1 then
+            local node = conf.Item[1]
+            if node[1] == "item" and node[2] == itemid then
+                return conf
+            end
+        end
+    end
+end
+
+function get_pos_lv( x, y )
+    return c_get_zone_lv( math.floor( x/16 ), math.floor( y/16 ) )
+end
+
+--setmetatable( gEtys, { __mode = "kv" } )
+

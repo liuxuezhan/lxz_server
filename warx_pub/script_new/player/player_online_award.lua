@@ -50,17 +50,15 @@ function get_online_award(self)
     self.online_award_time = gTime
     local prop = resmng.prop_online_award[self.online_award_num]
     self:add_bonus(prop.BonusPolicy, prop.Bonus, VALUE_CHANGE_REASON.REASON_ONLINE_AWARD)
+    self:refresh_online_award()
+
     local ship = self:get_shipyard()
     if ship ~= nil then
         ship:set_extra("next_time", self:get_online_award_next_time())
     end
-    
+    self:add_count( resmng.ACH_COUNT_DAILY_REWARD, 1 )
     --任务
     task_logic_t.process_task(self, TASK_ACTION.DAY_AWARD, 1)
-    self:refresh_online_award()
-
-    self:add_count( resmng.ACH_COUNT_DAILY_REWARD, 1 )
-
 end
 
 function refresh_online_award(self)

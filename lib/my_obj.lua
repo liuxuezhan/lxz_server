@@ -38,19 +38,23 @@ function del(_name,id)
     save_t.del[_name][id] = 1
 end
 
-function load(_name,conf)
+function load_db(conf)
     local mongo = require "mongo"
     local db = mongo.client(conf)
-    local info = db[g_sid]._name:find({})
-    while info:hasNext() do
-        local data = info:next()
-        if data.tm_login > (data.tm_logout or 0) then data.tm_logout = g_tm - 1 end
-        if  data.pid and data.account then
-            local p = player_t.new(data)
-
+    for _, _name in pairs(my_mode) do
+        local info = db[g_sid]._name:find({})
+        while info:hasNext() do
+            local data = info:next()
+            _G[_name].load(data)
         end
     end
 end
+
+function load_mod(_name)
+    if not my_mode then my_mode= {}  end
+    table.insert(my_mode,_name)
+end
+
 
 
 

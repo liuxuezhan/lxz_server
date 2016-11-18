@@ -338,10 +338,12 @@ function gen_atk_list(self, union, atkNum)
         local _members = union:get_members()
         for k, v in pairs(_members or {}) do
             local atk_times = atk_ply_time[k] or 0
+            pow = v:get_pow() * (atkNum - num)
             local rand = math.random(math.floor(all_pow))
-            if rand <= v:get_pow() then
+            rand = rand * (atkNum -num)
+            if rand <= pow then
                 if atk_times < 2 then
-                    if (gTime - v._union.tmJoin) >= (12 * 3600) then
+                    if (gTime - v._union.tmJoin) >= (12 * 3600) and not list[k] then
                         list[k] = k
                         num = num + 1
                         atk_times = atk_times + 1
@@ -362,8 +364,9 @@ function gen_atk_list(self, union, atkNum)
         for k, v in pairs(_members or {}) do
             local atk_times = atk_ply_time[k] or 0
             local rand = math.random(math.floor(all_pow))
-            if rand <= v:get_pow() then
-                if (gTime - v._union.tmJoin) >= (12 * 3600) then
+            pow = v:get_pow() * (atkNum - num)
+            if rand <= pow then
+                if (gTime - v._union.tmJoin) >= (12 * 3600) and not list[k] then
                     list[k] = k
                     num = num + 1
                     atk_times = atk_times + 1
@@ -631,7 +634,6 @@ function after_fight(atkTroop, defenseTroop)
 
             add_act_plys(mc, defenseTroop)
         end
-        defenseTroop:home_hurt_tr()
     end
 
     troop_mng.delete_troop(atkTroop._id)
@@ -644,8 +646,7 @@ function add_mc_reward(self, union, rewards)
         if v[2] == 11 then
             union.mc_point = union.mc_point + v[3]
         end
-
-        local award = pool[v[2]] 
+        local award = pool[v[2]]
         if not award then
             award = v
         else
@@ -653,7 +654,7 @@ function add_mc_reward(self, union, rewards)
         end
         pool[v[2]] = award
 
-        
+
     end
     self.mc_reward_pool = pool
 end

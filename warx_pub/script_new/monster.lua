@@ -364,6 +364,11 @@ function reset_super_boss()
     end
 end
 
+function rem_super_boss()
+    rem_ety(super_boss)
+    super_boss = 0
+end
+
 
 function on_day_pass()
     reset_boss()
@@ -434,9 +439,9 @@ function load_from_db()
             gEtys[ m.eid ] = m
             if m.grade >= BOSS_TYPE.ELITE and m.grade < BOSS_TYPE.SUPER then
                 boss[m.eid] = m.eid
-            elseif m.grage == BOSS_TYPE.SUPER then
+            elseif m.grade == BOSS_TYPE.SUPER then
                 super_boss = m.eid
-            elseif m.grage == BOSS_TYPE.SPECIAL then
+            elseif m.grade == BOSS_TYPE.SPECIAL then
                 local lv = c_get_zone_lv(m.zx, m.zy)
                 local boss_list = boss_special[lv] or {}
                 local idx = m.zy * 80 + m.zx
@@ -864,7 +869,7 @@ end
 
 function trans_num(reward, rate)
     for k, v in pairs(reward or {}) do
-        v[3] =  math.floor( v[3] * rate)
+        v[3] =  math.ceil( v[3] * rate)
     end
     return reward
 end

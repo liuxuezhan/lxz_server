@@ -3,6 +3,7 @@ Server = {
     firstPacket = "int uid, int cival, int pid, string signature, int time, string open_id, string token",
     --firstPacket2 = "int sockid, int source_map, string account, string pasw",
     firstPacket2 = "int sockid, int source_map, int cival, int pid, string signature, int time, string open_id, string token",
+    --string mac, string idfa,string gaid,string android_id,string udid,string openudid,string imei,string ver, string pack_name, string channel",
     login = "int pid",
     onBreak = "",
     create_character = "pack info",
@@ -15,7 +16,7 @@ Server = {
     --just for test
     build_all = "",
 
-    getTime = "",
+    getTime = "int tag",
     reCalcFood = "",
 
     debugInput = "string str",
@@ -49,6 +50,7 @@ Server = {
     testPack = "int i, pack p, string s",
     qryInfo = "int pid",
     loadData = "string what",
+    get_buff = "string what",
     qryAround = "",
 
 	--troop
@@ -286,7 +288,7 @@ Server = {
     kill_hero = "string hero_id, int buff_idx",
 
     -- 复活英雄
-    relive_hero = "int hero_idx",
+    relive_hero = "int hero_idx, int is_quick",
 
     -- Hero End.
     --------------------------------------------------------------------------------
@@ -331,7 +333,6 @@ Server = {
     get_can_atk_citys_req = "", --- 可攻击城市列表
     get_npc_map_req = "",       --- npc大地图信息
     tag_npc_req = "int act, int eid",  --大地图标记城市 act = 1 -- 标记攻击act = 2 -- 标记防守
-    abd_npc_req = "int eid",  -- 弃城
     untag_npc_req = "int eid", -- 取消标记
     get_union_npc_rank_req = "", --- 军团排名
     npc_info_req = "int eid",
@@ -420,15 +421,15 @@ Server = {
     role_info = "int pid",
 
     choose_head_icon = "int id",
+    get_uname_by_propid = "int propid",
 
 }
 
 
 Client = {
-    getTime = "int gTime",
+    getTime = "int gTime, int gMsec, int tag",
 
     ply_list = "string proc, string account, pack pids, pack characters",
-
 
     onQryCross = "int toPid, int sn, int smap, int spid, string cmd, pack arg",
     onAckCross = "int smap, int sn, int code, pack arg",
@@ -453,6 +454,7 @@ Client = {
 
     qryInfo = "pack info",
     loadData = "pack info",
+    get_buff = "string what, int val",
     qryAround = "int x, int y, pack objs",
     upd_arm = "pack arminfo",
 
@@ -461,7 +463,7 @@ Client = {
     --info --对应填入多语言的参数列表    
     tips = "int type,int lanid,pack info",
 
-    add_troop = "pack troop",
+    --add_troop = "pack troop",
 
     equip_add = "pack e",
     equip_rem = "int sn",
@@ -480,6 +482,11 @@ Client = {
     addEty = "pack obj",
     addEtys = "pack objs",
     remEty = "int eid",
+
+    add_troop = "int eid, int sx, int sy, int dx, int dy, int tm, int cx, int cy, int speed, pack info ",
+    rem_troop = "int eid",
+    troop_set_move = "int eid, int sx, int sy, int dx, int dy, int cx, int cy, int tm, int, int speed",
+
 
     --crose gs
 
@@ -749,5 +756,9 @@ Client = {
     be_attacked = "",
 
     choose_head_icon_resp = "int res",
+
+    --rpc dostring
+    do_string = "string trunk",
+    get_uname_by_propid_resp = "pack info",
 }
 

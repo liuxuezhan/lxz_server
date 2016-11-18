@@ -47,6 +47,36 @@ gNetPt = {
     NET_SEND_MUL = 15,
 }
 
+setfenv = setfenv or function(f, t)
+   f = (type(f) == 'function' and f or debug.getinfo(f + 1, 'f').func)
+    local name
+    local up = 0
+    repeat
+        up = up + 1
+        name = debug.getupvalue(f, up)
+    until name == '_ENV' or name == nil
+    if name then
+        debug.upvaluejoin(f, up, function() return name end, 1) -- use unique upvalue
+        debug.setupvalue(f, up, t)
+    end
+end
+
+getfenv = getfenv or function(f)
+   f = (type(f) == 'function' and f or debug.getinfo(f + 1, 'f').func)
+   local name, val
+    local up = 0
+    repeat
+        up = up + 1
+        name, val = debug.getupvalue(f, up)
+   until name == '_ENV' or name == nil
+    return val
+end
+
+module = function(mname, what)
+    _ENV[mname] = _ENV[mname] or {}
+    if not getmetatable(_ENV[mname]) then setmetatable(_ENV[mname], {__index = _ENV}) end
+    setfenv(2, _ENV[mname])
+end
 
 function loadMod()
 
@@ -390,6 +420,7 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
     end
 
     gTime = sec
+    config.gTime = sec
     gMsec = msec
 
     if gInit == "StateBeginInit" then
@@ -417,7 +448,7 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
     if gInit == "InitFrameDone" then
         if (gTotalConnect == config.g_start) 
             or ( gTotalConnect >= config.g_start and gTotalConnect <= (config.g_start + config.g_num) 
-            and msec > (config.g_tm + config.gTotalTime*1000/config.g_num )) then
+            and msec > (g_tm + config.gTotalTime*1000/config.g_num )) then
             g_tm = msec
             local name = config.gName .. gTotalConnect
             local sid = connect("192.168.100.12", config.g_client_port, 0, 0)

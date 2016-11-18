@@ -36,7 +36,7 @@ prop_effect_type = {
 	["SpeedConsume"] = { ID = "SpeedConsume", Index = 24, Default = nil, BuffName = LG_EFFECT_TYPE_NAME_108000023, BuffDesc = LG_EFFECT_TYPE_BUFFDESC_108100023,},
 	["SpeedMarch"] = { ID = "SpeedMarch", Index = 25, Default = nil, BuffName = LG_EFFECT_TYPE_NAME_108000024, BuffDesc = LG_EFFECT_TYPE_BUFFDESC_108100024,},
 	["SpeedMarchPvE"] = { ID = "SpeedMarchPvE", Index = 26, Default = nil, BuffName = LG_EFFECT_TYPE_NAME_108000025, BuffDesc = LG_EFFECT_TYPE_BUFFDESC_108100025,},
-	["SpeedRecover"] = { ID = "SpeedRecover", Index = 27, Default = 300, BuffName = LG_EFFECT_TYPE_NAME_108000026, BuffDesc = LG_EFFECT_TYPE_BUFFDESC_108100026,},
+	["SpeedRecover"] = { ID = "SpeedRecover", Index = 27, Default = nil, BuffName = LG_EFFECT_TYPE_NAME_108000026, BuffDesc = LG_EFFECT_TYPE_BUFFDESC_108100026,},
 	["SpeedBuild"] = { ID = "SpeedBuild", Index = 28, Default = nil, BuffName = LG_EFFECT_TYPE_NAME_108000027, BuffDesc = LG_EFFECT_TYPE_BUFFDESC_108100027,},
 	["SpeedTech"] = { ID = "SpeedTech", Index = 29, Default = nil, BuffName = LG_EFFECT_TYPE_NAME_108000028, BuffDesc = LG_EFFECT_TYPE_BUFFDESC_108100028,},
 	["BuildFreeTime"] = { ID = "BuildFreeTime", Index = 115, Default = 300, BuffName = LG_EFFECT_TYPE_NAME_108000114, BuffDesc = LG_EFFECT_TYPE_BUFFDESC_108100114,},

@@ -116,7 +116,7 @@ function call_hero_by_piece(self, hero_propid)
             return
         end
     else
-        ERROR("call_hero_by_piece: player already have this hero. pid = %d, hero_propid = %d.", self.pid, hero_propid)
+        WARN("call_hero_by_piece: player already have this hero. pid = %d, hero_propid = %d.", self.pid, hero_propid)
         return
     end
 end
@@ -559,7 +559,7 @@ end
 -- Return   : NULL
 -- Others   : NULL
 --------------------------------------------------------------------------------
-function relive_hero(self, hero_idx)
+function relive_hero(self, hero_idx, is_quick  )
     local hero = self:get_hero(hero_idx)
     if not hero then
         ERROR("relive_hero: get hero failed. pid = %d, hero_idx = %d.", self.pid, hero_idx or -1)
@@ -574,6 +574,16 @@ function relive_hero(self, hero_idx)
     -- 消耗资源、金币
     local cons = self:calc_relive_price(hero)
     if self:dec_cons(cons, VALUE_CHANGE_REASON.RELIVE_HERO) then
+        hero.status = HERO_STATUS_TYPE.FREE
+        hero.hp = hero.max_hp
+    elseif is_quick == 1 then
+        local cons_have, cons_need_buy = self:split_cons(cons)
+        local gold_need = calc_cons_value(cons_need_buy) 
+        if gold_need > 0 and gold_need > self.gold then return ack( self, "relive_hero", resmng.E_NO_RES ) end
+
+        self:dec_cons( cons_have, VALUE_CHANGE_REASON.RELIVE_HERO, true )
+        if gold_need > 0 then self:do_dec_res(resmng.DEF_RES_GOLD, gold_need, VALUE_CHANGE_REASON.RELIVE_HERO) end
+
         hero.status = HERO_STATUS_TYPE.FREE
         hero.hp = hero.max_hp
     end
@@ -1310,6 +1320,12 @@ function use_hero_skill_item(self, hero_idx, skill_idx, item_idx, num)
         return
     end
 
+    local hero = self:get_hero(hero_idx)
+    if not hero or not hero:is_valid() then
+        WARN("use_hero_skill_item: hero isn't valid. pid = %d, hero_idx = %d", self.pid, hero_idx)
+        return
+    end
+
     -- 物品类型校验
     local item = self:get_item(item_idx)
     if not item then
@@ -1324,13 +1340,7 @@ function use_hero_skill_item(self, hero_idx, skill_idx, item_idx, num)
         return
     end
 
-    local hero = self:get_hero(hero_idx)
-    if not hero or not hero:is_valid() then
-        ERROR("use_hero_skill_item: hero isn't valid. pid = %d, hero_idx = %d", self.pid, hero_idx)
-        return
-    end
-
-    if is_in_table(ITEM_SKILL_MODE, conf.Mode) then
+        if is_in_table(ITEM_SKILL_MODE, conf.Mode) then
         --print(conf.ID, conf.Action)
         --item_func[conf.Action](self, hero_idx, skill_idx, item_idx, num, unpack(conf.Param or {}))
 
@@ -1353,89 +1363,87 @@ end
 
 function use_skill_special_book(self, hero_idx, skill_idx, item_idx, num, skill_id, exp)
     local hero = self:get_hero(hero_idx)
-    if not hero then
-        ERROR("item_func.useHeroSkillSpecialBook: get_hero() failed. pid = %d, hero_idx = %d", self.pid or -1, hero_idx)
+    if not hero or not hero:is_valid() then
+        WARN("use_skill_special_book: hero isn't valid. pid = %d, hero_idx = %d", self.pid, hero_idx)
+        return
+    end
+
+    local skill = hero.basic_skill[skill_idx]
+    if not skill then
+        ERROR("item_func.useHeroSkillSpecialBook: hero._id = %s, basic_skill[%d] is still locked.", hero._id or "nil", skill_idx)
         return
     else
-        local skill = hero.basic_skill[skill_idx]
-        if not skill then
-            ERROR("item_func.useHeroSkillSpecialBook: hero._id = %s, basic_skill[%d] is still locked.", hero._id or "nil", skill_idx)
+        local conf = resmng.get_conf("prop_skill", skill_id)
+        if not conf then
             return
-        else
-            local conf = resmng.get_conf("prop_skill", skill_id)
-            if not conf then
-                return
-            end
+        end
 
-            -- TODO: 校验 num 是否过大，超过升到顶级所需的经验值
-
-            if conf.Class == skill_idx then
-                if skill[1] == 0 then
-                    -- 尚无: 首张用于获得该技能，其余用于升级
-                    if self:dec_item(item_idx, num, VALUE_CHANGE_REASON.USE_ITEM) then
-                        hero:change_basic_skill(skill_idx, skill_id, 0)
-                        if num > 1 then
-                            hero:gain_skill_exp(skill_idx, (num - 1) * exp)
-                        else
-                            hero:basic_skill_changed(skill_idx)
-                        end
-                        LOG("item_func.useHeroSkillSpecialBook: hero._id = %s, skill_idx = %d", hero._id, skill_idx)
+        -- TODO: 校验 num 是否过大，超过升到顶级所需的经验值
+        if conf.Class == skill_idx then
+            if skill[1] == 0 then
+                -- 尚无: 首张用于获得该技能，其余用于升级
+                if self:dec_item(item_idx, num, VALUE_CHANGE_REASON.USE_ITEM) then
+                    hero:change_basic_skill(skill_idx, skill_id, 0)
+                    if num > 1 then
+                        hero:gain_skill_exp(skill_idx, (num - 1) * exp)
                     else
-                        return
+                        hero:basic_skill_changed(skill_idx)
                     end
-                elseif heromng.is_same_skill(skill[1], skill_id) then
-                    -- 校验能否升级
-                    if not heromng.get_next_skill(skill[1]) then
-                        LOG("item_func.useHeroSkillSpecialBook: get_next_skill() failed. hero._id = %s, skill_idx = %d, skill_id = %d",
-                             hero._id or "nil", skill_idx, skill[1])
-                        return
-                    end
-
-                    -- 增加技能经验
-                    if self:dec_item(item_idx, num, VALUE_CHANGE_REASON.USE_ITEM) then
-                        hero:gain_skill_exp(skill_idx, num * exp)
-                    else
-                        return
-                    end
+                    LOG("item_func.useHeroSkillSpecialBook: hero._id = %s, skill_idx = %d", hero._id, skill_idx)
                 else
-                    -- 被其它技能占据，不能使用
-                    ERROR("item_func.useHeroSkillSpecialBook: hero._id = %s, basic_skill[%d][1] = %d ~= skill_id = %d",
-                           hero._id or "nil", skill_idx, skill[1] or -1, skill_id)
+                    return
+                end
+            elseif heromng.is_same_skill(skill[1], skill_id) then
+                -- 校验能否升级
+                if not heromng.get_next_skill(skill[1]) then
+                    LOG("item_func.useHeroSkillSpecialBook: get_next_skill() failed. hero._id = %s, skill_idx = %d, skill_id = %d",
+                    hero._id or "nil", skill_idx, skill[1])
+                    return
+                end
+
+                -- 增加技能经验
+                if self:dec_item(item_idx, num, VALUE_CHANGE_REASON.USE_ITEM) then
+                    hero:gain_skill_exp(skill_idx, num * exp)
+                else
                     return
                 end
             else
-                -- skill_idx 与 skill_id 不匹配
-                ERROR("item_func.useHeroSkillSpecialBook: pid = %d, hero_idx = %s, skill_id = %d, conf.Class(%d) ~= skill_idx(%d)",
-                      self and self.pid or -1, hero_idx, skill_id, conf.Class or -1, skill_idx)
+                -- 被其它技能占据，不能使用
+                ERROR("item_func.useHeroSkillSpecialBook: hero._id = %s, basic_skill[%d][1] = %d ~= skill_id = %d",
+                hero._id or "nil", skill_idx, skill[1] or -1, skill_id)
                 return
             end
+        else
+            -- skill_idx 与 skill_id 不匹配
+            ERROR("item_func.useHeroSkillSpecialBook: pid = %d, hero_idx = %s, skill_id = %d, conf.Class(%d) ~= skill_idx(%d)",
+            self and self.pid or -1, hero_idx, skill_id, conf.Class or -1, skill_idx)
+            return
         end
     end
 end
 
 -- 使用英雄通用技能书
 function use_skill_common_book(self, hero_idx, skill_idx, item_idx, num, skill_id, exp)
-    -- skill_id === 0
     local hero = self:get_hero(hero_idx)
-    if not hero then
-        ERROR("item_func.useHeroSkillCommonBook: get_hero() failed. pid = %d, hero_idx = %d", self.pid or -1, hero_idx)
+    if not hero or not hero:is_valid() then
+        WARN("use_skill_common_book: hero isn't valid. pid = %d, hero_idx = %d", self.pid, hero_idx)
+        return
+    end
+
+    local skill = hero.basic_skill[skill_idx]
+    if not skill then
+        ERROR("item_func.useHeroSkillCommonBook: hero._id = %s, basic_skill = %d is still locked.", hero._id or "nil", skill_idx)
         return
     else
-        local skill = hero.basic_skill[skill_idx]
-        if not skill then
-            ERROR("item_func.useHeroSkillCommonBook: hero._id = %s, basic_skill = %d is still locked.", hero._id or "nil", skill_idx)
+        if not heromng.get_next_skill(skill[1]) then
+            LOG("item_func.useHeroSkillCommonBook: get_next_skill() failed. hero._id = %s, skill_idx = %d, skill_id = %d",
+            hero._id or "nil", skill_idx, skill[1])
             return
-        else
-            if not heromng.get_next_skill(skill[1]) then
-                LOG("item_func.useHeroSkillCommonBook: get_next_skill() failed. hero._id = %s, skill_idx = %d, skill_id = %d",
-                     hero._id or "nil", skill_idx, skill[1])
-                return
-            end
+        end
 
-            -- 增加经验
-            if self:dec_item(item_idx, num, VALUE_CHANGE_REASON.USE_ITEM) then
-                hero:gain_skill_exp(skill_idx, num * exp)
-            end
+        -- 增加经验
+        if self:dec_item(item_idx, num, VALUE_CHANGE_REASON.USE_ITEM) then
+            hero:gain_skill_exp(skill_idx, num * exp)
         end
     end
 end
@@ -1462,7 +1470,8 @@ end
 -- 重置技能
 function reset_skill(self, hero_idx, skill_idx)
     local hero = self:get_hero(hero_idx)
-    if hero == nil then
+    if not hero or not hero:is_valid() then
+        WARN("reset_skill: hero isn't valid. pid = %d, hero_idx = %d", self.pid, hero_idx)
         return
     end
 

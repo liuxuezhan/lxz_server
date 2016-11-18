@@ -1,5 +1,6 @@
 module("config")
 
+
 -- Map 跟 Tips 每个服务器都不一样，要改
 Map = 5
 Tips = "robot"
@@ -19,7 +20,7 @@ GateHost = "192.168.100.12"
 GatePort = 8002 
 
 LogLevel = 3
-Release = true
+--Release = true
 BuddySize = 128
 
 IsEnableGm = 1
@@ -31,26 +32,73 @@ PLAT_ID = 1
 TlogSwitch = 1
 ---------------------------------------------机器人专用
 
-g_start = 3000 
-g_num = 70 
+g_start = 1 
+g_num = 1000 
 gName ="robot" 
 gTotalTime = 60  --登录秒数 
 g_client_port = 8001
+g_name = {}
 
 function robot_plan()
-     WARN("ssedeff")
   --  move()
  --   robot_union_build()
-    Ply.union_mission()
+  --  Ply.union_mission()
 
+  use_item("use_item")
 end
 
-function get_cival(self)
-    if  self.robot_id > 1 then
-        return 1
+
+function use_item(name)
+    local self = g_name["robot1"]
+    if self and self.active and gTime - self.active  > 1 then
+        if Ply.check_on(self, name,{gold=0,item={[4002014]=1,}}) then
+            Rpc:chat(self, 0, "@item=4003003=1", 0 )
+            for idx, v in pairs(self._item) do
+                if v[2] == 4003003 then
+                    Rpc:use_item(self,idx,1) 
+                end
+            end
+        end
+    -- lxz(self._check[name])
     end
-    return 2
 end
+
+function buildup(name)
+    local self = g_name["robot1"]
+    if self and self.active and gTime - self.active  > 1 then
+        if Ply.check_on(self, name,{gold=0,}) then
+            self:build_up(0,0,30,1)
+        end
+    end
+end
+
+function techup(name)
+    local self = g_name["robot1"]
+    if self and self.active and gTime - self.active  > 1 then
+        if Ply.check_on(self, name,{gold=0,buf={SpeedRes2=1,}}) then
+            self:tech(1001001,2,1)
+        end
+    end
+end
+
+function genius_up(name)
+    local self = g_name["robot1"]
+    if self and self.active and gTime - self.active  > 1 then
+        if Ply.check_on(self, name,{gold=0,}) then
+            self:genius_up(1001001)
+        end
+    end
+end
+
+function equip_forge(name)
+    local self = g_name["robot1"]
+    if self and self.active and gTime - self.active  > 1 then
+        if Ply.check_on(self, name,{gold=0,item={[1001]=1,}}) then
+            Rpc:equip_forge(self,6)
+        end
+    end
+end
+
 
 lvtable = {1,5,8,10,12,14,16,18,20,22,23,24,25,26,27,28,29,30} --城堡外观等级设置
 

@@ -61,7 +61,7 @@ function load_data(data)
             if target and is_union_building( target ) then
                 if data:get_base_action() == TroopAction.Gather then
                     if not target.my_troop_id then target.my_troop_id = {} end
-                    table.insert(target.my_troop_id,data._id)
+                    setIns(target.my_troop_id,data._id)
                 else
                     target.my_troop_id = data._id
                 end
@@ -166,6 +166,8 @@ function calc_troop_speed(self)
                     speed = speed * ( 1 + owner:get_num( "SpeedMarch_R" ) * 0.0001 )
                 elseif action == TroopAction.JoinMass then
                     speed = speed * ( 1 + ( owner:get_num( "SpeedMarch_R") + owner:get_num( "SpeedRally_R") ) * 0.0001 )
+                elseif action == TroopAction.SupportRes then
+                    speed = TroopSpeed[ action ] * ( 1 + ( owner:get_num( "SpeedCaravan_R") ) * 0.0001 )
                 else
                     speed = speed * ( 1 + owner:get_num( "SpeedMarch_R") * 0.0001 )
                 end
@@ -186,12 +188,14 @@ end
 function settle(self)
     self.action = self:get_base_action() + 200
     if self.eid > 0 then
-        rem_ety(self.eid)
+        --rem_ety(self.eid)
+        gEtys[ self.eid ] = nil
         --self.eid = 0
     end
 end
 
 function back(self, delay)
+    delay = nil
     local action = self:get_base_action() + 300
     if self.is_mass ~= 1 then
         local owner = get_ety(self.owner_eid)
@@ -293,27 +297,20 @@ end
 function home(self)
     local pid = self.owner_pid
     if pid == 0 then return end
+
     local owner = getPlayer(pid)
     if not owner then return end
 
-    while true do
-        local troop = self:split_one()
-        if troop == self then break end
-        troop:back()
+    for bid, arm in pairs( self.arms or {} ) do
+        if bid ~= pid then
+            self.arms[ bid ] = nil
+            local ply = getPlayer( bid )
+            if ply then
+                ply:rem_busy_troop( self._id )
 
-        for bid, arm in pairs( self.arms or {} ) do
-            if bid ~= pid then
-                self.arms[ bid ] = nil
-                local ply = getPlayer( bid )
-                if ply then
-                    ply:rem_busy_troop( self._id )
-
-                    local target = get_ety(self.target_eid)
-                    local troop = troop_mng.create_troop(self.action, ply, target, arm)
-                    troop.curx = self.curx
-                    troop.cury = self.cury
-                    troop:back()
-                end
+                local troop = troop_mng.create_troop( TroopAction.JoinMass, ply, owner, arm )
+                troop.curx, troop.cury = get_ety_pos( owner )
+                troop:back()
             end
         end
     end
@@ -641,8 +638,9 @@ end
 
 
 function split_one(self)
+    local owner_pid = self.owner_pid
     for pid, arm in pairs(self.arms or {}) do
-        if pid ~= self.owner_pid then
+        if pid ~= owner_pid then
             self.arms[ pid ] = nil
             local owner = getPlayer(pid)
             if owner then
@@ -698,32 +696,31 @@ function split_pid(self, pid)
 end
 
 function start_march(self, default_speed)
-    local have_eid = false
-    if self.eid and self.eid > 0 then
-        local ety = get_ety( self.eid )
-        if not ety or ety == self then
-            have_eid = self.eid
-        end
-    end
+    if self.eid and self.eid > 0 and get_ety( self.eid ) == self then
 
-    if not have_eid then 
-        self.eid = get_eid_troop() 
     else
-        gRemEty[ self.eid ] = nil
+        self.eid = get_eid_troop() 
     end
 
     local speed = default_speed or self:calc_troop_speed()
-    local dist, zone = calc_distance( self.curx, self.cury, self.dx, self.dy )
-    zone = zone or 0
-    local use_time = math.ceil( dist / speed + zone / (speed * 0.1) )
+
+    --local dist, zone = calc_distance( self.curx, self.cury, self.dx, self.dy )
+    --zone = zone or 0
+    --local use_time = math.ceil( dist / speed + zone / (speed * 0.1) )
 
     local in_black = is_in_black_land( self.curx, self.cury )
+
+    local dist = c_calc_distance( self.curx, self.cury, self.dx, self.dy )
+    local use_time = dist / speed
 
     self.speed0 = speed
     self.speed = speed
     self.tmStart = gTime
-    self.tmOver = gTime + use_time
+    self.use_time = use_time
+    self.tmOver = math.ceil( gTime + use_time )
     self.tmCur = gTime
+    self.curx = self.sx
+    self.cury = self.sy
     self.propid = 11001001
     self.mcid = self.mcid or 0
     self.be_atk_list = self.be_atk_list or {}
@@ -732,8 +729,16 @@ function start_march(self, default_speed)
     local heros = {0,0,0,0}
     for _, arm in pairs(self.arms or {}) do
         for id, num in pairs(arm.live_soldier or {}) do
-            local mode = math.floor(id / 1000)
+            local mode = math.floor(id / 1000) % 10
             arminfo[ mode ] = arminfo[ mode ] + num
+        end
+
+        local amend = arm.amend 
+        if amend then
+            for id, num in pairs( amend.relive or {} ) do
+                local mode = math.floor(id / 1000) % 10
+                arminfo[ mode ] = arminfo[ mode ] + num
+            end
         end
 
         for mode, id in pairs( arm.heros or {} ) do
@@ -751,8 +756,6 @@ function start_march(self, default_speed)
     self.soldier_num = arminfo
     self.heros = heros
 
-    if in_black then self.speed = speed * 0.1 end
-
     local owner = get_ety(self.owner_eid)
     local target = get_ety(self.target_eid)
     if target then
@@ -769,12 +772,8 @@ function start_march(self, default_speed)
             self.alias = u.alias
         end
     end
-    etypipe.add(self)
-
-    c_add_actor(self.eid, self.curx, self.cury, self.dx, self.dy, gTime, self.speed)
     gEtys[self.eid] = self
-
-    self.speed = speed
+    etypipe.add(self)
 
     self:save()
     self:notify_owner()
@@ -807,18 +806,21 @@ function start_march(self, default_speed)
     end
 
     self:add_link()
+
+    print( "start_march" )
     
     monitoring(MONITOR_TYPE.TROOP)
 end
 
 
-function notify_owner(self)
-    local info
+function notify_owner(self, info)
     if self.delete then
         info = {_id = self._id, delete = true }
     else
-        info = self:get_info()
+        if info then info._id = self._id 
+        else info = self:get_info() end
     end
+
     local pids = {}
     if not next(self.arms or {})then
         table.insert(pids, self.owner_pid)
@@ -938,7 +940,7 @@ end
 
 
 function get_info(self)
-    local info = { _id = self._id, eid = self.eid, tmStart = self.tmStart, tmOver = self.tmOver, action = self.action, dx=self.dx, dy=self.dy, sx=self.sx, sy=self.sy, target=self.target_eid }
+    local info = { _id = self._id, eid = self.eid, tmStart = self.tmStart, tmOver = self.tmOver, action = self.action, dx=self.dx, dy=self.dy, sx=self.sx, sy=self.sy, target=self.target_eid, is_mass=self.is_mass}
     local arms = {}
     local heros = {}
     for pid, arm in pairs( self.arms or {} ) do
@@ -1045,6 +1047,24 @@ function calc_pow(self, pid)
                     pow = pow + (prop.Pow or 0) * num
                 end
             end
+        end
+    end
+    return pow
+end
+
+function calc_left_pow(self, pid)
+    local pow = 0
+    local arm = self.arms and self.arms[ pid ]
+    if arm then
+        local prop_arm = resmng.prop_arm
+        if arm.live_soldier then
+            for id, num in pairs(arm.live_soldier) do
+                local prop = prop_arm[ id ]
+                if prop and prop.Pow then
+                    pow = pow + (prop.Pow or 0) * num
+                end
+            end
+
         end
     end
     return pow
@@ -1218,14 +1238,15 @@ function recalc(self)
         local speed = self:get_extra("speed") or 0
         local cache = self:get_extra("cache") or 0
 
-        cache = cache + (gTime - start) * speed
+        local gain = ( gTime - start ) * speed
+        local cache = cache + gain
 
         local mode = self:get_extra("mode") or 1
         local speed, count, speedb = self:get_gather_power( mode )
 
         print( string.format( "gather, speed = %s, count = %s", speed, count ) )
 
-        self:set_extra("count", count)
+        self:set_extra("count", count) -- 负重
         self:set_extra("start", gTime)
         self:set_extra("cache", cache)
         self:set_extra("speed", speed)
@@ -1533,6 +1554,7 @@ function handle_dead( troop, mode, to_live, to_back, to_cure )
         if arm.dead_soldier then
             local dead = copyTab( arm.dead_soldier )
             info.dead = dead
+
             if to_live > 0 then
                 local node = {}
                 for k, v in pairs( dead ) do
@@ -1562,11 +1584,23 @@ function handle_dead( troop, mode, to_live, to_back, to_cure )
                     node[ k ] = n
                     dead[ k ] = v - n
                 end
-                info.back = node
+                info.back = copyTab(node)
                 if pid >= 10000 then
                     local owner = getPlayer( pid )
                     if owner then
                         owner:add_soldiers( node )
+                    end
+                end
+
+                for _, id in pairs( arm.heros or {} ) do
+                    if id ~= 0 then
+                        local h = heromng.get_hero_by_uniq_id( id )
+                        if h and h.lost then
+                            h.hp = math.floor( h.hp +  h.lost * to_back )
+                            if h.hp < 0 then h.hp = 0 end
+                            if h.hp > h.max_hp then h.hp = h.max_hp end
+                            h.lost = nil
+                        end
                     end
                 end
             end
@@ -1601,34 +1635,32 @@ function acc_march(troop, ratio)
 
         local curx, cury = c_get_actor_pos(troop.eid)
         if not curx then return end
-        --local remain = calc_line_length(curx, cury, troop.dx, troop.dy)
 
         local speed = troop.speed * ratio
-        local dist, zone = calc_distance( curx, cury, troop.dx, troop.dy )
-        zone = zone or 0
-        local use_time = math.ceil( dist / speed + zone / (speed * 0.1) )
 
         troop.curx = curx
         troop.cury = cury
         troop.tmCur = gTime
         troop.speed = speed
+
+        local dist = c_calc_distance( curx, cury, troop.dx, troop.dy )
+        local use_time = dist / speed
+        troop.use_time = use_time
         troop.tmOver = math.ceil(gTime + use_time)
 
         local chg = gPendingSave.troop[ troop._id ]
         chg.curx    = troop.curx
         chg.cury    = troop.cury
         chg.tmCur   = troop.tmCur
-        chg.tmOver  = troop.tmOver
         chg.speed   = troop.speed
 
-        c_add_actor(troop.eid, troop.curx, troop.cury, troop.dx, troop.dy, gTime, troop.speed)
-        etypipe.add(troop)
-        troop:notify_owner()
+        c_troop_set_speed( troop.eid, troop.speed, troop.use_time )
+        troop:notify_owner( {tmOver=troop.tmOver} )
         player_t.update_watchtower_speed(troop)
-
-        --troop:save()
+        troop:save()
     end
 end
+
 
 function enter_black_zone( troop )
     if troop:is_go() or troop:is_back() then
@@ -1640,11 +1672,12 @@ function enter_black_zone( troop )
         troop.curx = curx
         troop.cury = cury
         troop.tmCur = gTime
-        c_add_actor(troop.eid, troop.curx, troop.cury, troop.dx, troop.dy, gTime, troop.speed)
         etypipe.add(troop)
+        c_add_actor(troop.eid, troop.curx, troop.cury, troop.dx, troop.dy, gTime, troop.speed)
         troop.speed = speed
     end
 end
+
 
 function leave_black_zone( troop )
     if troop:is_go() or troop:is_back() then
@@ -1653,8 +1686,8 @@ function leave_black_zone( troop )
         troop.curx = curx
         troop.cury = cury
         troop.tmCur = gTime
-        c_add_actor(troop.eid, troop.curx, troop.cury, troop.dx, troop.dy, gTime, troop.speed)
         etypipe.add(troop)
+        c_add_actor(troop.eid, troop.curx, troop.cury, troop.dx, troop.dy, gTime, troop.speed)
     end
 end
 
@@ -1742,3 +1775,56 @@ function get_arm_by_pid(self, pid)
     return self.arms[pid]
 end
 
+function check_status( troop )
+
+    local action = troop.action
+    local state = math.floor( action / 100 )
+    action = action % 100
+
+    local STATE_GO = 1
+    local STATE_SETTLE = 2
+    local STATE_BACK = 3
+    local STATE_DEL = 4
+
+    local sm = {
+        [ TroopAction.SiegePlayer ] = {
+            [ STATE_GO ] = {
+                [ STATE_BACK ] = true,
+
+
+            
+            }
+        }
+    }
+
+end
+
+function back_mass_power(self)
+    local T = get_ety(self.target_eid) 
+    if is_monster(T) then
+        for pid, arm in pairs(self.arms) do
+            local ply = getPlayer(pid)
+            if ply then
+                ply:inc_sinew(10)
+            end
+        end
+        for tid, action in pairs( T.troop_comings or {} ) do
+            if action == TroopAction.JoinMass then
+                local one = troop_mng.get_troop( tid )
+                if one and one:is_go() and one.dest_troop_id == troop._id then
+                    local x, y = c_get_actor_pos(one.eid)
+                    if x then
+
+                        if is_monster(T) then
+                            local A = getPlayer(one.owner_pid)
+                            if A then
+                                A:inc_sinew(10)
+                            end
+                        end
+
+                    end
+                end
+            end
+        end
+    end
+end

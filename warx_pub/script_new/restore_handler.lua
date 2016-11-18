@@ -16,9 +16,9 @@ function load_player()
             data.token = nil
 
             local p = player_t.new(data)
+            player_t._cache[ data.pid ] = nil
             gEtys[ p.eid ] = p
             rawset( p, "token", token )
-
             rawset(p, "eid", data.eid)
             rawset(p, "size", 4)
             rawset(p, "uname", "")
@@ -95,26 +95,14 @@ function load_equip()
     for _, v in pairs( gPlys ) do v._equip = {} end
 
     local db = dbmng:getOne()
+    db.equip:delete({pos=-1})
+
     local info = db.equip:find({})
     while info:hasNext() do
         local t = info:next()
         local ply = getPlayer( t.pid )
         if ply then
             ply._equip[ t._id ] = t
-        end
-    end
-end
-
-function load_count()
-    for _, v in pairs( gPlys ) do v._count = {} end
-    local db = dbmng:getOne()
-    local info = db.count:find({})
-    while info:hasNext() do
-        local t = info:next()
-        local ply = getPlayer( t.pid )
-        if ply then
-            t._id = nil
-            ply._count = t
         end
     end
 end
@@ -132,30 +120,15 @@ function load_room()
     end
 end
 
-function load_npc_city()
-    local db = dbmng:getOne()
-    local info = db.npc_city:find({})
-    local have = {}
-    while info:hasNext() do
-        local c = info:next()
-        local n = resmng.prop_world_unit[ c.propid ]
-        if n then
-            gEtys[ c.eid ] = c
-            etypipe.add(c)
-            have[ n.ID ] = c
-        end
-    end
-
+function load_clown()
     for k, v in pairs(resmng.prop_world_unit) do
-        if v.Class == CLASS_UNIT.NPC_CITY then
-            if not have[ v.ID ] then
-                local eid = get_eid_npc_city()
-                if eid then
-                    local c = {_id=eid, eid=eid, x=v.X, y=v.Y, propid=k, size=v.Size, uid=0}
-                    gEtys[ eid ] = c
-                    etypipe.add(c)
-                    db.npc_city:insert(c)
-                end
+        if v.Class == CLASS_UNIT.CLOWN then
+            local eid = get_eid_npc_city()
+            if eid then
+                local c = {_id=eid, eid=eid, x=v.X, y=v.Y, propid=k, size=v.Size, uid=0}
+                gEtys[ eid ] = c
+                print( "load_clown", v.X, v.Y )
+                etypipe.add(c)
             end
         end
     end
@@ -190,7 +163,7 @@ end
 
 function init_effect()
     local count = 0
-    for _, v in pairs(gPlys) do
+    for pid, v in pairs(gPlys) do
         local propid = v.culture * 1000 + v:get_castle_lv()
         if v.propid ~= propid then v.propid = propid end
         v.nprison = v:get_prison_count()
@@ -198,11 +171,13 @@ function init_effect()
         etypipe.add(v)
         count = count + 1
     end
+    print( "init_effect_done" )
 
     local us = unionmng.get_all()
     for _, v in pairs( us ) do
         v:union_pow()
     end
+    print( "init_effect_union_done" )
     return count
 end
 
@@ -235,98 +210,191 @@ function load_task()
     end
 end
 
+function load_count()
+    for _, v in pairs( gPlys ) do v._count = {} end
+    local db = dbmng:getOne()
+    local info = db.count:find({})
+    while info:hasNext() do
+        local line = info:next()
+        local player = getPlayer(line._id)
+        if player ~= nil then
+            line._id = nil
+            player._count = line
+        end
+    end
+end
+
+--function restore_timer()
+--    local db = dbmng:getOne()
+--    db.timer:delete({delete=true})
+--
+--    local info = db.timer:find({})
+--    local minTime = math.huge
+--    local maxSn = 0
+--
+--    local tm_shutdown = gSysStatus.tick - 1
+--    print( "tm_shutdown", tm_shutdown, gTime - tm_shutdown )
+--
+--    local real = os.time()
+--    while info:hasNext() do
+--        local t = info:next()
+--        timer._sns[ t._id ] = t
+--        if t._id > maxSn then maxSn = t._id end
+--        if t.over < minTime then
+--            minTime = t.over
+--        end
+--        if t.what == "cron" then
+--            if not isCron then 
+--                isCron = true
+--            else
+--                timer._sns[ t._id ] = nil -- duplicate crontab
+--            end
+--        end
+--    end
+--    _G.gSns[ "timer" ] = maxSn + 1
+--
+--    local dels = {}
+--    local retroop = {}
+--    for k, v in pairs(troop_mng.troop_id_map) do
+--        if v:is_go() or v:is_back() then
+--            if not v.tmCur then 
+--                table.insert(dels, {k, v})
+--            else
+--                if v.tmCur > real - 36000 then
+--                    if v.tmCur < minTime then
+--                        print(string.format("SetTimerStart, min=%d, troop, troopid=%s", v.tmCur, v._id))
+--                        minTime = v.tmCur
+--                    end
+--                    table.insert(retroop, v)
+--                else
+--                    table.insert(dels, {k, v})
+--                    WARN("restore_troop, id=%d, action=%d, offset=%f hour", v._id, v.action, (real-v.tmCur)/3600)
+--                end
+--            end
+--        end
+--    end
+--
+--    for _, t in  pairs(dels) do
+--        local k = t[1]
+--        local troop = t[2]
+--        troop_mng.delete_troop(k)
+--        for pid, _ in pairs(troop.arms or {}) do
+--            if pid > 0 then
+--                local p = getPlayer(pid)
+--                if p then
+--                    remove_id(p.busy_troop_ids, k)
+--                end
+--            end
+--        end
+--    end
+--
+--    if minTime < real then
+--        _G.gTime = minTime
+--        _G.gMsec = 0
+--        _G.gCompensation = minTime
+--        c_time_set_start(minTime)
+--        WARN("gCompensation, from=%d, to=%d", minTime, real)
+--
+--        for k, node in pairs(timer._sns) do
+--            addTimer(node._id, (node.over-minTime)*1000, node.tag or 0)
+--        end
+--
+--        for _, v in pairs(retroop) do
+--            local speed = v.speed
+--            v.curx = v.curx or v.sx
+--            v.cury = v.cury or v.sy
+--
+--            etypipe.add(v)
+--            c_troop_set_state( v.eid, v.tmCur, v.curx, v.cury, v.speed )
+--
+--            --c_add_actor(v.eid, v.curx or v.sx, v.cury or v.sy, v.dx, v.dy, v.tmCur, v.speed)
+--            gEtys[ v.eid ] = v
+--            v.speed = speed
+--        end
+--
+--        return "Compensation"
+--    else
+--        for k, node in pairs(timer._sns) do
+--            addTimer(node._id, (node.over-real)*1000, node.tag or 0)
+--        end
+--    end
+--end
+
+
 function restore_timer()
     local db = dbmng:getOne()
     db.timer:delete({delete=true})
 
     local info = db.timer:find({})
-    local minTime = math.huge
     local maxSn = 0
     local isCron = false
 
-    local real = os.time()
+    local tm_shutdown = (gSysStatus.tick or gTime) - 1
+    print( "tm_shutdown", tm_shutdown, gTime - tm_shutdown )
+
+    _G.gTime = tm_shutdown
+    _G.gMsec = 0
+    _G.gCompensation = tm_shutdown
+    c_time_set_start(tm_shutdown)
+
     while info:hasNext() do
         local t = info:next()
-        timer._sns[ t._id ] = t
-        if t._id > maxSn then maxSn = t._id end
-        if t.over < minTime then
-            minTime = t.over
-        end
-        if t.what == "cron" then
-            if not isCron then 
-                isCron = true
-            else
-                timer._sns[ t._id ] = nil -- duplicate crontab
-            end
+        if t.over < tm_shutdown then
+            WARN( "timer error, id = %d", t._id )
+        else
+            local sn = t._id
+            timer._sns[ sn ] = t
+            addTimer(t._id, (t.over-tm_shutdown)*1000, t.tag or 0)
+            if sn > maxSn then maxSn = sn end
         end
     end
     _G.gSns[ "timer" ] = maxSn + 1
 
     local dels = {}
-    local retroop = {}
     for k, v in pairs(troop_mng.troop_id_map) do
         if v:is_go() or v:is_back() then
-            if not v.tmCur then 
+            if v.tmOver < tm_shutdown then
+                WARN( "troop error, id=%d, pid=%d, action=%d", v._id, v.owner_pid or 0, v.action )
+                dumpTab( troop, "troop_error" )
                 table.insert(dels, {k, v})
             else
-                if v.tmCur > real - 36000 then
-                    if v.tmCur < minTime then
-                        print(string.format("SetTimerStart, min=%d, troop, troopid=%s", v.tmCur, v._id))
-                        minTime = v.tmCur
-                    end
-                    table.insert(retroop, v)
-                else
-                    table.insert(dels, {k, v})
-                    WARN("restore_troop, id=%d, action=%d, offset=%f hour", v._id, v.action, (real-v.tmCur)/3600)
-                end
+                local dist = c_calc_distance( v.curx or v.sx, v.cury or v.sy, v.dx, v.dy )
+                local use_time = dist / v.speed
+                v.use_time = use_time
+                etypipe.add(v)
+                gEtys[ v.eid ] = v
+                c_troop_set_state( v.eid, v.tmCur, v.curx or v.sx, v.cury or v.sy, v.speed )
             end
         end
     end
 
-    for _, t in  pairs(dels) do
+    for _, t in pairs( dels ) do
         local k = t[1]
         local troop = t[2]
         troop_mng.delete_troop(k)
-        for pid, _ in pairs(troop.arms or {}) do
-            if pid > 0 then
+        for pid, arm in pairs(troop.arms or {}) do
+            if pid >= 10000 then
                 local p = getPlayer(pid)
                 if p then
-                    remove_id(p.busy_troop_ids, k)
+                    p:add_soldiers( arm.live_soldier or {} )
+                    for _, hid in pairs( arm.heros or {} ) do
+                        if hid ~= 0 then
+                            local h = heromng.get_hero_by_uniq_id(hid)
+                            if h then
+                                if h.status == HERO_STATUS_TYPE.MOVING then h.status = HERO_STATUS_TYPE.FREE end
+                                h.troop = 0
+                            end
+                        end
+                    end
                 end
             end
         end
     end
 
-    if minTime < real then
-        _G.gTime = minTime
-        _G.gMsec = 0
-        _G.gCompensation = minTime
-        c_time_set_start(minTime)
-        WARN("gCompensation, from=%d, to=%d", minTime, real)
-
-
-        for k, node in pairs(timer._sns) do
-            addTimer(node._id, (node.over-minTime)*1000, node.tag or 0)
-        end
-
-
-        for _, v in pairs(retroop) do
-            local speed = v.speed
-            local black = is_in_black_land( v.curx or v.sx, v.cury or v.sy )
-            if black then v.speed = v.speed * 0.1 end
-            etypipe.add(v)
-            c_add_actor(v.eid, v.curx or v.sx, v.cury or v.sy, v.dx, v.dy, v.tmCur, v.speed)
-            gEtys[ v.eid ] = v
-            v.speed = speed
-        end
-
-        return "Compensation"
-    else
-        for k, node in pairs(timer._sns) do
-            addTimer(node._id, (node.over-real)*1000, node.tag or 0)
-        end
-    end
+    return "Compensation"
 end
+
+
 
 function post_init()
     c_roi_view_start()
@@ -356,6 +424,11 @@ function action()
     INFO("-- load_player done --------")
     monitoring(MONITOR_TYPE.LOADDATA, "load_player")
 
+    INFO("-- load_count -------------")
+    --load_count()
+    INFO("-- load_count done --------")
+    monitoring(MONITOR_TYPE.LOADDATA, "load_player")
+
     INFO("-- load_build --------------")
     load_build()
     INFO("-- load_build done ---------")
@@ -375,6 +448,12 @@ function action()
     npc_city.load_npc_city()
     INFO("-- load_npc_city -----------")
     monitoring(MONITOR_TYPE.LOADDATA, "load_npc_city")
+
+
+    INFO("-- load_clown -----------")
+    load_clown()
+    INFO("-- load_clown -----------")
+
 
     INFO("-- load_monster_city -----------")
     monster_city.load_monster_city()

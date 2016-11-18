@@ -21,7 +21,7 @@ _funs["cron"] = function(sn)
     fight.clean_report()
     set_sys_status( "tick", gTime )
 
-    Tlog("GameSvrState",config.GameHost,(player_t.g_online_num or 0),(get_sys_status("start") or 0) ,0 ) 
+    Tlog("GameSvrState",config.GameHost,(player_t.g_online_num or 0),(get_sys_status("start") or 0) ,0 )
 end
 
 _funs["monitor"] = function(sn, num)
@@ -290,7 +290,7 @@ end
 _funs["union_build_fire"] = function(sn, eid)
     local dest = get_ety(eid)
     if dest and dest.fire_tmSn == sn then
-        dest.fire_tmSn = 0  
+        dest.fire_tmSn = 0
         save_ety(dest)
     end
 end
@@ -395,11 +395,11 @@ _funs["check"] = function(sn, pid)
     LOG( "[check], pid=%d", pid )
     ply:initEffect()
 
-    if ply:is_online() then 
-        ply.tm_check = timer.new( "check", 600, pid ) 
+    if ply:is_online() then
+        ply.tm_check = timer.new( "check", 600, pid )
 
     elseif gTime - ply.tm_logout < 600 then
-        ply.tm_check = timer.new( "check", 600, pid ) 
+        ply.tm_check = timer.new( "check", 600, pid )
 
     else
         LOG( "[check], pid=%d, off", pid )
@@ -422,6 +422,10 @@ end
 _funs["troop_back"] = function(sn, tid)
     local troop = troop_mng.get_troop( tid )
     if troop then troop:back() end
+end
+
+_funs["tool_test"] = function(sn)
+    tool_test()
 end
 
 

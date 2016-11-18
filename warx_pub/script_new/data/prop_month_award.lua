@@ -34,7 +34,7 @@ prop_month_award = {
 	[MONTH_AWARD_25] = { ID = MONTH_AWARD_25, Month = 1, BonusPolicy = "mutex_award", Bonus = {{"item",2011002,15,10000}}, Extra = nil,},
 	[MONTH_AWARD_26] = { ID = MONTH_AWARD_26, Month = 1, BonusPolicy = "mutex_award", Bonus = {{"item",8002002,1,10000}}, Extra = nil,},
 	[MONTH_AWARD_27] = { ID = MONTH_AWARD_27, Month = 1, BonusPolicy = "mutex_award", Bonus = {{"item",3001002,2,10000}}, Extra = nil,},
-	[MONTH_AWARD_28] = { ID = MONTH_AWARD_28, Month = 1, BonusPolicy = "mutex_award", Bonus = {{"hero",19,1,10000}}, Extra = {10,2},},
+	[MONTH_AWARD_28] = { ID = MONTH_AWARD_28, Month = 1, BonusPolicy = "mutex_award", Bonus = {{"hero",16,1,10000}}, Extra = {10,2},},
 	[MONTH_AWARD_29] = { ID = MONTH_AWARD_29, Month = 2, BonusPolicy = "mutex_award", Bonus = {{"res",8,50000,10000}}, Extra = {1,2},},
 	[MONTH_AWARD_30] = { ID = MONTH_AWARD_30, Month = 2, BonusPolicy = "mutex_award", Bonus = {{"item",8001001,1,10000}}, Extra = nil,},
 	[MONTH_AWARD_31] = { ID = MONTH_AWARD_31, Month = 2, BonusPolicy = "mutex_award", Bonus = {{"res",6,200,10000}}, Extra = nil,},

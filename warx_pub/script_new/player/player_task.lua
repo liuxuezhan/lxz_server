@@ -208,9 +208,7 @@ function get_task_award(self, task_id)
     local bonus = resmng.prop_task_detail[task_id].Bonus
     self:add_bonus(bonus_policy, bonus, VALUE_CHANGE_REASON.REASON_TASK)
 
-    Tlog("QuestComplete",tms2str(),gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
-          tostring(openid),self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.smap,self.account,1,self.language,
-          task_id )
+    Tlog("QuestComplete",self:pre_tlog(),task_id )
     return true
 end
 
@@ -228,7 +226,7 @@ function can_take_task(self, task_id)
     if prop_tab == nil then
         return false
     end
-    
+
     local pre_task_id = prop_tab.PreTask
     local pre_task_condition = prop_tab.PreCondition
 
@@ -430,8 +428,9 @@ function take_daily_task(self)
     for k, v in pairs(task_group) do
         local task_id = self:select_daily_task(v)
         if task_id ~= -1 then
-            self:add_task_data(resmng.prop_task_daily[task_id])
-            --local get_task = self:get_task_by_id(task_id)
+            local prop_daily = resmng.prop_task_daily[task_id]
+            self:add_task_data(prop_daily)
+            self:check_finish(prop_daily.ID, unpack(prop_daily.FinishCondition))
         end
     end
 end
@@ -492,8 +491,9 @@ function refresh_daily_task(self)
         local group_info = task_group[v.group_id]
         local task_id = self:select_daily_task(group_info)
         if task_id ~= -1 then
-            self:add_task_data(resmng.prop_task_daily[task_id])
-            --local get_task = self:get_task_by_id(task_id)
+            local prop_daily = resmng.prop_task_daily[task_id]
+            self:add_task_data(prop_daily)
+            self:check_finish(prop_daily.ID, unpack(prop_daily.FinishCondition))
         end
     end
 
@@ -547,6 +547,7 @@ function get_activity_box(self, id)
 
 
     self.activity_box[id] = true
+    self.activity_box = self.activity_box
     Rpc:get_activity_box_resp(self, 0)
 end
 

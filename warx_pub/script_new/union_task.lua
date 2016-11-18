@@ -39,10 +39,12 @@ function mark(data) --挂载
 
 --挂到目标上
     local d = get_ety(data.eid)
-    if not d.u_task then
-        d.u_task = {}
+    if d then
+        if not d.u_task then
+            d.u_task = {}
+        end
+        d.u_task[data._id] = data._id
     end
-    d.u_task[data._id] = data._id
 
     return true
 end

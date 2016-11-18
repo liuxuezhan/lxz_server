@@ -40,7 +40,7 @@ function title_info_req(self)
 end
 
 function try_upgrade_titles(self)
-    --local titles = self:get_title()
+    local titles = self:get_title()
     for k, _ in pairs(title_list or {}) do
         self:try_upgrade(k)
     end
@@ -121,7 +121,12 @@ function use_title_req(self, title)
         return
     end
 
+
     if real_lv ~= lv then --
+        return
+    end
+
+    if self.title == title then --
         return
     end
 

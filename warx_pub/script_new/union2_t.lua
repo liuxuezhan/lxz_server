@@ -1214,17 +1214,9 @@ end
 
 function get_build_count(self, mode)--计算军团建筑已有数量
     local count = 0
-    local c,c2
-    if mode == resmng.CLASS_UNION_BUILD_CASTLE or mode == resmng.CLASS_UNION_BUILD_MINI_CASTLE then
-        c = resmng.get_conf("prop_world_unit",10*1000*1000 + resmng.CLASS_UNION_BUILD_CASTLE*1000 + 1)
-        c2 = resmng.get_conf("prop_world_unit",10*1000*1000 + resmng.CLASS_UNION_BUILD_MINI_CASTLE*1000 + 1)
-    else
-        c = resmng.get_conf("prop_world_unit",10*1000*1000 + mode*1000 + 1)
-    end
 
     for k, v in pairs(self.build) do
-        local cc = resmng.get_conf("prop_world_unit",v.propid)
-        if ((c and cc.BuildMode == c.BuildMode ) or (c2 and cc.BuildMode == c2.BuildMode) ) and v.state ~=BUILD_STATE.DESTROY then
+        if is_union_miracal(v.propid) and v.state ~=BUILD_STATE.DESTROY then
             count = count + 1
         end
     end
@@ -1234,15 +1226,12 @@ end
 function get_ubuild_num(self,mode)--计算军团建筑上限数量
 
     local base = get_castle_count(self.membercount)
+    local id = 10*1000*1000+mode*1000+1
 
-    if mode == resmng.CLASS_UNION_BUILD_CASTLE or mode == resmng.CLASS_UNION_BUILD_MINI_CASTLE then
+    if is_union_miracal(id) then
         return base
     else
-
-        local b = resmng.get_conf("prop_world_unit",10*1000*1000+mode*1000+1)
-        if not b then
-            return 0
-        end
+        local b = resmng.get_conf("prop_world_unit",id)
         local c = resmng.get_conf("prop_union_buildlv",b.BuildMode*1000+1)
         if c then
             return base*c.Mul
@@ -1253,22 +1242,6 @@ function get_ubuild_num(self,mode)--计算军团建筑上限数量
 end
 
 --}}}
-
-function add_room_id(self, id)
-    for k, v in pairs(self.battle_room_ids or {}) do
-        if v == id then return end
-    end
-    table.insert(self.battle_room_ids, id)
-end
-
-function rm_room_id(self, id)
-    for k, v in pairs(self.battle_room_ids or {}) do
-        if v == id then
-            self.battle_room_ids[k] = nil
-            break
-        end
-    end
-end
 
 function union_pow(self)
     local pow = 0

@@ -224,6 +224,11 @@ end
 end
 
 function ack_tool(pid, sn, data)
+    if sn then
+        --print("receive tool ack ", sn)
+        gPendingToolAck[sn] = nil
+    end
+
     if data.api then
         player_t[data.api](data)
     end

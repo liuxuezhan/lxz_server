@@ -889,6 +889,8 @@ function rm_member(self, A,kicker)
             leader:union_invite(A.pid)
         end
     end
+
+
     return resmng.E_OK
 end
 
@@ -1175,11 +1177,11 @@ function upgrade_tech(self, idx)
         return resmng.E_FAIL
     end
 
-    local c = resmng.get_conf("prop_union_tech",tech.id )
-    local tm = c.TmLevelUp
+    local tm = next_conf.TmLevelUp
     tech.tmStart = gTime
     tech.tmOver = gTime + tm
     tech.tmSn = timer.new("uniontech", tm, self.uid, idx)
+    gPendingSave.union_tech[tech._id] = tech
 
     self:notifyall(resmng.UNION_EVENT.TECH, resmng.UNION_MODE.UPDATE, { idx=tech.idx,id=tech.id,tmStart=tech.tmStart, tmOver=tech.tmOver })
 
@@ -1336,8 +1338,9 @@ function add_log(self, what, op,data)
         end
     end
 
-    if #self.log > 100 then
-        for i = 1, 50 do
+    local total = #self.log
+    if total > 100 then
+        for i = 1, total - 100 do
             table.remove(self.log, i)
         end
     end
@@ -1418,10 +1421,9 @@ end
 
 
 function in_castle(v,x,y,r)  --在奇迹有效范围内
-    local cc = resmng.get_conf("prop_world_unit",v.propid)
-    if not cc then return false end
     if  v.state ~=BUILD_STATE.DESTROY and  v.state ~=BUILD_STATE.CREATE then
-        if cc.Mode == resmng.CLASS_UNION_BUILD_CASTLE or cc.Mode == resmng.CLASS_UNION_BUILD_MINI_CASTLE then
+        if is_union_miracal(v.propid) then
+            local cc = resmng.get_conf("prop_world_unit",v.propid)
             local b = {}
             b.xx,b.yy = (x+r),(y+r)--目标中心点
             b.x = v.x - cc.Range + r --可以放置范围的左下角
@@ -1436,11 +1438,10 @@ function in_castle(v,x,y,r)  --在奇迹有效范围内
 end
 
 function out_castle(v,x,y,r)  --在奇迹有效范围外
-    local cc = resmng.get_conf("prop_world_unit",v.propid)
-    if not cc then return true end
 
     if  v.state ~=BUILD_STATE.DESTROY then
-        if cc.Mode == resmng.CLASS_UNION_BUILD_CASTLE or cc.Mode == resmng.CLASS_UNION_BUILD_MINI_CASTLE then
+        if is_union_miracal(v.propid) then
+            local cc = resmng.get_conf("prop_world_unit",v.propid)
             local b = {}
             b.xx,b.yy = (x+r),(y+r)--目标中心点
             b.x = v.x - cc.Range - r --不可以放置范围的左下角
@@ -1482,7 +1483,7 @@ function can_build(self, id, x, y)
     local bcc = resmng.get_conf("prop_world_unit",id)
     if not bcc then return false end
 
-    if bcc.Mode ~= resmng.CLASS_UNION_BUILD_CASTLE and bcc.Mode ~= resmng.CLASS_UNION_BUILD_MINI_CASTLE then
+    if not is_union_miracal(id) then
         if not self:can_castle( x, y,bcc.Size/2) then
             INFO( "不在奇迹范围内 \n" )
             return false
@@ -1519,7 +1520,7 @@ function can_build(self, id, x, y)
         return false
     end
 
-    if bcc.BuildMode ==  UNION_CONSTRUCT_TYPE.SUPERRES  then
+    if is_union_restore(id) then
         --超级矿排他
         for k, v in pairs(self.build) do
             local cc = resmng.get_conf("prop_world_unit",v.propid)
@@ -1534,17 +1535,8 @@ end
 
 function get_build_count(self, mode)--计算军团建筑已有数量
     local count = 0
-    local c,c2
-    if mode == resmng.CLASS_UNION_BUILD_CASTLE or mode == resmng.CLASS_UNION_BUILD_MINI_CASTLE then
-        c = resmng.get_conf("prop_world_unit",10*1000*1000 + resmng.CLASS_UNION_BUILD_CASTLE*1000 + 1)
-        c2 = resmng.get_conf("prop_world_unit",10*1000*1000 + resmng.CLASS_UNION_BUILD_MINI_CASTLE*1000 + 1)
-    else
-        c = resmng.get_conf("prop_world_unit",10*1000*1000 + mode*1000 + 1)
-    end
-
     for k, v in pairs(self.build) do
-        local cc = resmng.get_conf("prop_world_unit",v.propid)
-        if ((c and cc.BuildMode == c.BuildMode ) or (c2 and cc.BuildMode == c2.BuildMode) ) and v.state ~=BUILD_STATE.DESTROY then
+        if is_union_miracal(v.propid) and v.state ~=BUILD_STATE.DESTROY then
             count = count + 1
         end
     end
@@ -1554,15 +1546,12 @@ end
 function get_ubuild_num(self,mode)--计算军团建筑上限数量
 
     local base = get_castle_count(self.membercount)
+    local id = 10*1000*1000+mode*1000+1
 
-    if mode == resmng.CLASS_UNION_BUILD_CASTLE or mode == resmng.CLASS_UNION_BUILD_MINI_CASTLE then
+    if is_union_miracal(id) then
         return base
     else
-
-        local b = resmng.get_conf("prop_world_unit",10*1000*1000+mode*1000+1)
-        if not b then
-            return 0
-        end
+        local b = resmng.get_conf("prop_world_unit",id)
         local c = resmng.get_conf("prop_union_buildlv",b.BuildMode*1000+1)
         if c then
             return base*c.Mul
@@ -1587,19 +1576,21 @@ function get_build(self, idx )
 end
 
 --}}}
-
 function add_room_id(self, id)
     for k, v in pairs(self.battle_room_ids or {}) do
         if v == id then return end
     end
+    self.battle_list = nil
     table.insert(self.battle_room_ids, id)
 end
 
-function rm_room_id(self, id)
+
+function rem_room_id(self, id)
     for k, v in pairs(self.battle_room_ids or {}) do
         if v == id then
-            self.battle_room_ids[k] = nil
-            break
+            table.remove( self.battle_room_ids, k )
+            self.battle_list = nil
+
         end
     end
 end

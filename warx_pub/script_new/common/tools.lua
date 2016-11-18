@@ -381,7 +381,8 @@ end
 etypipe = {}
 etypipe[EidType.Player] =       {"propid", "eid", "x", "y", "uid", "pid", "photo", "name", "uname", "officer", "nprison", "state","uflag"}
 etypipe[EidType.Res]    =       {"propid", "eid", "x", "y", "uid", "pid", "val", "extra"}
-etypipe[EidType.Troop]  =       {"propid", "eid", "culture","action", "owner_eid", "owner_pid", "owner_uid", "target_eid", "target_pid", "target_uid", "sx", "sy", "dx", "dy", "tmCur", "curx", "cury", "speed", "tmStart", "tmOver", "soldier_num","be_atk_list", "flag", "name", "mcid", "alias", "heros", "target_propid", "fid"}
+--etypipe[EidType.Troop]  =       {"propid", "eid", "culture","action", "owner_eid", "owner_pid", "owner_uid", "target_eid", "target_pid", "target_uid", "sx", "sy", "dx", "dy", "tmCur", "curx", "cury", "speed", "tmStart", "tmOver", "soldier_num","be_atk_list", "flag", "name", "mcid", "alias", "heros", "target_propid", "fid"}
+etypipe[EidType.Troop]  =       {"propid", "eid", "culture","action", "owner_eid", "owner_pid", "owner_uid", "target_eid", "target_pid", "target_uid", "tmStart", "tmOver", "soldier_num","be_atk_list", "flag", "name", "mcid", "alias", "heros", "target_propid", "fid", "is_mass"}
 etypipe[EidType.Monster]=       {"propid", "eid", "x", "y", "hp", "level","born"}
 etypipe[EidType.UnionBuild] =   {"propid", "eid", "x", "y", "uid","alias", "sn","idx","hp","state","name","val","culture","holding","build_speed","fire_speed"}
 etypipe[EidType.NpcCity]=       {"propid", "eid", "x", "y", "state", "startTime","endTime", "unions", "randomAward", "declareUnions", "getAwardMember"}
@@ -389,6 +390,7 @@ etypipe[EidType.KingCity]=      {"propid", "eid", "x", "y", "state", "status","s
 etypipe[EidType.MonsterCity]=   {"propid", "eid", "x", "y", "state", "class", "startTime", "endTime"}
 etypipe[EidType.Camp]    =      {"propid", "eid", "x", "y", "pid", "uid"}
 etypipe[EidType.LostTemple]=    {"propid", "eid", "x", "y", "state", "startTime", "endTime", "uid", "uname", "born"}
+etypipe[EidType.CLOWN]=         {"propid", "eid", "x", "y" }
 
 
 function etypipe.pack(filter, xs)
@@ -436,8 +438,7 @@ function etypipe.add(data)
     if is_troop(data) then 
         data.be_atk_list = data.be_atk_list or {}
         data.mcid = data.mcid or 0
-        c_add_troop(data.propid, data.eid, data.sx, data.sy, data.dx, data.dy, etypipe.pack(node, data))
-        --print( debug.traceback() )
+        c_add_troop(data.eid, data.sx, data.sy, data.dx, data.dy, data.speed, data.use_time, etypipe.pack(node, data))
         
     else
         if not data.size then WARN("no size, propid=%d", data.propid) end
@@ -482,17 +483,25 @@ function get_num_by(what, ...)
     return val
 end
 
+--计算在一条直线上的点 cx,cy是否在在线段内部
+function calc_is_point_in_segment(cx,cy,sx,sy,dx,dy)
+    return math.abs(dx-sx)==math.abs(cx-sx)+math.abs(dx-cx) and math.abs(dy-sy)==math.abs(cy-sy)+math.abs(dy-cy)
+end
+
 --直线与矩形相交
 function calc_crosspoint(sx, sy, dx, dy, rect)
     local crosspoint = {}
     if sx == dx then
-        local miny = math.min(sy, dy)
-        local maxy = math.max(sy, dy)
+        if  sx >= rect.x1 and sx <= rect.x2 then 
+            local miny = math.min(sy, dy)
+            local maxy = math.max(sy, dy)
 
-        if miny < rect.y1 and maxy > rect.y1 then table.insert(crosspoint,{sx, rect.y1}) end
-        if miny < rect.y2 and maxy > rect.y2 then table.insert(crosspoint,{sx, rect.y2}) end
+            if miny < rect.y1 and maxy > rect.y1 then table.insert(crosspoint,{sx, rect.y1}) end
+            if miny < rect.y2 and maxy > rect.y2 then table.insert(crosspoint,{sx, rect.y2}) end
 
-        return crosspoint
+            if #crosspoint > 0 then return crosspoint end
+        end
+        return nil
     end
 
     --y = kx + b
@@ -500,6 +509,7 @@ function calc_crosspoint(sx, sy, dx, dy, rect)
     local b = sy - k * sx
     function get_linear_y(x) return k * x + b end
     function get_linear_x(y) return (y - b) / k end
+
 
     --[[ 
     local prop_build = resmng.prop_world_unit[self.propid]
@@ -514,23 +524,32 @@ function calc_crosspoint(sx, sy, dx, dy, rect)
     local crosspoint = {}
     local y1 = get_linear_y(rect.x1)
     if y1 > rect.y1 and y1 < rect.y2 then
-        table.insert(crosspoint, {rect.x1, y1})
+        if calc_is_point_in_segment(rect.x1, y1,sx,sy,dx,dy) then
+            table.insert(crosspoint, {rect.x1, y1})
+        end
     end
 
     local x1 = get_linear_x(rect.y1)
     if x1 > rect.x1 and x1 < rect.x2 then
-        table.insert(crosspoint, {x1, rect.y1})
+        if calc_is_point_in_segment(x1, rect.y1,sx,sy,dx,dy) then
+            table.insert(crosspoint, {x1, rect.y1})
+        end
     end
 
     local y2 = get_linear_y(rect.x2)
     if y2 > rect.y1 and y2 < rect.y2 then
-        table.insert(crosspoint, {rect.x2, y2})
+        if calc_is_point_in_segment(rect.x2, y2,sx,sy,dx,dy) then
+            table.insert(crosspoint, {rect.x2, y2})
+        end
     end
 
     local x2 = get_linear_x(rect.y2)
     if x2 > rect.x1 and x2 < rect.x2 then
-        table.insert(crosspoint, {x2, rect.y2})
+        if calc_is_point_in_segment(x2, rect.y2,sx,sy,dx,dy) then
+            table.insert(crosspoint, {x2, rect.y2})
+        end
     end
+
 
     if #crosspoint > 0 then return crosspoint end
 
@@ -574,6 +593,48 @@ function calc_distance(sx, sy, dx, dy)
         return dist - zone, zone
     end
     return dist
+end
+
+--计算两点间经过的普通路段和黑土地,通过type来标记,type为0时代表普通路段,为1时代表黑土地
+function calc_zone_normal_distance(sx, sy, dx, dy)
+    local cx,cy,hw = 608, 608, 64
+    local result={}
+    local cross = calc_crosspoint(sx, sy, dx, dy, {x1=cx, y1=cy, x2=cx+hw, y2=cy+hw})
+    if not cross then 
+        table.insert(result,{0,calc_line_length(sx,sy,dx,dy)})
+    else
+        local ncross = #cross
+        if ncross == 1 then
+            local x=cross[1][1]
+            local y=cross[1][2]
+            if sx > cx and sx < cx+hw and sy > cy and sy < cy+hw then--起点在圈内
+                table.insert(result,{1,calc_line_length(sx,sy,x,y)})
+                table.insert(result,{0,calc_line_length(x,y,dx,dy)})
+            else
+                table.insert(result,{0,calc_line_length(sx,sy,x,y)})
+                table.insert(result,{1,calc_line_length(x,y,dx,dy)})
+            end
+        elseif ncross == 2 then
+            --按顺序排列点
+            local p1={}
+            p1.x=cross[1][1]
+            p1.y=cross[1][2]
+            local p2={}
+            p2.x=cross[2][1]
+            p2.y=cross[2][2]
+            if calc_line_length(p1.x,p1.y,sx,sy)>calc_line_length(p2.x,p2.y,sx,sy) then
+                local pt=p2
+                p2=p1
+                p1=pt
+            end
+
+            table.insert(result,{0,calc_line_length(sx,sy,p1.x,p1.y)})
+            table.insert(result,{1,calc_line_length(p1.x,p1.y,p2.x,p2.y)})
+            table.insert(result,{0,calc_line_length(p2.x,p2.y,dx,dy)})
+        end
+    end
+
+    return result
 end
 
 
@@ -832,18 +893,25 @@ function table_count(tab)
 end
 
 function recalc_sinew( val, tm, now, mul )
-    tm = tm or 0
     local elaps = now - tm
-    local num = math.floor( elaps / 300 )
-    local remain = elaps - num * 300
+    local inc = elaps * mul / 300 
+    local total = val + inc
+    if total > 100 then total = 100 end
+    if total < 0 then total = 0 end
+    return total
 
-    if val < 100 then
-        val = val + num
-        if val > 100 then val = 100 end
-        return val, now - remain
-    else
-        return val, now
-    end
+    --tm = tm or 0
+    --local elaps = now - tm
+    --local num = math.floor( elaps / 300 )
+    --local remain = elaps - num * 300
+
+    --if val < 100 then
+    --    val = val + num
+    --    if val > 100 then val = 100 end
+    --    return val, now - remain
+    --else
+    --    return val, now
+    --end
 end
 
 --------------------------------------------------------------------
@@ -959,6 +1027,66 @@ end
 function is_in_black_land( x, y )
     --return  x >= 512 and x < 512 + 256 and y >= 512 and y < 512 + 256 
     return  x >= 608 and x < 608 + 64 and y >= 608 and y < 608 + 64  -- 640 - 16 * 2
+end
+
+function is_union_construct(propid)
+    local cfg = resmng.get_conf("prop_world_unit",propid)
+    if cfg then
+        return cfg.Class == BUILD_CLASS.UNION
+    end
+    return false
+end
+
+function is_union_miracal(propid)
+    local cfg = resmng.get_conf("prop_world_unit",propid) 
+    if cfg and is_union_construct(propid) then
+        return cfg.Mode > 20
+    end
+    return false
+end
+
+function is_union_miracal_main(propid)
+    local cfg = resmng.get_conf("prop_world_unit",propid)
+    if cfg and is_union_construct(propid) then
+        return cfg.Mode > 20 and cfg.Mode < 30
+    end
+    return false
+end
+
+function is_union_miracal_small( propid )
+    local cfg = resmng.get_conf("prop_world_unit",propid)
+    if cfg and is_union_construct(propid) then
+        return cfg.Mode > 30 and cfg.Mode < 40
+    end
+    return false
+end
+
+---return define.lua near 1096 CULTURE_TYPE
+function get_union_miracal_culture(propid)
+    local cfg = resmng.get_conf("prop_world_unit",propid)
+    if cfg and is_union_miracal(propid) then
+        return cfg.Mode % 10
+    end
+    return CULTURE_TYPE.EAST   ---出现任何不满足的情况都默认返回东方文明
+end
+
+function is_union_superres(propid)
+    local cfg = resmng.get_conf("prop_world_unit",propid)
+    if cfg and is_union_miracal(propid) then
+        return cfg.Mode == resmng.CLASS_UNION_BUILD_FARM or 
+               cfg.Mode == resmng.CLASS_UNION_BUILD_LOGGINGCAMP or 
+               cfg.Mode == resmng.CLASS_UNION_BUILD_MINE or 
+               cfg.Mode == resmng.CLASS_UNION_BUILD_QUARRY
+    end
+    return false
+end
+
+function is_union_restore(propid)
+    local cfg = resmng.get_conf("prop_world_unit",propid)
+    if cfg and is_union_miracal(propid) then
+        return cfg.Mode == resmng.CLASS_UNION_BUILD_RESTORE
+    end
+    return false
 end
 
 function clr_bit( val, idx )

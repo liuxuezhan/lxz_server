@@ -76,7 +76,7 @@ function response_empty_pos(self,x,y,pack)
             lxz(npc)
             return
         end
-        local  arm = {[1010]=100000,[2010]=100000,[3010]=100000,[4010]=100000,}
+        local  arm = {[1010]=1000,[2010]=1000,[3010]=1000,[4010]=1000,}
         Rpc:siege_task_npc(self, pack.task_id, eid, x, y, {live_soldier=arm} )
     elseif pack.key == "move" then
         Rpc:migrate(self,x,y)
@@ -199,35 +199,6 @@ function union_add_member(self, pack)
     Rpc:union_add_member(self,pack.pid)
 end
 
-function union_load(self, pack)
-
-    if pack.key == "info" then--军团基本信息
-       if not self.union then self.union = {} end
-       self.union.id = pack.val.uid or 0
-       self.union.leader = pack.val.leader or 0
-    elseif pack.key =="apply" then--军团成员加入同意
-        self._union_apply = pack.val
-        for k, v in pairs(pack.val) do
-            Rpc:union_add_member(self,v.pid)
-        end
-    elseif pack.key =="build" then--军团建筑
-        if not self.union_build then self.union_build = {} end
-        for k, v in pairs(pack.val.build) do
-            self.union_build[v.idx]=v
-        end
-        Rpc:union_buildlv_donate(self,1)
-    elseif pack.key =="buildlv" then--军团建筑捐献
-        if not self.union.buildlv then self.union.buildlv = {} end
-        for k, v in pairs(pack.val) do
-            self.union.buildlv[v.class]=v
-        end
-    elseif pack.key =="fight" then--军队集结
-        if not self.union.mass then self.union.mass = {} end
-        for k, v in pairs(pack.val) do
-            self.union.mass[v.class]=v
-        end
-    end
-end
 
 function union_build_donate(self,info) 
     if not self.union.buildlv then self.union.buildlv = {} end
@@ -495,6 +466,8 @@ function build_up(self,class, mode,lv,num,quick)
         local f = funcAction.construct 
         f(self,class,mode,(num-cur))
         return false 
+    else
+        return true 
     end
 
     for _, b in pairs(self:get_build()) do
@@ -523,7 +496,31 @@ function build_up(self,class, mode,lv,num,quick)
         end
     end
 
-    return true 
+end
+
+function genius_up(self,id)
+
+    local n = resmng.prop_build[ id ]
+    if n then 
+        local i = 1
+        local c = resmng.prop_genius[id]
+        if  c  then
+            local f = self:condCheck(C.cond)
+            if not f  then
+                return false
+            end
+            if c.Lv > 1 then
+                local old_id = id - 1
+                local old_conf = resmng.prop_genius[old_id]
+                if not old_conf then
+                    genius_up(self,old_id)
+                    return
+                end
+            end
+            Rpc:do_genius(self,id)
+        end
+    end
+
 end
 
 function condCheck(self, tab)
@@ -931,6 +928,8 @@ funcAction.login = function(self)
     Rpc:union_load( self, "tech" )
     Rpc:union_load( self, "mars" )
     Rpc:union_load( self, "buf" )
+    Rpc:union_load( self, "union_donate" )
+    Rpc:union_load( self, "donate" )
     Rpc:mail_load( self, 0 )
     Rpc:report_load( self, 1 )
     Rpc:report_load( self, 2 )
@@ -973,18 +972,104 @@ function build_train(self, class, mode,a_lv)
     return 0
 end
 
-function check_test(self, check)
-        self._check = {}
-    for k, v in pairs(check) do
-        self._check[k].ret = v
-        self._check[k].src = self[ k ]
+function get_buf(self, what,val)
+    self._buf[what]= val
+end
+
+function get_res(self, k,v)
+    if k=="item" then
+        local t = copyTab(v)
+        for _, obj in pairs(self._item) do
+            for id, _ in pairs(v) do
+                if obj[2]==id then
+                    t[obj[2]]= obj[3]
+                    break
+                end
+            end
+        end
+        return t 
+    elseif k=="donate" then
+        Rpc:union_load( self, "union_donate" )
+        Rpc:union_load( self, "donate" )
+        local u = get_union(self,pack.uid)
+        return { my = self.donate,u=u.donate}  
+    elseif k=="hero" then
+        return self._hero  
+    elseif k=="arm" then
+        return self._arm  
+    elseif k=="buf" then
+        for  what,_ in pairs(v) do
+            Rpc:get_buff( self, what )
+        end
+        return self._buf
+    else
+        return self[k]
     end
 end
 
-function print_check(self)
-    for k, v in pairs(self._check or {} ) do
-        WARN(self.acc,k,v.ret,v.src,self[k])
+function check_on(self, name,check)
+    if not self._check then self._check  = {} end
+    if not self._check[name] then 
+        self._check[name] = {}
+        for k, v in pairs(check) do
+            self._check[name][k] = {}
+            self._check[name][k].dst = v
+            self._check[name][k].on = self:get_res(k,v) or 0 
+        end
+    else
+        if check_ret(self,name) then
+            WARN(self.account..":"..name..":ok")
+            return false
+       else
+            WARN(self.account..":"..name..":err")
+        end
     end
+
+    for k, v in pairs(check) do
+        if k == "buff" then
+            for what, _ in pairs(v) do
+                if not self._check[name][k].on[what]  then 
+                    return false
+                end
+            end
+        else
+            if not self._check[name][k]  then 
+                return false
+            end
+            if not self._check[name][k].on  then 
+                return false
+            end
+        end
+    end
+
+    return true
+end
+
+function check_off(self,name)
+    for k, v in pairs(self._check[name] or {} ) do
+        v.off = self:get_res(k) or 0
+    end
+end
+
+function check_ret(self,name)
+    if not self._check[name].ret then 
+        Ply.check_off(self, name)
+    end
+
+    for k, v in pairs(self._check[name]) do
+        if k == "buff" or k=="item" then
+            for what, _ in pairs(v.dst) do
+                if (v.off[what] or 0) + v.dst[what]~= (v.on[what] or 0)   then 
+                    return false
+                end
+            end
+        else
+            if v.off+v.dst~= v.on  then 
+                return false
+            end
+        end
+    end
+    return true
 end
 
 function fight(self, cmd, eid,arms)

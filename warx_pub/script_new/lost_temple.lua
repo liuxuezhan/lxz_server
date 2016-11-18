@@ -495,6 +495,14 @@ function finish_grap_state(self)
         update_union_score(union.uid, res)
     end
 
+    local content={x = self.x, y = self.y, carry ={{"res", 20, math.ceil(res)}}, buildid=self.propid}
+    local members = union:get_members()
+    if members then
+        for pid, ply in pairs(members) do
+            ply:report_new( MAIL_REPORT_MODE.GATHER, content )
+        end
+    end
+
     local tr = self:get_my_troop()
     if tr then
         local all_pow = tr:get_tr_pow()

@@ -65,11 +65,7 @@ function destroy_hero(hero_id)
     _heros[ hero._id ] = nil
 
     -- 清理缓存信息
-    hero_t._cache[ hero._id ] = nil
-
-    -- 删除数据库信息
-    local db = dbmng:getOne()
-    db.hero_t:delete({_id = hero._id})
+    gPendingDelete.hero_t[ hero._id ] = 1
 
     LOG("destroy_hero: succ.")
     dumpTab(hero)

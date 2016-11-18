@@ -58,7 +58,7 @@ function random_donate_cons(ply, idx, flag,type)
     local cache = ply._union.donate_cache[idx]
     if not cache then
         cache = {}
-        cache[resmng.TECH_DONATE_TYPE.PRIMARY] = math.random(2, #conf.Primary)
+        cache[resmng.TECH_DONATE_TYPE.PRIMARY] = math.random(1, #conf.Primary)
         cache[resmng.TECH_DONATE_TYPE.MEDIUM] = 0
         cache[resmng.TECH_DONATE_TYPE.SENIOR] = 0
     else

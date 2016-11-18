@@ -10,7 +10,7 @@
 --------------------------------------------------------------------------------
 module("player_t")
 
-local g_black_market_day 
+local g_black_market_day
 local g_black_market_day_hot
 
 --------------------------------------------------------------------------------
@@ -42,7 +42,7 @@ function get_new_idx(self, build_class, build_mode)
     local max_seq = (BUILD_MAX_NUM[build_class] and BUILD_MAX_NUM[build_class][build_mode]) or 1
     local idx = self:calc_build_idx(build_class, build_mode, 1)
     if max_seq == 1 then
-        if self:get_build(idx) then 
+        if self:get_build(idx) then
             return nil
         else
             return idx
@@ -72,7 +72,7 @@ end
 function check_build_queue( self, dura )
     local queues = self.build_queue
     if queues[ 1 ] == 0 then return true end
-    local remain = self:get_buf_remain( resmng.BUFF_COUNT_BUILD ) 
+    local remain = self:get_buf_remain( resmng.BUFF_COUNT_BUILD )
     if remain > 0 then
         if queues[ 2 ] and queues[ 2 ] == 0 then
             return remain >= dura
@@ -83,12 +83,12 @@ end
 
 function mark_build_queue( self, idx )
     local queues = self.build_queue
-    if queues[ 1 ] == 0 then 
+    if queues[ 1 ] == 0 then
         queues[ 1 ] = idx
         self.build_queue = queues
         return true
     end
-    local remain = self:get_buf_remain( resmng.BUFF_COUNT_BUILD ) 
+    local remain = self:get_buf_remain( resmng.BUFF_COUNT_BUILD )
     if remain > 0 then
         queues[ 2 ] = idx
         self.build_queue = queues
@@ -99,7 +99,7 @@ end
 
 function clear_build_queue( self, idx )
     local queues = self.build_queue
-    if queues[ 1 ] == idx then 
+    if queues[ 1 ] == idx then
         queues[ 1 ] = 0
         self.build_queue = queues
         return true
@@ -186,9 +186,9 @@ function construct(self, x, y, build_propid)
     local node = resmng.prop_build[ build_propid ]
     if not node.Dura then
         WARN("%d",build_propid)
-        return 
+        return
     end
-    
+
     if node and node.Lv == 1 then
         if self:condCheck(node.Cond) and self:consCheck(node.Cons) then
             if not self:check_build_queue( node.Dura ) then return end
@@ -291,8 +291,8 @@ function do_upgrade(self, build_idx)
         if dst then
             self:ef_chg(node.Effect or {}, dst.Effect or {})
             build.propid = dst.ID
-            
-            if dst.Class == BUILD_CLASS.RESOURCE then 
+
+            if dst.Class == BUILD_CLASS.RESOURCE then
                 build.state = BUILD_STATE.WORK
                 build:init_speed()
                 --任务
@@ -304,8 +304,8 @@ function do_upgrade(self, build_idx)
                     if self.culture == 0 then self.culture = 1 end
                     local id = CLASS_UNIT.PLAYER_CITY * 1000 * 1000 + self.culture * 1000 + dst.Lv
                     local unit = resmng.get_conf("prop_world_unit", id)
-                    if unit then 
-                        self.propid = id 
+                    if unit then
+                        self.propid = id
                         etypipe.add(self)
                     end
                     self.tm_lv_castle = gTime
@@ -354,17 +354,16 @@ function do_upgrade(self, build_idx)
 
             new_union.update(self)
             if build_idx == 1 then
-                Tlog("PlayerExpFlow",tms2str(),gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
-                self.account,self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.smap,self.account,1,self.language,0,node.Lv-1,0,0)
+                Tlog("PlayerExpFlow",self:pre_tlog(),0,node.Lv-1,0,0)
             end
             --任务
             task_logic_t.process_task(self, TASK_ACTION.CITY_BUILD_LEVEL_UP)
             task_logic_t.process_task(self, TASK_ACTION.CITY_BUILD_MUB, 1)
             task_logic_t.process_task(self, TASK_ACTION.PROMOTE_POWER, 1, dst.Pow)
 
-            if dst.Pow then 
+            if dst.Pow then
                 self.pow_build = self.pow_build + dst.Pow - ( node.Pow or 0 )
-                self:inc_pow(dst.Pow-node.Pow) 
+                self:inc_pow(dst.Pow-node.Pow)
             end
             return true
         end
@@ -392,7 +391,7 @@ function one_key_upgrade_build(self, build_idx)
     if not node then return end
 
     local state = false
-    if build.state == BUILD_STATE.WAIT then 
+    if build.state == BUILD_STATE.WAIT then
         state = true
     elseif build.state == BUILD_STATE.WORK and node.Class == BUILD_CLASS.RESOURCE then
         state = true
@@ -458,7 +457,7 @@ function doTimerBuild(self, tsn, build_idx, arg_1, arg_2, arg_3, arg_4)
                 self:clear_build_queue( build.idx )
                 self:inc_pow(node.Pow or 0)
                 if node.Effect then self:ef_add(node.Effect) end
-                if node.Class == BUILD_CLASS.RESOURCE then 
+                if node.Class == BUILD_CLASS.RESOURCE then
                     build.state = BUILD_STATE.WORK
                     build:init_speed()
                     --任务
@@ -466,8 +465,8 @@ function doTimerBuild(self, tsn, build_idx, arg_1, arg_2, arg_3, arg_4)
                 end
                 task_logic_t.process_task(self, TASK_ACTION.CITY_BUILD_LEVEL_UP)
 
-                if build.propid == resmng.BUILD_BLACKMARKET_1 then 
-                    self:refresh_black_marcket() 
+                if build.propid == resmng.BUILD_BLACKMARKET_1 then
+                    self:refresh_black_marcket()
                 end
                 if build.propid == resmng.BUILD_MANOR_1 or build.propid == resmng.BUILD_MONSTER_1 or build.propid == resmng.BUILD_RELIC_1 then self:refresh_mall() end
                 if build.propid == resmng.BUILD_RESOURCESMARKET_1 then self:refresh_res_market() end
@@ -529,7 +528,9 @@ function doTimerBuild(self, tsn, build_idx, arg_1, arg_2, arg_3, arg_4)
                         local hero = heromng.get_hero_by_uniq_id(info.id)
                         if hero then
                             hero.status = HERO_STATUS_TYPE.DEAD
-                            timer.new("destroy_dead_hero", RELIVE_HERO_DAYS_LIMIT * 24 * 60 * 60, hero._id)
+                            self:add_count( resmng.ACH_COUNT_KILL_HERO, 1 )
+
+                            --timer.new("destroy_dead_hero", RELIVE_HERO_DAYS_LIMIT * 24 * 60 * 60, hero._id)
 
                             local buff = build:get_extra("buff")
                             if buff and buff.over > gTime then
@@ -604,7 +605,7 @@ function acc_build(self, build_idx, acc_type)
     end
     if prop_tab.Class == 1 and build.state == BUILD_STATE.WORK then
         INFO("res build can`t acc: pid = %d, build_idx = %d, build.state = %d", self.pid, build_idx, build.state)
-        return 
+        return
     end
 
     --if build.state == BUILD_STATE.DESTROY or build.state == BUILD_STATE.WAIT then
@@ -731,9 +732,9 @@ function reap(self, idx)
     local n = self:get_build(idx)
     if n then
         if n.state ~= BUILD_STATE.WORK then return end
-        if gTime - n.tmStart < 60 then 
+        if gTime - n.tmStart < 60 then
             WARN(n.tmStart..":时间没到gTime:"..gTime)
-            return 
+            return
         end
 
         local prop = resmng.get_conf("prop_build", n.propid)
@@ -748,14 +749,19 @@ function reap(self, idx)
 
         n:set_extra("cache", 0)
         n:set_extra("start", gTime)
+        n:set_extra("count", math.ceil( speed * 10 ))
 
-        if speed == 0 then 
-            n:init_speed() 
+        if speed == 0 then
+            n:init_speed()
             return
         end
 
-        cache = math.floor(cache + speed * (gTime - start) / 3600)
-        if cache > count then cache = count end
+        if cache > count then
+
+        else
+            cache = math.floor(cache + speed * (gTime - start) / 3600)
+            if cache > count then cache = count end
+        end
 
         self:do_inc_res_normal(prop.Mode, cache, VALUE_CHANGE_REASON.REAP)
         --任务
@@ -852,7 +858,7 @@ function train(self, idx, armid, num, quick)
             --成就
             local ach_index = "ACH_TASK_RECRUIT_SOLDIER"..armid
             self:add_count(resmng[ach_index], num)
-        
+
             --任务
             local soldier_type = math.floor(armid / 1000)
             local soldier_level = armid % 1000
@@ -880,7 +886,7 @@ function draft(self, idx)
         --成就
         local ach_index = "ACH_TASK_RECRUIT_SOLDIER"..extra.id
         self:add_count(resmng[ach_index], extra.num)
-        
+
         --任务
         local soldier_type = math.floor(extra.id / 1000)
         local soldier_level = extra.id % 1000
@@ -1069,7 +1075,7 @@ function do_learn_tech(self, academy, tech_id)
     self:inc_pow(conf.Pow or 0)
 
     --任务
-    task_logic_t.process_task(self, TASK_ACTION.STUDY_TECH_MUB, 1) 
+    task_logic_t.process_task(self, TASK_ACTION.STUDY_TECH_MUB, 1)
     task_logic_t.process_task(self, TASK_ACTION.STUDY_TECH)
     task_logic_t.process_task(self, TASK_ACTION.PROMOTE_POWER, 2, conf.Pow)
 end
@@ -1114,8 +1120,8 @@ end
 function get_castle_lv(self)
     -- WARNING: 主城默认是第一个建筑
     local castle = self:get_build(1)
-    if not castle then 
-        WARN( "no castle, pid=%d", self.pid) 
+    if not castle then
+        WARN( "no castle, pid=%d", self.pid)
         return 1
     end
 
@@ -1213,7 +1219,7 @@ function watchtower_get_attacked_info(self, msg_send, all_info)
 end
 
 
-watchtower_attacked[1] = function(msg, src) 
+watchtower_attacked[1] = function(msg, src)
     msg.data_id = src.data_id
     msg.owner_pid = src.owner_pid
     msg.owner_propid = src.owner_propid
@@ -1276,7 +1282,7 @@ function get_watchtower_info(troop, dest_load)
         local tmp_ply = getPlayer(def.pid)
         if tmp_ply ~= nil then
             recv_ply = tmp_ply
-            --pack_data(tmp_ply) 
+            --pack_data(tmp_ply)
         end
     end
     if recv_ply == nil or recv_ply:is_online() == false then
@@ -1342,7 +1348,7 @@ function get_watchtower_info(troop, dest_load)
 
     ack_info.arms = {}
     ack_info.arms_num = 0
-   
+
     for k, v in pairs(troop.arms or {}) do
         for i, j in pairs(v.live_soldier or {}) do
             if ack_info.arms[i] == nil then
@@ -1398,7 +1404,7 @@ function fill_watchtower_info(self, troop)
         return
     end
 
-    local base_action = troop:get_base_action() 
+    local base_action = troop:get_base_action()
     if WatchTowerAction[base_action] == nil then
         return
     end
@@ -1558,7 +1564,7 @@ function black_market_buy(self, idx)
 
                 local items = get_sys_status("black_market")
                 local next_one = items[ nbuy + 2 ]
-                if next_one then build:set_extra("item1", next_one) 
+                if next_one then build:set_extra("item1", next_one)
                 else build:set_extra( "item1", 0 ) end
 
                 if conf.Notice == 1 then
@@ -1612,7 +1618,7 @@ end
 
 ----------------------mall
 --[[extra = {
-    itempool = 
+    itempool =
     {
         [group1] = {{rate, id}, {rate, id}},
         [group2] = {{rate, id}, {rate, id}}
@@ -1719,7 +1725,7 @@ end
 function get_mall(ply, mode)
     local build = ply:get_mall_build(mode)
     if not build then
-        return 
+        return
     end
     local mall = build:get_extra(POINT_MALL_TYPE[mode])
     if not mall or need_refresh(mall) then
@@ -2024,10 +2030,10 @@ function wall_fire( self, dura )
     if dura < 0 then return end
 
     local fire = wall:get_extra( "fire" )
-    if not fire then 
+    if not fire then
         local prop = resmng.get_conf( "prop_build", wall.propid )
         local cur = prop.Param.Defence
-        fire = gTime 
+        fire = gTime
         if is_in_black_land( self.x, self.y ) then
             timer.new( "city_fire", 1, self.pid )
         else
@@ -2081,7 +2087,7 @@ function wall_repair( self, mode ) -- mode == 0, free, mode == 1, use gold
         self:do_dec_res( resmng.DEF_RES_GOLD, cost, VALUE_CHANGE_REASON.WALL_REPAIR)
         cur = max
     end
-    
+
     if cur >= max then
         local fire = wall:get_extra( "fire" )
         if not fire or fire < gTime then

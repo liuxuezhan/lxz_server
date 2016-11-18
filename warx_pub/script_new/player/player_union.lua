@@ -39,7 +39,6 @@ function union_select(self, uid,what)
     elseif what == "info" then
         result.val = union:get_info()
     elseif what == "member" then
-        local R0 =  union_t.is_legal(self, "Invite")
         if not union.map_id then
             local _members = union:get_members()
             for _, A in pairs(_members or {}) do
@@ -489,7 +488,7 @@ function union_list(self,name)
             if u  and u:check() then
                 local info = sort_info(self,u)
                 if info  then
-                    ret.list[info.uid]=info
+                    ret.list[u.uid]=info
                 end
             else
                 WARN("警告："..u.uid)
@@ -503,7 +502,7 @@ function union_list(self,name)
             if u and u:check() then
                 local info = sort_info(self,u)
                 if info  then
-                    ret.list[info.uid]=info
+                    ret.list[u.uid]=info
                 end
             end
         end
@@ -584,7 +583,7 @@ function union_invite(self, pid)
     end
 
     local ret = union:send_invite(self, B)
-    B:send_system_union_invite(30001, self.pid, {uid=union.uid}, {self.name,union.name})
+    B:send_system_union_invite(30001, self.pid, {uid=union.uid}, {self.name, union.alias, union.name}) 
     ack(self, "union_invite", ret)
 end
 
@@ -592,18 +591,20 @@ function union_invite_migrate(self,pids)
     local u = unionmng.get_union(self:get_uid())
     if not u then WARN("没有军团") return end
 
+    local x,y = self.x,self.y
     for _, v in pairs( u.build ) do
-        local c = resmng.get_conf("prop_world_unit",v.propid)
-        if c.Mode == resmng.CLASS_UNION_BUILD_CASTLE then
-            for _, pid in pairs(pids) do
-                local p = getPlayer(pid)
-                if u:has_member(p) then 
-                    p:send_system_city_move(20001, self.pid, {x=c.x, y=c.y}, {"jim"})
-                end
-            end
+        if is_union_miracal_main(v.propid) then
+            x,y=v.x,v.y
+            break
         end
     end
 
+    for _, pid in pairs(pids) do
+        local p = getPlayer(pid)
+        if u:has_member(p) then 
+            p:send_system_city_move(20001, self.pid, {x=x, y=y}, {self.name})
+        end
+    end
 end
 
 function union_accept_invite(self, uid)
@@ -1278,10 +1279,7 @@ function union_build_up(self, idx,state)
     local bcc = resmng.get_conf("prop_world_unit",e.propid) or {}
     if not bcc then return false end
 
-    if bcc.Mode == resmng.CLASS_UNION_BUILD_FARM
-        or bcc.Mode ==resmng.CLASS_UNION_BUILD_LOGGINGCAMP
-        or bcc.Mode ==resmng.CLASS_UNION_BUILD_MINE
-        or bcc.Mode ==resmng.CLASS_UNION_BUILD_QUARRY  then     --采集返回
+     if is_union_superres(e.propid)  then     --采集返回
 
         for k, v in pairs(e.my_troop_id) do
             local one = troop_mng.get_troop(v)
@@ -1421,7 +1419,7 @@ function do_battle_room_title(room)
         node.class = get_type(v.eid)
         node.players = {}
 
-        if k == 2 then troop = v:get_my_troop() end
+        if k == 2 then troop = get_home_troop( v ) end
 
         if troop then
             node.troop_id = troop._id
@@ -1442,7 +1440,7 @@ function do_battle_room_title(room)
         end
 
         for pid, arm in pairs( troop.arms or {} ) do
-            if pid >= 10000 and pid ~= v.pid then
+            if pid >= 10000 then
                 local p = getPlayer( pid )
                 if p then
                     if pid == troop.owner_pid then
@@ -1487,35 +1485,160 @@ function do_battle_room_title(room)
     return info
 end
 
+function get_name_info( ety )
+    local info = {}
+    info.propid = ety.propid
+    if is_ply( ety ) then
+        info.name = ety.name
+        local union = ety:get_union()
+        if union then
+            info.uid = union.uid
+            info.alias = union.alias
+        end
+        info.eid = ety.eid
+    end
+    return info
+end
+
+function make_room_list( troop )
+    local A = get_ety( troop.owner_eid )
+    local D = get_ety( troop.target_eid )
+    if A and D then
+        local info = {}
+        info.id = troop._id
+        info.action = troop.action
+        info.is_mass = troop.is_mass
+        info.list = {}
+        info.list.ack = get_name_info( A )
+        info.list.def = get_name_info( D )
+        valid = true
+        return info
+    end
+end
+
 function union_battle_room_list(self)
     local union = unionmng.get_union(self.uid)
     if union == nil then return end
 
+    if union.battle_list then 
+        Rpc:union_battle_room_list_resp(self, union.battle_list)
+        return
+    end
+
     local msg_send = {}
     local dels = {}
     for k, v in ipairs(union.battle_room_ids or {}) do
+        local valid = false
         local room = union_hall_t.get_battle_room(v)
         if room ~= nil then
-            local info = do_battle_room_title(room)
-            if info then
-                local unit = {}
-                unit.ack = info[1]
-                unit.defense = info[2]
-                unit.is_mass = room.is_mass
-                unit.room_id = room._id
-                table.insert(msg_send, unit)
+            local troop = troop_mng.get_troop( v )
+            if troop then
+                local info = make_room_list( troop )
+                if info then
+                    valid = true
+                    table.insert( msg_send, info )
+                end
             end
-        else
-            table.insert(dels, 1, k)
         end
-    end
-    for k, v in ipairs(dels) do
-        table.remove(union.battle_room_ids, v)
+        if not valid then table.insert( dels, 1, k ) end
     end
 
-    --dumpTab(msg_send, "union_battle_room_list")
+    for k, v in ipairs( dels ) do
+        table.remove( union.battle_room_ids, v )
+    end
+
+    dumpTab(msg_send, "union_battle_room_list")
     Rpc:union_battle_room_list_resp(self, msg_send)
+    union.battle_list = msg_send
 end
+
+
+function union_battle_room_info(self, room_id)
+    local room = union_hall_t.get_battle_room(room_id)
+    if not room then return end
+
+    local troop = troop_mng.get_troop(room_id)
+    if not troop then return end
+
+    local A = get_ety( troop.owner_eid )
+    local D = get_ety( troop.target_eid )
+    if A and D then
+        local info = {}
+        info.id = room_id
+        info.tmStart = troop.tmStart
+        info.tmOver = troop.tmOver
+        info.pos = { { A.x, A.y }, { D.x, D.y } }
+        info.ack = {}
+        info.def = {}
+
+        for pid, arm in pairs( troop.arms or {} ) do
+            if pid >= 10000 then
+                local ply = getPlayer( pid )
+                if ply then
+                    if pid == troop.owner_pid then
+                        table.insert( info.ack, 1, { propid=ply.propid, pid=ply.pid, photo=ply.photo } )
+                    else
+                        table.insert( info.ack, { propid=ply.propid, pid=ply.pid, photo=ply.photo } )
+                    end
+                end
+            else
+                table.insert( info.ack, { propid=A.propid } )
+                break
+            end
+        end
+
+        for tid, action in pairs( A.troop_comings or {} ) do
+            if action == TroopAction.JoinMass then
+                local join = troop_mng.get_troop( tid )
+                if join and join:is_go() and join.dest_troop_id == troop._id then
+                    if join.owner_pid >= 10000 then
+                        local ply = getPlayer( join.owner_pid )
+                        if ply then
+                            table.insert( info.ack, { propid=ply.propid, pid=ply.pid, photo=ply.photo } )
+                        end
+                    end
+                end
+            end
+        end
+
+        local troopD = get_home_troop( D )
+        if troopD then
+            for pid, arm in pairs( troopD.arms or {} ) do
+                if pid >= 10000 then
+                    local ply = getPlayer( pid )
+                    if ply then
+                        if pid == troop.owner_pid then
+                            table.insert( info.def, 1, { propid=ply.propid, pid=ply.pid, photo=ply.photo } )
+                        else
+                            table.insert( info.def, { propid=ply.propid, pid=ply.pid, photo=ply.photo } )
+                        end
+                    end
+                else
+                    table.insert( info.def, { propid=D.propid } )
+                    break
+                end
+            end
+
+            for tid, action in pairs( D.troop_comings or {} ) do
+                if action == TroopAction.SupportArm or action == TroopAction.HoldDefense then
+                    local join = troop_mng.get_troop( tid )
+                    if join and join:is_go() and join.target_eid == D.eid then
+                        if join.owner_pid >= 10000 then
+                            local ply = getPlayer( join.owner_pid )
+                            if ply then
+                                table.insert( info.def, { propid=ply.propid, pid=ply.pid, photo=ply.photo } )
+                            end
+                        end
+                    end
+                end
+            end
+
+        end
+        Rpc:union_battle_room_info_resp(self, { id=room_id, action=troop.action, info=info} )
+    end
+end
+
+
 
 
 function do_battle_room_info(room)
@@ -1536,7 +1659,7 @@ function do_battle_room_info(room)
         node.class = get_type(v.eid)
         node.propid = v.propid
 
-        if k == 2 then troop = v:get_my_troop() end
+        if k == 2 then troop = get_home_troop(v) end
         if troop then node.troop_id = troop._id else node.troop_id = 0 end
 
         node.uid = v.uid
@@ -1590,31 +1713,35 @@ function do_battle_room_info(room)
             end
         end
     end
+    dumpTab( info, "do_battle_room_info" )
+
     room.info = info
     return info
 end
 
-function union_battle_room_info(self, room_id)
-    local room = union_hall_t.get_battle_room(room_id)
-    if not room then return end
+--function union_battle_room_info(self, room_id)
+--    local room = union_hall_t.get_battle_room(room_id)
+--    if not room then return end
+--
+--    local troop = troop_mng.get_troop(room_id)
+--    if not troop then return end
+--
+--    local info = do_battle_room_info(room)
+--    if info then
+--        local msg_send = {}
+--        msg_send.ack = info[1]
+--        msg_send.defense = info[2]
+--        msg_send.tmStart = troop.tmStart
+--        msg_send.tmOver = troop.tmOver
+--        msg_send.is_mass = troop.is_mass
+--        msg_send.room_id = room_id
+--
+--        --dumpTab(msg_send, "union_battle_room_info")
+--        Rpc:union_battle_room_info_resp(self, msg_send)
+--    end
+--end
+--
 
-    local troop = troop_mng.get_troop(room_id)
-    if not troop then return end
-
-    local info = do_battle_room_info(room)
-    if info then
-        local msg_send = {}
-        msg_send.ack = info[1]
-        msg_send.defense = info[2]
-        msg_send.tmStart = troop.tmStart
-        msg_send.tmOver = troop.tmOver
-        msg_send.is_mass = troop.is_mass
-        msg_send.room_id = room_id
-
-        --dumpTab(msg_send, "union_battle_room_info")
-        Rpc:union_battle_room_info_resp(self, msg_send)
-    end
-end
 
 
 
@@ -1858,6 +1985,58 @@ function do_battle_room_detail(room)
     return info
 end
 
+function get_troop_detail( troop )
+    local infos = {}
+    for pid, arm in pairs( troop.arms or {} ) do
+        if pid >= 10000 then
+            local ply = getPlayer( pid )
+            if ply then
+                local info = {}
+                info.name = ply.name
+                info.tid = troop._id
+                info.action = troop.action
+                info.tmStart = troop.tmStart
+                info.tmOver = troop.tmOver
+                local soldier = {}
+                for id, num in pairs( arm.live_soldier or {} ) do
+                    table.insert( soldier, { id=id, num=num} )
+                end
+                info.soldier = soldier
+
+                local hs
+                if troop.action == TroopAction.DefultFollow and pid == troop.owner_pid then hs = ply:get_defense_heros()
+                else hs = arm.heros end
+
+                info.heros = {0,0,0,0}
+                info.heros_lv = {0,0,0,0}
+                info.heros_star = {0,0,0,0}
+                info.heros_hp = {0,0,0,0}
+
+                for mode = 1, 4, 1 do
+                    local hid = hs[ mode ]
+                    if hid ~= 0 then
+                        local h = heromng.get_hero_by_uniq_id( hs[ mode ] )
+                        if h then
+                            info.heros[ mode ] = h.propid
+                            info.heros_lv[ mode ] = h.lv
+                            info.heros_star[ mode ] = h.star
+                            info.heros_hp[ mode ] = h.hp
+                        end
+                    end
+                end
+                infos[ pid ] = info
+            end
+        else
+            local owner = get_ety( troop.owner_eid )
+            if owner then
+                infos[ 0 ] = { hp = owner.hp }
+            end
+            break
+        end
+    end
+    return infos
+end
+
 
 function union_battle_room_detail(self, room_id)
     local room = union_hall_t.get_battle_room(room_id)
@@ -1866,25 +2045,53 @@ function union_battle_room_detail(self, room_id)
     local troop = troop_mng.get_troop(room_id)
     if not troop then return end
 
-    local info = do_battle_room_detail(room)
-    if not info then return end
-    --dumpTab(info, "battle_room_detail")
+    local infoA = get_troop_detail( troop )
+    infoA.troop_id = troop._id
+    local A = get_ety( troop.owner_eid )
+    if A  then
+        for tid, action in pairs( A.troop_comings or {} ) do
+            if action == TroopAction.JoinMass then
+                local join = troop_mng.get_troop( tid )
+                if join and join:is_go() and join.dest_troop_id == troop._id then
+                    local infos = get_troop_detail( join )
+                    for pid, info in pairs( infos or {} ) do
+                        infoA[ pid ] = info
+                    end
+                end
+            end
+        end
+        infoA.count_max = A:get_val( "CountRallySoldier" )
+    end
 
-    local msg_send = {}
+    local infoD = {}
+    local D = get_ety( troop.target_eid )
+    if D then
+        local troopD = get_home_troop( D )
+        if troopD then
+            infoD = get_troop_detail( troopD )
+            infoD.troop_id = troopD._id
+            for tid, action in pairs( D.troop_comings or {} ) do
+                if action == TroopAction.SupportArm or action == TroopAction.HoldDefense then
+                    local join = troop_mng.get_troop( tid )
+                    if join and join:is_go() and join.target_eid == D.eid then
+                        local infos = get_troop_detail( join )
+                        for pid, info in pairs( infos or {} ) do
+                            infoD[ pid ] = info
+                        end
+                    end
+                end
+            end
+            if is_npc_city( D ) then
+                infoD.count_max = npc_city.hold_limit( D )
+            elseif is_ply( D ) then
+                infoD.count_max = D:get_val( "CountRelief" )
+            end
+        end
+    end
 
-    msg_send.action = troop.action
-    msg_send.ack = info[1]
-    msg_send.defense = info[2]
-    msg_send.tmStart = troop.tmStart
-    msg_send.tmOver = troop.tmOver
-    msg_send.is_mass = troop.is_mass
-    msg_send.room_id = room_id
+    dumpTab({ id=room_id, action=troop.action, detail={ ack=infoA, def=infoD } }, "battle_room_detail" )
 
-    if troop:is_ready() then msg_send.is_march = 0
-    else msg_send.is_march = 1 end
-
-    --dumpTab( msg_send, "union_battle_room_detail" )
-    Rpc:union_battle_room_detail_resp(self, msg_send)
+    Rpc:union_battle_room_detail_resp(self, { id=room_id, action=troop.action, detail={ ack=infoA, def=infoD } })
 end
 
 function union_help_get(self )
@@ -1986,9 +2193,9 @@ function get_castle_ef(ply)--奇迹buf
     if not e then
         return {}
     end
-    local c = resmng.get_conf("prop_world_unit", e.propid)
     local ef = {}
-    if c.Mode == resmng.CLASS_UNION_BUILD_CASTLE or c.Mode == resmng.CLASS_UNION_BUILD_MINI_CASTLE then
+    if is_union_miracal(e.propid) then
+        local c = resmng.get_conf("prop_world_unit", e.propid)
         if e.uid == ply.uid then
             ef = c.Buff1
         else

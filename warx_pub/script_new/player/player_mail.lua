@@ -119,7 +119,7 @@ function mail_load(self, sn)
 
     local ms = self:get_mail()
     local msn = {}
-    for k, v in pairs(ms) do 
+    for k, v in pairs(ms) do
         if v.idx > sn then table.insert(msn, v.idx) end
     end
     local funSort = function(A,B) return A < B end
@@ -157,24 +157,22 @@ function mail_new(self, v, isload)
     v.class = v.class or 1
 
     self.mail_max = v.idx
-    
+
     local db = self:getDb()
     db.mail:insert(v)
-    if self._mail then 
-        self._mail[ v.idx ] = v 
+    if self._mail then
+        self._mail[ v.idx ] = v
     end
     if self:is_online() then
         Rpc:mail_notify( self, v )
     end
 
-    local got = its 
+    local got = its
     if got ~= 0 then got = 1 end
-    local sys = v.from 
+    local sys = v.from
     if sys ~= 0 then sys = 1 end
 
-    Tlog("PlayerMailFlow",tms2str(),gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
-          tostring(openid),self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.smap,self.account,1,self.language,
-          got, sys, v.from )
+    Tlog("PlayerMailFlow",self:pre_tlog(),got, sys, v.from )
 end
 
 function test_mail_all(self, class, title, content, its)
@@ -192,6 +190,25 @@ function mail_send_union(self, title, content)
             end
         end
     end
+end
+
+function is_troop_no_soldier(troop)
+    if troop.action == TroopAction.DefultFollow then
+        return false
+    end
+    for pid, arm in pairs(troop.arms or {}) do
+        for k, v in pairs(arm.live_soldier or {}) do
+            if v > 0 then
+                return false
+            end
+        end
+        for k, v in pairs(arm.dead_soldier or {}) do
+            if v > 0 then
+                return false
+            end
+        end
+    end
+    return true
 end
 
 function generate_fight_mail(ack_troop, def_troop, is_win, catch_hero, rages, total_round)
@@ -238,10 +255,13 @@ function generate_fight_mail(ack_troop, def_troop, is_win, catch_hero, rages, to
         end
 
         unit.kill = arm.kill_soldier
-        unit.hurt = arm.hurt_soldier
         unit.death = arm.dead_soldier
         unit.live = arm.live_soldier
-        unit.amend = arm.amend
+        --unit.hurt = arm.hurt_soldier
+
+        local amend = arm.amend
+        if amend then unit.amend = amend
+        else unit.amend = { dead = arm.dead_soldier } end
 
         ack_mail.arms[pid] = unit
     end
@@ -265,7 +285,7 @@ function generate_fight_mail(ack_troop, def_troop, is_win, catch_hero, rages, to
     def_mail.x = def_obj.x   --战斗发生的地点
     def_mail.y = def_obj.y   --战斗发生的地点
 
-    if def_troop == nil then
+    if def_troop == nil or is_troop_no_soldier(def_troop)  == true then
         def_mail.notroop = true
     else
         def_mail.tech = fight.get_troop_buf(def_troop)
@@ -308,11 +328,16 @@ function generate_fight_mail(ack_troop, def_troop, is_win, catch_hero, rages, to
                 table.insert(unit.hero, hero)
             end
 
-            unit.kill = arm.kill_soldier
-            unit.hurt = arm.hurt_soldier
-            unit.death = arm.dead_soldier
-            unit.live = arm.live_soldier
-            unit.amend = arm.amend
+            unit.kill = arm.kill_soldier or {}
+            unit.hurt = arm.hurt_soldier or {}
+            unit.death = arm.dead_soldier or {}
+            unit.live = arm.live_soldier or {}
+            --unit.hurt = arm.hurt_soldier
+            --
+            --
+            local amend = arm.amend
+            if amend then unit.amend = amend
+            else unit.amend = { dead = arm.dead_soldier } end
 
             def_mail.arms[pid] = unit
         end
@@ -330,6 +355,7 @@ function generate_fight_mail(ack_troop, def_troop, is_win, catch_hero, rages, to
     end
 
     local content = {ack_mail=ack_mail, def_mail=def_mail, replay_id=ack_troop.replay_id}
+    dumpTab( content, "fight_mail" )
     --发送邮件
     if total_round ~= nil and total_round <= 1 and is_win == false then
         for pid, arm in pairs(ack_troop.arms) do
@@ -464,7 +490,7 @@ function send_system_union_invite(self, mail_id, sender_pid, extra, text_parm)
         content.extra.sender_name = sender.name
     end
 
-    self:mail_new({from=0, name="", class=MAIL_CLASS.SYSTEM, mode=MAIL_SYSTEM_MODE.NORMAL, title="", content=content, its={}})
+    self:mail_new({from=0, name="", class=MAIL_CLASS.SYSTEM, mode=MAIL_SYSTEM_MODE.UNION_INVITATION, title="", content=content, its={}})
     return true
 end
 
@@ -488,7 +514,7 @@ function send_system_city_move(self, mail_id, sender_pid, extra, text_parm)
         content.extra.sender_name = sender.name
     end
 
-    self:mail_new({from=0, name="", class=MAIL_CLASS.SYSTEM, mode=MAIL_SYSTEM_MODE.NORMAL, title="", content=content, its={}})
+    self:mail_new({from=0, name="", class=MAIL_CLASS.SYSTEM, mode=MAIL_SYSTEM_MODE.MOVE_CITY, title="", content=content, its={}})
     return true
 end
 

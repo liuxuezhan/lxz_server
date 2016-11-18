@@ -85,6 +85,7 @@ function loadMod()
     doLoadMod("Rpc", "frame/rpc/rpc")
 
     require("frame/player_t")
+    require("frame/perfmon")
 end
 
 function handle_dbg(sid)
@@ -189,8 +190,8 @@ function do_threadRoi()
                 break
             end
         end
-        if do_roi_msg then 
-            do_roi_msg(msgid, d0, d1, d2, d3, eids) 
+        if do_roi_msg then
+            do_roi_msg(msgid, d0, d1, d2, d3, eids)
         end
 
         if gCoroBad[ co ] then
@@ -305,12 +306,9 @@ function remote_cast(map_id, func, param)
     Rpc:callAgent(map_id, "agent_syn_call", id, func, param)
 end
 
-
 function threadAction()
     if _ENV then
-        xpcall(do_threadAction, function(e)
-            ERROR("[ERROR]%s", e)
-        end)
+        xpcall(do_threadAction, STACK )
     else
         do_threadAction()
     end
@@ -318,9 +316,7 @@ end
 
 function threadTimer()
     if _ENV then
-        xpcall(do_threadTimer, function(e) 
-            ERROR("[ERROR]%s", e) 
-        end)
+        xpcall(do_threadTimer, STACK )
     else
         do_threadTimer()
     end
@@ -328,9 +324,7 @@ end
 
 function threadRoi()
     if _ENV then
-        xpcall(do_threadRoi, function(e) 
-            ERROR("[ERROR]%s", e) 
-        end)
+        xpcall(do_threadRoi, STACK )
     else
         do_threadRoi()
     end
@@ -338,9 +332,7 @@ end
 
 function threadPk()
     if _ENV then
-        xpcall(do_threadPK, function(e) 
-            ERROR("[ERROR]%s", e) 
-        end)
+        xpcall(do_threadPK, STACK )
     else
         do_threadPK()
     end
@@ -368,14 +360,14 @@ function frame_init()
     load_uniq()
 
     load_sys_config()
-    
+
     INFO("$$$ done load_uniq")
 
     gInit = "InitFrameDone"
     begJob()
 
     c_tlog_start( "../etc/tlog.xml" )
-    
+
 end
 
 function clean_replay()
@@ -411,6 +403,7 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
         elseif gInit == "InitFrameDone" then
             gInit = "InitGameAction"
             lxz(gInit)
+            perfmon.init()
             action(restore_game_data)
 
         elseif gInit == "InitCompensate" then
@@ -424,6 +417,7 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
                 c_time_step(gCompensation)
                 --WARN("Compensation, real=%d, now=%d, diff=%d", real, gCompensation, real - gCompensation)
             else
+                set_sys_status( "tick", real )
                 gCompensation = nil
                 c_time_release()
                 WARN("Compensation, real=%d, finish", real)
@@ -432,6 +426,10 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
             end
 
         elseif gInit == "InitGameDone" then
+            gInit = "InitCronBoot"
+            action( crontab.initBoot )
+
+        elseif gInit == "InitCronBootDone" then
             lxz(gInit)
             WARN( "connecting to Gate, %s:%d", config.GateHost, config.GatePort )
             conn.toGate(config.GateHost, config.GatePort)
@@ -467,9 +465,14 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
 
         elseif gInit == "Shutdown" then
             set_sys_status( "tick", gTime )
-            gInit = "Saving"
+            if on_shutdown then
+                action( on_shutdown )
+                gInit = "GameSaving"
+            else
+                gInit = "SystemSaving"
+            end
 
-        elseif gInit == "Saving" then
+        elseif gInit == "SystemSaving" then
             WARN( "shutdown, frame = %d", gFrame )
             if not check_pending_before_shutdown or not check_pending_before_shutdown() then
                 local have = false
@@ -479,7 +482,7 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
                         if chgs == cache then
                             for k, v in pairs( cache ) do
                                 have =true
-                                INFO( "shutdown, save %s : %s, n = %d", tab, k, v, v._n_ or 0 )
+                                INFO( "shutdown, save %s : %s, n = %d", tab, k, v._n_ or 0 )
                             end
                         else
                             have = true
@@ -487,7 +490,7 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
                         end
                     end
                 end
-                if not have then 
+                if not have then
                     WARN( "save done" )
                     os.exit( 0 )
                 end
@@ -533,8 +536,15 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
     end
 
     if #gActions > 0 then
-        local co = getCoroPool("action")
-        local flag = coroutine.resume(co)
+        while true do
+            local co = getCoroPool("action")
+            local flag, what = coroutine.resume(co)
+            if flag then
+                if what == "ok" then break end
+            else
+                LOG("ERROR %s", what)
+            end
+        end
     end
 
     while #gCoroWait > 0 do
@@ -545,22 +555,54 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
         coroutine.resume(t[1])
     end
 
+    -- zhoujy 20161117 在主协程中reload
+    if gInit == nil and type(gReloadFunc) == "function" then
+        gReloadFunc()
+        gReloadFunc = false
+    end
+
     if gCompensation then
-        if ftimer == 1 or froi == 1 or ftimer == 1 then
+        if ftimer == 1 or froi == 1 then
             local real = os.time()
             print(string.format("Compensation, %s, -> %s, diff=%d", os.date("%c",gTime), os.date("%c"), real-gTime))
             check_pending()
             global_save()
+            check_tool_ack()
         end
     else
         check_pending()
         global_save()
+        check_tool_ack()
     end
 end
 
 
+function set_sys_status(_type, tms)
+end
+
 
 gUpdateCallBack = {}
+
+function check_tool_ack()
+    local dels = {}
+    for k, v in pairs(gPendingToolAck) do
+        if gTime - v._t_ >= 60 then
+            table.insert(dels, k)
+            resend_to_tool(k, v.info)
+        end
+    end
+
+    for k, v in pairs(dels) do
+        gPendingToolAck[v] = nil
+    end
+
+end
+
+function resend_to_tool(sn, params)
+    LOG("Resend to tool sn= %d ", sn)
+    print("Resend to tool sn=  ", sn)
+    to_tool(sn, params)
+end
 
 --so when you want to save data, just write down like
 --gPendingSave.mail[ "1_270130" ].tm_lock = gTime
@@ -575,10 +617,12 @@ function global_save()
             local cb = nil
             for id, chgs in pairs(doc) do
                 if chgs ~= cache then
+                    doc[ id ] = nil
+                    update = true
                     if not chgs._a_ then
                         local oid = chgs._id
                         chgs._id = id
-                        dumpTab( chgs, "global_save"..tab )
+                        dumpTab( chgs, "global_save: "..tab )
                         db[ tab ]:update({_id=id}, {["$set"] = chgs }, true)
                         chgs._id = oid
                         print( "[DB], update", tab, id,  "global" )
@@ -599,9 +643,7 @@ function global_save()
 
                         end
                     end
-                    update = true
                     rawset( chgs, "_n_", cur )
-                    doc[ id ] = nil
                     cache[ id ] = chgs
 
                     if cb == nil then
@@ -665,7 +707,7 @@ function global_save_checker()
                 dumpTab(info, "check_save")
             end
         end
-        if #gGlobalChecker < 20 then 
+        if #gGlobalChecker < 20 then
             local co = coroutine.running()
             table.insert( gGlobalChecker, co )
         end
@@ -787,11 +829,11 @@ function init(sec, msec)
     gEtys = {}
 
     setmetatable( gEids, { __mode="v" } )
-    setmetatable( gEtys, 
-        { __newindex=function( tab, eid, obj) 
+    setmetatable( gEtys,
+        { __newindex=function( tab, eid, obj)
                 rawset(tab, eid, obj)
                 local idx = math.floor( eid / 4096 )
-                gEids[ idx ] = obj 
+                gEids[ idx ] = obj
             end
         }
     )
@@ -800,6 +842,8 @@ function init(sec, msec)
     gPendingDelete = {}
     gPendingInsert = {}
     init_pending()
+
+    gPendingToolAck = {}
 
     gInit = "StateBeginInit"
     loadMod()
@@ -1027,7 +1071,7 @@ function save_checker()
                 end
             end
         end
-        if #gCheckers < 20 then 
+        if #gCheckers < 20 then
             local co = coroutine.running()
             table.insert( gCheckers, co )
         end
@@ -1036,11 +1080,11 @@ end
 
 function gen_checker( db, frame, cache, name )
     local co
-    if #gCheckers > 0 then 
+    if #gCheckers > 0 then
         co = table.remove(gCheckers)
         coroutine.resume( co, db, frame, cache, name )
-    else 
-        co = coroutine.create( save_checker ) 
+    else
+        co = coroutine.create( save_checker )
         coroutine.resume( co )
         coroutine.resume( co, db, frame, cache, name )
     end

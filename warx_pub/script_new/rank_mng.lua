@@ -12,7 +12,7 @@ function init()
     for k, v in pairs( resmng.prop_rank ) do
         local sl = skiplist.new( k, table.unpack( v.Skeys ) )
 
-        local t = { id=k, ntop=v.Num, nall=v.Limit, detail=rank_function[ v.IsPerson ] } -- infos, tops, ranks, time
+        local t = { id=k, ntop=v.Num, nall=v.Limit, detail=rank_function[ v.IsPerson ], is_persion = v.IsPerson } -- infos, tops, ranks, time
         gRanks[ k ] = t
         local tab = string.format("rank%d", k )
         local info = db[tab]:find( {} )
@@ -69,6 +69,13 @@ function add_data( idx, key, data, init )
     if not node then return end
 
     key = tonumber( key )
+
+    if node.is_persion == 0 then
+        local union = unionmng.get_union( key )
+        if not union then return end
+        if union:is_new() then return end
+    end
+
     local rank = skiplist.insert( idx, key, table.unpack( data ) )
 
     if not init then

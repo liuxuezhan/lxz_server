@@ -91,6 +91,10 @@ function load_npc_city()
    --test_npc()
 end
 
+function get_npc_eid_by_propid(propid)
+    return have[propid]  -- return npc city eid
+end
+
 function on_day_pass()
     for k, v in pairs(citys or {}) do
         local npc = get_ety(v)
@@ -117,6 +121,7 @@ function update_union_score(key, level, rank_id)
 
     local org_score = rank_mng.get_score(rank_id, key) or 0
     score = score + org_score
+
     if score <= 0 then
         rank_mng.rem_data( rank_id, key )
     else
@@ -555,7 +560,7 @@ function declare_notify(atk_eid, npc_eid)
         if union then
             local _members = union:get_members()
             for k, ply in pairs(_members or {}) do
-                ply:send_system_notice(conf.Mail, {},{unions, npc_conf.Name}, {})
+                ply:send_system_notice(conf.Mail, {npc_conf.Name},{unions, npc_conf.Name})
             end
                -- player_t.send_system_to_all(conf.Mail, {},{unions, npc_conf.Name})
         end
@@ -908,7 +913,10 @@ function deal_npc_new_defender(newdefender, npcCity, ackTroop)
     if king_city.state == KW_STATE.FIGHT then  -- notify only in fight state
         local npc_conf = resmng.get_conf("prop_world_unit", npcCity.propid) or {}
         local buff = npcCity.kw_buff or {}
-        local buf = resmng.get_conf("prop_buff", buff[1]) or {}
+        local buf = {}
+        if buff[1] then
+            buf = resmng.get_conf("prop_buff", buff[1]) or {}
+        end
         local ef_name = nil
         local ef_value = nil
         for k, v in pairs(buf.Value or {}) do

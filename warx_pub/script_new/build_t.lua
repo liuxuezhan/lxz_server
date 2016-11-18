@@ -396,26 +396,29 @@ function recalc(self)
 
     if class == BUILD_CLASS.RESOURCE then
         local speed = self:get_extra("speed") or 0
+        
         local new_speed = math.floor( prop.Speed * ( 1 + ( role:get_num("SpeedRes_R", ef) + role:get_num(string.format("SpeedRes%d_R", prop.Mode), ef) ) * 0.0001 ) )
         if speed == new_speed then return end
 
         local cache = self:get_extra("cache") or 0
         local start = self:get_extra("start") or gTime
         local count = self:get_extra("count") or 0
+        if count == 0 then count = math.ceil( speed * 10 ) end
 
-        cache = math.floor(cache + speed * (gTime - start) / 3600)
-        if cache > count then cache = count end
+        local new_cache 
+        if cache > count then
+            new_cache = cache
+        else
+            new_cache = math.floor(cache + speed * (gTime - start) / 3600)
+            if new_cache > count then new_cache = count end
+        end
 
-        speed = new_speed
-        count = math.ceil( speed * 10 )
-
-        self:set_extra("speed", speed)
-        self:set_extra("cache", cache)
         self:set_extra("start", gTime)
-        self:set_extra("count", count)
+        self:set_extra("speed", new_speed)
+        self:set_extra("cache", new_cache)
+        self:set_extra("count", math.ceil( new_speed * 10 ) )
         self:set_extra("speedb", prop.Speed)
         self:set_extra("countb", prop.Count)
-        print("recalc, speed, cache, start, count = ", speed, cache, start, count)
 
     elseif class == BUILD_CLASS.ARMY then
         local speed = self:get_extra("speed") or 0

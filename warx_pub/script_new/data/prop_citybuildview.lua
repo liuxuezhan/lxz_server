@@ -8,7 +8,7 @@ svnnum("$Id$")
 prop_citybuildview = {
 
 	[OPEN_CASTLE] = { ID = OPEN_CASTLE, PropId = 1, Bborn = 1, OpenCond = nil, OpenCastleLv = nil,},
-	[OPEN_ALTAR] = { ID = OPEN_ALTAR, PropId = 1001, Bborn = 0, OpenCond = {7,130010718}, OpenCastleLv = 11,},
+	[OPEN_ALTAR] = { ID = OPEN_ALTAR, PropId = 1001, Bborn = 0, OpenCond = {7,130010717}, OpenCastleLv = 11,},
 	[OPEN_WALLS] = { ID = OPEN_WALLS, PropId = 2001, Bborn = 1, OpenCond = nil, OpenCastleLv = nil,},
 	[OPEN_DAILYQUEST] = { ID = OPEN_DAILYQUEST, PropId = 3001, Bborn = 0, OpenCond = nil, OpenCastleLv = 7,},
 	[OPEN_STOREHOUSE] = { ID = OPEN_STOREHOUSE, PropId = 4001, Bborn = 1, OpenCond = {7,130010129}, OpenCastleLv = 4,},

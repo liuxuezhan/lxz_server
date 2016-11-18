@@ -10,7 +10,7 @@ _example = {
     param = 0,
     tbl = {},
 }
-attach_wrap_()
+attach_wrap_(_ENV)
 
 INFO_HACK = 0   --c zset数据 = {rank = tostring(member)}
 INFO_ORIGIN = 1 --原始数据 = {rank = what you add(t)}

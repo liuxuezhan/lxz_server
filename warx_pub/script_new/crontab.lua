@@ -1,4 +1,4 @@
-module("crontab", package.seeall)
+module("crontab")
 
 function union_donate_summary()
     local t = os.date("*t", gTime)

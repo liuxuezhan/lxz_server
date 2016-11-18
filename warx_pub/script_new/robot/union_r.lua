@@ -5,6 +5,16 @@ function union_mission_get(self,pack)
     if not u then return end
     u.mission = pack
 end
+
+function union_load(self, pack)
+    union_get(self,pack)
+end
+function union_battle_room_list_resp(self,pack)
+    local u = get_union(self,self.uid) 
+    if not u then return end
+    u.room = pack
+end
+
 function union_get(self,pack)
     --lxz(pack.key)
     local u = get_union(self,pack.uid)
@@ -20,15 +30,24 @@ function union_get(self,pack)
             u.member[t.pid] = t
         end
     elseif pack.key == "apply" then
+        u._apply = pack.val
     elseif pack.key == "mass" then
     elseif pack.key == "aid" then
     elseif pack.key == "tech" then
         _union[pack.uid].tech = pack.val.info 
     elseif pack.key == "donate" then
-    elseif pack.key == "fight" then
+        slef.donate = pack.val
+    elseif pack.key == "union_donate" then
+        u.donate = pack.val
+    elseif pack.key == "fight" then--room
     elseif pack.key == "build" then
         if pack.val then
             u.build = pack.val.build 
+        end
+    elseif pack.key =="buildlv" then--军团建筑捐献
+        if not u.buildlv then u.buildlv = {} end
+        for k, v in pairs(pack.val) do
+            u.buildlv[v.class]=v
         end
 
     elseif pack.key == "mall" then
@@ -276,7 +295,7 @@ function union_build(self,propid)
             end
 
             local c = resmng.prop_world_unit[v.propid]
-            if (c.Mode == resmng.CLASS_UNION_BUILD_CASTLE or c.Mode == resmng.CLASS_UNION_BUILD_MINI_CASTLE) then
+            if is_union_miracal(v.propid) then
                 obj = v
             end
 
@@ -418,8 +437,3 @@ function union_fight2(self,fun)
     end
 end
 
-function union_battle_room_list_resp(self,pack)
-    local u = get_union(self,self.uid) 
-    if not u then return end
-    u.room = pack
-end

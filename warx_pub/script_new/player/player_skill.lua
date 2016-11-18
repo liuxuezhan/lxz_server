@@ -72,8 +72,8 @@ g_skill_effect.CallBackTroop = function (self, sec)
                 troop.curx, troop.cury = x, y
                 troop.speed = speed
                 troop.tmOver = gTime + sec
-                c_add_actor( troop.eid, troop.curx, troop.cury, troop.dx, troop.dy, gTime, troop.speed)
                 etypipe.add( troop )
+                c_add_actor( troop.eid, troop.curx, troop.cury, troop.dx, troop.dy, gTime, troop.speed)
                 troop:notify_owner()
 
             end

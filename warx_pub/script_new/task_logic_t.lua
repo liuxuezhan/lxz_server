@@ -550,9 +550,19 @@ do_task[TASK_ACTION.USE_ITEM] = function(player, task_data, con_class, con_mode,
     if con_id == 0 then
         --比较类别
         local prop_tab = resmng.get_conf("prop_item", real_id)
-        if prop_tab ~= nil and prop_tab.Class == con_class and prop_tab.Mode == con_mode then
-            add_task_process(player, task_data, con_num, real_num)
+        if prop_tab == nil then
+            return false
         end
+        if con_mode == 0 then
+            if prop_tab.Class == con_class then
+                add_task_process(player, task_data, con_num, real_num)
+            end
+        else
+            if prop_tab.Class == con_class and con_mode == prop_tab.Mode then
+                add_task_process(player, task_data, con_num, real_num)
+            end
+        end
+
     else
         --比较ID
         if con_id == real_id then

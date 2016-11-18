@@ -28,6 +28,7 @@ VALUE_CHANGE_REASON = {
     DEBUG   = 1,
     RAGE   = 2,
     USE_ERROR = 3,
+    MIGRATE = 4,
 
     -- [10, 19] Item
     USE_ITEM   = 10,
@@ -39,6 +40,7 @@ VALUE_CHANGE_REASON = {
     CURE = 16,
     FORGE_CANCEL=17,
     COMPOUND = 18,
+    ACC_TROOP = 19,
 
 
     -- [20, 29] Build
@@ -48,6 +50,7 @@ VALUE_CHANGE_REASON = {
     LEARN_TECH      = 23,
     CANCEL_ACTION  = 24,
     WALL_REPAIR    = 25,
+    TROOP_RECALL = 26,
 
     -- [30, 39] Hero
     HERO_CREATE       = 30,
@@ -193,13 +196,11 @@ resmng.CLASS_GLOB_RES = 12      --全服资源如国王比
 resmng.CLASS_TRUNKTASK = 13     --需要正在做这个主线任务
 resmng.CLASS_RES_PROTECT = 101	--物品类型101保护资源
 
-
 WALL_FIRE_SECONDS = 18          -- 非土地每18秒减1点城防
 WALL_FIRE_IN_BLACK_LAND = 44    -- 黑土地每1秒减44点城防
 WALL_FIRE_REPAIR_FREE = 60      -- 免费修复，每次恢复60点城防
 WALL_FIRE_REPAIR_TIME = 1800    -- 免费修复，每1800秒一次
 WALL_FIRE_OUTFIRE_COST = 30     -- 城墙灭火，花费30金币
-
 
 
 UNION_TASK =      ---军团悬赏任务类型
@@ -260,6 +261,10 @@ CLASS_UNIT = {
     Camp =5,
     MONSTER_CITY = 6,
     LOST_TEMPLE = 7,
+
+    UnionBuild = 10,
+    Troop = 11,
+    CLOWN = 12,
 }
 
 ACT_NAME = {
@@ -388,6 +393,8 @@ MAIL_FIGHT_MODE = {
 }
 MAIL_SYSTEM_MODE = {
     NORMAL = 1,  -- 普通系统邮件
+    UNION_INVITATION = 2, -- 军团邀请
+    MOVE_CITY = 3, -- 邀请迁城
 }
 MAIL_REPORT_MODE = {
     GATHER = 1,  -- 采集
@@ -395,7 +402,13 @@ MAIL_REPORT_MODE = {
     PANJUN = 3,  --叛军突袭活动 攻击NPC城市
     PANJUN2 = 4,  --叛军突袭活动 攻击玩家城堡
     GONGCHENG = 5, --攻城掠地活动
-    WANGZHEZHEZHAN = 6, --王者之战
+    KING = 6, --王者之战
+    LOSTTEMPLE = 7, --遗迹塔
+}
+MOVE_CITY_MODE = {
+    ADVANCED = 1, --高级迁城
+    RANDOM = 2, --随机迁城
+    GRADING = 4, --资源带迁城
 }
 
 --系统邮件界面元素
@@ -606,6 +619,7 @@ TroopAction = {
     SiegeTaskNpc    = 31,   --攻击任务怪
     AtkMC           = 32,   --玩家攻打怪物城市                     --叛军突袭
     SiegeUnion      = 33,
+    LostTemple      = 34,   --攻打遗迹塔
 }
 
 WatchTowerAction = {
@@ -636,7 +650,7 @@ MassTime = {
 TroopSpeed = {
     [ TroopAction.Spy ] = 100,
     [ TroopAction.SaveRes ] = 10,
-    [ TroopAction.SupportRes ] = 10,
+    --[ TroopAction.SupportRes ] = 10,
     [ TroopAction.GetRes ] = 10,
     [ TroopAction.Declare ] = 100,
     [ TroopAction.SiegeMonsterCity ] = 20,
@@ -687,6 +701,7 @@ EidType = {
     LostTemple = 7,
     UnionBuild = 10,
     Troop = 11,
+    CLOWN = 12,
 }
 
 --聊天频道枚举
@@ -712,7 +727,7 @@ DONATE_RANKING_TYPE = {
 }
 
 ---军团科技层级开放配置，必须比最后一层配置多一个值，不可达到的极限值
-TechValidCond = {0,18,137,242,1000}
+TechValidCond = {0,10,100,200,1000}
 -- 资源田加速
 ACC_RES_COST = {30,30,50,70}  -- 金币消耗
 ACC_RES_ITEM = {resmng.ITEM_8009002, resmng.ITEM_8009001, resmng.ITEM_8009003, resmng.ITEM_8009004}
@@ -773,15 +788,21 @@ BUILD_ARMY_MODE = {
 }
 
 --BUILD_UNION_MODE
-resmng.CLASS_UNION_BUILD_CASTLE = 1         --奇迹
-resmng.CLASS_UNION_BUILD_MINI_CASTLE = 2    --小奇迹
-resmng.CLASS_UNION_BUILD_MARKET = 3        --市场
-resmng.CLASS_UNION_BUILD_RESTORE = 4        --仓库
+resmng.CLASS_UNION_BUILD_CASTLE_EAST = 21           --大奇迹，东
+resmng.CLASS_UNION_BUILD_CASTLE_SOUTH = 22          --大奇迹，南
+resmng.CLASS_UNION_BUILD_CASTLE_WEST = 23           --大奇迹，西
+resmng.CLASS_UNION_BUILD_CASTLE_NORTH = 24          --大奇迹，北
+resmng.CLASS_UNION_BUILD_MINI_CASTLE_EAST = 31      --小奇迹，东
+resmng.CLASS_UNION_BUILD_MINI_CASTLE_SOUTH = 32     --小奇迹，南
+resmng.CLASS_UNION_BUILD_MINI_CASTLE_WEST = 33      --小奇迹，西
+resmng.CLASS_UNION_BUILD_MINI_CASTLE_NORTH = 34     --小奇迹，北
+resmng.CLASS_UNION_BUILD_MARKET = 3          --市场
+resmng.CLASS_UNION_BUILD_RESTORE = 4         --仓库
 resmng.CLASS_UNION_BUILD_TUTTER1 = 5         --箭塔1
 resmng.CLASS_UNION_BUILD_TUTTER2 = 6         --箭塔2
-resmng.CLASS_UNION_BUILD_FARM = 7           --农田
-resmng.CLASS_UNION_BUILD_LOGGINGCAMP = 8    --木厂
-resmng.CLASS_UNION_BUILD_MINE = 9           --铁矿厂
+resmng.CLASS_UNION_BUILD_FARM = 7            --农田
+resmng.CLASS_UNION_BUILD_LOGGINGCAMP = 8     --木厂
+resmng.CLASS_UNION_BUILD_MINE = 9            --铁矿厂
 resmng.CLASS_UNION_BUILD_QUARRY = 10         --能源石
 
 -- 建筑数量上限
@@ -865,7 +886,7 @@ ITEM_CLASS = {
     TRIBUTE = 7,  --名产
     BUFF = 8, -- buff类
     GLOBUFF = 9, -- 直接获得士兵
-    UNION = 10, -- 迁城道具
+    MOVE_CITY = 10, -- 迁城道具
     UINBUFF = 11, -- 行军道具+城建道具
     ITEM_PIECE = 12, -- 道具碎片
     ACTIVITY = 13, -- 活动道具
@@ -894,6 +915,7 @@ ITEM_SPEED_MODE = {
     TECH  = 3,    -- 科技加速
     TRAIN  = 4,    -- 造兵加速
     CURE   = 5,    -- 治疗加速
+    MARCH   = 6,    --行军加速
 }
 
 -- 英雄道具
@@ -1459,7 +1481,7 @@ function get_type(ety)
         ety = gEtys[ ety ]
         if not ety then return end
     end
-    return math.floor( ety.propid / 1000000 ) 
+    return math.floor( ety.propid / 1000000 )
 end
 
 
@@ -1473,6 +1495,7 @@ function is_king_city(ety) return is_type( ety, EidType.KingCity ) end
 function is_lost_temple(ety) return is_type( ety, EidType.LostTemple ) end
 function is_union_building(ety) return is_type( ety, EidType.UnionBuild ) end
 function is_npc_city(ety) return is_type( ety, EidType.NpcCity ) end
+function is_clown(ety) return is_type( ety, EidType.CLOWN ) end
 
 function can_attack(ety)
     if is_ply(ety) then return true end
@@ -1508,6 +1531,7 @@ PLAYER_INIT = {
     vip_gift = 0,
     build_queue = { 0 },
     photo = 1,
+    reg_name = "unknown",
     name = "unknown",
     photo_url = "",
     x = 0,
@@ -1519,7 +1543,8 @@ PLAYER_INIT = {
     gold = 0,
     silver = 0,
     sinew = 100,
-    tm_sinew = 0,
+    sinew_tm = 0,
+    sinew_speed = 0,
     culture = 1,
     propid = 1001,
     field = 2,
@@ -1613,3 +1638,46 @@ CHANGE_HEAD_ICON_COST = 200
 --改变头像道具ID
 CHANGE_HEAD_ICON_ITEM = resmng.ITEM_4005001
 
+map_city_zone = {
+    [0] = 3001001,
+    [1] = 3002002,
+    [2] = 3003002,
+    [3] = 3004003,
+    [4] = 3005003,
+    [5] = 3006003,
+    [6] = 3007004,
+    [7] = 3008004,
+    [8] = 3009004,
+    [9] = 3010004,
+    [10] = 3011001,
+    [11] = 3012002,
+    [12] = 3013002,
+    [13] = 3014003,
+    [14] = 3015003,
+    [15] = 3016003,
+    [16] = 3017004,
+    [17] = 3018004,
+    [18] = 3019004,
+    [19] = 3020004,
+    [20] = 3021001,
+    [21] = 3022002,
+    [22] = 3023002,
+    [23] = 3024003,
+    [24] = 3025003,
+    [25] = 3026003,
+    [26] = 3027004,
+    [27] = 3028004,
+    [28] = 3029004,
+    [29] = 3030004,
+    [30] = 3031001,
+    [31] = 3032002,
+    [32] = 3033002,
+    [33] = 3034003,
+    [34] = 3035003,
+    [35] = 3036003,
+    [36] = 3037004,
+    [37] = 3038004,
+    [38] = 3039004,
+    [39] = 3040004,
+    [40] = 4001001
+}

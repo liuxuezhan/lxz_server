@@ -215,6 +215,24 @@ function kw_notify()
     end
 end
 
+function prepare_kw_notify()
+    for k, v in pairs(resmng.prop_kw_notify or {}) do
+        local time = resmng.prop_kw_stage[state].Spantime * 60
+
+        if v.BeforeTime then
+            local ahead = time - v.BeforeTime
+
+            if player_t.debug_tag then -- debug 
+                ahead = 2
+            end
+
+            if ahead > 0 then
+                local timerId = timer.new("kw_notify", ahead, k)
+            end
+        end
+    end
+end
+
 function send_notify(notify_id, occu_time)
     if notify_id == resmng.KW_OCCUPY_TIME then
         local king = get_king()
@@ -291,7 +309,7 @@ end
 function prepare_kw()
     set_kw_state(KW_STATE.PREPARE)
 
-    kw_notify() --  发放全服通知定时器
+    prepare_kw_notify() --  发放全服通知定时器
 
     do_timer()
 end
@@ -315,6 +333,7 @@ function fight_kw()
     gPendingSave.status["kwState"].season = season
     officers = {}
     gPendingSave.status["kwState"].officers = officers
+    monster.rem_super_boss()
     fight_again()
 end
 
@@ -347,6 +366,39 @@ function gen_npc_buf()
                     table.remove(buffs, index)
                     count = count -1
                     city.kw_buff = kw_buff
+
+                    local buf = {}
+                    if kw_buff[1] then
+                        buf = resmng.get_conf("prop_buff", kw_buff[1]) or {}
+                    end
+                    local ef_name = nil
+                    local ef_value = nil
+
+                    for k, v in pairs(buf.Value or {}) do
+                        local attr = string.split(k, "_")
+                        local ef_conf = resmng.prop_effect_type[attr[1]]
+                        if ef_conf then
+                            ef_name = ef_conf.BuffName
+                        end
+                        if attr[2]  == "A" or not attr[2] then
+                            ef_value = v
+                        elseif attr[2] == "R" then
+                            ef_value = v * 0.0001 * 100
+                            ef_value = tostring(ef_value).."%"
+                        end
+                    end
+
+                    local ntf_prop = resmng.get_conf("prop_act_notify", resmng.FORTRESS_BUFF)
+                    local npc_conf = resmng.prop_world_unit[city.propid]
+                    if ntf_prop and ef_name and city.lv == 1 and npc_conf then
+                        local union = unionmng.get_union(city.uid)
+                        if union then
+                            if  ntf_prop.Chat2 then
+                                union:union_chat("", ntf_prop.Chat2, {npc_conf.Name, ef_name, ef_value})
+                            end
+                        end
+                    end
+
                 end
             end
         end
