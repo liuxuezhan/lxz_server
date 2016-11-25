@@ -209,7 +209,7 @@ function get_ef(self)
         local skillid = skill[1] 
         if skillid ~= 0 then
             local conf = resmng.get_conf("prop_skill", skillid)
-            if conf and conf.Type == 2 then
+            if conf and conf.Type == SKILL_TYPE.BUILD then
                 for _, v in pairs(conf.Effect) do
                     if v[1] == "AddBuf" and v[3] == 0 then
                         local buf = resmng.get_conf("prop_buff", v[2])
@@ -232,7 +232,7 @@ function get_ef_after_fight( self )
         local skillid = skill[1] 
         if skillid ~= 0 then
             local conf = resmng.get_conf("prop_skill", skillid)
-            if conf and conf.Type == 3 then  -- skill after fight
+            if conf and conf.Type == SKILL_TYPE.FIGHT_AFTER_FIGHT then  -- skill after fight
                 for _, v in pairs(conf.Effect) do
                     if v[1] == "AddBuf" and v[3] == 0 then
                         local buf = resmng.get_conf("prop_buff", v[2])

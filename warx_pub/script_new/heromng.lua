@@ -219,7 +219,7 @@ function get_fight_attr(hero_id)
         for _, skill in pairs(hero.basic_skill) do
             if skill[1] ~= 0 then
                 local conf = resmng.get_conf("prop_skill", skill[1])
-                if conf and conf.Type == SKILL_TYPE.FIGHT then
+                if conf and conf.Type == SKILL_TYPE.FIGHT_BASIC then
                     table.insert(ret.skills, skill[1])
                 end
             end

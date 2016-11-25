@@ -262,7 +262,7 @@ local function callRpc( rpc, name, plA, ... )
     --lxz(pack)
     pack = string.pack(">s", pack)
     if plA.fd then
-        socket.write(plA.fd, pack)
+        socket.write(plA.sockid, pack)
     end
 
     LOG("RpcS, pid=%d, func=%s", plA.pid or 0, name)

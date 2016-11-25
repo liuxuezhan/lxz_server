@@ -354,7 +354,7 @@ function do_upgrade(self, build_idx)
 
             new_union.update(self)
             if build_idx == 1 then
-                Tlog("PlayerExpFlow",self:pre_tlog(),0,node.Lv-1,0,0)
+                self:pre_tlog("PlayerExpFlow",0,node.Lv-1,0,0)
             end
             --任务
             task_logic_t.process_task(self, TASK_ACTION.CITY_BUILD_LEVEL_UP)
@@ -420,8 +420,10 @@ function one_key_upgrade_build(self, build_idx)
                 return
             end
 
-            --local gold_need = calc_cons_value(cons_need_buy) + self:calc_cd_golds(dst.Dura)
-            local gold_need = calc_cons_value(cons_need_buy) + calc_acc_gold(dst.Dura)
+            local dura = dst.Dura - self:get_val( "BuildFreeTime" )
+            if dura < 0 then dura = 0 end
+
+            local gold_need = calc_cons_value(cons_need_buy) + calc_acc_gold(dura)
             if gold_need > 0 and gold_need > self.gold then
                 INFO("one_key_upgrade_build: pid = %d, player.gold(%d) < gold_need(%d)", self.pid, self.gold, gold_need)
                 return
@@ -465,9 +467,7 @@ function doTimerBuild(self, tsn, build_idx, arg_1, arg_2, arg_3, arg_4)
                 end
                 task_logic_t.process_task(self, TASK_ACTION.CITY_BUILD_LEVEL_UP)
 
-                if build.propid == resmng.BUILD_BLACKMARKET_1 then
-                    self:refresh_black_marcket()
-                end
+                if build.propid == resmng.BUILD_BLACKMARKET_1 then self:refresh_black_marcket() end
                 if build.propid == resmng.BUILD_MANOR_1 or build.propid == resmng.BUILD_MONSTER_1 or build.propid == resmng.BUILD_RELIC_1 then self:refresh_mall() end
                 if build.propid == resmng.BUILD_RESOURCESMARKET_1 then self:refresh_res_market() end
                 if build.propid == resmng.BUILD_HOSPITAL_1 and table_count( self.cures ) > 0 then
@@ -600,16 +600,12 @@ function acc_build(self, build_idx, acc_type)
     end
     --判断生产资源的建筑在生产状态不能加速
     local prop_tab = resmng.prop_build[build.propid]
-    if prop_tab == nil then
-        return
-    end
-    if prop_tab.Class == 1 and build.state == BUILD_STATE.WORK then
-        INFO("res build can`t acc: pid = %d, build_idx = %d, build.state = %d", self.pid, build_idx, build.state)
-        return
-    end
+    if prop_tab == nil then return end
 
-    --if build.state == BUILD_STATE.DESTROY or build.state == BUILD_STATE.WAIT then
-    if build.state == BUILD_STATE.WAIT then
+    if prop_tab.Class == 1 and build.state == BUILD_STATE.WORK then return end
+    
+    local state = build.state
+    if not ( state == BUILD_STATE.DESTROY or state == BUILD_STATE.CREATE or state == BUILD_STATE.UPGRADE or state == BUILD_STATE.FIX ) then
         INFO("acc_build: pid = %d, build_idx = %d, build.state = %d", self.pid, build_idx, build.state)
         return
     end
@@ -621,13 +617,17 @@ function acc_build(self, build_idx, acc_type)
             build:acceleration(build.tmOver - gTime)
         end
     elseif acc_type == ACC_TYPE.GOLD then
-        local num = calc_acc_gold(build.tmOver - gTime)
-        if self:get_res_num(resmng.DEF_RES_GOLD) >= num  then
+        local quick = self:get_val( "BuildFreeTime" )
+        local dura = build.tmOver - gTime - quick
+        if dura < 0 then dura = 0 end
+        local num = calc_acc_gold( dura )
+        if num > 0 then
+            if self:get_res_num(resmng.DEF_RES_GOLD) < num  then return end
             self:do_dec_res(resmng.DEF_RES_GOLD, num, VALUE_CHANGE_REASON.BUILD_ACC)
-            --任务
             task_logic_t.process_task(self, TASK_ACTION.GOLD_ACC, 1)
-            build:acceleration(build.tmOver - gTime)
         end
+        build:acceleration(build.tmOver - gTime)
+
     else
         ERROR("acc_build: pid = %d, build_idx = %d, acc_type = %d", self.pid, build_idx, acc_type or -1)
         return
@@ -836,6 +836,7 @@ function train(self, idx, armid, num, quick)
 
         build.state = BUILD_STATE.WORK
         build.tmStart = gTime
+        build.tmOver = gTime + dura
         build.extra = { count = dura }
         build:recalc()
         build:set_extras({id=armid, num=num})
@@ -873,10 +874,12 @@ end
 function draft(self, idx)
     local build = self:get_build(idx)
     if not build then return end
-    if build.state ~= BUILD_STATE.WAIT then return INFO("draft, not state %s", build.state) end
+    --if build.state ~= BUILD_STATE.WORK then return INFO("draft, not state %s", build.state) end
     --if build.tmOver > gTime then return INFO("draft, not time %d", build.tmOver - gTime) end
     --build.state = BUILD_STATE.WAIT
-    --Rpc:stateBuild(self, build._pro)
+    --
+    
+    if build.state ~= BUILD_STATE.WAIT then return INFO("draft, not state %s", build.state) end
 
     local extra = build.extra
     if extra and extra.id > 0 and extra.num > 0 then
@@ -895,6 +898,7 @@ function draft(self, idx)
 
         build.extra = {}
     end
+    --Rpc:stateBuild(self, build._pro)
 end
 
 

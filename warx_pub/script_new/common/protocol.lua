@@ -3,7 +3,8 @@ Server = {
     firstPacket = "int uid, int cival, int pid, string signature, int time, string open_id, string token",
     --firstPacket2 = "int sockid, int source_map, string account, string pasw",
     firstPacket2 = "int sockid, int source_map, int cival, int pid, string signature, int time, string open_id, string token",
-    --string mac, string idfa,string gaid,string android_id,string udid,string openudid,string imei,string ver, string pack_name, string channel",
+    --string mac, string idfa,string gaid,string android_id,string udid,string openudid,string imei,string ver, string pack_name, string channel, 
+    --string hardware, string software, string telecomoper, string network, string width, string hight, string mem",
     login = "int pid",
     onBreak = "",
     create_character = "pack info",
@@ -30,6 +31,8 @@ Server = {
 
     use_item = "int id, int num",
     buy_item = "int id, int num, int use",
+
+    search_entity = "int sn, int propid",
 
     material_compose = "int id, int count",
     material_compose2 = "int id, int count",
@@ -90,6 +93,7 @@ Server = {
     confirm_specialty = "int dest_eid, pack item",  --上架特产
     cancle_specialty = "int dest_eid, pack item",  --下架特产
     troop_recall = "int dest_troop_id",  --撤回部队
+    troop_cancel_mass = "int troop_id",
     -----------------------------------------------------------
 
     ---战争大厅
@@ -142,6 +146,10 @@ Server = {
     mail_unlock_by_sn= "pack sns",
     mail_send_player = "int to_player_id, string title, string content",
     mail_send_union = "string title, string content",--发送军团邮件
+
+    mail_read_by_class = "int class, int mode, int lv",
+    mail_drop_by_class = "int class, int mode, int lv",
+
     -- todo, just for test
     test_mail_all = "int class, string title, string content, pack its",
 
@@ -153,10 +161,12 @@ Server = {
     agent_remove_eye = "int pid",
     ack_tool = "int sn, pack info",
     -- cross gs
-    agent_migrate = "int map, int x, int y, pack data, pack task, pack timers, pack union_pro",
+    agent_migrate = "int map, int x, int y, pack data, pack task, pack timers, pack union_pro, pack troop",
     agent_migrate_ack = "int map, int pid, int param",
     agent_syn_call = "int id, string func, pack arg",
     agent_syn_call_ack = "int id, pack ret",
+    agent_login = "int pid",
+    
 
     -- allience
     -- tech = {info={{idx,id,exp,tmOver},{...}},mark={idx,idx}}
@@ -457,6 +467,8 @@ Client = {
     get_buff = "string what, int val",
     qryAround = "int x, int y, pack objs",
     upd_arm = "pack arminfo",
+
+    found_entity = "int sn, int propid, int x, int y",
 
     --type= 1-飘字通用提示 2-跑马灯公告 3-只有确定按钮的对话框
     --lanid --客户端多语言字段的id

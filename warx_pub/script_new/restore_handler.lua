@@ -224,103 +224,6 @@ function load_count()
     end
 end
 
---function restore_timer()
---    local db = dbmng:getOne()
---    db.timer:delete({delete=true})
---
---    local info = db.timer:find({})
---    local minTime = math.huge
---    local maxSn = 0
---
---    local tm_shutdown = gSysStatus.tick - 1
---    print( "tm_shutdown", tm_shutdown, gTime - tm_shutdown )
---
---    local real = os.time()
---    while info:hasNext() do
---        local t = info:next()
---        timer._sns[ t._id ] = t
---        if t._id > maxSn then maxSn = t._id end
---        if t.over < minTime then
---            minTime = t.over
---        end
---        if t.what == "cron" then
---            if not isCron then 
---                isCron = true
---            else
---                timer._sns[ t._id ] = nil -- duplicate crontab
---            end
---        end
---    end
---    _G.gSns[ "timer" ] = maxSn + 1
---
---    local dels = {}
---    local retroop = {}
---    for k, v in pairs(troop_mng.troop_id_map) do
---        if v:is_go() or v:is_back() then
---            if not v.tmCur then 
---                table.insert(dels, {k, v})
---            else
---                if v.tmCur > real - 36000 then
---                    if v.tmCur < minTime then
---                        print(string.format("SetTimerStart, min=%d, troop, troopid=%s", v.tmCur, v._id))
---                        minTime = v.tmCur
---                    end
---                    table.insert(retroop, v)
---                else
---                    table.insert(dels, {k, v})
---                    WARN("restore_troop, id=%d, action=%d, offset=%f hour", v._id, v.action, (real-v.tmCur)/3600)
---                end
---            end
---        end
---    end
---
---    for _, t in  pairs(dels) do
---        local k = t[1]
---        local troop = t[2]
---        troop_mng.delete_troop(k)
---        for pid, _ in pairs(troop.arms or {}) do
---            if pid > 0 then
---                local p = getPlayer(pid)
---                if p then
---                    remove_id(p.busy_troop_ids, k)
---                end
---            end
---        end
---    end
---
---    if minTime < real then
---        _G.gTime = minTime
---        _G.gMsec = 0
---        _G.gCompensation = minTime
---        c_time_set_start(minTime)
---        WARN("gCompensation, from=%d, to=%d", minTime, real)
---
---        for k, node in pairs(timer._sns) do
---            addTimer(node._id, (node.over-minTime)*1000, node.tag or 0)
---        end
---
---        for _, v in pairs(retroop) do
---            local speed = v.speed
---            v.curx = v.curx or v.sx
---            v.cury = v.cury or v.sy
---
---            etypipe.add(v)
---            c_troop_set_state( v.eid, v.tmCur, v.curx, v.cury, v.speed )
---
---            --c_add_actor(v.eid, v.curx or v.sx, v.cury or v.sy, v.dx, v.dy, v.tmCur, v.speed)
---            gEtys[ v.eid ] = v
---            v.speed = speed
---        end
---
---        return "Compensation"
---    else
---        for k, node in pairs(timer._sns) do
---            addTimer(node._id, (node.over-real)*1000, node.tag or 0)
---        end
---    end
---end
-
-
 function restore_timer()
     local db = dbmng:getOne()
     db.timer:delete({delete=true})
@@ -416,6 +319,7 @@ function action()
 
     INFO("-- load_union --------------")
     union_t.load()
+    union2_t.load()
     INFO("-- load_union done ---------")
     monitoring(MONITOR_TYPE.LOADDATA, "load_union")
 

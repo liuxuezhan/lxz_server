@@ -1,5 +1,39 @@
 module("player_t")
 
+function mail_read_by_class( self, class, mode, lv )
+    local db = self:getDb()
+    local sel = {}
+    sel.to = self.pid
+    sel.tm_read = 0
+    sel.class = class
+    if mode ~= -1 then 
+        sel.mode = mode 
+        if lv ~= -1 then sel.lv = lv end
+    end
+    db.mail:update( sel, { ["$set"] = { tm_read = gTime} } )
+    self:reply_ok("mail_read_by_class", 0)
+end
+
+function mail_drop_by_class( self, class, mode, lv )
+    local db = self:getDb()
+    local sel = {}
+    sel.to = self.pid
+    sel.tm_drop = 0
+    sel.class = class
+    sel[ "$or" ] = { { its=0 }, { tm_fetch = { [ "$gt" ] = 0 } } }
+    if mode ~= -1 then 
+        sel.mode = mode 
+        if lv ~= -1 then sel.lv = lv end
+    end
+    dumpTab( sel, "mail_drop_by_class" )
+    db.mail:update( sel, { ["$set"] = { tm_drop = gTime} } )
+
+    local info = db:runCommand("getLastError")
+    dumpTab( info, "mail_drop_by_class" )
+
+    self:reply_ok("mail_drop_by_class", 0)
+end
+
 function mail_lock_by_sn(self,sns)
     local ms = self:get_mail()
     if ms then
@@ -98,7 +132,43 @@ function get_mail(self)
 end
 
 
-function mail_load(self, sn)
+--function mail_load(self, sn)
+--    local mail_sys = self.mail_sys or 0
+--    if mail_sys < gSysMailSn then
+--        local count = #gSysMail -- the bigger sn, be post at tail
+--        local news = {}
+--        for idx = count, 1, -1 do
+--            local v = gSysMail[ idx ]
+--            if mail_sys < v.idx then table.insert(news, 1, v)
+--            else break end
+--        end
+--
+--        for _, v in pairs(news) do
+--            local m = copyTab(v)
+--            m.copy = v._id
+--            self:mail_new(m, true)
+--        end
+--        self.mail_sys = gSysMailSn
+--    end
+--
+--    local ms = self:get_mail()
+--    local msn = {}
+--    for k, v in pairs(ms) do
+--        if v.idx > sn then table.insert(msn, v.idx) end
+--    end
+--    local funSort = function(A,B) return A < B end
+--    table.sort(msn, funSort)
+--
+--    local res = {}
+--    for k, v in ipairs(msn) do
+--        if ms[v].tm_drop == 0 then table.insert(res, ms[v]) end
+--        if #res >= 20 then break end
+--    end
+--    --dumpTab(res, "mail_load")
+--    Rpc:mail_load(self, res)
+--end
+
+function mail_load( self, sn )
     local mail_sys = self.mail_sys or 0
     if mail_sys < gSysMailSn then
         local count = #gSysMail -- the bigger sn, be post at tail
@@ -109,7 +179,7 @@ function mail_load(self, sn)
             else break end
         end
 
-        for _, v in pairs(news) do
+        for _, v in ipairs(news) do
             local m = copyTab(v)
             m.copy = v._id
             self:mail_new(m, true)
@@ -117,21 +187,22 @@ function mail_load(self, sn)
         self.mail_sys = gSysMailSn
     end
 
-    local ms = self:get_mail()
-    local msn = {}
-    for k, v in pairs(ms) do
-        if v.idx > sn then table.insert(msn, v.idx) end
+    local db = self:getDb()
+    local info = db.mail:find( { to=self.pid, idx={ ["$gte"] = sn } } )
+    local ms = {}
+    local num = 0
+    while info:hasNext() do
+        local m = info:next()
+        table.insert( ms, m )
+        num = num + 1
+        if num >= 100 then
+            Rpc:mail_load(self, ms)
+            num = 0
+            ms = {}
+        end
     end
-    local funSort = function(A,B) return A < B end
-    table.sort(msn, funSort)
-
-    local res = {}
-    for k, v in ipairs(msn) do
-        if ms[v].tm_drop == 0 then table.insert(res, ms[v]) end
-        if #res >= 20 then break end
-    end
-    --dumpTab(res, "mail_load")
-    Rpc:mail_load(self, res)
+    if num > 0 then Rpc:mail_load( self, ms ) end
+    Rpc:mail_load(self, {})
 end
 
 
@@ -143,37 +214,50 @@ function mail_new(self, v, isload)
     elseif type(v.its) == "table" then
         if get_table_valid_count(v.its) == 0 then v.its = 0 end
     else
+        WARN( "mail_new, its error" )
+        dumpTab( v, "mail_new" )
         return
     end
 
-    v.idx = self.mail_max + 1
+    local sn = self.mail_max + 1
+    self.mail_max = sn
+
+    v._id = string.format("%d_%d", sn, v.to or self.pid)
+    v.idx = sn
+    v.from = v.from or 0
     v.to = self.pid
-    v._id = string.format("%d_%d", v.idx, v.to)
     v.tm_read = 0
     v.tm_fetch = 0
     v.tm_drop = 0
     v.tm_lock = 0
-    v.tm = gTime
-    v.class = v.class or 1
+    v.tm = v.tm or gTime
+    v.class = v.class or 0
+    v.mode = v.mode or 0
+    v.lv = v.lv or 0
 
-    self.mail_max = v.idx
+    --v.content = {}
+    --v.its = its or 0
+    --
+    gPendingInsert.mail[ v._id ] = v
 
     local db = self:getDb()
     db.mail:insert(v)
     if self._mail then
         self._mail[ v.idx ] = v
     end
+
     if self:is_online() then
-        Rpc:mail_notify( self, v )
+        Rpc:mail_notify( self, {v} )
     end
 
     local got = its
     if got ~= 0 then got = 1 end
     local sys = v.from
-    if sys ~= 0 then sys = 1 end
+    if sys == 0 then sys = 1 end
 
-    Tlog("PlayerMailFlow",self:pre_tlog(),got, sys, v.from )
+    self:pre_tlog("PlayerMailFlow",got, sys, "null" , "null" , "null" , "null" , v.from, "null", "null"  )
 end
+
 
 function test_mail_all(self, class, title, content, its)
     mail_all({class=class, title=title, content=content, its=its})

@@ -27,4 +27,5 @@ prop_act_notify = {
 	[LT_END] = { ID = LT_END, Notify = 60079, Chat1 = 60081, Chat2 = nil, SendMail = nil,},
 	[KW_START] = { ID = KW_START, Notify = 60083, Chat1 = 60085, Chat2 = nil, SendMail = nil,},
 	[KW_END] = { ID = KW_END, Notify = 60084, Chat1 = 60086, Chat2 = nil, SendMail = nil,},
+	[KW_PREPARE] = { ID = KW_PREPARE, Notify = 60112, Chat1 = 60113, Chat2 = nil, SendMail = nil,},
 }

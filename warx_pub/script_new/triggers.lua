@@ -116,18 +116,12 @@ end
 -------------------------------------------------------------------
 -------------------------------------------------------------------
 function triggers_enter_world_unit(x, y, actor_eid, scanner_eid, ...)
-    print(" triggers, enter", scanner_eid, x, y )
     local troop_unit = get_ety(actor_eid)
     if troop_unit == nil then return end
     if not is_troop( troop_unit ) then return end
 
     local world_unit = get_ety(scanner_eid)
-    if world_unit == nil then 
-        if scanner_eid == -1 then
-            troop_unit:enter_black_zone()
-        end
-        return
-    end
+    if world_unit == nil then return end
 
     local prop_unit = resmng.prop_world_unit[world_unit.propid]
     if prop_unit == nil then return end
@@ -140,17 +134,11 @@ function triggers_enter_world_unit(x, y, actor_eid, scanner_eid, ...)
 end
 
 function triggers_leave_world_unit(x, y, actor_eid, scanner_eid, ...)
-    print(" triggers, leave", scanner_eid, x, y )
     local troop_unit = get_ety(actor_eid)
     if troop_unit == nil then return end
 
     local world_unit = get_ety(scanner_eid)
-    if world_unit == nil then 
-        if scanner_eid == -1 then
-            troop_unit:leave_black_zone()
-        end
-        return 
-    end
+    if world_unit == nil then return end
 
     local prop_unit = resmng.prop_world_unit[world_unit.propid]
     if prop_unit == nil then return end
@@ -161,7 +149,6 @@ function triggers_leave_world_unit(x, y, actor_eid, scanner_eid, ...)
 end
 -------------------------------------------------------------------
 ---------------------------------------------------------------------
-
 
 
 triggers_funcs[TRIGGERS_EVENT_ID.TRIGGERS_ACK] = function(troop)

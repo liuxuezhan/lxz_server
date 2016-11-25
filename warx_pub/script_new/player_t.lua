@@ -48,6 +48,7 @@ function create(account, map, pid, cival)
     p.pid = pid
     p.eid = eid
     p.map = gMapID
+    p.corss_gs = gMapID
     p.smap = map
     p.name = string.format("K%da%d", gMapID, p.pid)
     p.reg_name = p.name
@@ -60,6 +61,7 @@ function create(account, map, pid, cival)
     p.mail_sys = gSysMailSn
     p.tm_create = gTime
     p.month_award_1st = gTime
+    p.gold = 50
 
     local ply = player_t.new(p)
 
@@ -94,7 +96,7 @@ function create(account, map, pid, cival)
 
     ply._build = bs
     ply._equip = {}
-    ply._item = {{1,4002014,10}}
+    ply._item = {}
     ply._hero = {}
     ply._mail = {}
 
@@ -356,19 +358,20 @@ function upload_user_ack(self)
 end
 
 function check_token(signature, time, open_id, token)
-    --return true
-    --local app_secret = 1
+    return true
+    --[[
     local cal_token = c_md5(c_md5(tostring(time)..open_id..token)..APP_SECRET)
     return signature == cal_token
+    --]]
 end
 
 function is_token_overdue(time)
     return false
 end
 
-function pre_tlog(self)
-    return tms2str(),gTime,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
-        self.account,self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.smap,self.reg_name,1,self.language
+function pre_tlog(self,name,...)
+    Tlog(name,tms2str(tm_create),self.tm_create,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
+        self.account,self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.smap,self.reg_name,1,self.language,...)
 end
 
 function firstPacket2(self, sockid, from_map, cival, pid, signature, time, open_id, token)
@@ -389,10 +392,12 @@ function firstPacket2(self, sockid, from_map, cival, pid, signature, time, open_
         monitoring(MONITOR_TYPE.PLY)
         pid = getId("pid")
 
+        --[[
         local dg = dbmng:getGlobal()
         local info = { [pid] = {map=map, smap=from_map} }
         dg.account:update({_id=open_id}, {["$set"] = info }, true)
         local info = dg:runCommand("getLastError")
+        --]]
 
         p = player_t.create(open_id, gMapID, pid, cival)
         if not p then
@@ -400,10 +405,22 @@ function firstPacket2(self, sockid, from_map, cival, pid, signature, time, open_
             return
         end
         monitoring(MONITOR_TYPE.PLY)
-        Tlog("PlayerRegister",p:pre_tlog(),"iphone6","ios","oper","wifi","800","600",2000)
+        p:pre_tlog("PlayerRegister","iphone6","ios","oper","wifi","800","600",2000)
     end
 
     p = getPlayer(pid)
+
+    if p then
+        if p.cross_gs ~= gMapID and p.cross_gs ~= 0 then
+            pushHead(_G.GateSid, 0, 9)  -- set server id
+            pushInt(sockid)
+            pushInt(p.cross_gs)
+            pushInt(p.pid)
+            pushOver()
+            Rpc:callAgent(p.cross_gs, "agent_login", p.pid)
+            return
+        end
+    end
 
     if not p then
         --Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.TOKEN_OUT_OF_DATE)
@@ -437,7 +454,7 @@ function firstPacket2(self, sockid, from_map, cival, pid, signature, time, open_
         print( string.format( "firstPacket3:%s", open_id ) )
         player_t.login( p, p.pid )
     end
-    Tlog("PlayerLogin",p:pre_tlog(),p.gold,0,"iphone6","ios","oper","wifi","800","600",2000)
+    p:pre_tlog("PlayerLogin",p.gold,0,"iphone6","ios","oper","wifi","800","600",2000)
 end
 
 function first_login(self)
@@ -493,6 +510,10 @@ function login(self, pid)
         if p.tm_logout and p.tm_logout == gTime then p.tm_logout = gTime - 1 end
 
         Rpc:onLogin(p, p.pid, p.name)
+        local u  = unionmng.get_union(p.uid)
+        if u then
+            u:notifyall(resmng.UNION_EVENT.MEMBER, resmng.UNION_MODE.UPDATE, {pid=p.pid,tm_login=p.tm_login,tm_logout=p.tm_logout})
+        end
         p:get_build()
         p:vip_signin()
 
@@ -537,7 +558,11 @@ function onBreak(self)
     if g_online_num and  g_online_num  > 0 then
         g_online_num = g_online_num  - 1
     end
-    Tlog("PlayerLogout",self:pre_tlog(),self.gold,0)
+    local u  = unionmng.get_union(self.uid)
+    if u then
+        u:notifyall(resmng.UNION_EVENT.MEMBER, resmng.UNION_MODE.UPDATE, {pid=self.pid,tm_login=self.tm_login,tm_logout=self.tm_logout})
+    end
+    self:pre_tlog("PlayerLogout",self.gold,0)
 end
 
 function is_online(self)
@@ -603,6 +628,11 @@ end
 function set_uid(self, u)
     if u then
         self._union.tmJoin = gTime
+
+        local p_union = self._union or {} --计入军团的次数
+        p_union.join_tm = (p_union.join_tm or 0 ) + 1
+        self._union = p_union
+
         self._union.rank = resmng.UNION_RANK_1
         gPendingSave.union_member[self.pid] = self._union
         self.uname = u.alias
@@ -1549,11 +1579,17 @@ function gm_user(self, cmd)
         for k, v in pairs( self._ef ) do
             self:add_debug( "[EF], %s = %d", k, v )
         end
+    elseif choose == "showgsef" then
+        for k, v in pairs( kw_mall.gsEf ) do
+            if k ~= "_id" then
+                self:add_debug( "gs [EF], %s = %d", k, v )
+            end
+        end
     elseif choose == "showuef" then
         local u = unionmng.get_union(self.uid)
         if u then
             for k, v in pairs( u:get_ef() or {} ) do
-                self:add_debug( "[EF], %s = %d", k, v )
+                self:add_debug( "union [EF], %s = %d", k, v )
             end
         end
 
@@ -1575,7 +1611,7 @@ function gm_user(self, cmd)
     elseif choose == "debug" then
         debug_tag = 1
         union_item._tm = 60
-        self._union.god_log.tm = 0
+        --self._union.god_log.tm = 0
     elseif choose == "lxz" then
         union_item.add(self,{"mutex_award",{{"item",2012009,1,10000},}} ,UNION_ITEM.TASK)--加入军团礼物
         debug_tag = 1
@@ -1742,6 +1778,9 @@ function gm_user(self, cmd)
     elseif choose == "jump" then --跨服
         local map_id = tonumber(tb[2])
         self:cross_migrate(8, 1200, 1200)
+    elseif choose == "eyemove" then --跨服
+        local map_id = tonumber(tb[2])
+        self:movEye(map_id, 1200, 1200)
 
     elseif choose == "daypass" then  -- 世界boss跨天
         monster.on_day_pass()
@@ -1859,6 +1898,13 @@ function gm_user(self, cmd)
         local mode = tonumber(tb[2])
         local num = tonumber(tb[3])
         self:do_inc_res_normal(mode, num, VALUE_CHANGE_REASON.DEBUG)
+
+    elseif choose == "setres" then
+        local mode = tonumber(tb[2])
+        local num = tonumber(tb[3])
+        self.res[mode][1] = num
+        self.res = self.res
+
 
     elseif choose == "initres" then
         self.res = { {100000,0}, {100000,0}, {100000,0}, {100000,0} }
@@ -1984,6 +2030,10 @@ function gm_user(self, cmd)
         else
             config.Robot = nil
         end
+
+    elseif choose == "search" then
+        local propid = tonumber( get_parm( 1 ) )
+        self:search_entity( 0, propid )
 
     elseif choose == "lvbuild" then
         local class = tonumber(get_parm(1))
@@ -2129,7 +2179,7 @@ function cross_migrate(self, map_id, x, y)
     if not self:can_move_to(x, y)  then return self:add_debug("can not move by castle lv") end
 
     if map_id ~= gMapID then
-        if self.cross_gs == 0 then
+        if self.cross_gs == gMapID then
             local ef_u,ef_ue = self:get_union_ef()
             self.ef_u = ef_u
             self.ef_ue = ef_ue
@@ -2147,6 +2197,8 @@ function cross_migrate(self, map_id, x, y)
         if union then
             Rpc:callAgent(map_id, "agent_migrate", self.pid, x, y, self, task, timers, union._pro, troop)
         end
+
+         self:movEye(map_id, x, y)
     end
 end
 
@@ -2320,16 +2372,17 @@ end
 function refresh_food(self)
     local node = self.res[ resmng.DEF_RES_FOOD ]
     local store = self:get_val("CountStore")
-    if store > node[1] then
-        self.foodTm = gTime
-    else
+    local have = node[1]
+    if store >= have then
+
+    else 
         local consume = self.foodUse * (gTime - self.foodTm) / 3600
-        local have = node[1] - consume
+        have = have - consume
         if have < store then have = store end
         have = math.floor(have)
         node[1] = have
-        self.foodTm = gTime
     end
+    self.foodTm = gTime
 end
 
 function get_sinew( self )
@@ -2420,6 +2473,7 @@ function do_inc_res_protect(self, mode, num, reason)
             self[ key ] = (self[ key ] or 0) + num
         end
     else
+        if mode == resmng.DEF_RES_FOOD then self:refresh_food() end
         local node = self.res[ mode ]
         if not node then return end
         node[2] = node[2] + num
@@ -2495,7 +2549,7 @@ function do_dec_res(self, mode, num, reason)
             if self[ key ] and self[ key ] >= num then
                 self[ key ] = math.floor(self[ key ] - num)
                 if  mode ==resmng.DEF_RES_GOLD  then
-                    Tlog("MoneyFlow",self:pre_tlog(),0,num,resmng.DEF_RES_GOLD,1,self[key],reason )
+                    self:pre_tlog("MoneyFlow",0,num,2,1,self[key],reason )
                     union_mission.ok(self,UNION_MISSION_CLASS.COST, num)
                 end
             else
@@ -2714,29 +2768,49 @@ function do_genius(self, id)
     if not self:condCheck(conf.Cond) then return end
 
     local tab = self.genius or {}
+    local old_id = 0
     if conf.Lv > 1 then
-        local old_id = id - 1
+        old_id = id - 1
         local old_conf = resmng.get_conf("prop_genius", old_id)
         if not old_conf then
             ERROR("do_genius: get prop_genius config failed. pid = %d, old_genius_id = %d.", self.pid, old_id)
             return
         else
-            local idx = is_in_table(tab, old_id)
-            if idx then
-                table.remove(tab, idx)
-                self:ef_chg( old_conf.Effect, conf.Effect )
-            else
-                return
-            end
+            if setRem( tab, old_id ) then self:ef_chg( old_conf.Effect, conf.Effect )
+            else return end
         end
     else
         if is_in_table( tab, id ) then return end
         self:ef_add(conf.Effect)
     end
 
-    table.insert(tab, id)
+    local cds = self.cds
+    if conf.Skill then
+        local skill = resmng.get_conf( "prop_skill", conf.Skill )
+        if skill then
+            local cd = skill.Cd
+            for _, v in pairs( cds or {} ) do
+                if v[1] == "genius" then
+                    local one  = resmng.get_conf( "prop_genius", v[2] )
+                    if one then
+                        if one.Class == conf.Class and one.Mode == conf.Mode then
+                            v[2] = id
+                            local remain = v[4] - gTime
+                            if cd < remain then
+                                v[4] = gTime + cd
+                            end
+                            self.cds = cds
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    setIns( tab, id )
     self.genius = tab
     self.talent = self.talent-1
+    dumpTab( tab, "genius" )
 end
 
 
@@ -2873,8 +2947,10 @@ function migrate( self, x, y )
     if self:do_migrate( x, y ) == "ok" then
         if itemid then
             self:dec_item_by_item_id( itemid, 1, VALUE_CHANGE_REASON.MIGRATE )
+            task_logic_t.process_task(self, TASK_ACTION.USE_ITEM, itemid, 1)
         else
             self:dec_gold( 2000, VALUE_CHANGE_REASON.MIGRATE )
+            task_logic_t.process_task(self, TASK_ACTION.USE_ITEM, resmng.ITEM_ADVANCEDMOVE, 1)
         end
         reply_ok( self, "migrate", 0)
     end
@@ -3712,7 +3788,6 @@ function get_hold_info(self,dp)
                 single._id = troop._id
                 single.tmStart = 0
                 single.tmOver = 0
-                single.count = troop:get_troop_total_soldier()
                 single.action = troop.action
                 table.insert(troops, single)
             end
@@ -3727,7 +3802,6 @@ function get_hold_info(self,dp)
                 single._id = troop._id
                 single.tmStart = troop.tmStart
                 single.tmOver = troop.tmOver
-                single.count = troop:get_troop_total_soldier()
                 single.action = troop.action
                 table.insert(troops, single)
             end
@@ -3891,7 +3965,6 @@ function get_eye_info(self,eid)--查询大地图建筑信息
                         single._id = tm_troop._id
                         single.tmStart = tm_troop.tmStart
                         single.tmOver = tm_troop.tmOver
-                        single.count = tm_troop:get_troop_total_soldier()
                         single.speed = tm_troop:get_extra("speed")
                         single.speedb = tm_troop:get_extra("speedb")
                         single.action = tm_troop.action
@@ -4517,7 +4590,7 @@ function vip_add_exp( self, exp )
             self:add_buf( node.Buf, buf[3] - gTime )
         end
         self:vip_enable( (tolv-lv) * 24 * 3600 )
-    Tlog("PlayerVipExpFlow",self:pre_tlog(),exp,lv,0,0)
+    self:pre_tlog("PlayerVipExpFlow",exp,lv,0,0)
     end
 end
 
@@ -4585,33 +4658,44 @@ function vip_buy_gift( self, idx )
     self.vip_gift = set_bit( self.vip_gift, idx )
 end
 
-function report_new( self, mode, val )
-    if mode < MAIL_REPORT_MODE.GATHER or mode > MAIL_REPORT_MODE.LOSTTEMPLE then return end
-    local maxid = self.report_max
-    if not maxid then
-        maxid = 0
-        for _, v in pairs( self.report_idx ) do
-            if v > maxid then maxid = v end
-        end
-    end
-    maxid = maxid + 1
-    val.tm = gTime
-    val.idx = maxid
-    self.report_idx[ mode ] = maxid
-    self.report_idx = self.report_idx
-
-    local db = dbmng:getOne()
-    local tab = string.format("report%d", mode)
-    --db[tab]:update( {_id=self.pid}, { ["$push"]={ vs={["$each"]={val}, ["$slice"]=-20 }} }, true )
-    --todo
-    db[tab]:update( {_id=self.pid}, { ["$push"]={ vs=val}}, true )
 
 
-    --dumpTab( val, "report" )
-    if self:is_online() then
-        Rpc:report_notify( self, mode, val )
-    end
+--function report_new( self, mode, val )
+--    if mode < MAIL_REPORT_MODE.GATHER or mode > MAIL_REPORT_MODE.LOSTTEMPLE then return end
+--    local maxid = self.report_max
+--    if not maxid then
+--        maxid = 0
+--        for _, v in pairs( self.report_idx ) do
+--            if v > maxid then maxid = v end
+--        end
+--    end
+--    maxid = maxid + 1
+--    val.tm = gTime
+--    val.idx = maxid
+--    self.report_idx[ mode ] = maxid
+--    self.report_idx = self.report_idx
+--
+--    local db = dbmng:getOne()
+--    local tab = string.format("report%d", mode)
+--    --db[tab]:update( {_id=self.pid}, { ["$push"]={ vs={["$each"]={val}, ["$slice"]=-20 }} }, true )
+--    --todo
+--    db[tab]:update( {_id=self.pid}, { ["$push"]={ vs=val}}, true )
+--
+--
+--    --dumpTab( val, "report" )
+--    if self:is_online() then
+--        Rpc:report_notify( self, mode, val )
+--    end
+--end
+--
+
+function report_new( self, mode, m )
+    local lv = 0
+    if mode == MAIL_REPORT_MODE.PANJUN then lv = m.dest.eid end
+    self:mail_new( { class = MAIL_CLASS.REPORT, mode = mode, lv = lv, content = m } )
 end
+
+
 
 function report_load( self, mode )
     local db = self:getDb()
@@ -4689,7 +4773,7 @@ function set_client_parm(self, key, data)
 
     gPendingSave.client_parm[self.pid][key] = data
     if key == "curguiding"  then
-    Tlog("QuestComplete",self:pre_tlog(),tonumber(data) )
+        self:pre_tlog("NewPlayerNode",tonumber(data) )
     end
 end
 
@@ -4697,7 +4781,7 @@ function get_union_ef( self )
     local union = self:get_union()
     if union and not union:is_new() then
         return union:get_ef(),self:get_castle_ef()--奇迹buf
-    elseif self.cross_gs == 1 then
+    elseif self.cross_gs ~= gMapID then
         return self.ef_u, self.ef_ue
     end
     return {},{}
@@ -4730,7 +4814,7 @@ can_ply_join_act[ACT_TYPE.NPC] = function(ply)
         return false
     end
 
-    if (gTime - ply._union.tmJoin ) <= (12 * 3600) then
+    if ( ply._union.join_tm or 3 ) > 2 and (gTime - ply._union.tmJoin ) <= (12 * 3600) then
         ply:add_debug(string.format("join union  %f", (gTime - ply._union.tmJoin) / 3600))
         return false
     end
@@ -4767,7 +4851,7 @@ can_ply_join_act[ACT_TYPE.LT] = function(ply)
         return false
     end
 
-    if (gTime - ply._union.tmJoin) <= (12 * 3600) then
+    if ( ply._union.join_tm or 3 ) > 2 and (gTime - ply._union.tmJoin) <= (12 * 3600) then
         return false
     end
 
@@ -4790,7 +4874,7 @@ can_ply_join_act[ACT_TYPE.MC] = function(ply)
         return false
     end
 
-    if (gTime - ply._union.tmJoin) <= (12 * 3600) then
+    if ( ply._union.join_tm or 3 ) > 2 or (gTime - ply._union.tmJoin) <= (12 * 3600) then
         return false
     end
 
@@ -5027,10 +5111,28 @@ end
 
 
 
+function search_entity( self, sn, propid )
+    local eids = get_around_eids( self.eid, 200 )
+    local target_ety = false
+    local target_dist = math.huge
+    if #eids > 0 then
+        for _, eid in pairs( eids ) do
+            local ety = get_ety( eid )
+            if ety and ety.propid == propid then
+                if not ety.troop_comings or table_count( ety.troop_comings ) < 1 then
+                    local dist = math.max( math.abs( ety.x - self.x ), math.abs( ety.y - self.y ) )
+                    if dist < target_dist then
+                        target_dist = dist
+                        target_ety = ety
+                    end
+                end
+            end
+        end
+    end
 
-
-
-
-
-
+    if target_ety then
+        print( "found_ety", propid, target_ety.x, target_ety.y )
+        Rpc:found_entity( self, sn, propid, target_ety.x, target_ety.y )
+    end
+end
 

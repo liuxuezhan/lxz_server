@@ -355,7 +355,7 @@ function Tlog(log_name, ...)
         for i=1,10 do
             table.insert(info,"null")
         end
-       -- lxz(info)
+        --lxz(info)
     end
     info = table.concat(info, '|')
     c_tlog(info)
@@ -383,12 +383,12 @@ function print_tab(sth,h)
             if sth then
                 cprint(h.."true",1) 
             else 
-                cprint(h.."true",1)
+                cprint(h.."false",1)
             end 
         elseif type(sth) == "function" then 
             cprint(h.."function",1)
-        elseif type(sth) == "string" and (not string.find(sth,'^[_%a][_.%w]*$')) then
-            cprint(h.."\""..sth.."\"",1)
+        elseif type(sth) == "string" then
+            cprint(h.."\\\""..sth.."\\\"",1)
         else
             cprint(h..sth,1)
         end
@@ -405,8 +405,8 @@ function print_tab(sth,h)
             local key = tostring(k)
             if type(k)=="number" then
                 key = "["..key.."]"
-            elseif type(k) == 'string' and (not string.find(k,'^[_%a][_.%w]*$')) then
-                key = "[\""..key.."\"]"
+            elseif type(k) == "string" then
+                key = "[\\\""..key.."\\\"]"
             end
 
             if type(v) == "table" then
@@ -416,8 +416,16 @@ function print_tab(sth,h)
                 _dump(v)
                 cprint(string.format("%s}",string.rep(space, deep-1)))
                 deep = deep - 2
-            elseif type(v) == "string" and (not string.find(v,'^[_%a][_.%w]*$')) then
-                cprint(string.format("%s%s = \"%s\"", string.rep(space, deep + 1), key, v)) 
+            elseif type(v) == "string" then
+                cprint(string.format("%s%s = \\\"%s\\\"", string.rep(space, deep + 1), key, v)) 
+            elseif type(v) == "function" then 
+                cprint(string.format("%s%s = function", string.rep(space, deep + 1), key )) 
+            elseif type(v) == "boolean" then
+                if sth then
+                    cprint(string.format("%s%s = true", string.rep(space, deep + 1), key )) 
+                else 
+                    cprint(string.format("%s%s = false", string.rep(space, deep + 1), key )) 
+                end 
             else
                 cprint(string.format("%s%s = %s", string.rep(space, deep + 1), key, v)) 
             end 

@@ -426,15 +426,22 @@ MAIL_UNREAD_OP = {
     CONSUME = 3,
 }
 
--- Zhao@2015年12月3日 ：Language
-language_def = {
-	[40] = {text = "中文(简体)",icon = "icon_language_cn"},
-	[41] = {text = "繁體中文",icon = "icon_language_cn"},
-	[10] = {text = "English",icon = "icon_language_en"},
-	[22] = {text = "日 本 語",icon = "icon_language_jpn"},
-	[15] = {text = "Deutsch",icon = "icon_language_de"},		-- 德语
-	[14] = {text = "Français",icon = "icon_language_fra"},			-- 法语
-	[36] = {text = "ภาษาไทย",icon = "icon_language_th"}			-- 泰语
+-- Zhao@2016年11月23日 ：道具class类型的宏定义
+ITEM_TYPE = {
+    RES = 1,                --1、资源
+    BOX = 2,                --2、箱子
+    ACC_ITEM = 3,           --3、加速道具
+    HERO_ITEM = 4,          --4、英雄碎片+英雄经验书
+    HERO_SKILL = 5,         --5、英雄技能书
+    EQUIP_CAILIAO = 6,      --6、装备材料
+    CIVIL_FAMOUS = 7,       --7、名产
+    BUFF_ITEM = 8,          --8、buff类道具
+    SOLDIER_ITEM = 9,       --9、直接获得士兵
+    MOVECITY = 10,          --10、迁城道具
+    MARCH_ITEM = 11,        --11、行军道具+城建道具
+    FRAGMENT = 12,          --12、碎片
+    ACTIVITY_ITEM = 13,     --13、以后的活动道具
+    OTHER = 20,             --20、杂项，对于无法进行归类，同时由于过于零散，无法新建class的  
 }
 
 -- Hx@2015-12-04 : union state in player eye
@@ -650,7 +657,7 @@ MassTime = {
 TroopSpeed = {
     [ TroopAction.Spy ] = 100,
     [ TroopAction.SaveRes ] = 10,
-    --[ TroopAction.SupportRes ] = 10,
+    [ TroopAction.SupportRes ] = 10,
     [ TroopAction.GetRes ] = 10,
     [ TroopAction.Declare ] = 100,
     [ TroopAction.SiegeMonsterCity ] = 20,
@@ -1149,12 +1156,15 @@ SKILL_CLASS = {
 }
 
 SKILL_TYPE = {
-    FIGHT     = 0,  -- 战斗技能
-    NOT_FIGHT = 1,  -- 非战斗技能
+    FIGHT_TALENT = 0, -- 特技, 一个， 英雄自带。
+    FIGHT_BASIC = 1,  -- 战斗被动技能，多个，需要学习。
+    BUILD = 2,  -- 城建技能
+    FIGHT_AFTER_FIGHT = 3,  -- 战斗结算技能
+    LORD = 4,  -- 领主技能
 }
 
 -- 英雄卡折算成碎片时的比例
-HERO_CARD_2_PIECE_RATIO = 0.8
+HERO_CARD_2_PIECE_RATIO = 1
 
 -- 重置技能时经验返回比例
 RESET_SKILL_RETURN_RATIO = 0.5
@@ -1630,7 +1640,7 @@ PLAYER_INIT = {
     ef_eid = 0,  --影响自己的奇迹,
     ef_u = {}, --飞服时使用军团buf,
     ef_ue = {}, --飞服时使用军团奇迹buf,
-    cross_gs = 0, --是否跨服,
+    cross_gs = 0, --所在服的id服 跨服用,
 }
 
 --改变头像金币消耗

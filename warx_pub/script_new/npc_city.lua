@@ -560,7 +560,8 @@ function declare_notify(atk_eid, npc_eid)
         if union then
             local _members = union:get_members()
             for k, ply in pairs(_members or {}) do
-                ply:send_system_notice(conf.Mail, {npc_conf.Name},{unions, npc_conf.Name})
+                --ply:send_system_notice(conf.Mail, {npc_conf.Name},{unions, npc_conf.Name})
+                player_t:send_system_notice(ply, conf.Mail, {npc_conf.Name},{unions, npc_conf.Name})
             end
                -- player_t.send_system_to_all(conf.Mail, {},{unions, npc_conf.Name})
         end

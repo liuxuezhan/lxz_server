@@ -50,7 +50,7 @@ function inc_item(self, id, num, reason)
     --任务
     task_logic_t.process_task(self, TASK_ACTION.GET_ITEM, id, num)
 
-    Tlog("ItemFlow",self:pre_tlog(),0,0,id,num,its[idx][3],reason,0,0,0)
+    self:pre_tlog("ItemFlow",0,0,id,num,its[idx][3],reason,0,2,0)
     reason = reason or VALUE_CHANGE_REASON.DEFAULT
     if reason == VALUE_CHANGE_REASON.DEFAULT then
         ERROR("inc_item: pid = %d, don't use the default reason.", self.pid)
@@ -96,7 +96,7 @@ function dec_item(self, idx, num, reason)
         LOG("[ITEM] dec_item: pid = %d, idx = %d, item_id = %d, num = %d, total = %d, reason = %d.", self.pid, idx, item[2], num, item[3], reason)
         --任务
         task_logic_t.process_task(self, TASK_ACTION.USE_ITEM, propid, num)
-    Tlog("ItemFlow",self:pre_tlog(),0,0,propid,num,item[3],reason,0,0,1)
+        self:pre_tlog("ItemFlow",0,0,propid,num,item[3],reason,0,2,1)
         return true
     else
         LOG("[ITEM] dec_item: pid = %d, idx = %d, item_id = %d, num = %d > have = %d", self.pid, idx, item[2], num, item and item[3] or -1)
@@ -459,7 +459,7 @@ function buy_item(self, id, num, use)
             else
                 self:add_bonus("mutex_award", conf.Item,  VALUE_CHANGE_REASON.MALL_BUY, num)
             end
-            Tlog("StoreBuy",self:pre_tlog(),0,id,0,0,cost)
+            self:pre_tlog("StoreBuy",0,id,num,conf.Class,2,cost)
         end
     end
 end

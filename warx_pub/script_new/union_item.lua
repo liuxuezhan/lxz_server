@@ -63,7 +63,7 @@ function get(ply,idx)--领取或清除军团礼物
                 ply:add_bonus(v.propid[1], v.propid[2],VALUE_CHANGE_REASON.UNION_ITEM)
             end
             ply.union_item.item[k] = nil 
-            gPendingDelete.union_item[ply.pid][tostring(k)] = 1 
+            gPendingSave.union_item[ply.pid] = ply.union_item.item 
             return 
         end
     end

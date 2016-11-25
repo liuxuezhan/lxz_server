@@ -82,6 +82,10 @@ function get_leader(self)
 end
 
 function get_members(self)
+    return self._members
+end
+
+function get_all_members(self)
     if self._members then return self._members end
     local map_id = self.map_id
     local func = "get_remote_members"
@@ -482,10 +486,10 @@ end
 -- union member level limit
 function check_mem(self, prop)
     local num = 0
-    local _members = self:get_members()
+    local _members = self:get_all_members()
     if _members then
         for k, v in pairs( _members or {}) do
-            local lv = v:get_castle_lv()
+            local lv = player_t:get_castle_lv(v)
             if lv then
                 if  lv >= prop.Condition[1] then
                     num = num +1
@@ -936,7 +940,7 @@ function notifyall(self, what, mode, data)
     local pids = {}
     local _members = self:get_members()
     for _, p in pairs(_members or {}) do
-        if p:is_online() then
+        if player_t.is_online(p) then
             table.insert(pids, p.pid)
         end
     end

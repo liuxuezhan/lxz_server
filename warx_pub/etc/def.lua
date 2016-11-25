@@ -15,7 +15,7 @@ _list={
     warx = {   host = "192.168.103.225", port = 8888, maxclient=3000, room ="room1", db_name = "db_server1" }, 
 }
 
-g_warx_t = {   port = 60003, maxclient=3000, room ="room1", db_name = "db_server1" } 
+g_warx_t = {   port = 8888, maxclient=3000, room ="room1", db_name = "db_server1" } 
 
 --数据库
 g_db = {
@@ -95,10 +95,30 @@ end
 function c_add_scan(...)
 end
 
+local x,y=0,0
+function c_get_pos_born(...)
+    x = x + 4
+    return x,y
+end
+
 function c_roi_view_start(...)
 end
 
+function c_time_set_start(...)
+end
+
+function c_time_step(...)
+end
+
+function c_time_release(...)
+end
+
 function   addTimer(...)
+end
+local id = 1 
+function getId(name)
+    id = id + 1
+    return id
 end
 
 skiplist = {
@@ -136,6 +156,9 @@ mathx = {
  function     pushOver(...)
  end
  function     c_set_gate( ...)
+ end
+
+ function c_md5(...)
  end
 
  function connect(host,port,...)

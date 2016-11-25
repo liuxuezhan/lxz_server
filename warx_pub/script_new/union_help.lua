@@ -77,31 +77,36 @@ function set_one(p,cur)
     local num = get_table_valid_count(u.help[cur].log or {} )
 
     local t = timer.get(u.help[cur].id)
-        local pid = t.param[1]
+    local pid = t.param[1]
     if t and (t.what == "build" or t.what == "cure" or t.what == "hero_cure")and p.pid~=pid  then
-        local idx = t.param[2]
         local w = getPlayer(pid)
-        local limit = w:get_val("CountHelp")
-        local tm = w:get_val("TimeHelp")
-        if limit>num then
-            timer.acc(t._id,tm)
-            if t.what == "cure" or t.what == "hero_cure"  then
-                for k, v in pairs( w:get_build() or {}) do
-                    local conf = resmng.get_conf("prop_build", v.propid)
-                    if conf.Mode == BUILD_FUNCTION_MODE.HOSPITAL then
-                        Rpc:stateBuild(w, {idx=v.idx,tmOver=t.over,h_name=p.name })
+        if  w then
+            local limit = w:get_val("CountHelp")
+            local tm = w:get_val("TimeHelp")
+            if limit>num then
+                timer.acc(t._id,tm)
+                if t.what == "cure" or t.what == "hero_cure"  then
+                    for k, v in pairs( w:get_build() or {}) do
+                        local conf = resmng.get_conf("prop_build", v.propid)
+                        if conf.Mode == BUILD_FUNCTION_MODE.HOSPITAL then
+                            v.tmOver = t.over
+                           -- Rpc:stateBuild(w, {idx=v.idx,tmOver=build.tmOver,h_name=p.name })
+                        end
                     end
+                else
+                    local idx = t.param[2]
+                    local build = w:get_build(idx)
+                    build.tmOver = t.over
+                    --Rpc:stateBuild(w, {idx=idx,tmOver=t.over,h_name=p.name })
                 end
-            else
-                Rpc:stateBuild(w, {idx=idx,tmOver=t.over,h_name=p.name })
+                u.help[cur].log[p.pid]=p.pid
+                union_mission.ok(p,UNION_MISSION_CLASS.HELP,1)
+                --任务
+                task_logic_t.process_task(p, TASK_ACTION.UNION_HELP_NUM, 1)
             end
-            u.help[cur].log[p.pid]=p.pid
-            union_mission.ok(p,UNION_MISSION_CLASS.HELP,1)
-            --任务
-            task_logic_t.process_task(p, TASK_ACTION.UNION_HELP_NUM, 1)
-        end
-        if limit == (num + 1) then
-            union_help.del(p,cur)
+            if limit == (num + 1) then
+                union_help.del(p,cur)
+            end
         end
     end
 end

@@ -173,8 +173,7 @@ function get_build_list(union)
     if union then
         local build = union:get_build()
         for _, t in pairs(build or {}) do
-            local c = resmng.get_conf("prop_world_unit",t.propid)
-            if c.Mode == UNION_CONSTRUCT_TYPE.RESTORE then
+            if is_union_restore(t.propid) then
                 if union_build_t.get_res_count(union) > 0 then
                     t.ga_state = 1
                 else
@@ -227,12 +226,7 @@ function union_create(self, name, alias, language, mars)
     -- register union chat room
     create_chat_room(union)
 
-    local c = resmng.get_conf("prop_language_cfg",union.language)
-    if not c  then
-        WARN("没有propid:"..union.language)
-        return
-    end
-    Rpc:tips({pid=-1,gid=_G.GateSid}, 2,resmng.NOTIFY_UNION_CREATE,{self.name,c.Text,union.name})
+    Rpc:tips({pid=-1,gid=_G.GateSid}, 2,resmng.NOTIFY_UNION_CREATE,{self.name,union.language,union.name,union.alias})
     Rpc:union_on_create(self, union:get_info())
     --任务
     task_logic_t.process_task(self, TASK_ACTION.JOIN_PLAYER_UNION)
@@ -430,6 +424,11 @@ function union_reject(self, pid)
 end
 
 function union_enlist_set(self, check,text,lv,pow)
+
+    if check_ply_cross(self) then
+        ack(self, "union_enlist_set", resmng.E_DISALLOWED) return
+    end
+
     local u = unionmng.get_union(self:get_uid())
     u.enlist = {check = check ,text=text,lv=lv, pow=pow}
 end
@@ -479,6 +478,14 @@ end
 
 function union_list(self,name)
 
+    if check_ply_cross(self) then
+        local u = unionmng.get_union(self.uid)
+        if u then
+            remote_cast(u.map_id, "union_list", {"player", self.pid, name})
+            return
+        end
+    end
+
     local ret = {name = name,list={}}
     if name ~= "" then
         local data = dbmng:getOne().union_t:find({name={["$regex"]=name}})
@@ -519,7 +526,7 @@ function union_list(self,name)
     for k, uid in pairs( us or {}  ) do
         if uid == 0 then break end
         local u = unionmng.get_union(uid)
-        if u and (not u:is_new()) and u:check() then 
+        if u and (not u:is_new()) and u:check() and (not check_union_cross(u) )then 
             if self.language == u.language then
                 if not u1  then 
                     u1 = u 
@@ -588,6 +595,11 @@ function union_invite(self, pid)
 end
 
 function union_invite_migrate(self,pids)
+
+    if check_ply_cross(self) then
+        ack(self, "union_invite_migrate", resmng.E_DISALLOWED) return
+    end
+
     local u = unionmng.get_union(self:get_uid())
     if not u then WARN("没有军团") return end
 
@@ -802,6 +814,11 @@ end
 --}}}
 
 function union_troop_buf(self)
+
+    if check_ply_cross(self) then
+        ack(self, "union_troop_buf", resmng.E_DISALLOWED) return
+    end
+
     if not union_t.is_legal(self, "Global2") then
         WARN("没权限")
         return
@@ -1488,15 +1505,29 @@ end
 function get_name_info( ety )
     local info = {}
     info.propid = ety.propid
-    if is_ply( ety ) then
-        info.name = ety.name
-        local union = ety:get_union()
-        if union then
-            info.uid = union.uid
-            info.alias = union.alias
+    info.eid = ety.eid
+    local pid = ety.pid
+    if pid and pid >= 10000 then
+        local ply = getPlayer( pid )
+        if ply then
+            info.name = ply.name
+            local union = ply:get_union()
+            if union then
+                info.uid = union.uid
+                info.alias = union.alias
+            end
         end
-        info.eid = ety.eid
     end
+
+    --if is_ply( ety ) then
+    --    info.name = ety.name
+    --    local union = ety:get_union()
+    --    if union then
+    --        info.uid = union.uid
+    --        info.alias = union.alias
+    --    end
+    --    info.eid = ety.eid
+    --end
     return info
 end
 
@@ -2082,7 +2113,7 @@ function union_battle_room_detail(self, room_id)
                 end
             end
             if is_npc_city( D ) then
-                infoD.count_max = npc_city.hold_limit( D )
+                _, infoD.count_max = npc_city.hold_limit( D )
             elseif is_ply( D ) then
                 infoD.count_max = D:get_val( "CountRelief" )
             end
@@ -2099,6 +2130,11 @@ function union_help_get(self )
 end
 
 function union_help_add(self ,sn)
+
+    if check_ply_cross(self) then
+        ack(self, "union_help_add", resmng.E_DISALLOWED) return
+    end
+
     union_help.add(self,sn)
 end
 
@@ -2136,6 +2172,11 @@ function union_item_get(self,idx)
 end
 
 function union_god_add(self,mode)
+
+    if check_ply_cross(self) then
+        ack(self, "union_god_add", resmng.E_DISALLOWED) return
+    end
+
     union_god.add(self,mode)
 end
 

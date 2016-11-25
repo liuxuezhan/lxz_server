@@ -385,6 +385,7 @@ end
 --集结
 function union_mass_create(self, dest_eid, wait_time, arm)
     if self:check_mass_time(wait_time) == false then return end
+    if wait_time == 900 then wait_time = 300 end
     if self.uid == 0 then return end
 
     local D = get_ety(dest_eid)
@@ -584,9 +585,6 @@ function union_mass_join(self, dest_eid, dest_troop_id, arm)
         num = num + n
     end
 
-    print( "union_mass_join, self+comming+me", num )
-    print( "union_mass_join, CountRallySoldier", T:get_val( "CountRallySoldier" ) )
-
     if num > T:get_val("CountRallySoldier") then
         Rpc:tips(self, 3, resmng.UNION_MASS_JOIN ,{})
         return
@@ -600,18 +598,20 @@ function union_mass_join(self, dest_eid, dest_troop_id, arm)
 
     if self:check_troop_action( dest, troopT.action) then return end
 
+    if troopT.action == TroopAction.SiegeMonster then
+        if self.sinew < 10 then return end
+    end
+
+    arm.heros = {}
     if not self:check_arm(arm)  then return end
     local troopA = troop_mng.create_troop(TroopAction.JoinMass, self, T, arm)
     troopA.dest_troop_id = dest_troop_id
     troopA:go()
 
-    if is_monster(T) then  -- cut point
-        T:mark()
+    if troopT.action == TroopAction.SiegeMonster then
         self:dec_sinew( 10 )
     end
-
-    --troopT:add_mark_id(troopA._id)
-
+    
     if is_monster_city(dest) then
         if not dest:can_atk_def_mc(self.pid) then
             self:add_debug( "already atk" )
@@ -619,10 +619,7 @@ function union_mass_join(self, dest_eid, dest_troop_id, arm)
         end
     end
 
-    local troopD = dest:get_my_troop()
-    if not troopD then return end
-
-    union_hall_t.battle_room_update(OPERATOR.UPDATE, troopT, troopD)
+    union_hall_t.battle_room_update(OPERATOR.UPDATE, troopT )
 end
 
 function declare_tw_req(self, dest_eid)  
@@ -650,7 +647,7 @@ function declare_tw_req(self, dest_eid)
         end
     end
 
-    local union = self.union(self) 
+    local union = self:union() 
     if not union then 
         add_debug(self, "没有军团 宣战失败")
         if not debug_tag then
@@ -693,6 +690,10 @@ function decalre_atk_mc(self, dest_eid)
 end
 
 function union_aid_count(self, pid)
+    if check_ply_cross(self) then
+        ack(self, "union_aid_count", resmng.E_DISALLOWED) return
+    end
+
     local data = { pid = pid, }
     local A = getPlayer(pid)
     if A then
@@ -726,6 +727,7 @@ function support_arm(self, dest_eid, arm)
         return
     end
 
+    arm.heros = {}
     local troop = troop_mng.create_troop(TroopAction.SupportArm, self, dest, arm)
     troop:go()
     
@@ -738,6 +740,11 @@ function support_arm(self, dest_eid, arm)
 end
 
 function support_res(self, dest_eid, res)
+
+    if check_ply_cross(self) then
+        ack(self, "support_res", resmng.E_DISALLOWED) return
+    end
+
     local dest = get_ety(dest_eid)
     if not dest then return end
     if not is_ply(dest) then return end
@@ -1019,60 +1026,65 @@ function cancle_specialty(self, dest_eid, item)
     --CancleSpecialty = 21,  --下架特产
 end
 
+function troop_cancel_mass( self, tid )
+    local troop = troop_mng.get_troop( tid )
+    if troop and troop.owner_pid == self.pid and troop:is_ready() then
+        troop:back_mass_power()   -- 解散集结
+        troop_mng.dismiss_mass(troop)
+    end
+end
+
 function troop_recall(self, dest_troop_id)
     local troop = troop_mng.get_troop(dest_troop_id)
     if troop then
-        troop.fid = nil
-
-        if not (troop.owner_pid == self.pid or (troop.arms and troop.arms[ self.pid ] ) ) then 
-            Mark( "troop_recall, self.pid = %d, troop_id = %d", self.pid, dest_troop_id )
-            return 
+        
+        if troop.owner_pid ~= self.pid then
+            if troop:is_go() then return end
+            if troop:is_back() then return end
+            if not ( troop.arms and troop.arms[ self.pid ] ) then return end
         end
 
-        if troop.is_mass == 1 and troop.owner_pid == self.pid then
-            if not self:dec_item_by_item_id( resmng.ITEM_RECALL_MASS, 1, VALUE_CHANGE_REASON.TROOP_RECALL ) then 
-                local conf = get_mall_item( resmng.ITEM_RECALL_MASS )
-                if not conf then return end
-                if self.gold < conf.NewPrice then return end
-                self:dec_gold( conf.NewPrice, VALUE_CHANGE_REASON.TROOP_RECALL )
-            end
-        else
-            if not self:dec_item_by_item_id( resmng.ITEM_RECALL_NORMAL, 1, VALUE_CHANGE_REASON.TROOP_RECALL ) then 
-                local conf = get_mall_item( resmng.ITEM_RECALL_NORMAL )
-                if not conf then return end
-                if self.gold < conf.NewPrice then return end
-                self:dec_gold( conf.NewPrice, VALUE_CHANGE_REASON.TROOP_RECALL )
+        troop.fid = nil
+
+        if troop:is_go() then
+            if troop.is_mass == 1 then
+                if not self:dec_item_by_item_id( resmng.ITEM_RECALL_MASS, 1, VALUE_CHANGE_REASON.TROOP_RECALL ) then 
+                    local conf = get_mall_item( resmng.ITEM_RECALL_MASS )
+                    if not conf then return end
+                    if self.gold < conf.NewPrice then return end
+                    self:dec_gold( conf.NewPrice, VALUE_CHANGE_REASON.TROOP_RECALL )
+                    task_logic_t.process_task(self, TASK_ACTION.USE_ITEM, resmng.ITEM_RECALL_MASS, 1)
+                end
+            else
+                if not self:dec_item_by_item_id( resmng.ITEM_RECALL_NORMAL, 1, VALUE_CHANGE_REASON.TROOP_RECALL ) then 
+                    local conf = get_mall_item( resmng.ITEM_RECALL_NORMAL )
+                    if not conf then return end
+                    if self.gold < conf.NewPrice then return end
+                    self:dec_gold( conf.NewPrice, VALUE_CHANGE_REASON.TROOP_RECALL )
+                    task_logic_t.process_task(self, TASK_ACTION.USE_ITEM, resmng.ITEM_RECALL_NORMAL, 1)
+                end
             end
         end
 
         local action = troop:get_base_action()
         if troop:is_go() then
+            union_hall_t.battle_room_remove(troop)
+
             if action ~= TroopAction.Camp then
                 local D = get_ety( troop.target_eid )
                 if D then
                     if D.troop_comings then
                         D.troop_comings[ troop._id ] = nil
-                        if D.on_troop_cancel then
-                            D:on_troop_cancel( troop )
-                        end
-                   end
-                   if not is_ply( D ) and D.pid and D.pid >= 10000 then
+                        if D.on_troop_cancel then D:on_troop_cancel( troop ) end
+                    end
+
+                   if ( not is_ply( D ) ) and D.pid and D.pid >= 10000 then
                        local B = getPlayer( D.pid )
                        if B then
-                           if B.on_troop_cancel then
-                               B:on_troop_cancel( troop )
-                           end
+                           if B.on_troop_cancel then B:on_troop_cancel( troop ) end
                        end
                    end
                 end
-            end
-
-            if aciton == TroopAction.SiegeCamp then
-
-            end
-
-            if action == TroopAction.Gather then
-
             end
 
             if action == TroopAction.SaveRes then
@@ -1084,8 +1096,6 @@ function troop_recall(self, dest_troop_id)
                 end
                 troop:add_goods(real_res, VALUE_CHANGE_REASON.REASON_UNION_SAVE_RESTORE )
             end
-
-            union_hall_t.battle_room_remove(troop)
 
             troop.action = troop:get_base_action() + 300
             troop.curx , troop.cury = c_get_actor_pos(troop.eid)
@@ -1115,26 +1125,10 @@ function troop_recall(self, dest_troop_id)
             chg.tmOver  = troop.tmOver
             chg.action = troop.action
 
-            --if troop.is_mass == 1 then
-            --    troop.action = troop:get_base_action() + 300
-            --    troop.sx, troop.sy = troop.dx, troop.dy
-            --    troop.dx, troop.dy = get_ety_pos( self )
-            --    troop:start_march()
-            --else
-            --    troop:back()
-            --end
-
             if action == TroopAction.JoinMass then
                 local troopT = troop_mng.get_troop(troop.dest_troop_id)
                 if troopT then
-                    --troopT:rem_mark_id(troop._id)
-                    local D = get_ety(troopT.target_eid)
-                    if D then
-                        local troopD = D:get_my_troop()
-                        if troopD then
-                            union_hall_t.battle_room_update(OPERATOR.UPDATE, troopT, troopD)
-                        end
-                    end
+                    union_hall_t.battle_room_update(OPERATOR.UPDATE, troopT)
                 end
             elseif action == TroopAction.SupportArm then
                 local dest = get_ety(troop.target_eid)
@@ -1166,7 +1160,7 @@ function troop_recall(self, dest_troop_id)
                 end
             elseif action == TroopAction.HoldDefense then
                 local camp = get_ety(troop.target_eid)
-                if camp  and camp.hold_troop then
+                if camp and camp.hold_troop then
                     camp.hold_troop[troop._id]= nil
                 end
                 union_hall_t.battle_room_update_ety(OPERATOR.UPDATE, dest)
@@ -1241,6 +1235,7 @@ function troop_acc(self, troopid, itemid)
                 if not conf then return end
                 if self.gold < conf.NewPrice then return end
                 self:dec_gold( conf.NewPrice, VALUE_CHANGE_REASON.ACC_TROOP )
+                task_logic_t.process_task(self, TASK_ACTION.USE_ITEM, itemid, 1)
             end
             local rate = 1 + item.Param * 0.0001
             troop:acc_march( rate )

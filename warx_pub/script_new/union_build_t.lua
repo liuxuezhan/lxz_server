@@ -231,7 +231,7 @@ function restore_del_res(uid,pid,e,res )--取出资源
     end
 
     if not u.restore then return false  end
-    for _, v in pairs(u.restore.sum or {}) do
+    for k, v in pairs(u.restore.sum or {}) do
         if not pid  then--全取时需要创建行军队列
             if not res then 
                 res = copyTab(v.res)
@@ -255,8 +255,16 @@ function restore_del_res(uid,pid,e,res )--取出资源
                 if not can_res(u,v.pid,res) then
                     return false
                 end
+
+                local f = true 
                 for i = 1, #res do
                     v.res[i] = v.res[i] - res[i] 
+                    if v.res[i]~= 0  then
+                        f = false
+                    end
+                end
+                if f==true then
+                    u.restore.sum[k]= nil 
                 end
                 gPendingSave.union_t[u._id].restore = u.restore
                 return true
@@ -670,6 +678,10 @@ function acc(obj)--结算
         elseif obj.my_troop_id and type(obj.my_troop_id)=="table" then -- 采集
             gather(obj)
         else
+            local tr = troop_mng.get_troop(obj.my_troop_id)
+            if not tr then
+                obj.my_troop_id = nil 
+            end
             obj.holding = 0
         end
         building(obj) --部队修理
@@ -721,8 +733,8 @@ function building(obj) --部队修理
     --先结算
     if obj.tmStart_b ~= 0 then
         obj.hp = obj.hp + obj.build_speed *(gTime - obj.tmStart_b)
+        obj.tmStart_b = gTime
     end
-    obj.tmStart_b = gTime
 
     if obj.fire_tmStart ~= 0 then
         obj.hp = obj.hp + obj.fire_speed *(gTime - obj.fire_tmStart)
@@ -768,6 +780,7 @@ function building(obj) --部队修理
     end
 
     local maxhp = resmng.get_conf("prop_world_unit", obj_id).Hp
+    if player_t.debug_tag then obj.hp = maxhp  end
     if obj.hp >=  maxhp then 
         obj.propid = obj_id
         obj.hp = maxhp 
@@ -823,9 +836,6 @@ function building(obj) --部队修理
             return
         end
         local speed = pow *(c.Speed or 0) /(1000*10000 )
-        if player_t.debug_tag then
-            speed = 1000000000
-        end
         tr:set_extra("speed", speed )
     end
 

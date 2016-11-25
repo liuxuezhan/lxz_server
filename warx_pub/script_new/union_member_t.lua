@@ -11,7 +11,13 @@ function load()
             p._union = copyTab(data)
             local union = unionmng.get_union(p:get_uid())
             if union then
-                union._members[p.pid] = p
+                if union._members then
+                    union._members[p.pid] = p
+                else
+                    local _members = union._members or {}
+                    _members[p.pid] = p
+                    union._members = _members
+                end
             end
             p._union.buildlv = {}
             for k,v in pairs (data.buildlv or {}) do
@@ -45,6 +51,7 @@ function create(ply, uid, rank)
         god_log = {lv=0,tm=0},       --战神膜拜记录
         tm_mission = 0,
         cur_item = 0, --已领军团任务奖励
+        join_tm = 0, --加入军团的次数
     }
     gPendingSave.union_member[ply.pid] = data
     ply._union = data

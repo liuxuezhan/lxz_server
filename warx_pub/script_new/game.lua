@@ -108,9 +108,8 @@ function tool_test()
 end
 
 function chat_test()
-    for i=1 , 1000 , 1 do
-        print("tool chat id ", i)
-        to_tool(0, {type = "chat", cmd = "create_chat", user = "user"..tostring(i), host = CHAT_HOST, password = "user"..tostring(i)})
+    for i=10001 , 20000 , 1 do
+        to_tool(0, {type = "chat", cmd = "create_chat", user = "b"..tostring(i), host = CHAT_HOST, password = "b"..tostring(i)})
     end
 end
 
@@ -389,10 +388,23 @@ end
 
 
 function test()
-    for i = 1, 10, 1 do
-        do_reload()
+    local pid = 3750016
+    local p = getPlayer( pid )
+    if p then
+        p:mail_load( 0 )
+        p:mail_drop_by_class( 4, 2, -1 )
     end
-    --local db = dbmng:getOne()
+
+
+    --for i = 1, 20, 1 do
+    --    do_reload()
+    --end
+
+    --local p = getPlayer( 3750014 )
+    --p:refresh_food()
+    --dumpTab( p.res, "refresh_food" )
+
+    local db = dbmng:getOne()
     --local info = db.count:findOne( {_id={["$in"] = {3610031, 361}}} )
     --dumpTab( info, "findOne" )
 
@@ -409,9 +421,20 @@ function test()
     ----dumpTab( info, "test info" )
 
     --local id = 6
-    ----db.report1:insert( {_id=id} )
-    --local val = {a=1, b=2, foo="bar", hello="world"}
-    ----db.report1:update( {_id=id}, { ["$push"]={ vs={["$each"]={val, val}, ["$slice"]=-20 }} }, true )
+    --local val = {foo="bar"}
+    --db.test:update( {_id=id}, { ["$push"]={ vs={["$each"]={val, val}, ["$slice"]=-4 }} }, true )
+
+    --c_tick(0)
+    --for i = 1, 10000, 1 do
+    --    local a = string.dump( function () return resmng.prop_item end, true )
+    --end
+    --print( c_tick( 1 ) )
+
+    --c_tick(0)
+    --for i = 1, 10000, 1 do
+    --    local a = cmsgpack.pack( resmng.prop_item )
+    --end
+    --print( c_tick( 1 ) )
 
     --db.report1:update( {_id=id}, { ["$push"]={ vs=val, ["$clice"]=-5 }}, true )
     --local info = db:runCommand("getLastError")
@@ -703,12 +726,14 @@ function remove_id(tab, id)
 end
 
 function to_tool( sn, info )
+    --[[
     if sn == 0 then sn = getSn("to_tool")  end
     local val = {}
     val._t_ = gTime
     val.info = info
     gPendingToolAck[sn] = val
     Rpc:qry_tool( gAgent, sn ,info )
+    --]]
 end
 
 gReplayMax = 0

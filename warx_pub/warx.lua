@@ -1,7 +1,7 @@
 package.path = package.path..";./?.lua"
 local skynet = require "skynet"
 local socket = require "socket"
-local save = require "save_t"	
+local save = require "my_save"	
 local assert = assert
 
 local socket_id	-- listen socket
@@ -67,9 +67,9 @@ local function accept(fd, addr)
     while 1 do
         local ret = read(fd)
         if ret then
-            local d = json.decode(copy(ret))
-            if d then
+            local d = json.decode(copyTab(ret))
                 lxz(d)
+            if d then
                 if d.f == "firstPacket2" then
                     d.args[1]=fd
                     local p = player_t[d.f](_G.gAgent, unpack(d.args)  ) 

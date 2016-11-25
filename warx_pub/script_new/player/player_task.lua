@@ -208,7 +208,7 @@ function get_task_award(self, task_id)
     local bonus = resmng.prop_task_detail[task_id].Bonus
     self:add_bonus(bonus_policy, bonus, VALUE_CHANGE_REASON.REASON_TASK)
 
-    Tlog("QuestComplete",self:pre_tlog(),task_id )
+    self:pre_tlog("QuestComplete",task_id )
     return true
 end
 

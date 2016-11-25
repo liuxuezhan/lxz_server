@@ -92,10 +92,12 @@ function add_data( idx, key, data, init )
     end
 
 
-    if rank == 0 then
-        node.time = gTime
-    elseif rank <= node.ntop then
-        node.tops = nil
+    if rank then
+        if rank == 0 then
+            node.time = gTime
+        elseif rank <= node.ntop then
+            node.tops = nil
+        end
     end
 end
 

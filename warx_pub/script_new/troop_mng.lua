@@ -397,7 +397,12 @@ gTroopActionTrigger[TroopAction.SiegeMonster] = function(ack_troop)
 
     monster.calc_hp( dest, defense_troop )
 
-    ack_troop:handle_dead( TroopAction.SiegeMonster, 0.95, 0, 1 )
+    local dmg_prop = resmng.prop_damage_rate[resmng.BOSS]
+    local dmg_rate = 0.995
+    if dmg_prop then
+        dmg_rate = 1 - dmg_prop.Damage_rate
+    end
+    ack_troop:handle_dead( TroopAction.SiegeMonster, dmg_rate, 0, 1 )
     if win then ack_troop.flag = 1 end
     local ts = ack_troop:back()
 
@@ -569,8 +574,12 @@ gTroopActionTrigger[TroopAction.SiegeTaskNpc] = function(ack_troop)
     report.hp = hp
     report.hp_lost = before_hp - hp
 
-
-    ack_troop:handle_dead( TroopAction.SiegeTaskNpc, 0.95, 0, 1 )
+    local dmg_prop = resmng.prop_damage_rate[resmng.BOSS]
+    local dmg_rate = 0.985
+    if dmg_prop then
+        dmg_rate = 1 - dmg_prop.Damage_rate
+    end
+    ack_troop:handle_dead( TroopAction.SiegeTaskNpc, dmg_rate, 0, 1 )
     local result = ack_troop:statics()
 
     local A = getPlayer( ack_troop.owner_pid )
@@ -1294,8 +1303,13 @@ gTroopActionTrigger[TroopAction.LostTemple] = function(ack_troop)
 	--开战
 	local win = fight.pvp(TroopAction.SiegeNpc, ack_troop, defense_troop)
 
-    ack_troop:handle_dead( TroopAction.SiegeNpc, 0, 0.95, 1 )
-    if defense_troop.owner_uid ~= 0 then defense_troop:handle_dead( TroopAction.SiegeNpc, 0, 0.95, 1 ) end
+    local dmg_prop = resmng.prop_damage_rate[resmng.LT]
+    local dmg_rate = 0.945
+    if dmg_prop then
+        dmg_rate = 1 - dmg_prop.Damage_rate
+    end
+    ack_troop:handle_dead( TroopAction.LostTemple, 0, dmg_rate, 1 )
+    if defense_troop.owner_uid ~= 0 then defense_troop:handle_dead( TroopAction.SiegeNpc, 0, dmg_rate , 1 ) end
  
     --邮件
     if defense_troop.owner_uid ~= 0 then
@@ -1348,8 +1362,13 @@ gTroopActionTrigger[TroopAction.SiegeNpc] = function(ack_troop)
 	--开战
 	local win = fight.pvp(TroopAction.SiegeNpc, ack_troop, defense_troop)
 
-    ack_troop:handle_dead( TroopAction.SiegeNpc, 0, 0.95, 1 )
-    if defense_troop.owner_uid ~= 0 then defense_troop:handle_dead( TroopAction.SiegeNpc, 0, 0.95, 1 ) end
+    local dmg_prop = resmng.prop_damage_rate[resmng.TW]
+    local dmg_rate = 0.985
+    if dmg_prop then
+        dmg_rate = 1 - dmg_prop.Damage_rate
+    end
+    ack_troop:handle_dead( TroopAction.SiegeNpc, 0, dmg_rate, 1 )
+    if defense_troop.owner_uid ~= 0 then defense_troop:handle_dead( TroopAction.SiegeNpc, 0, dmg_rate, 1 ) end
  
     --邮件
     if defense_troop.owner_uid ~= 0 then
@@ -1520,7 +1539,12 @@ gTroopActionTrigger[TroopAction.MonsterAtkPly] = function(ack_troop)
     if win then local p = get_ety(ack_troop.start_eid) end
 
     local copy_tr = copyTab(defense_troop)
-    defense_troop:handle_dead( TroopAction.SiegeMonsterCity, 0, 0.95, 1 )
+    local dmg_prop = resmng.prop_damage_rate[resmng.MC]
+    local dmg_rate = 0.95
+    if dmg_prop then
+        dmg_rate = 1 - dmg_prop.Damage_rate
+    end
+    defense_troop:handle_dead( TroopAction.SiegeMonsterCity, 0, dmg_rate, 1 )
     --troop_t.dead_to_live_and_hurt( copy_tr, 0.95 )
     send_report[TroopAction.MonsterAtkPly](ack_troop, defense_troop)
 
@@ -1547,8 +1571,12 @@ gTroopActionTrigger[TroopAction.SiegeMonsterCity] = function(ack_troop)
     if win then local p = get_ety(ack_troop.start_eid) end
 
     local copy_tr = copyTab(defense_troop)
-    --troop_t.dead_to_hurt( copy_tr, 0.05 ) -- 不使用 handle_dead
-    defense_troop:handle_dead( TroopAction.SiegeMonsterCity, 0, 0.95, 1 )
+    local dmg_prop = resmng.prop_damage_rate[resmng.MC]
+    local dmg_rate = 0.95
+    if dmg_prop then
+        dmg_rate = 1 - dmg_prop.Damage_rate
+    end
+    defense_troop:handle_dead( TroopAction.SiegeMonsterCity, 0, dmg_rate, 1 )
     send_report[TroopAction.SiegeMonsterCity](ack_troop, defense_troop)
 
     monster_city.after_fight(ack_troop, defense_troop)
@@ -2097,7 +2125,7 @@ function work(obj)
     obj.my_troop_id = nil
 
     for _, v in pairs(l) do
-        if bcc.Mode == resmng.CLASS_UNION_BUILD_FARM or bcc.Mode ==resmng.CLASS_UNION_BUILD_LOGGINGCAMP or bcc.Mode ==resmng.CLASS_UNION_BUILD_MINE or bcc.Mode ==resmng.CLASS_UNION_BUILD_QUARRY  then 
+        if is_union_superres(obj.propid) then 
             v.action = TroopAction.Gather
             trigger_event(v,TroopAction.Gather)
         else
@@ -2215,7 +2243,7 @@ function troop_timer(tsn, tid)
         else
             local prop = resmng.prop_world_unit[monster.propid]
             if prop then  -- only mass success can atk
-                if prop.Declare == 1 and get_table_valid_count(troop.arms or {}) == 1 then
+                if get_table_valid_count(troop.arms or {}) == 1 then
                     troop_mng.dismiss_mass(troop)
                     troop:back_mass_power()
                     return
@@ -2387,7 +2415,6 @@ function dismiss_mass(troop)
 
     for pid, arm in pairs(troop.arms) do
         local A = getPlayer(pid)
-
         if pid ~= pidT then
             local one = create_troop(TroopAction.JoinMass, A, T, arm)
             one.curx, one.cury = x, y
@@ -2402,6 +2429,7 @@ function dismiss_mass(troop)
     if T then
         for tid, action in pairs( T.troop_comings or {} ) do
             if action == TroopAction.JoinMass then
+
                 local one = troop_mng.get_troop( tid )
                 if one and one:is_go() and one.dest_troop_id == troop._id then
                     local x, y = c_get_actor_pos(one.eid)

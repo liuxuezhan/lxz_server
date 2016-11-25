@@ -531,6 +531,7 @@ function skill_fire(skill, hero, A, As, Ds)
     local effect = skill.Effect
     if effect then
         for _, e in pairs(effect) do
+            print( "skill_fire", skill.ID )
             do_skill_fire(skill.Target or "A", hero, A, As, Ds, unpack(e))
         end
     end

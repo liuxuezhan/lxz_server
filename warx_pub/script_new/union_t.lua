@@ -79,6 +79,11 @@ end
 function get_members(self)
     return self._members
 end
+
+function get_all_members(self)
+    return self._members
+end
+
 function get_build(self)
     return self.build
 end
@@ -850,6 +855,7 @@ function rm_member(self, A,kicker)
 
     A:leave_union()
     A.uname = ""
+    A.uid = 0
     etypipe.add(A)
 
     self.donate_rank = {} --清除捐献排行
@@ -1341,12 +1347,13 @@ function add_log(self, what, op,data)
     local total = #self.log
     if total > 100 then
         for i = 1, total - 100 do
-            table.remove(self.log, i)
+            table.remove(self.log, 1)
         end
     end
 
     table.insert(self.log, log)
     dbmng:getOne().union_log:update( {_id=self._id}, { ["$push"]={ log={["$each"]={log}, ["$slice"]=-100 }} }, true )
+
 end
 
 local function log_qfind(t, sn)

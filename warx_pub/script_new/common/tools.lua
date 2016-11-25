@@ -80,7 +80,7 @@ function string.format_ts(s,...)
         return "[R]"..s
     end
 
-    while true do
+    for ijk=1,20 do
         local p=string.sub(s,i,e)
         local mtype=string.sub(p,4,4)
         local index=tonumber(string.sub(p,2,2))
@@ -109,6 +109,11 @@ function string.format_ts(s,...)
                 s=replace_ts(s,i,e,ms)
             else
                 s=replace_ts(s,i,e,get_value(replace_table[index]))
+            end
+        elseif mtype == "y" then           
+            local lancfg = resmng.get_conf("prop_language_cfg",replace_table[index])
+            if lancfg then
+                s = replace_ts(s,i,e,"$"..lancfg.Icon.."$")
             end
         else 
             break
@@ -382,7 +387,7 @@ etypipe = {}
 etypipe[EidType.Player] =       {"propid", "eid", "x", "y", "uid", "pid", "photo", "name", "uname", "officer", "nprison", "state","uflag"}
 etypipe[EidType.Res]    =       {"propid", "eid", "x", "y", "uid", "pid", "val", "extra"}
 --etypipe[EidType.Troop]  =       {"propid", "eid", "culture","action", "owner_eid", "owner_pid", "owner_uid", "target_eid", "target_pid", "target_uid", "sx", "sy", "dx", "dy", "tmCur", "curx", "cury", "speed", "tmStart", "tmOver", "soldier_num","be_atk_list", "flag", "name", "mcid", "alias", "heros", "target_propid", "fid"}
-etypipe[EidType.Troop]  =       {"propid", "eid", "culture","action", "owner_eid", "owner_pid", "owner_uid", "target_eid", "target_pid", "target_uid", "tmStart", "tmOver", "soldier_num","be_atk_list", "flag", "name", "mcid", "alias", "heros", "target_propid", "fid", "is_mass"}
+etypipe[EidType.Troop]  =       {"propid", "eid", "culture","action", "owner_eid", "owner_pid", "owner_uid", "target_eid", "target_pid", "target_uid", "tmStart", "tmOver", "soldier_num","be_atk_list", "flag", "mcid", "heros", "target_propid", "fid", "is_mass", "name", "alias", "propid", "target_name", "target_alias", "target_propid"}
 etypipe[EidType.Monster]=       {"propid", "eid", "x", "y", "hp", "level","born"}
 etypipe[EidType.UnionBuild] =   {"propid", "eid", "x", "y", "uid","alias", "sn","idx","hp","state","name","val","culture","holding","build_speed","fire_speed"}
 etypipe[EidType.NpcCity]=       {"propid", "eid", "x", "y", "state", "startTime","endTime", "unions", "randomAward", "declareUnions", "getAwardMember"}
@@ -824,17 +829,17 @@ function calc_acc_gold(total)
             cost = cost + v[2]
             total = total - v[1]
         else
-            cost = cost + math.ceil(total * v[2] / v[1])
+            cost = cost + total * v[2] / v[1]
             total = 0
             break
         end
     end
     if total > 0 then
         local v = BUY_RES_COST[ #CLEAR_CD_COST ]
-        cost = cost + math.ceil(total * v[2] / v[1])
+        cost = cost + total * v[2] / v[1]
     end
     -- print("time_to_gold", orig, cost)
-    return cost
+    return math.ceil( cost )
 end
 
 function calc_buyres_gold(res_num, res_id)
@@ -1173,7 +1178,8 @@ function check_ply_cross(ply)
     if union then
         return check_union_cross(union)
     end
-    return false
+    return  ply.cross_gs ~= gMapID and ply.cross_gs ~= 0
+    --return false
 --    local p = {}
 --    if type(ply) == "number" then
 --        p = getPlayer(ply) or {}

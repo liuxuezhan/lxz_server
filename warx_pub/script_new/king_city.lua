@@ -455,6 +455,8 @@ function fight_again()
     set_kw_state(KW_STATE.FIGHT)
     local kingCity = get_king()
     if kingCity then
+        reset_other_city(kingCity)
+
         if kingCity.uid ~= 0 then
             do_timer()
         else
@@ -637,16 +639,22 @@ function get_force_prop(city, Type, attr)
 
     local prop = resmng.prop_world_unit[city.propid]
     if prop then
-        if prop.Fire_force[ATK_TYPE[Type]][FORCE_ATTR[attr]] then
-            local base_force = prop.Fire_force[ATK_TYPE[Type]][FORCE_ATTR[attr]]
-            local troop = troop_mng.get_troop(city.my_troop_id)
-            local pow = 0
-            if troop and troop.owner_eid ~= city.eid then
-                pow = troop:get_tr_pow()
+        if attr == "cd" then
+            return prop.Fire_force[ATK_TYPE[Type]][FORCE_ATTR[attr]]
+        elseif attr == "force" then
+            if prop.Fire_force[ATK_TYPE[Type]][FORCE_ATTR[attr]] then
+                local base_force = prop.Fire_force[ATK_TYPE[Type]][FORCE_ATTR[attr]]
+                local troop = troop_mng.get_troop(city.my_troop_id)
+                local pow = 0
+                if troop and troop.owner_eid ~= city.eid then
+                    pow = troop:get_tr_pow()
+                end
+                local force = base_force + prop.Fire_force[ATK_TYPE[Type]][FORCE_ATTR.add] * pow 
+                force = force * factor * 0.0001
+                return force
             end
-            local force = base_force + prop.Fire_force[ATK_TYPE[Type]][FORCE_ATTR.add] * pow 
-            force = force * factor * 0.0001
-            return force
+        elseif attr == "add" then
+            return prop.Fire_force[ATK_TYPE[Type]][FORCE_ATTR[attr]]
         end
     end
 end
@@ -658,7 +666,7 @@ function set_timer(city, Type, troopId)
     if Type == "towerDown" then
         time = get_cd_time(Type, cityType)
     else
-        time = (get_force_prop(city, Type, "cd") * 10) or 60
+        time = get_force_prop(city, Type, "cd")  or 60
     end
 
     local timerId = timer.new("king_city", time, city.eid, Type, troopId)
@@ -677,7 +685,7 @@ function set_timer(city, Type, troopId)
         city.endTime = gTime + time
     end
     etypipe.add(city)
-    try_set_tower_range(city)
+    try_set_tower_range(city) -- 如果是箭塔，重置扫描范围
 end
 --- 要塞对王城射箭
 function try_fire_king(city)
@@ -949,7 +957,7 @@ function deal_troop(atkTroop, defenseTroop)
     end
 end
 
-function deal_other_city(kingCity)
+function reset_other_city(kingCity)
     for k, v in pairs(citys or {}) do
         local city = get_ety(k)
         if city then
@@ -961,6 +969,9 @@ function deal_other_city(kingCity)
                 if troop.owner_eid ~= city.eid then
                     troop:back()
                     --troop_back(troop)
+                else  --清除要塞原npc部队
+                    troop_mng:delete_troop(troop._id)
+                    city.my_troop_id = nil
                 end
             elseif resmng.prop_world_unit[city.propid].Lv == CITY_TYPE.FORT then
                 city.occuTime = gTime
@@ -1173,7 +1184,6 @@ end
 end--]]
 
 deal_new_defender[CITY_TYPE.KING_CITY] = function(city)
-    deal_other_city(city)
     fight_again()
     union_hall_t.battle_room_update_ety(OPERATOR.UPDATE, city)
 end
