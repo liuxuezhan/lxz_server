@@ -75,7 +75,9 @@ local function accept(fd, addr)
                     local p = player_t[d.f](_G.gAgent, unpack(d.args)  ) 
                     plys[fd] = p 
                 else
-                    player_t[d.f](plys[fd], unpack(d.args)  ) 
+                    if player_t[d.f] then
+                        player_t[d.f](plys[fd], unpack(d.args)  ) 
+                    end
                 end
             end
         end

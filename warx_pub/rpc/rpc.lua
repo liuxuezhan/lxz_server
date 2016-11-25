@@ -261,11 +261,11 @@ local function callRpc( rpc, name, plA, ... )
     pack = json.encode(pack)
     --lxz(pack)
     pack = string.pack(">s", pack)
-    if plA.fd then
+    if plA.sockid then
         socket.write(plA.sockid, pack)
     end
 
-    LOG("RpcS, pid=%d, func=%s", plA.pid or 0, name)
+    lxz("RpcS:"..(plA.pid or 0)..":"..name)
 end
 
 local mt = {
