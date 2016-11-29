@@ -787,7 +787,7 @@ function do_gather(troop, dest)
         dura = math.ceil(dura)
         troop.tmOver = gTime + dura
         troop.tmSn = timer.new("troop_action", dura, troop._id)
-        save_ety(dest)
+        union_build_t.gather(dest)
 
     else
         dest.my_troop_id = troop._id
@@ -1267,6 +1267,7 @@ gTroopActionTrigger[TroopAction.Spy] = function(spy_troop)
 end
 
 
+
 gTroopActionTrigger[TroopAction.Declare] = function(troop)
     delete_troop(troop._id)
 
@@ -1291,7 +1292,7 @@ gTroopActionTrigger[TroopAction.LostTemple] = function(ack_troop)
         end
     end
 
-    if ack_troop.atk_uid ~= dest.uid and is_npc_city(dest) then return ack_troop:back() end
+    --if ack_troop.atk_uid ~= dest.uid and is_npc_city(dest) then return ack_troop:back() end
 
     if dest.uid == ack_troop.owner_uid then
         trigger_event(ack_troop, TroopAction.HoldDefense)
@@ -1335,7 +1336,7 @@ gTroopActionTrigger[TroopAction.LostTemple] = function(ack_troop)
     end
 
 	--回城
-    npc_city.deal_troop(ack_troop, defense_troop)
+    lost_temple.deal_troop(ack_troop, defense_troop)
     union_hall_t.battle_room_remove( ack_troop )
 end
 
@@ -1350,7 +1351,7 @@ gTroopActionTrigger[TroopAction.SiegeNpc] = function(ack_troop)
         end
     end
 
-    if ack_troop.atk_uid ~= dest.uid and is_npc_city(dest) then return ack_troop:back() end
+    --if ack_troop.atk_uid ~= dest.uid and is_npc_city(dest) then return ack_troop:back() end
 
     if dest.uid == ack_troop.owner_uid then
         trigger_event(ack_troop, TroopAction.HoldDefense)
@@ -2016,9 +2017,7 @@ gTroopActionTrigger[TroopAction.AtkMC] = function(ack_troop)
         local be_atked_list = dest.be_atked_list or {}
         if be_atked_list[pid] then
             local tr  = ack_troop:split_pid(pid)
-            if tr then
-                tr:back()
-            end
+            if tr then tr:back() end
         else
             be_atked_list[pid] = pid
         end
@@ -2098,9 +2097,7 @@ end
 function work(obj)
 
     local tr = troop_mng.get_troop(obj.my_troop_id)
-    if not tr then
-        return
-    end
+    if not tr then return end
 
     if is_union_miracal(obj.propid) then
         local bcc = resmng.get_conf("prop_world_unit",obj.propid)
@@ -2111,19 +2108,22 @@ function work(obj)
             tr.action = TroopAction.HoldDefense + 200
             tr.tmOver = 0 
             save_ety(tr)
-            return
-        end
+            obj.holding = union_build_t.is_hold(obj)
+            etypipe.add(obj) 
+            return end
     end
 
 --采集需要分拆队列处理
-    local l = {}
+    --local l = {}
     for _, v in pairs(tr.arms) do
         local one = tr:split_pid(v.pid)
-        table.insert(l,one)
+        if one then one:back() end
+       -- table.insert(l,one)
     end
 
     obj.my_troop_id = nil
 
+    --[[
     for _, v in pairs(l) do
         if is_union_superres(obj.propid) then 
             v.action = TroopAction.Gather
@@ -2132,6 +2132,7 @@ function work(obj)
             v:back()
         end
     end
+    --]]
 end
 
 
@@ -2238,14 +2239,14 @@ function troop_timer(tsn, tid)
         local monster = get_ety(troop.target_eid)
         if not monster then -- monster already gone
             troop_mng.dismiss_mass(troop)
-            troop:back_mass_power()
             return
         else
             local prop = resmng.prop_world_unit[monster.propid]
             if prop then  -- only mass success can atk
                 if get_table_valid_count(troop.arms or {}) == 1 then
                     troop_mng.dismiss_mass(troop)
-                    troop:back_mass_power()
+                    local owner = get_ety( troop.owner_eid )
+                    if owner then owner:add_debug( "mass dismiss, no more player" ) end
                     return
                 end
             end
@@ -2337,7 +2338,7 @@ function gather_stop(troop, dp)
                     break
                 end
             end
-            save_ety(dp)
+            union_build_t.gather(dp)
         else
             dp.val = math.floor( dp.val - count )
             if dp.val < 2 then 
@@ -2355,88 +2356,74 @@ end
 
 
 function do_kick_mass(troop, pid)
+    if troop.is_mass ~= 1 then return end
+    if not troop:is_ready() then return end
+    if troop.owner_pid == pid then return end
+    
     local dest = get_ety(troop.target_eid)
-    local dest_troop = dest:get_my_troop()
     union_hall_t.battle_room_update(OPERATOR.UPDATE, troop)
 
+    local T = getPlayer( troop.owner_pid )
     local arm = troop.arms[ pid ]
     if arm then
         troop.arms[ pid ] = nil
-        local T = getPlayer(troop.owner_pid)
         local A = getPlayer(pid)
-        local sx, sy = get_ety_pos(A)
-        local dx, dy = get_ety_pos(T)
         local one = troop_mng.create_troop(TroopAction.JoinMass, A, T, arm)
-        one.curx = dx
-        one.cury = dy
         one:back()
         A:rem_busy_troop(troop._id)
+        if troop.action == TroopAction.SiegeMonster then A:inc_sinew( 10 ) end
 
     else
-        local target 
-        if troop:is_ready() then
-            target = get_ety( troop.owner_eid )
-
-        elseif troop:is_settle() then
-            target = get_ety( toop.target_eid )
-        end
-
-        if target then
-            for tid, action in pairs( target.troop_comings or {} ) do
-                local one = troop_mng.get_troop( tid )
-                if one and one:is_go() and one.dest_troop_id == troop._id then
-                    if one.owner_pid == pid then
-                        local x, y = c_get_actor_pos(one.eid)
-                        if x then
-                            one.curx, one.cury = x, y
-                            one.tmCur = gTime
-                            one:back()
-                        end
+        for tid, action in pairs( T.troop_comings or {} ) do
+            local one = troop_mng.get_troop( tid )
+            if one and one:is_go() and one.dest_troop_id == troop._id then
+                if one.owner_pid == pid then
+                    local A = getPlayer( pid )
+                    if A then 
+                        A:troop_recall( tid, true ) 
+                        if troop.action == TroopAction.SiegeMonster then A:inc_sinew( 10 ) end
                     end
                 end
             end
         end
     end
 
-    if is_monster(dest) then
-        local ply = getPlayer(pid)
-        if ply then
-            ply:inc_sinew(10)
-        end
-    end
 end
 
 function dismiss_mass(troop)
+    if not troop:is_ready() then return end
     union_hall_t.battle_room_remove(troop)
     
     local pidT = troop.owner_pid
     local T = getPlayer(pidT)
     local x, y = get_ety_pos(T)
+    local action = troop.action
 
-    for pid, arm in pairs(troop.arms) do
-        local A = getPlayer(pid)
-        if pid ~= pidT then
-            local one = create_troop(TroopAction.JoinMass, A, T, arm)
-            one.curx, one.cury = x, y
-            one:back()
-            troop.arms[ pid ] = nil
-            A:rem_busy_troop(troop._id)
+    local arms = troop.arms or {}
+    troop.arms = { [ pidT ] = arms[ pidT ] }
+    for pid, arm in pairs(arms) do
+        if pid >= 10000 then
+            local A = getPlayer(pid)
+            if A and pid ~= pidT then
+                if action == TroopAction.SiegeMonster then A:inc_sinew( 10 ) end
+                local one = create_troop(TroopAction.JoinMass, A, T, arm)
+                one:back()
+                A:rem_busy_troop(troop._id)
+            end
         end
     end
-
     troop:home()
 
     if T then
+        if action == TroopAction.SiegeMonster then T:inc_sinew( 10 ) end
         for tid, action in pairs( T.troop_comings or {} ) do
             if action == TroopAction.JoinMass then
-
                 local one = troop_mng.get_troop( tid )
                 if one and one:is_go() and one.dest_troop_id == troop._id then
-                    local x, y = c_get_actor_pos(one.eid)
-                    if x then
-                        one.curx, one.cury = x, y
-                        one.tmCur = gTime
-                        one:back()
+                    local pid = one.owner_pid
+                    if pid >= 10000 then
+                        local A = getPlayer( pid )
+                        if A then A:troop_recall( tid ) end
                     end
                 end
             end

@@ -357,12 +357,14 @@ end
 function send_end_tw_award()
     local us = unionmng.get_all()
     for k, v in pairs(us or {}) do
-        local award = each_union_award(v)
-        if get_table_valid_count(award or {}) >= 1 then
-            local _members = v:get_members()
-            for pid, ply in pairs(_members or {}) do
-                if check_ply_can_award(ply) then
-                    ply:send_system_notice(10012, {}, {}, award)
+        if check_union_cross(v) then
+            local award = each_union_award(v)
+            if get_table_valid_count(award or {}) >= 1 then
+                local _members = v:get_members()
+                for pid, ply in pairs(_members or {}) do
+                    if check_ply_can_award(ply) then
+                        ply:send_system_notice(10012, {}, {}, award)
+                    end
                 end
             end
         end
@@ -438,7 +440,7 @@ function tw_random_award()
         local npcCity = get_ety(v)
         if npcCity then
             local union = unionmng.get_union(npcCity.uid)
-            if union then
+            if union and (not check_union_cross(union)) then
                 local pids = {}
                 local _members = union:get_members()
                 for k, v in pairs(_members or {}) do

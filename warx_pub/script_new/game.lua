@@ -395,6 +395,11 @@ function test()
         p:mail_drop_by_class( 4, 2, -1 )
     end
 
+    local db = dbmng:getOne()
+    for i = 1, 10000, 1 do
+
+    end
+
 
     --for i = 1, 20, 1 do
     --    do_reload()
@@ -458,8 +463,13 @@ function on_shutdown()
         if troop:is_go() or troop:is_back() then
             troop.curx, troop.cury = c_get_actor_pos( troop.eid )
             troop.tmCur = gTime
-            troop:save()
-            print( "save troop", troop.curx or troop.sx, troop.cury or troop.sy, troop.tmCur )
+
+            local chg = gPendingSave.troop[ troop._id ]
+            chg.curx    = troop.curx
+            chg.cury    = troop.cury
+            chg.tmCur    = troop.tmCur
+
+            print( "save troop", troop._id, troop.curx or troop.sx, troop.cury or troop.sy, troop.tmCur )
         end
     end
     _G.gInit = "SystemSaving"

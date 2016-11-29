@@ -193,6 +193,7 @@ function _calc(As)
             local dmgToHp0 = A.ef.DmgToHp0 or 0
             local dmgToHp1 = A.ef.DmgToHp1 or 0
             local hpR = (A.ef.Hp_R or 0) + (A.ef[ string.format( "Hp%d_R", mode ) ] or 0) + (A.ef.Def_R or 0) + (A.ef[ string.format( "Def%d_R", mode ) ] or 0) 
+            if hpR > 0 then print( "_calc, mode, hpR =", mode, hpR ) end
 
             for _, v in pairs(A.objs) do
                 if v.num > 0 then
@@ -804,6 +805,8 @@ fight.pvp = function(action, A0, D0)
     A0.lost = lostA
     D0.lost = lostD
 
+
+
     table.insert(losts, lostA)
     table.insert(losts, lostD)
     table.insert(report, losts)
@@ -1170,6 +1173,7 @@ end
 function init_troop(T)
     local ef = {}
     local efs = {
+    "Hp_R", "Hp1_R", "Hp2_R", "Hp3_R", "Hp4_R",
     "Def_R", "Def1_R", "Def2_R", "Def3_R", "Def4_R",
     "TacticsAtk_R", "TacticsAtk1_R", "TacticsAtk2_R", "TacticsAtk3_R", "TacticsAtk4_R",
     "TacticsCd_R", "TacticsBlock", "TacticsAll", "TacticsMore",
@@ -1550,8 +1554,9 @@ function calc_kill(action, troop, make_dmg, lost_powD, kill_num, kill_lvl)
         if pid > 0 then
             local p = getPlayer(pid)
             if p then
-                local r = arm.mkdmg / make_dmg
+                arm.mkdmg = arm.mkdmg * lost_powD / make_dmg
                 if action == TroopAction.SiegePlayer then
+                    local r = arm.mkdmg / lost_powD
                     local nkill = 0
                     for lv, num in pairs(kill_lvl) do
                         local n = math.floor( r * num )
@@ -1592,7 +1597,6 @@ function calc_kill(action, troop, make_dmg, lost_powD, kill_num, kill_lvl)
                         end
                     end
                 end
-                arm.mkdmg = arm.mkdmg * lost_powD / make_dmg
             end
         end
     end

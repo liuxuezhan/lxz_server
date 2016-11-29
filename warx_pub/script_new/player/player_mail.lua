@@ -19,6 +19,7 @@ function mail_drop_by_class( self, class, mode, lv )
     local sel = {}
     sel.to = self.pid
     sel.tm_drop = 0
+    sel.tm_lock = 0
     sel.class = class
     sel[ "$or" ] = { { its=0 }, { tm_fetch = { [ "$gt" ] = 0 } } }
     if mode ~= -1 then 

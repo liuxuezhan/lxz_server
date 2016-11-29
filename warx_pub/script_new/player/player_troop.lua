@@ -386,6 +386,7 @@ end
 function union_mass_create(self, dest_eid, wait_time, arm)
     if self:check_mass_time(wait_time) == false then return end
     if wait_time == 900 then wait_time = 300 end
+    --wait_time = 5
     if self.uid == 0 then return end
 
     local D = get_ety(dest_eid)
@@ -711,8 +712,6 @@ function support_arm(self, dest_eid, arm)
     if not is_ply(dest) then return end
     if not self:can_move_to(dest.x, dest.y)  then return self:add_debug("can not move by castle lv") end
 
-    if not self:check_arm(arm) then return end
-
     local max = dest:get_val( "CountRelief" )
     local cur = dest:get_aid_count()
     local can = max - cur
@@ -728,6 +727,7 @@ function support_arm(self, dest_eid, arm)
     end
 
     arm.heros = {}
+    if not self:check_arm(arm) then return end
     local troop = troop_mng.create_troop(TroopAction.SupportArm, self, dest, arm)
     troop:go()
     
@@ -1029,188 +1029,206 @@ end
 function troop_cancel_mass( self, tid )
     local troop = troop_mng.get_troop( tid )
     if troop and troop.owner_pid == self.pid and troop:is_ready() then
-        troop:back_mass_power()   -- 解散集结
         troop_mng.dismiss_mass(troop)
     end
 end
 
-function troop_recall(self, dest_troop_id)
-    local troop = troop_mng.get_troop(dest_troop_id)
+function union_aid_recall( self, pid )
+    local dest = getPlayer( pid )
+    if not dest then return end
+    if dest == self then return end
+
+    local flag = false
+    local troop = self:get_my_troop()
     if troop then
+        if troop.arms and troop.arms[ pid ] then
+            dest:troop_recall( troop._id )
+            Rpc:aid_notify( self )
+            return
+        end
+    end
+end
+
+
+
+function troop_recall(self, dest_troop_id, force)
+    local troop = troop_mng.get_troop(dest_troop_id)
+    if not troop then return end
         
-        if troop.owner_pid ~= self.pid then
-            if troop:is_go() then return end
-            if troop:is_back() then return end
-            if not ( troop.arms and troop.arms[ self.pid ] ) then return end
-        end
+    if troop.owner_pid ~= self.pid then
+        if troop:is_go() then return end
+        if troop:is_back() then return end
+        if not ( troop.arms and troop.arms[ self.pid ] ) then return end
+    end
 
-        troop.fid = nil
+    troop.fid = nil
 
-        if troop:is_go() then
-            if troop.is_mass == 1 then
-                if not self:dec_item_by_item_id( resmng.ITEM_RECALL_MASS, 1, VALUE_CHANGE_REASON.TROOP_RECALL ) then 
-                    local conf = get_mall_item( resmng.ITEM_RECALL_MASS )
-                    if not conf then return end
-                    if self.gold < conf.NewPrice then return end
-                    self:dec_gold( conf.NewPrice, VALUE_CHANGE_REASON.TROOP_RECALL )
-                    task_logic_t.process_task(self, TASK_ACTION.USE_ITEM, resmng.ITEM_RECALL_MASS, 1)
-                end
-            else
-                if not self:dec_item_by_item_id( resmng.ITEM_RECALL_NORMAL, 1, VALUE_CHANGE_REASON.TROOP_RECALL ) then 
-                    local conf = get_mall_item( resmng.ITEM_RECALL_NORMAL )
-                    if not conf then return end
-                    if self.gold < conf.NewPrice then return end
-                    self:dec_gold( conf.NewPrice, VALUE_CHANGE_REASON.TROOP_RECALL )
-                    task_logic_t.process_task(self, TASK_ACTION.USE_ITEM, resmng.ITEM_RECALL_NORMAL, 1)
-                end
+    if troop:is_go() and not force then
+        if troop.is_mass == 1 then
+            if not self:dec_item_by_item_id( resmng.ITEM_RECALL_MASS, 1, VALUE_CHANGE_REASON.TROOP_RECALL ) then 
+                local conf = get_mall_item( resmng.ITEM_RECALL_MASS )
+                if not conf then return end
+                if self.gold < conf.NewPrice then return end
+                self:dec_gold( conf.NewPrice, VALUE_CHANGE_REASON.TROOP_RECALL )
+                task_logic_t.process_task(self, TASK_ACTION.USE_ITEM, resmng.ITEM_RECALL_MASS, 1)
+            end
+        else
+            if not self:dec_item_by_item_id( resmng.ITEM_RECALL_NORMAL, 1, VALUE_CHANGE_REASON.TROOP_RECALL ) then 
+                local conf = get_mall_item( resmng.ITEM_RECALL_NORMAL )
+                if not conf then return end
+                if self.gold < conf.NewPrice then return end
+                self:dec_gold( conf.NewPrice, VALUE_CHANGE_REASON.TROOP_RECALL )
+                task_logic_t.process_task(self, TASK_ACTION.USE_ITEM, resmng.ITEM_RECALL_NORMAL, 1)
             end
         end
+    end
 
-        local action = troop:get_base_action()
-        if troop:is_go() then
-            union_hall_t.battle_room_remove(troop)
+    local action = troop:get_base_action()
+    if troop:is_go() then
+        union_hall_t.battle_room_remove(troop)
 
-            if action ~= TroopAction.Camp then
-                local D = get_ety( troop.target_eid )
-                if D then
-                    if D.troop_comings then
-                        D.troop_comings[ troop._id ] = nil
-                        if D.on_troop_cancel then D:on_troop_cancel( troop ) end
-                    end
+        if action ~= TroopAction.Camp then
+            local D = get_ety( troop.target_eid )
+            if D then
+                if D.troop_comings then
+                    D.troop_comings[ troop._id ] = nil
+                    if D.on_troop_cancel then D:on_troop_cancel( troop ) end
+                end
 
-                   if ( not is_ply( D ) ) and D.pid and D.pid >= 10000 then
-                       local B = getPlayer( D.pid )
-                       if B then
-                           if B.on_troop_cancel then B:on_troop_cancel( troop ) end
-                       end
+               if ( not is_ply( D ) ) and D.pid and D.pid >= 10000 then
+                   local B = getPlayer( D.pid )
+                   if B then
+                       if B.on_troop_cancel then B:on_troop_cancel( troop ) end
                    end
-                end
+               end
             end
-
-            if action == TroopAction.SaveRes then
-                local res = troop:get_extra("union_save_res")
-                --放到部队上
-                local real_res={}
-                for k, v in pairs(res) do
-                    table.insert(real_res, {"res",k,v})
-                end
-                troop:add_goods(real_res, VALUE_CHANGE_REASON.REASON_UNION_SAVE_RESTORE )
-            end
-
-            troop.action = troop:get_base_action() + 300
-            troop.curx , troop.cury = c_get_actor_pos(troop.eid)
-            troop.tmCur = gTime
-            troop.sx, troop.sy = troop.dx, troop.dy
-            troop.dx, troop.dy = get_ety_pos( self )
-
-            local speed = troop.speed
-            local dist = c_calc_distance( troop.curx, troop.cury, troop.dx, troop.dy )
-            local use_time = dist / speed
-            troop.use_time = use_time
-            troop.tmOver = math.ceil(gTime + use_time)
-            troop.tmStart = gTime
-            c_troop_set_move( troop.eid, troop.sx, troop.sy, troop.dx, troop.dy, troop.speed, troop.use_time )
-
-            troop:notify_owner( {sx=troop.sx, sy=troop.sy, dx=troop.dx, dy=troop.dy, tmStart=troop.tmStart, tmOver=troop.tmOver, action=troop.action } )
-
-            local chg = gPendingSave.troop[ troop._id ]
-            chg.curx    = troop.curx
-            chg.cury    = troop.cury
-            chg.sx = troop.sx
-            chg.sy = troop.sy
-            chg.dx = troop.dx
-            chg.dy = troop.dy
-            chg.tmStart   = troop.tmStart
-            chg.tmCur   = troop.tmCur
-            chg.tmOver  = troop.tmOver
-            chg.action = troop.action
-
-            if action == TroopAction.JoinMass then
-                local troopT = troop_mng.get_troop(troop.dest_troop_id)
-                if troopT then
-                    union_hall_t.battle_room_update(OPERATOR.UPDATE, troopT)
-                end
-            elseif action == TroopAction.SupportArm then
-                local dest = get_ety(troop.target_eid)
-                union_hall_t.battle_room_update_ety(OPERATOR.UPDATE, dest)
-            end
-        elseif troop:is_settle() then
-            local dest = get_ety(troop.target_eid)
-            if action == TroopAction.Gather then
-                troop:back()
-                if is_res(dest) then 
-                    dest.my_troop_id = 0
-                    self:detach_ety( dest )
-                else 
-                    remove_id(dest.my_troop_id, troop._id) 
-                end
-                if dest then troop_mng.gather_stop(troop, dest) end
-
-            elseif action == TroopAction.UnionBuild or action== TroopAction.UnionUpgradeBuild or action == TroopAction.UnionFixBuild then
-                local one = troop:split_pid(self.pid)
-                one:back()
-                save_ety(dest)
-
-            elseif action == TroopAction.Camp then
-                troop:back()
-                local camp = get_ety(troop.target_eid)
-                if camp then
-                    self:detach_ety( camp )
-                    rem_ety(camp.eid)
-                end
-            elseif action == TroopAction.HoldDefense then
-                local camp = get_ety(troop.target_eid)
-                if camp and camp.hold_troop then
-                    camp.hold_troop[troop._id]= nil
-                end
-                union_hall_t.battle_room_update_ety(OPERATOR.UPDATE, dest)
-                local one = troop:split_pid(self.pid)
-                if not one then
-                    WARN("["..self.pid..":"..troop._id.."]")
-                    return 
-                end
-                one:back()
-                if get_table_valid_count(troop.arms) == 0  and dest then 
-                    if is_lost_temple(camp) then
-                        camp:reset_lt()
-                        local citys = self.lt_citys 
-                        if  citys then
-                            citys[ dest.eid ] = nil
-                        end
-                    end
-                    dest.my_troop_id = nil 
-                end
-                save_ety(dest)
-
-            else
-                -- todo
-            end
-
-        elseif troop:is_ready() then
-            if troop.action == TroopAction.DefultFollow then
-                local dest = get_ety(troop.owner_eid)
-                union_hall_t.battle_room_update_ety(OPERATOR.UPDATE, dest)
-
-                local one = troop:split_pid(self.pid)
-                if one then
-                    one.curx, one.cury = get_ety_pos(dest)
-                    one.action = TroopAction.SupportArm
-                    one:back()
-                end
-
-            elseif troop.is_mass == 1 then
-                local pid = self.pid
-                if pid == troop.owner_pid then
-                    troop:back_mass_power()   -- 解散集结
-                    troop_mng.dismiss_mass(troop)
-                else
-                    troop_mng.do_kick_mass(troop, pid)
-                end
-            end
-        elseif troop:is_back() then
-            troop.curx, troop.cury = c_get_actor_pos( troop.eid )
-            print( "backing" )
         end
+
+        if action == TroopAction.SaveRes then
+            local res = troop:get_extra("union_save_res")
+            --放到部队上
+            local real_res={}
+            for k, v in pairs(res) do
+                table.insert(real_res, {"res",k,v})
+            end
+            troop:add_goods(real_res, VALUE_CHANGE_REASON.REASON_UNION_SAVE_RESTORE )
+        end
+
+        troop.action = troop:get_base_action() + 300
+        troop.curx , troop.cury = c_get_actor_pos(troop.eid)
+        troop.tmCur = gTime
+        troop.sx, troop.sy = troop.dx, troop.dy
+        troop.dx, troop.dy = get_ety_pos( self )
+
+        local speed = troop.speed
+        local dist = c_calc_distance( troop.curx, troop.cury, troop.dx, troop.dy )
+        local use_time = dist / speed
+        troop.use_time = use_time
+        troop.tmOver = math.ceil(gTime + use_time)
+        troop.tmStart = gTime
+        --c_troop_set_move( troop.eid, troop.sx, troop.sy, troop.dx, troop.dy, troop.speed, troop.use_time )
+        c_troop_set_move( troop.eid, troop.action, troop.sx, troop.sy, troop.dx, troop.dy, troop.curx, troop.cury, troop.speed, troop.use_time )
+
+        troop:notify_owner( {sx=troop.sx, sy=troop.sy, dx=troop.dx, dy=troop.dy, tmStart=troop.tmStart, tmOver=troop.tmOver, action=troop.action } )
+
+        local chg = gPendingSave.troop[ troop._id ]
+        chg.curx    = troop.curx
+        chg.cury    = troop.cury
+        chg.sx = troop.sx
+        chg.sy = troop.sy
+        chg.dx = troop.dx
+        chg.dy = troop.dy
+        chg.tmStart   = troop.tmStart
+        chg.tmCur   = troop.tmCur
+        chg.tmOver  = troop.tmOver
+        chg.action = troop.action
+
+        if action == TroopAction.JoinMass then
+            local troopT = troop_mng.get_troop(troop.dest_troop_id)
+            if troopT then
+                union_hall_t.battle_room_update(OPERATOR.UPDATE, troopT)
+            end
+        elseif action == TroopAction.SupportArm then
+            local dest = get_ety(troop.target_eid)
+            union_hall_t.battle_room_update_ety(OPERATOR.UPDATE, dest)
+        end
+    elseif troop:is_settle() then
+        local dest = get_ety(troop.target_eid)
+        if action == TroopAction.Gather then
+            troop:back()
+            if is_res(dest) then 
+                dest.my_troop_id = 0
+                self:detach_ety( dest )
+            else 
+                remove_id(dest.my_troop_id, troop._id) 
+            end
+            if dest then troop_mng.gather_stop(troop, dest) end
+
+        elseif action == TroopAction.UnionBuild or action== TroopAction.UnionUpgradeBuild or action == TroopAction.UnionFixBuild then
+            local one = troop:split_pid(self.pid)
+            one:back()
+            save_ety(dest)
+
+        elseif action == TroopAction.Camp then
+            troop:back()
+            local camp = get_ety(troop.target_eid)
+            if camp then
+                self:detach_ety( camp )
+                rem_ety(camp.eid)
+            end
+        elseif action == TroopAction.HoldDefense then
+            local camp = get_ety(troop.target_eid)
+            if camp and camp.hold_troop then
+                camp.hold_troop[troop._id]= nil
+            end
+            union_hall_t.battle_room_update_ety(OPERATOR.UPDATE, dest)
+            local one = troop:split_pid(self.pid)
+            if not one then
+                WARN("["..self.pid..":"..troop._id.."]")
+                return 
+            end
+            one:back()
+            if get_table_valid_count(troop.arms) == 0  and dest then 
+                if is_lost_temple(camp) then
+                    camp:reset_lt()
+                    local citys = self.lt_citys 
+                    if  citys then
+                        citys[ dest.eid ] = nil
+                    end
+                end
+                dest.my_troop_id = nil 
+                dest.holding = union_build_t.is_hold(dest)
+                etypipe.add(dest) 
+            end
+
+        else
+            -- todo
+        end
+
+    elseif troop:is_ready() then
+        if troop.action == TroopAction.DefultFollow then
+            local dest = get_ety(troop.owner_eid)
+            union_hall_t.battle_room_update_ety(OPERATOR.UPDATE, dest)
+
+            local one = troop:split_pid(self.pid)
+            if one then
+                one.sx, one.sy = get_ety_pos(dest)
+                one.curx, one.cury = get_ety_pos(dest)
+                one.action = TroopAction.SupportArm
+                one:back()
+            end
+
+        elseif troop.is_mass == 1 then
+            local pid = self.pid
+            if pid == troop.owner_pid then
+                troop_mng.dismiss_mass(troop)
+            else
+                troop_mng.do_kick_mass(troop, pid)
+            end
+        end
+
+    elseif troop:is_back() then
+        print( "backing" )
     end
 end
 
@@ -1226,19 +1244,21 @@ end
 
 function troop_acc(self, troopid, itemid)
     local troop = troop_mng.get_troop(troopid)
-    if troop and troop.owner_eid == self.eid and (troop:is_go() or troop:is_back()) then
-        if troop.tmOver - gTime < 2 then return end
-        local item = resmng.get_conf( "prop_item", itemid )
-        if item and item.Class == 3 and item.Mode == 6 then
-            if not self:dec_item_by_item_id( itemid, 1, VALUE_CHANGE_REASON.ACC_TROOP ) then
-                local conf = get_mall_item( itemid )
-                if not conf then return end
-                if self.gold < conf.NewPrice then return end
-                self:dec_gold( conf.NewPrice, VALUE_CHANGE_REASON.ACC_TROOP )
-                task_logic_t.process_task(self, TASK_ACTION.USE_ITEM, itemid, 1)
+    if troop and (troop:is_go() or troop:is_back()) then
+        if troop.owner_eid == self.eid or ( troop.arms and troop.arms[ self.pid ] ) then
+            if troop.tmOver - gTime < 2 then return end
+            local item = resmng.get_conf( "prop_item", itemid )
+            if item and item.Class == 3 and item.Mode == 6 then
+                if not self:dec_item_by_item_id( itemid, 1, VALUE_CHANGE_REASON.ACC_TROOP ) then
+                    local conf = get_mall_item( itemid )
+                    if not conf then return end
+                    if self.gold < conf.NewPrice then return end
+                    self:dec_gold( conf.NewPrice, VALUE_CHANGE_REASON.ACC_TROOP )
+                    task_logic_t.process_task(self, TASK_ACTION.USE_ITEM, itemid, 1)
+                end
+                local rate = 1 + item.Param * 0.0001
+                troop:acc_march( rate )
             end
-            local rate = 1 + item.Param * 0.0001
-            troop:acc_march( rate )
         end
     end
 end
@@ -1603,6 +1623,7 @@ function kick_mass(self, tid, pid)
     local troop = troop_mng.get_troop(tid)
     if not troop then return end
     if troop.owner_pid ~= self.pid then return end
+
     troop_mng.do_kick_mass(troop, pid)
 end
 

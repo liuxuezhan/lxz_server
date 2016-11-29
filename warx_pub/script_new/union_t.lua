@@ -1520,8 +1520,8 @@ function can_build(self, id, x, y)
         return false
     end
     --数量
-    local num = self:get_ubuild_num(bcc.Mode)
-    local sum = self:get_build_count(bcc.Mode)
+    local num = self:get_ubuild_num(id)
+    local sum = self:get_build_count(bcc.BuildMode)
     if sum >= num then
         INFO("数量达到上限:"..sum..":"..num)
         return false
@@ -1543,17 +1543,16 @@ end
 function get_build_count(self, mode)--计算军团建筑已有数量
     local count = 0
     for k, v in pairs(self.build) do
-        if is_union_miracal(v.propid) and v.state ~=BUILD_STATE.DESTROY then
+        if v.BuildMode == mode and v.state ~=BUILD_STATE.DESTROY then
             count = count + 1
         end
     end
     return count
 end
 
-function get_ubuild_num(self,mode)--计算军团建筑上限数量
+function get_ubuild_num(self,id)--计算军团建筑上限数量
 
     local base = get_castle_count(self.membercount)
-    local id = 10*1000*1000+mode*1000+1
 
     if is_union_miracal(id) then
         return base

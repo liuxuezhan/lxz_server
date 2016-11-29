@@ -905,7 +905,7 @@ function get_jungle_reward(self, pid, mkdmg, totalDmg , hp_lost, is_mass)
             local ply = getPlayer(pid)
             if ply then
                 local union = unionmng.get_union(ply.uid)
-                if union then
+                if union and not check_union_cross(union) then  --跨服不加军团礼包
                     local _members = union:get_members()
                     for _, meb  in pairs(_members or {}) do
 

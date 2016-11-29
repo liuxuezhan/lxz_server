@@ -153,6 +153,10 @@ end
 -- 设置军团在怪物攻城中的状态
 
 function set_mc_start(self, time, ply)
+    if ply then
+        ply:add_debug("cross gs can not join mc")
+        return
+    end
     if os.date("%d", self.set_mc_time) ~= os.date("%d", gTime) and self.monster_city_stage == 0 then
     local now = os.date("*t", gTime)
     local hour = now.hour

@@ -14,7 +14,7 @@ function load()
             u.build[data.idx] = data
             gEtys[ data.eid ] = data
             data.name = ""
-            data.holding = 0
+            data.holding = is_hold(data)
             data.culture = data.culture or 1
             etypipe.add(data)
             if _sn < (data.sn or 0 ) then
@@ -24,6 +24,43 @@ function load()
     end
 end
 
+function is_hold(e)
+    local u = unionmng.get_union(e.uid)
+    if is_union_restore(e.propid) then --仓库
+        for _, v in pairs(u.restore.sum or {}) do
+            for _, num in pairs(v.res or {}) do
+                if num > 0 then return 1 end
+            end
+        end
+    elseif is_union_miracal(e.propid)  then -- 驻守
+        local tr = troop_mng.get_troop(e.my_troop_id)
+        local ssum =0  
+        if  tr then
+            for pid, arm in pairs(tr.arms) do
+                local sum = 0
+                for id, num in pairs(arm.live_soldier or {}) do
+                    sum = sum + num
+                end
+                if sum == 0  then
+                    local one  = tr:split_pid(pid)
+                    if one then one:back() end
+                end
+                ssum = ssum + sum
+            end
+        end
+        if ssum == 0  then
+            e.my_troop_id = nil 
+        else
+            return 1
+        end
+    elseif is_union_superres(e.propid)  then -- 采集
+        if e.tmStart_g~=0  then return 1 end
+    else
+        local tr = troop_mng.get_troop(e.my_troop_id)
+        if not tr then e.my_troop_id = nil end
+    end
+    return 0
+end
 
 function create(uid,idx, propid, x, y,name)
 
@@ -60,7 +97,7 @@ function create(uid,idx, propid, x, y,name)
             state = BUILD_STATE.CREATE,
             sn = _sn,
             val = cc.Count or 0,
-            speed = 0,
+            gather_speed = 0,
             build_speed = 0,
             tmStart_b = 0,
             tmStart_g = 0,
@@ -69,6 +106,7 @@ function create(uid,idx, propid, x, y,name)
             fire_tmOver = 0,
             fire_speed = 0,
             fire_tmSn = 0,
+            holding = 0,
             tmSn = 0,
         }
         if u.god then
@@ -93,7 +131,7 @@ function create(uid,idx, propid, x, y,name)
         if e.hp == 0  or (cc.BuildMode == UNION_CONSTRUCT_TYPE.SUPERRES) then e.hp = min_hp end
         e.x = x
         e.y = y
-        e.speed = 0
+        e.gather_speed = 0
         e.build_speed = 0
         e.tmStart_b = 0
         e.tmStart_g = 0
@@ -103,6 +141,7 @@ function create(uid,idx, propid, x, y,name)
         e.fire_speed = 0
         e.fire_tmSn = 0
         e.tmSn = 0
+        e.holding = 0
         e.my_troop_id = nil
         e.val = cc.Count or 0
         save_ety(e)
@@ -273,6 +312,11 @@ function restore_del_res(uid,pid,e,res )--取出资源
 
     end
     gPendingSave.union_t[u._id].restore = u.restore
+    for _, v in pairs(u.build or {}) do
+        if is_union_restore(v) then
+            save(v)
+        end
+    end
     return true
 end
 
@@ -372,6 +416,11 @@ function restore_add_res(e, pid,res )--存储资源
     end
 
 	gPendingSave.union_t[u._id].restore = u.restore
+    for _, v in pairs(u.build or {}) do
+        if is_union_restore(v) then
+            save(v)
+        end
+    end
 end
 
 function get_res_day(u, pid )--计算当天已存储量
@@ -559,6 +608,7 @@ function can_troop(action, p, eid, res)--行军队列发出前判断
 
     elseif action == TroopAction.Gather then
         if dp.uid == p.uid then
+            --[[
             local t = troop_mng.get_troop(dp.my_troop_id)
             if t then
                 for pid, _ in pairs(t.arms or {} ) do
@@ -568,7 +618,14 @@ function can_troop(action, p, eid, res)--行军队列发出前判断
                     end
                 end
             end
-        --todo
+            --]]
+
+            for _, id in pairs(self.busy_troop_ids or {} ) do
+                local t = troop_mng.get_troop(id)
+                if t:get_base_action() == action then
+                    return false
+                end
+            end
             if is_union_superres(dp.propid) then
                 return true
             end
@@ -649,48 +706,11 @@ function can_ef(build,ply) --奇迹内
     return false
 end
 
-function acc(obj)--结算
-    if is_union_building(obj) then
-        if obj.my_troop_id and type(obj.my_troop_id)=="number" then -- 驻守
-            local tr = troop_mng.get_troop(obj.my_troop_id)
-            local ssum =0  
-            if  tr then
-                for pid, arm in pairs(tr.arms) do
-                    local sum = 0
-                    for id, num in pairs(arm.live_soldier or {}) do
-                        sum = sum + num
-                    end
-                    if sum == 0  then
-                        local one  = tr:split_pid(pid)
-                        if one then
-                            one:back()
-                        end
-                    end
-                    ssum = ssum + sum
-                end
-            end
-            if ssum == 0  then
-                obj.my_troop_id = nil 
-                obj.holding = 0
-            else
-                obj.holding = 1
-            end
-        elseif obj.my_troop_id and type(obj.my_troop_id)=="table" then -- 采集
-            gather(obj)
-        else
-            local tr = troop_mng.get_troop(obj.my_troop_id)
-            if not tr then
-                obj.my_troop_id = nil 
-            end
-            obj.holding = 0
-        end
-        building(obj) --部队修理
-    end
-end
-
 function save(obj)
     if is_union_building(obj) then
-        acc(obj)
+
+        obj.holding = is_hold(obj)
+        building(obj) --部队修理
 
         if  obj.hp <= 0 then
             remove(obj)
@@ -701,7 +721,6 @@ function save(obj)
             remove(obj)
             return 
         end
-
 
         gEtys[obj.eid] = obj
         etypipe.add(obj)
@@ -848,6 +867,7 @@ function building(obj) --部队修理
     if build_speed > 0 then
         local tm_need = math.ceil(remain/build_speed)
         obj.tmSn = timer.new("union_build_complete", tm_need, obj.eid)
+        obj.tmStart_b = gTime
         obj.tmOver_b = gTime + tm_need
     else
         timer.del(obj.tmSn)
@@ -867,7 +887,7 @@ function gather(obj ) --采集
     
     local remain = obj.val 
     if obj.tmStart_g ~= 0  then
-        remain = remain - obj.speed * (gTime - obj.tmStart_g)
+        remain = remain - obj.gather_speed * (gTime - obj.tmStart_g)
     end
 
     if remain < 0 then remain = 0 end
@@ -888,7 +908,7 @@ function gather(obj ) --采集
     if speed < 0 then speed = 0 end
 
     obj.val = remain
-    obj.speed = speed
+    obj.gather_speed = speed
     obj.tmStart_g = gTime
 
     if remain > 0 and speed > 0 then
@@ -900,6 +920,7 @@ function gather(obj ) --采集
         obj.tmSn = nil
         obj.tmOver_g = 0
     end
+    save(obj)
 
     local tmOver = obj.tmOver_g
     for _, tid in pairs(ids or {}) do

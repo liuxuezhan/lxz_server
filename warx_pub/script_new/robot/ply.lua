@@ -22,7 +22,7 @@ function handle_network(self, sid, pktype)
         local token = "c67sahejr578aqo3l8912oic9"
         local msg = c_md5(c_md5(gTime..self.acc..token)..APP_SECRET)
         lxz(self.pid)
-        Rpc:firstPacket(self,config.Map,  config.get_cival(self), self.pid, msg, gTime, self.acc,token)
+        Rpc:firstPacket(self,config.Map,  config.get_cival(self) or 1, self.pid, msg, gTime, self.acc,token)
     elseif pktype == 11 then -- connect fail
 
     elseif pktype == 6 then -- close
@@ -182,10 +182,12 @@ end
 
 function upd_arm( self, info )
     --lxz(info)
-    for k, v in pairs(info) do 
-        local check = config.g_check.arm 
-        if check and  v < check.num then
-            Rpc:chat(self, 0, "@addarm="..k.."="..check.num, 0 )
+    if config.g_check then
+        for k, v in pairs(info) do 
+            local check = config.g_check.arm 
+            if check and  v < check.num then
+                Rpc:chat(self, 0, "@addarm="..k.."="..check.num, 0 )
+            end
         end
     end
     self._arm = info
@@ -401,21 +403,29 @@ function doCondCheck(self, class, mode, lv, ...)
     return false, class, mode, lv
 end
 
+function stateItem(self,pack)
+   --lxz(pack)
+   if not self._item then self._item = {} end
+   for _, v in pairs(pack) do self._item[v[1]] = v end
+end
+
 function statePro(self,pack)
-    -- lxz(pack)
+    --lxz(pack)
     if pack.tech then
         self._tech = pack.tech
     else
         for k, v in pairs(pack) do self[k] = v end
     end
-    local check = config.g_check.gold
-    if pack.gold and check and pack.gold < check.num then
-        Rpc:chat(self, 0, "@addgold="..check.num, 0 )
-        self.gold = check.num
-    end
-    if pack.sinew and config.g_check.sinew then 
-        print("体力",pack.sinew)
-        if pack.sinew < 100 then Rpc:buy_item(self,43, 2, 1) end
+    if config.g_check then
+        local check = config.g_check.gold
+        if pack.gold and check and pack.gold < check.num then
+            Rpc:chat(self, 0, "@addgold="..check.num, 0 )
+            self.gold = check.num
+        end
+        if pack.sinew and config.g_check.sinew then 
+            print("体力",pack.sinew)
+            if pack.sinew < 100 then Rpc:buy_item(self,43, 2, 1) end
+        end
     end
 
     if pack.uid then 
@@ -937,7 +947,7 @@ funcAction.login = function(self)
     Rpc:syn_back_code( self, 1 )
 
 
-    for _, v in pairs(config.gm) do
+    for _, v in pairs(config.gm or {} ) do
         Rpc:chat(self, 0, v, 0 )
     end
 
@@ -1008,36 +1018,31 @@ function get_res(self, k,v)
     end
 end
 
+_check  = {} 
 function check_on(self, name,check)
-    if not self._check then self._check  = {} end
-    if not self._check[name] then 
-        self._check[name] = {}
+    if not _check[name] then 
+        local d = {ply=self,ret=1,data = {}}
         for k, v in pairs(check) do
-            self._check[name][k] = {}
-            self._check[name][k].dst = v
-            self._check[name][k].on = self:get_res(k,v) or 0 
+            d.data[k] = {dst = v, start = self:get_res(k,v) or 0 }
         end
+        _check[name] = d  
     else
-        if check_ret(self,name) then
-            WARN(self.account..":"..name..":ok")
-        else
-            WARN(self.account..":"..name..":err")
-        end
+        check_ret(name) 
         return false
     end
 
     for k, v in pairs(check) do
         if k == "buff" then
             for what, _ in pairs(v) do
-                if not self._check[name][k].on[what]  then 
+                if not _check[name][k].start[what]  then 
                     return false
                 end
             end
         else
-            if not self._check[name][k]  then 
+            if not _check[name].data[k]  then 
                 return false
             end
-            if not self._check[name][k].on  then 
+            if not _check[name].data[k].start then 
                 return false
             end
         end
@@ -1046,31 +1051,44 @@ function check_on(self, name,check)
     return true
 end
 
-function check_off(self,name)
-    for k, v in pairs(self._check[name] or {} ) do
-        v.off = self:get_res(k) or 0
+function check_off(name)
+    local d = _check[name] 
+    for k, v in pairs(d.data) do
+        v.over = d.ply:get_res(k) or 0
     end
 end
 
-function check_ret(self,name)
-    if not self._check[name].ret then 
-        Ply.check_off(self, name)
+function check_ret(name)
+    if _check[name].ret == 0 then 
+        return 
+    elseif _check[name].ret == 1 then 
+        Ply.check_off(name)
     end
 
-    for k, v in pairs(self._check[name]) do
+    for k, v in pairs(_check[name].data) do
         if k == "buff" or k=="item" then
             for what, _ in pairs(v.dst) do
-                if (v.off[what] or 0) + v.dst[what]~= (v.on[what] or 0)   then 
-                    return false
+                if (v.start[what] or 0) + v.dst[what]~= (v.over[what] or 0)   then 
+                    return  
+                end
+            end
+        elseif k == "res" then
+            for what, nums in pairs(v.dst) do
+                if (v.start[what][1] or 0) + v.dst[what][1]~= (v.over[what][1] or 0)   then 
+                    return  
+                end
+                if (v.start[what][2] or 0) + v.dst[what][2]~= (v.over[what][2] or 0)   then 
+                    return  
                 end
             end
         else
-            if v.off+v.dst~= v.on  then 
-                return false
+            if v.over+v.dst~= v.start then 
+                return  
             end
         end
     end
-    return true
+    _check[name].ret = 0 
+    return  
 end
 
 function fight(self, cmd, eid,arms)

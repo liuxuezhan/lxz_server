@@ -64,9 +64,8 @@ function load_data(data)
                     setIns(target.my_troop_id,data._id)
                 else
                     target.my_troop_id = data._id
-                    target.holding = 1 
-                    etypipe.add(target)
                 end
+                save_ety(target)
             end
         end
     end
@@ -196,14 +195,41 @@ function settle(self)
     end
 end
 
-function back(self )
+function get_pos( self )
+    if self:is_ready() then 
+        return self.sx, self.sy
+
+    elseif self:is_go() then 
+        local x, y = c_get_actor_pos( self.eid ) 
+        if not x then return self.dx, self.dy
+        else return x, y end
+
+    elseif self:is_settle() then
+        return self.dx, self.dy
+
+    elseif self:is_back() then
+        local x, y = c_get_actor_pos( self.eid ) 
+        if not x then return self.dx, self.dy
+        else return x, y end
+
+    end
+end
+
+function back(self)
     local action = self:get_base_action() + 300
     if self.is_mass ~= 1 then
         local owner = get_ety(self.owner_eid)
         if owner then
-            self.action = action
             self.sx, self.sy = self.dx, self.dy
             self.dx, self.dy = get_ety_pos(owner)
+            local x, y = c_get_actor_pos( self.eid )
+            if x then
+                self.curx, self.cury = x, y
+            else
+                self.curx, self.cury = self.sx, self.sy
+            end
+
+            self.action = action
             self:start_march()
             return { [self.owner_pid] = self}
         end
@@ -213,8 +239,8 @@ function back(self )
 
         local target = get_ety(self.target_eid)
         local id = self._id
-        local curx, cury = self.curx, self.cury
-        local sx, sy = self.dx, self.dy
+        local fid = self.fid
+        local curx, cury = self:get_pos()
 
         local ts = {}
         for pid, arm in pairs(self.arms) do
@@ -692,7 +718,11 @@ function start_march(self, default_speed)
         self.eid = get_eid_troop() 
     end
 
+    self.curx = self.curx or self.sx
+    self.cury = self.cury or self.sy
+
     local speed = default_speed or self:calc_troop_speed()
+
     local dist = c_calc_distance( self.curx, self.cury, self.dx, self.dy )
     local use_time = dist / speed
 
@@ -702,8 +732,6 @@ function start_march(self, default_speed)
     self.use_time = use_time
     self.tmOver = math.ceil( gTime + use_time )
     self.tmCur = gTime
-    self.curx = self.sx
-    self.cury = self.sy
     self.propid = 11001001
     self.mcid = self.mcid or 0
     self.be_atk_list = self.be_atk_list or {}
@@ -741,27 +769,29 @@ function start_march(self, default_speed)
 
     local owner = get_ety(self.owner_eid)
     if owner then
+        self.owner_propid = owner.propid
         if is_ply( owner ) then
             self.name = owner.name
             local u = owner:get_union()
             if u then
                 self.alias = u.alise
             end
-        else
-            self.propid = owner.propid
         end
     end
 
     local target = get_ety(self.target_eid)
     if target then
+        self.target_propid = target.propid
         if is_ply( target ) then
             self.target_name = target.name
             local u = target:get_union()
             if u then
                 self.target_alias = u.alias
             end
-        else
-            self.target_propid = target.propid
+        end
+    elseif self:get_base_action() == TroopAction.Camp then
+        if is_ply( owner ) then
+            self.target_propid = CLASS_UNIT.Camp * 1000000 + owner.culture * 1000 + 1
         end
     end
 
@@ -776,6 +806,7 @@ function start_march(self, default_speed)
     gEtys[self.eid] = self
     etypipe.add(self)
 
+    print( "start_march", self.sx, self.sy, self.dx, self.dy, self.speed, self.action )
     self:save()
     self:notify_owner()
 
@@ -1227,8 +1258,10 @@ function get_gather_power(self, mode)
     local mul = resmng.get_conf("prop_resource", mode).Mul
     local div = mul * 3600
 
+    local ef = self:get_ef()
     speed_gather = speed_gather * (1 + ( ply:get_num( key ) + ply:get_num( "SpeedGather_R" )) * 0.0001 ) / div
-    count_gather = count_gather * (1 + ply:get_num( "CountWeight_R") * 0.0001 ) / mul
+    count_gather = count_gather * (1 + ( ply:get_num( "CountWeight_R") + ( ef.CountWeight_R or 0 ) ) * 0.0001 ) / mul
+
     return speed_gather, count_gather, speed_base / div
 end
 
@@ -1778,6 +1811,8 @@ function check_status( troop )
 end
 
 function back_mass_power(self)
+    if self:get_base_action() ~= TroopAction.SiegeMonster then return end
+
     local T = get_ety(self.target_eid) 
     if is_monster(T) then
         for pid, arm in pairs(self.arms) do
@@ -1786,181 +1821,27 @@ function back_mass_power(self)
                 ply:inc_sinew(10)
             end
         end
+
         for tid, action in pairs( T.troop_comings or {} ) do
             if action == TroopAction.JoinMass then
                 local one = troop_mng.get_troop( tid )
                 if one and one:is_go() and one.dest_troop_id == troop._id then
+
                     local x, y = c_get_actor_pos(one.eid)
                     if x then
-
                         if is_monster(T) then
                             local A = getPlayer(one.owner_pid)
                             if A then
                                 A:inc_sinew(10)
                             end
                         end
-
                     end
+
+
                 end
             end
         end
     end
 end
 
-function do_recall( troop )
-    local action = troop:get_base_action()
-    if troop:is_go() then
-        if action ~= TroopAction.Camp then
-            local D = get_ety( troop.target_eid )
-            if D then
-                if D.troop_comings then
-                    D.troop_comings[ troop._id ] = nil
-                    if D.on_troop_cancel then
-                        D:on_troop_cancel( troop )
-                    end
-                end
-                if not is_ply( D ) and D.pid and D.pid >= 10000 then
-                    local B = getPlayer( D.pid )
-                    if B then
-                        if B.on_troop_cancel then
-                            B:on_troop_cancel( troop )
-                        end
-                    end
-                end
-            end
-        end
 
-        if action == TroopAction.SaveRes then
-            local res = troop:get_extra("union_save_res")
-            --放到部队上
-            local real_res={}
-            for k, v in pairs(res) do
-                table.insert(real_res, {"res",k,v})
-            end
-            troop:add_goods(real_res, VALUE_CHANGE_REASON.REASON_UNION_SAVE_RESTORE )
-        end
-
-        union_hall_t.battle_room_remove(troop)
-
-        troop.action = troop:get_base_action() + 300
-        troop.curx , troop.cury = c_get_actor_pos(troop.eid)
-        troop.tmCur = gTime
-        troop.sx, troop.sy = troop.dx, troop.dy
-        troop.dx, troop.dy = get_ety_pos( self )
-
-        local speed = troop.speed
-        local dist = c_calc_distance( troop.curx, troop.cury, troop.dx, troop.dy )
-        local use_time = dist / speed
-        troop.use_time = use_time
-        troop.tmOver = math.ceil(gTime + use_time)
-        troop.tmStart = gTime
-        c_troop_set_move( troop.eid, troop.sx, troop.sy, troop.dx, troop.dy, troop.speed, troop.use_time )
-
-        troop:notify_owner( {sx=troop.sx, sy=troop.sy, dx=troop.dx, dy=troop.dy, tmStart=troop.tmStart, tmOver=troop.tmOver, action=troop.action } )
-
-        local chg = gPendingSave.troop[ troop._id ]
-        chg.curx    = troop.curx
-        chg.cury    = troop.cury
-        chg.sx = troop.sx
-        chg.sy = troop.sy
-        chg.dx = troop.dx
-        chg.dy = troop.dy
-        chg.tmStart   = troop.tmStart
-        chg.tmCur   = troop.tmCur
-        chg.tmOver  = troop.tmOver
-        chg.action = troop.action
-
-        if action == TroopAction.JoinMass then
-            local troopT = troop_mng.get_troop(troop.dest_troop_id)
-            if troopT then
-                --troopT:rem_mark_id(troop._id)
-                local D = get_ety(troopT.target_eid)
-                if D then
-                    local troopD = D:get_my_troop()
-                    if troopD then
-                        union_hall_t.battle_room_update(OPERATOR.UPDATE, troopT, troopD)
-                    end
-                end
-            end
-        elseif action == TroopAction.SupportArm then
-            local dest = get_ety(troop.target_eid)
-            union_hall_t.battle_room_update_ety(OPERATOR.UPDATE, dest)
-        end
-    elseif troop:is_settle() then
-        local dest = get_ety(troop.target_eid)
-        if action == TroopAction.Gather then
-            troop:back()
-            if is_res(dest) then 
-                dest.my_troop_id = 0
-                self:detach_ety( dest )
-            else 
-                remove_id(dest.my_troop_id, troop._id) 
-            end
-            if dest then troop_mng.gather_stop(troop, dest) end
-
-        elseif action == TroopAction.UnionBuild or action== TroopAction.UnionUpgradeBuild or action == TroopAction.UnionFixBuild then
-            local one = troop:split_pid(self.pid)
-            one:back()
-            save_ety(dest)
-
-        elseif action == TroopAction.Camp then
-            troop:back()
-            local camp = get_ety(troop.target_eid)
-            if camp then
-                self:detach_ety( camp )
-                rem_ety(camp.eid)
-            end
-        elseif action == TroopAction.HoldDefense then
-            local camp = get_ety(troop.target_eid)
-            if camp  and camp.hold_troop then
-                camp.hold_troop[troop._id]= nil
-            end
-            union_hall_t.battle_room_update_ety(OPERATOR.UPDATE, dest)
-            local one = troop:split_pid(self.pid)
-            if not one then
-                WARN("["..self.pid..":"..troop._id.."]")
-                return 
-            end
-            one:back()
-            if get_table_valid_count(troop.arms) == 0  and dest then 
-                if is_lost_temple(camp) then
-                    camp:reset_lt()
-                    local citys = self.lt_citys 
-                    if  citys then
-                        citys[ dest.eid ] = nil
-                    end
-                end
-                dest.my_troop_id = nil 
-            end
-            save_ety(dest)
-
-        else
-            -- todo
-        end
-
-    elseif troop:is_ready() then
-        if troop.action == TroopAction.DefultFollow then
-            local dest = get_ety(troop.owner_eid)
-            union_hall_t.battle_room_update_ety(OPERATOR.UPDATE, dest)
-
-            local one = troop:split_pid(self.pid)
-            if one then
-                one.action = TroopAction.SupportArm
-                one:back()
-            end
-
-        elseif troop.is_mass == 1 then
-            local pid = self.pid
-            if pid == troop.owner_pid then
-                troop:back_mass_power()   -- 解散集结
-                troop_mng.dismiss_mass(troop)
-            else
-                troop_mng.do_kick_mass(troop, pid)
-            end
-        end
-    elseif troop:is_back() then
-        --troop.curx, troop.cury = c_get_actor_pos( troop.eid )
-        print( "backing" )
-    end
-
-end

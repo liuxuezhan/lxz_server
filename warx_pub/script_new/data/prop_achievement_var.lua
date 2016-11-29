@@ -15,7 +15,7 @@ prop_achievement_var = {
 	[ACH_COUNT_SCOUT] = { ID = ACH_COUNT_SCOUT, Way = "count", Param = nil,},
 	[ACH_COUNT_RESEARCH] = { ID = ACH_COUNT_RESEARCH, Way = "count", Param = nil,},
 	[ACH_COUNT_GATHER] = { ID = ACH_COUNT_GATHER, Way = "count", Param = nil,},
-	[ACH_COUNT_ACC] = { ID = ACH_COUNT_ACC, Way = "count", Param = nil,},
+	[ACH_COUNT_GOLD_COST] = { ID = ACH_COUNT_GOLD_COST, Way = "count", Param = nil,},
 	[ACH_COUNT_ATTACK_MONSTER] = { ID = ACH_COUNT_ATTACK_MONSTER, Way = "count", Param = nil,},
 	[ACH_LEVEL_CASTLE] = { ID = ACH_LEVEL_CASTLE, Way = "castle_lv", Param = nil,},
 	[ACH_COUNT_MIGRATE] = { ID = ACH_COUNT_MIGRATE, Way = "count", Param = nil,},

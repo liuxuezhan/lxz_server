@@ -39,12 +39,19 @@ gTotalTime = 60  --登录秒数
 g_client_port = 8001
 g_name = {}
 
+tm_check = 0
 function robot_plan()
   --  move()
  --   robot_union_build()
   --  Ply.union_mission()
 
   use_item("use_item")
+  if gTime > tm_check + 3 then
+    tm_check = gTime 
+    for name, v in pairs(Ply._check) do
+        WARN("check:"..name..":"..v.ret)
+    end
+  end
 end
 
 

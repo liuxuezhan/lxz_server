@@ -1817,35 +1817,6 @@ function fill_player_info_by_arm(self, arm, troop_action, owner_pid)
     return unit
 end
 
-function union_aid_recall( self, pid )
-    local dest = getPlayer( pid )
-    if not dest then return end
-    if dest == self then return end
-
-    local flag = false
-    local troop = self:get_my_troop()
-    if troop then
-        if troop.arms and troop.arms[ pid ] then
-            dest:troop_recall( troop._id )
-            flag = true
-        end
-    end
-
-    local comings = self.troop_comings
-    if comings then
-        for tid, action in pairs( comings ) do
-            if action == TroopAction.SupportArm then
-                local troop = troop_mng.get_troop( tid )
-                if troop and troop.owner_pid == pid then
-                    dest:troop_recall( tid )
-                    flag = true
-                end
-            end
-        end
-    end
-    if flag then Rpc:aid_notify( self ) end
-end
-
 
 function get_aid_info( self )
     local info = {}

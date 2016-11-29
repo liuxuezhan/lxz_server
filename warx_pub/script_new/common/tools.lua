@@ -308,7 +308,7 @@ function tojson(tbl,indent)
     local havetable=false
     local str="{"
     local sp=""
-    if tbl then
+    if type(tbl) == "table" then
         for k, v in pairs(tbl) do
             if type(v) == "table" then
                 havetable=true
@@ -322,6 +322,8 @@ function tojson(tbl,indent)
             end
             sp=";"
         end
+    else
+        str = "[not a table]" .. type(tbl)
     end
 
     if(havetable) then      str=str.."\r\n"..tab.."}"   else        str=str.."}"    end
@@ -329,6 +331,29 @@ function tojson(tbl,indent)
     return str
 end
 
+function table2json(t)  
+        local function serialize(tbl)  
+                local tmp = {}  
+                for k, v in pairs(tbl) do  
+                        local k_type = type(k)  
+                        local v_type = type(v)  
+                        local key = (k_type == "string" and "\"" .. k .. "\":")  
+                            or (k_type == "number" and "")  
+                        local value = (v_type == "table" and serialize(v))  
+                            or (v_type == "boolean" and tostring(v))  
+                            or (v_type == "string" and "\"" .. v .. "\"")  
+                            or (v_type == "number" and v)  
+                        tmp[#tmp + 1] = key and value and tostring(key) .. tostring(value) or nil  
+                end  
+                if table.maxn(tbl) == 0 then  
+                        return "{" .. table.concat(tmp, ",") .. "}"  
+                else  
+                        return "[" .. table.concat(tmp, ",") .. "]"  
+                end  
+        end  
+        assert(type(t) == "table")  
+        return serialize(t)  
+end  
 
 --------------------------------------------------------------------------------
 -- Function : 检查元素是否在 table 中
@@ -389,7 +414,7 @@ etypipe[EidType.Res]    =       {"propid", "eid", "x", "y", "uid", "pid", "val",
 --etypipe[EidType.Troop]  =       {"propid", "eid", "culture","action", "owner_eid", "owner_pid", "owner_uid", "target_eid", "target_pid", "target_uid", "sx", "sy", "dx", "dy", "tmCur", "curx", "cury", "speed", "tmStart", "tmOver", "soldier_num","be_atk_list", "flag", "name", "mcid", "alias", "heros", "target_propid", "fid"}
 etypipe[EidType.Troop]  =       {"propid", "eid", "culture","action", "owner_eid", "owner_pid", "owner_uid", "target_eid", "target_pid", "target_uid", "tmStart", "tmOver", "soldier_num","be_atk_list", "flag", "mcid", "heros", "target_propid", "fid", "is_mass", "name", "alias", "propid", "target_name", "target_alias", "target_propid"}
 etypipe[EidType.Monster]=       {"propid", "eid", "x", "y", "hp", "level","born"}
-etypipe[EidType.UnionBuild] =   {"propid", "eid", "x", "y", "uid","alias", "sn","idx","hp","state","name","val","culture","holding","build_speed","fire_speed"}
+etypipe[EidType.UnionBuild] =   {"propid", "eid", "x", "y", "uid","alias", "sn","idx","hp","state","name","val","culture","holding","build_speed","fire_speed","tmStart_b","fire_tmStart","gather_speed","tmStart_g" }
 etypipe[EidType.NpcCity]=       {"propid", "eid", "x", "y", "state", "startTime","endTime", "unions", "randomAward", "declareUnions", "getAwardMember"}
 etypipe[EidType.KingCity]=      {"propid", "eid", "x", "y", "state", "status","startTime", "endTime", "occuTime","uid", "uname"}
 etypipe[EidType.MonsterCity]=   {"propid", "eid", "x", "y", "state", "class", "startTime", "endTime"}
@@ -443,7 +468,7 @@ function etypipe.add(data)
     if is_troop(data) then 
         data.be_atk_list = data.be_atk_list or {}
         data.mcid = data.mcid or 0
-        c_add_troop(data.eid, data.sx, data.sy, data.dx, data.dy, data.speed, data.use_time, etypipe.pack(node, data))
+        c_add_troop(data.eid, data.action, data.sx, data.sy, data.dx, data.dy, data.speed, data.use_time, etypipe.pack(node, data))
         
     else
         if not data.size then WARN("no size, propid=%d", data.propid) end
@@ -1077,7 +1102,7 @@ end
 
 function is_union_superres(propid)
     local cfg = resmng.get_conf("prop_world_unit",propid)
-    if cfg and is_union_miracal(propid) then
+    if cfg and is_union_construct(propid) then
         return cfg.Mode == resmng.CLASS_UNION_BUILD_FARM or 
                cfg.Mode == resmng.CLASS_UNION_BUILD_LOGGINGCAMP or 
                cfg.Mode == resmng.CLASS_UNION_BUILD_MINE or 
@@ -1088,7 +1113,7 @@ end
 
 function is_union_restore(propid)
     local cfg = resmng.get_conf("prop_world_unit",propid)
-    if cfg and is_union_miracal(propid) then
+    if cfg and is_union_construct(propid) then
         return cfg.Mode == resmng.CLASS_UNION_BUILD_RESTORE
     end
     return false

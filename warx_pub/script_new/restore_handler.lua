@@ -411,7 +411,7 @@ function action()
     monitoring(MONITOR_TYPE.LOADDATA, "restore_system_mail")
 
     INFO("-- restore_troop -----")
-    restore_troop()
+    restore_troop() --在建筑加载之后
     INFO("-- restore_troop done-")
     monitoring(MONITOR_TYPE.LOADDATA, "restore_troop")
 

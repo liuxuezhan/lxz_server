@@ -495,10 +495,10 @@ Client = {
     addEtys = "pack objs",
     remEty = "int eid",
 
-    add_troop = "int eid, int sx, int sy, int dx, int dy, int tm, int cx, int cy, int speed, pack info ",
-    rem_troop = "int eid",
-    troop_set_move = "int eid, int sx, int sy, int dx, int dy, int cx, int cy, int tm, int, int speed",
+    add_troop      = "int eid, int action, int sx, int sy, int dx, int dy, int tm, int cx, int cy, pack info ",
+    troop_set_move = "int eid, int action, int sx, int sy, int dx, int dy, int tm, int cx, int cy",
 
+    rem_troop = "int eid",
 
     --crose gs
 
@@ -773,4 +773,12 @@ Client = {
     do_string = "string trunk",
     get_uname_by_propid_resp = "pack info",
 }
+
+CrossQuery = {
+    get_union_npc_rank_req = 1,
+    get_npc_map_req = 1,
+    act_info_req = 1,
+
+}
+
 

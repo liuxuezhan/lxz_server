@@ -643,18 +643,18 @@ end
 function add_mc_reward(self, union, rewards) 
     local pool = self.mc_reward_pool or {}
     for k, v in pairs(rewards) do
-        if v[2] == 11 then
-            union.mc_point = union.mc_point + v[3]
+        if v[2] then
+            if v[2] == 11 then
+                union.mc_point = union.mc_point + v[3]
+            end
+            local award = pool[v[2]]
+            if not award then
+                award = v
+            else
+                award[3] = award[3] + v[3]
+            end
+            pool[v[2]] = award
         end
-        local award = pool[v[2]]
-        if not award then
-            award = v
-        else
-            award[3] = award[3] + v[3]
-        end
-        pool[v[2]] = award
-
-
     end
     self.mc_reward_pool = pool
 end

@@ -110,7 +110,7 @@ function rem_buf(bufid, tmOver)
                 table.remove(gsBuffs, k)
                 local node = resmng.prop_buff[ bufid ]
                 if node and node.Value then ef_rem(node.Value) end
-                print(string.format("rem_buf, pid=%d, bufid=%d, tmOver=%d, now=%d", self.pid, bufid, tmOver, gTime))
+                print(string.format("rem_buf,  bufid=%d, tmOver=%d, now=%d", bufid, tmOver or -1, gTime))
                 return v[3]
             end
         end
@@ -125,7 +125,7 @@ function rem_all_buf()
             table.remove(gsBuffs, k)
             local node = resmng.prop_buff[ v[1] ]
             if node and node.Value then ef_rem(node.Value) end
-            print(string.format("rem_buf, pid=%d, bufid=%d, tmOver=%d, now=%d", self.pid, bufid, tmOver, gTime))
+            print(string.format("rem_buf, bufid=%d, now=%d", k,  gTime))
         end
     end
     Rpc:gs_buf_ntf({pid = -1, gid = _G.GateSid}, gsBuffs)

@@ -359,43 +359,34 @@ ROOM_TYPE =
 }
 
 
--- Hx@2015-12-02 : mail
---
-
-
-MailMode = {}
-MailMode.Sys = 1
-MailMode.AlncInvite = 2
-
+--邮件
 MAIL_CLASS = {
-    PLAYER = 1,  -- 玩家
-    FIGHT = 2,  -- 战斗
-    SYSTEM = 3,  -- 系统
-    REPORT = 4,  -- 报告
+    PLAYER  = 1,  -- 玩家
+    FIGHT   = 2,  -- 战斗
+    SYSTEM  = 3,  -- 系统
+    REPORT  = 4,  -- 报告
+    UNION   = 5,  -- 军团
 }
+
 MAIL_PLAYER_MODE = {
     CHAT = 1,  --玩家聊天
-    UNION_ANNOUNCE = 2, --军团公告
 }
+
 MAIL_FIGHT_MODE = {
     SPY = 1,  -- 侦查
     BE_SPY = 2,  -- 被侦查
-
     ATTACK_SUCCESS = 3,  -- 进攻成功
     ATTACK_FAIL = 4,  -- 进攻失败
     DEFEND_SUCCESS = 5,  -- 防守成功
     DEFEND_FAIL = 6,  -- 防守失败
-
-    MASS_SUCCESS = 7,  -- 集结成功
-    MASS_FAIL = 8,  -- 集结失败
-    DEFEND_MASS_SUCCESS = 9,  -- 防守集结成功
-    DEFEND_MASS_FAIL = 10,  -- 防守集结失败
 }
+
 MAIL_SYSTEM_MODE = {
     NORMAL = 1,  -- 普通系统邮件
     UNION_INVITATION = 2, -- 军团邀请
     MOVE_CITY = 3, -- 邀请迁城
 }
+
 MAIL_REPORT_MODE = {
     GATHER = 1,  -- 采集
     JUNGLE = 2,  -- 打怪
@@ -405,10 +396,9 @@ MAIL_REPORT_MODE = {
     KING = 6, --王者之战
     LOSTTEMPLE = 7, --遗迹塔
 }
-MOVE_CITY_MODE = {
-    ADVANCED = 1, --高级迁城
-    RANDOM = 2, --随机迁城
-    GRADING = 4, --资源带迁城
+
+MAIL_UNION_MODE = {
+    ANNOUNCE = 1,  --通知
 }
 
 --系统邮件界面元素
@@ -425,6 +415,15 @@ MAIL_UNREAD_OP = {
     ADD = 2,
     CONSUME = 3,
 }
+
+
+
+MOVE_CITY_MODE = {
+    ADVANCED = 1, --高级迁城
+    RANDOM = 2, --随机迁城
+    GRADING = 4, --资源带迁城
+}
+
 
 -- Zhao@2016年11月23日 ：道具class类型的宏定义
 ITEM_TYPE = {

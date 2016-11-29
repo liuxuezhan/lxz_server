@@ -605,7 +605,7 @@ function acc_build(self, build_idx, acc_type)
     if prop_tab.Class == 1 and build.state == BUILD_STATE.WORK then return end
     
     local state = build.state
-    if not ( state == BUILD_STATE.DESTROY or state == BUILD_STATE.CREATE or state == BUILD_STATE.UPGRADE or state == BUILD_STATE.FIX ) then
+    if not ( state == BUILD_STATE.DESTROY or state == BUILD_STATE.CREATE or state == BUILD_STATE.UPGRADE or state == BUILD_STATE.FIX or state == BUILD_STATE.WORK ) then
         INFO("acc_build: pid = %d, build_idx = %d, build.state = %d", self.pid, build_idx, build.state)
         return
     end
@@ -616,6 +616,7 @@ function acc_build(self, build_idx, acc_type)
         if quick >= remain then
             build:acceleration(build.tmOver - gTime)
         end
+
     elseif acc_type == ACC_TYPE.GOLD then
         local quick = self:get_val( "BuildFreeTime" )
         local dura = build.tmOver - gTime - quick

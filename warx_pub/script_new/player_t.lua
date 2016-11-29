@@ -370,7 +370,7 @@ function is_token_overdue(time)
 end
 
 function pre_tlog(self,name,...)
-    Tlog(name,tms2str(tm_create),self.tm_create,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
+    Tlog(name,tms2str(self.tm_create),self.tm_create,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
         self.account,self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.smap,self.reg_name,1,self.language,...)
 end
 
@@ -2203,6 +2203,36 @@ function cross_migrate(self, map_id, x, y)
     end
 end
 
+function cross_migrate_back(self, map_id, x, y)
+
+    if #self.busy_troop_ids > 0 then return ack(self, "migrate", resmng.E_TROOP_BUSY, 0) end
+
+    if not self:can_move_to(x, y)  then return self:add_debug("can not move by castle lv") end
+
+    if map_id ~= gMapID then
+        if self.cross_gs == gMapID then
+            local ef_u,ef_ue = self:get_union_ef()
+            self.ef_u = ef_u
+            self.ef_ue = ef_ue
+        else
+            self.ef_u = {}
+            self.ef_ue = {}
+        end
+
+        local timers = self:get_build_timers_and_del()
+        local db = self:getDb()
+        local task = db.task:findOne({_id=self.pid}) or {}
+        local union = unionmng.get_union(self.uid)
+        local troop = self:get_my_troop(self.my_troop_id)
+
+        if union then
+            Rpc:callAgent(map_id, "agent_migrate_back", self.pid, x, y, self, task, timers, union._pro, troop)
+        end
+
+    end
+end
+
+
 function get_build_timers_and_del(self)
     local bs = self:get_build()
     local timers = {}
@@ -2548,6 +2578,7 @@ function do_dec_res(self, mode, num, reason)
         if conf then
             local key = conf.CodeKey
             if self[ key ] and self[ key ] >= num then
+                self:add_count( resmng.ACH_COUNT_GOLD_COST, num )
                 self[ key ] = math.floor(self[ key ] - num)
                 if  mode ==resmng.DEF_RES_GOLD  then
                     self:pre_tlog("MoneyFlow",0,num,2,1,self[key],reason )
@@ -3584,7 +3615,7 @@ function get_npc_map_req(self)
             table.insert(map, {king_city.eid, king_city.uid, name, king_city.propid, {}, king_city.state, king_city.startTime, king_city.endTime})
     end
     pack.map = map
-    local union = self:union()
+    local union = unionmng.get_union(self.uid)
     if union then
         pack.atk = union.atk_id
         pack.def = union.def_id
@@ -3601,9 +3632,9 @@ function tag_npc_req(self, act, eid)
     if union then
         if act == 1 then
             union.atk_id = eid
-            union.def_id = 0
+           -- union.def_id = 0
         elseif act == 2 then
-            union.atk_id = 0
+           -- union.atk_id = 0
             union.def_id = eid
         end
     end
@@ -3631,6 +3662,7 @@ function untag_npc_req(self, eid)
     pack.def = union.def_id
     Rpc:tag_npc_ack(self, pack)
 end
+
 
 
 function get_union_npc_rank_req(self)
@@ -3931,7 +3963,7 @@ function get_eye_info(self,eid)--查询大地图建筑信息
         info.tmStart = dp.tmStart_g
         info.tmOver = dp.tmOver_g
         info.build_speed = dp.build_speed
-        info.speed = dp.speed --采集速度
+        info.speed = dp.gather_speed --采集速度
         info.fire_tmStart = dp.fire_tmStart
         info.fire_tmOver = dp.fire_tmOver
         info.fire_speed = dp.fire_speed
@@ -4487,7 +4519,6 @@ function inc_pow(self, num)
             union.pow = (union.pow or 0) + num
             rank_mng.add_data( 5, union.uid, { union.pow } )
         end
-        if union then union.pow = (union.pow or 0) + num end
     end
     union_mission.ok(self,UNION_MISSION_CLASS.POW,num)
 end
@@ -4875,7 +4906,7 @@ can_ply_join_act[ACT_TYPE.MC] = function(ply)
         return false
     end
 
-    if ( ply._union.join_tm or 3 ) > 2 or (gTime - ply._union.tmJoin) <= (12 * 3600) then
+    if ( ply._union.join_tm or 3 ) > 2 and (gTime - ply._union.tmJoin) <= (12 * 3600) then
         return false
     end
 

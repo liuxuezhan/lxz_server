@@ -216,6 +216,15 @@ function kw_notify()
 end
 
 function prepare_kw_notify()
+    local prop = resmng.get_conf("prop_act_notify", resmng.KW_PREPARE)
+    if prop then
+        if prop.Notify then
+            Rpc:tips({pid=-1,gid=_G.GateSid}, 2, prop.Notify,{})
+        end
+        if prop.Chat1 then
+            Rpc:chat({pid=-1,gid=_G.GateSid}, 0, 0, 0, "system", "", prop.Chat1, {})
+        end
+    end
     for k, v in pairs(resmng.prop_kw_notify or {}) do
         local time = resmng.prop_kw_stage[state].Spantime * 60
 

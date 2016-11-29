@@ -260,10 +260,14 @@ function gen_temple_by_propid(propid)
 
     local lv = prop.Lv
     local bandId = get_band_city(lv)
-    local prop = resmng.prop_world_unit[bandId]
+    local lt_prop = resmng.prop_world_unit[bandId]
     local grade = 1
     if lv <= 3 then grade = 2 else grade = 3 end
-    respawn(math.floor(prop.X/16), math.floor(prop.Y/16), grade, bandId)
+    if lt_prop then
+        respawn(math.floor(lt_prop.X/16), math.floor(lt_prop.Y/16), grade, bandId)
+    else
+         WARN("lost temple not find band npc prop %d", bandId)
+    end
 
 end
 
@@ -472,6 +476,47 @@ function after_fight(ackTroop, defenseTroop)
         etypipe.add(city)
     end
     --mark(npcCity)
+end
+
+function deal_cross(self)
+    clear_timer(self)
+    set_timer(2, self)
+    rem_ety(self.eid)
+end
+
+function deal_troop(atkTroop, defenseTroop)
+    if check_atk_win(atkTroop, defenseTroop) then
+        local city = get_ety(atkTroop.target_eid) 
+        if is_ply(defenseTroop.owner_eid) then 
+            --troop_t.dead_to_live_and_hurt( defenseTroop, 0.95 )
+            defenseTroop:back()
+        else
+            troop_mng.delete_troop(defenseTroop._id)
+        end
+
+        if city.uid ~= atkTroop.owner_uid then
+            --troop_t.dead_to_live_and_hurt( atkTroop, 0.95 )
+            atkTroop:back()
+        else
+            --atkTroop:home_hurt_tr()
+            local union = unionmng.get_union(atkTroop.owner_uid)
+            if check_union_cross(union) then
+                atkTroop:back()
+                city:deal_cross()
+            else
+                npc_city.try_hold_troop(city, atkTroop)
+            end
+        end
+    else
+        if is_ply(atkTroop.owner_eid) then
+            --troop_t.dead_to_live_and_hurt( atkTroop, 0.95 )
+            atkTroop:back()
+        else
+            troop_mng.delete_troop(atkTroop._id)
+        end
+
+        --defenseTroop:home_hurt_tr()
+    end
 end
 
 function check_atk_win(ackTroop, defenseTroop)

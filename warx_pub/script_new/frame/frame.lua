@@ -278,6 +278,12 @@ function do_threadPK()
                             gActionCur[ pid ] = nil
                         end
                     else
+                        if pid >= 10000 then
+                            if Protocol.CrossQuery[ fname ] then
+                                player_t[ fname ]( {pid=pid, uid=0, gid=_G.GateSid}, unpack( args ) )
+                                print( "cross_server, call", pid, fname )
+                            end
+                        end
                         LOG("RpcR, pid=%d, func=%s, no player", pid, Rpc.localF[pktype].name)
                     end
                 end
@@ -475,21 +481,7 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
         elseif gInit == "SystemSaving" then
             WARN( "shutdown, frame = %d", gFrame )
             if not check_pending_before_shutdown or not check_pending_before_shutdown() then
-                local have = false
-                for tab, doc in pairs( gPendingSave ) do
-                    local cache = doc.__cache
-                    for id, chgs in pairs( doc ) do
-                        if chgs == cache then
-                            for k, v in pairs( cache ) do
-                                have =true
-                                INFO( "shutdown, save %s : %s, n = %d", tab, k, v._n_ or 0 )
-                            end
-                        else
-                            have = true
-                            INFO( "shutdown, save %s : %s", tab, id )
-                        end
-                    end
-                end
+                local have = is_remain_db_action()
                 if not have then
                     WARN( "save done" )
                     os.exit( 0 )
@@ -577,6 +569,26 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
 end
 
 
+function is_remain_db_action()
+    local have = false
+    for tab, doc in pairs( gPendingSave ) do
+        local cache = doc.__cache
+        for id, chgs in pairs( doc ) do
+            if chgs == cache then
+                for k, v in pairs( cache ) do
+                    have =true
+                    INFO( "shutdown, save %s : %s, n = %d", tab, k, v._n_ or 0 )
+                end
+            else
+                have = true
+                INFO( "shutdown, save %s : %s", tab, id )
+            end
+        end
+    end
+    return have
+end
+
+
 function set_sys_status(_type, tms)
 end
 
@@ -608,61 +620,64 @@ end
 --gPendingSave.mail[ "1_270130" ].tm_lock = gTime
 function global_save()
     local db = dbmng:tryOne(1)
-    if db then
-        local cbs = gUpdateCallBack
-        local update = false
-        local cur = gFrame
-        for tab, doc in pairs(gPendingSave) do
-            local cache = doc.__cache
-            local cb = nil
-            for id, chgs in pairs(doc) do
-                if chgs ~= cache then
-                    doc[ id ] = nil
-                    update = true
-                    if not chgs._a_ then
-                        local oid = chgs._id
-                        chgs._id = id
-                        dumpTab( chgs, "global_save: "..tab )
-                        db[ tab ]:update({_id=id}, {["$set"] = chgs }, true)
-                        chgs._id = oid
-                        print( "[DB], update", tab, id,  "global" )
+    if not db then 
+        WARN( "no db" )
+        return
+    end
+
+    local cbs = gUpdateCallBack
+    local update = false
+    local cur = gFrame
+    for tab, doc in pairs(gPendingSave) do
+        local cache = doc.__cache
+        local cb = nil
+        for id, chgs in pairs(doc) do
+            if chgs ~= cache then
+                doc[ id ] = nil
+                update = true
+                if not chgs._a_ then
+                    local oid = chgs._id
+                    chgs._id = id
+                    dumpTab( chgs, "global_save: "..tab )
+                    db[ tab ]:update({_id=id}, {["$set"] = chgs }, true)
+                    chgs._id = oid
+                    print( "[DB], update", tab, id,  "global" )
+
+                else
+                    if chgs._a_ == 0 then
+                        db[ tab ]:delete({_id=id})
+                        print( "[DB], delete", tab, id, "global" )
 
                     else
-                        if chgs._a_ == 0 then
-                            db[ tab ]:delete({_id=id})
-                            print( "[DB], delete", tab, id, "global" )
+                        local oid = chgs._id
+                        rawset( chgs, "_a_", nil )
+                        rawset( chgs, "_id", id )
+                        db[ tab ]:update({_id=id}, chgs, true)
+                        rawset( chgs, "_a_", 1)
+                        rawset( chgs, "_id", oid )
+                        print( "[DB], create", tab, id, "global" )
 
-                        else
-                            local oid = chgs._id
-                            rawset( chgs, "_a_", nil )
-                            rawset( chgs, "_id", id )
-                            db[ tab ]:update({_id=id}, chgs, true)
-                            rawset( chgs, "_a_", 1)
-                            rawset( chgs, "_id", oid )
-                            print( "[DB], create", tab, id, "global" )
-
-                        end
                     end
-                    rawset( chgs, "_n_", cur )
-                    cache[ id ] = chgs
+                end
+                rawset( chgs, "_n_", cur )
+                cache[ id ] = chgs
 
+                if cb == nil then
+                    cb = cbs[ tab ]
                     if cb == nil then
-                        cb = cbs[ tab ]
-                        if cb == nil then
-                            cb = _G[ tab ] and _G[ tab ].on_check_pending
-                            if cb == nil then cb = false end
-                            cbs[ tab ] = cb
-                        end
+                        cb = _G[ tab ] and _G[ tab ].on_check_pending
+                        if cb == nil then cb = false end
+                        cbs[ tab ] = cb
                     end
+                end
 
-                    if cb then
-                        cb( db, id, chgs )
-                    end
+                if cb then
+                    cb( db, id, chgs )
                 end
             end
         end
-        if update then gen_global_checker( db, cur ) end
     end
+    if update then gen_global_checker( db, cur ) end
 end
 
 gGlobalChecker = {}
@@ -707,6 +722,7 @@ function global_save_checker()
                 dumpTab(info, "check_save")
             end
         end
+
         if #gGlobalChecker < 20 then
             local co = coroutine.running()
             table.insert( gGlobalChecker, co )
