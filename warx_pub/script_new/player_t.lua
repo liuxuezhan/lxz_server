@@ -455,6 +455,7 @@ function firstPacket2(self, sockid, from_map, cival, pid, signature, time, open_
         player_t.login( p, p.pid )
     end
     p:pre_tlog("PlayerLogin",p.gold,0,"iphone6","ios","oper","wifi","800","600",2000)
+    return p
 end
 
 function first_login(self)

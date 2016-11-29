@@ -73,9 +73,9 @@ local function accept(fd, addr)
                 if d.f == "firstPacket2" then
                     d.args[1]=fd
                     local p = player_t[d.f](_G.gAgent, unpack(d.args)  ) 
-                    plys[fd] = p 
+                    if p  then plys[fd] = p end
                 else
-                    if player_t[d.f] then
+                    if plys[fd] and player_t[d.f] then
                         player_t[d.f](plys[fd], unpack(d.args)  ) 
                     end
                 end

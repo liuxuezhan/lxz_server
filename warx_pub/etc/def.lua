@@ -71,6 +71,12 @@ end
 function pullInt()
 end
 
+function c_add_eye(...)
+end
+
+function c_mov_eye(...)
+end
+
 function pullNext()
 end
 
