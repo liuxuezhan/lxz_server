@@ -7,6 +7,9 @@ function init_task(self)
     --主线支线任务列表
     self._life_task_list = {}
 
+    --目标任务列表
+    self._target_task_list = {}
+
     --需要保存的任务ID数组
     self._need_save_id = {}
 
@@ -39,12 +42,15 @@ function init_from_db(self, data)
     if not self._need_save_id then self._need_save_id = {} end
     if not self._daily_task_list then self._daily_task_list = {} end
     if not self._life_task_list then self._life_task_list = {} end
+    if not self._target_task_list then self._target_task_list = {} end
     for k, v in pairs(data) do
         if k ~= "_id" then
             if v.task_type == TASK_TYPE.TASK_TYPE_DAILY then
                 self._daily_task_list[tonumber(k)] = v
             elseif v.task_type == TASK_TYPE.TASK_TYPE_TRUNK or v.task_type == TASK_TYPE.TASK_TYPE_BRANCH then
                 self._life_task_list[tonumber(k)] = v
+            elseif v.task_type == TASK_TYPE.TASK_TYPE_TARGET then
+                self._target_task_list[tonumber(k)] = v
             end
         end
     end
@@ -80,6 +86,7 @@ end
 function clear_task()
     self._daily_task_list = {}
     self._life_task_list = {}
+    self._target_task_list = {}
     self._need_save_id = {}
 end
 
@@ -89,6 +96,8 @@ function get_task_by_id(self, task_id)
         return self._life_task_list[key]
     elseif self._daily_task_list[key] ~= nil then
         return self._daily_task_list[key]
+    elseif self._target_task_list[key] ~= nil then
+        return self._target_task_list[key]
     end
     return nil
 end
@@ -115,6 +124,10 @@ function add_task_data(self, task_info)
         local func = unpack(resmng.prop_task_detail[unit.task_id].FinishCondition)
         unit.task_action = g_task_func_relation[func]
         self._life_task_list[unit.task_id] = unit
+    elseif unit.task_type == TASK_TYPE.TASK_TYPE_TARGET then
+        local func = unpack(resmng.prop_task_detail[unit.task_id].FinishCondition)
+        unit.task_action = g_task_func_relation[func]
+        self._target_task_list[unit.task_id] = unit
     end
 
     self:add_save_task_id(unit.task_id)
@@ -128,6 +141,8 @@ function get_task_by_type(self, task_type)
         return self._daily_task_list
     elseif task_type == TASK_TYPE.TASK_TYPE_TRUNK or task_type == TASK_TYPE.TASK_TYPE_BRANCH then
         return self._life_task_list
+    elseif task_type == TASK_TYPE.TASK_TYPE_TARGET then
+        return self._target_task_list
     end
 end
 
@@ -143,6 +158,7 @@ function get_task_by_action(self, task_action)
 
     find(self._life_task_list)
     find(self._daily_task_list)
+    find(self._target_task_list)
 
     return task_array
 end
@@ -160,14 +176,21 @@ function packet_list(self, src)
                 table.insert(list, unit)
             end
         elseif v.task_type == TASK_TYPE.TASK_TYPE_DAILY then
-                local unit = {}
-                unit.task_id = v.task_id
-                unit.task_type = v.task_type
-                unit.task_status = v.task_status
-                unit.current_num = v.task_current_num
-                unit.task_daily_num = v.task_daily_num
-                unit.task_group_id = resmng.prop_task_daily[unit.task_id].GroupID
-                table.insert(list, unit)
+            local unit = {}
+            unit.task_id = v.task_id
+            unit.task_type = v.task_type
+            unit.task_status = v.task_status
+            unit.current_num = v.task_current_num
+            unit.task_daily_num = v.task_daily_num
+            unit.task_group_id = resmng.prop_task_daily[unit.task_id].GroupID
+            table.insert(list, unit)
+        elseif v.task_type == TASK_TYPE.TASK_TYPE_TARGET then
+            local unit = {}
+            unit.task_id = v.task_id
+            unit.task_type = v.task_type
+            unit.task_status = v.task_status
+            unit.current_num = v.task_current_num
+            table.insert(list, unit)
         end
     end
     return list
@@ -563,6 +586,7 @@ function inc_activity(self, value)
     self.activity = self.activity + value
     union_mission.ok(self, UNION_MISSION_CLASS.ACTIVE, value)
     kw_mall.add_kw_point(value)
+    task_logic_t.process_task(self, TASK_ACTION.FINISH_DAILY_TASK)
 end
 
 function calc_daily_refresh_time(self)
@@ -641,6 +665,35 @@ function open_build_by_task(self, task_id)
         end
     end
 end
+
+
+----------------------------------------------------------------------------------
+----------------------------------------------------------------------------------
+----------------------------------------------------------------------------------
+--目标任务
+function take_target_task(self)
+    for k, v in pairs(resmng.prop_task_detail) do
+        if v.TaskType == TASK_TYPE.TASK_TYPE_TARGET then
+            local can_take = self:can_take_task(v.ID)
+            if can_take == true then
+                self:add_task_data(v)
+            end
+        end
+    end
+end
+
+function packet_target_task(self)
+    return self:packet_list(self._target_task_list)
+end
+
+
+
+
+
+
+
+
+
 
 
 

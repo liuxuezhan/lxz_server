@@ -149,10 +149,3 @@ monitor_func[MONITOR_TYPE.LUAOBJ] = function()
     local total_union = get_table_valid_count(unionmng._us)
     monitor_debug("[UNION_OBJ], nunionnum=%d", total_union)
 end
-
-
-
-
-
-
-

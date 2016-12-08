@@ -504,7 +504,7 @@ end
 --------------------------------------------------------------------------------
 function can_lv_up(self)
     if not self:is_valid() and self.status ~= HERO_STATUS_TYPE.BEING_CURED  then
-        ERROR("can_lv_up: hero_id(%s) isn't valid.", self._id)
+        WARN("can_lv_up: hero_id(%s) isn't valid.", self._id)
         return
     end
 
@@ -519,11 +519,11 @@ function can_lv_up(self)
     -- 等级不能超过城主
     local player = getPlayer(self.pid)
     if not player then
-        ERROR("can_lv_up: getPlayer() failed. pid = %d", self.pid)
+        WARN("can_lv_up: getPlayer() failed. pid = %d", self.pid)
         return
     else
         if self.lv > player.lv then 
-            ERROR("can_lv_up: hero[%s], hero.lv = %d >= player.lv = %d", self._id, self.lv, player.lv)
+            WARN("can_lv_up: hero[%s], hero.lv = %d >= player.lv = %d", self._id, self.lv, player.lv)
             player:add_debug("can not lv up")
             return false 
         end

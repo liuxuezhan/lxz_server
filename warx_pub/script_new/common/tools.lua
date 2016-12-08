@@ -421,6 +421,7 @@ etypipe[EidType.MonsterCity]=   {"propid", "eid", "x", "y", "state", "class", "s
 etypipe[EidType.Camp]    =      {"propid", "eid", "x", "y", "pid", "uid"}
 etypipe[EidType.LostTemple]=    {"propid", "eid", "x", "y", "state", "startTime", "endTime", "uid", "uname", "born"}
 etypipe[EidType.CLOWN]=         {"propid", "eid", "x", "y" }
+etypipe[EidType.Wander]=         {"propid", "eid", "x", "y" }
 
 
 function etypipe.pack(filter, xs)
@@ -1172,7 +1173,15 @@ function format_time(time)
         rtTime = string.format("%s:%s",  minute, second)  
     end
     return rtTime  
-end 
+end
+
+function can_enter_reszone_lv( lv_castle )
+    if lv_castle <  6 then return 1 end
+    if lv_castle < 10 then return 2 end
+    if lv_castle < 12 then return 3 end
+    if lv_castle < 15 then return 4 end
+    return 6
+end
 
 function can_enter( lv_castle, lv_pos )
     if lv_castle <  6 then return lv_pos <= 1 end
@@ -1184,7 +1193,7 @@ end
 
 function check_union_cross(union)
     if not union then
-        return
+        return false
     end
     local u = {}
     if type(union) == "number" then

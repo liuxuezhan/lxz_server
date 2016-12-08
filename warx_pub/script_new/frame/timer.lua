@@ -95,6 +95,16 @@ function acc(id, sec)
     end
 end
 
+function add(id, sec)
+    local node = get(id)
+    if node then
+        node.over = node.over + sec
+        node.tag = (node.tag or 0) + 1
+        newTimer(node)
+        mark(node)
+    end
+end
+
 function callback(id, tag)
     local t = get(id)
     if t and t.tag == tag then
@@ -158,3 +168,19 @@ end
 --        return id, node
 --    end
 --end
+
+-- 应该被各自项目的cron调用，在这里利用cron的timer执行一些框架级别的定时工作
+function cron_base_func()
+    local nextCron = 60 - (gTime % 60) + 30
+    local newsn, node = timer.new("cron", nextCron)
+    
+    c_mem_info()
+    crontab.loop()
+
+    -- 协程退出时(不管是正常还是异常）都应该删除自己可能在gCoroBad中的引用
+    for k, v in pairs(gCoroBad) do
+        if coroutine.status(k) == "dead" then
+            gCoroBad[k] = nil
+        end
+    end
+end

@@ -7,21 +7,25 @@ function load_data(data)
     local id = data._id
     local troop = troop_mng.get_troop(id)
     if troop then
-        union_battle_room[id] = data
-        local A = get_ety(troop.owner_eid)
-        if A then
-            local union = unionmng.get_union(A.uid)
-            if union then setIns( union.battle_room_ids, id) end
-        end
+        if troop:is_ready() or troop:is_go() then
+            union_battle_room[id] = data
+            local A = get_ety(troop.owner_eid)
+            if A then
+                local union = unionmng.get_union(A.uid)
+                if union then setIns( union.battle_room_ids, id) end
+            end
 
-        local A = get_ety(troop.target_eid)
-        if A then
-            if not A.rooms then A.rooms = {} end
-            table.insert(A.rooms, id)
-            local union = unionmng.get_union(A.uid)
-            if union then  setRem( union.battle_room_ids, id) end
+            local A = get_ety(troop.target_eid)
+            if A then
+                if not A.rooms then A.rooms = {} end
+                table.insert(A.rooms, id)
+                local union = unionmng.get_union(A.uid)
+                if union then  setRem( union.battle_room_ids, id) end
+            end
+            return
         end
     end
+    gPendingDelete.room[ id ] = 1
 end
 
 function generate_battle_id()

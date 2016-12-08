@@ -150,9 +150,7 @@ end
 
 function get(uid) --获取悬赏任务列表
     local union = unionmng.get_union(uid)
-    if not union then
-        ack(self, "union_task", resmng.E_NO_UNION) return
-    end
+    if not union then return end
 
     local  list={}
     for k,id in pairs(union.u_task or {} ) do
@@ -198,9 +196,9 @@ function del(id)
                     pids = pids..","..v.name
                 end
             end
-            o:send_system_notice(10016, {pids} )
+            o:send_system_notice(10016, {},{pids} )
         else
-            o:send_system_notice(10018, {}, {{"res",c.res,c.res_num,10000}})
+            o:send_system_notice(10018, {},{}, {{"res",c.res,c.res_num,10000}})
         end
         dbmng:getOne().union_task:delete({_id=id})
         local u = unionmng.get_union(c.uid)
@@ -259,7 +257,7 @@ function ok(p,obj,type) --完成悬赏任务
                 _d[id].res_num = _d[id].res_num - r 
                 table.insert(_d[id].log,{name=p.name,num = r,tm=gTime})
                 r = math.floor(r * (100-_d[id].tax_rate)/100)
-                p:send_system_notice(10017, {o.name}, {{"res",_d[id].res,r,10000}})
+                p:send_system_notice(10017, {},{o.name}, {{"res",_d[id].res,r,10000}})
 
                 if num+1 == _d[id].num  then
                     del(id)

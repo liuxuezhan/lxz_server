@@ -335,7 +335,6 @@ function fight_kw()
     end
     clear_officer()
     kw_mall.rem_all_buf()
-    gen_npc_buf()
     clear_kings_debuff()
     add_last_king_debuff()
     season = season + 1
@@ -486,6 +485,7 @@ function pace_kw()
     set_kw_state(KW_STATE.PACE)
     kw_notify() --  发放全服通知定时器
     do_timer()
+    gen_npc_buf()  -- 刷新新buf
 end
 
 function do_peace_city()
@@ -1305,7 +1305,7 @@ end
 function select_king(union, pid)
     local ply = getPlayer(pid)
     if ply and union:has_member(ply) then
-        local king = {season, pid, union.uid, 0, gTime}
+        local king = {season, pid, union.uid, 0, gTime, ply.name, ply.flag, ply:get_castle_lv(), union.name}
         -- 国王加入到
         kings[season] = king
         --table.insert(kings,  king)
@@ -1406,6 +1406,7 @@ function clear_officer()
         if ply then
             ply.officer = 0
         end
+        etypipe.add(ply)
     end
     for k, v in pairs(officers or {}) do 
         local ply = getPlayer(v)
@@ -1413,6 +1414,7 @@ function clear_officer()
         if ply then
             ply.officer = 0
         end
+        etypipe.add(ply)
     end
 
     officers = {}

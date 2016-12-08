@@ -273,14 +273,20 @@ function dispatch_hero(self, build_idx, hero_idx)
         return
     end
 
-    if build.hero_idx == hero_idx then
-        self:hero_offduty(hero)
-        return
+    if hero.build_idx ~= 0 then
+        self:hero_offduty( hero )
+        hero.build_idx = 0
     end
 
     if  hero.status ~= HERO_STATUS_TYPE.FREE then
         ERROR("dispatch_hero: status failed. pid = %d, hero_idx = %d, status=%d", self.pid, hero_idx, hero.status)
         return
+    end
+
+    if build.hero_idx ~= 0 then
+        local ohero = self:get_hero( build.hero_idx )
+        if ohero then self:hero_offduty( ohero ) end
+        build.hero_idx = 0
     end
 
     self:hero_onduty(hero, build)
@@ -736,6 +742,7 @@ function hero_cure_acc_item(self, hero_idx, item_idx, item_num)
     
     if self:dec_item(item_idx, item_num, VALUE_CHANGE_REASON.BUILD_ACC) then
         local secs = conf.Param * item_num
+        hero.tmStart = hero.tmStart - secs
         hero.tmOver = hero.tmOver - secs
         if hero.tmOver < gTime then hero.tmOver = gTime end
         timer.acc( hero.tmSn, secs )

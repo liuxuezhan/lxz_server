@@ -21,6 +21,14 @@ function load_data(t)
             obj.hold_troop = {}
         end
         obj.hold_troop[t._id] = 1  
+    elseif t:is_settle() then
+        if obj and is_union_building( obj ) then
+            if t:get_base_action() == TroopAction.Gather then
+            else
+                obj.my_troop_id = t._id
+            end
+            save_ety(obj)
+        end
     end
 end
 
@@ -114,13 +122,12 @@ end
 function delete_troop(troop_id)
     local troop = troop_id_map[ troop_id ]
     if troop == nil then return end
+    if troop.eid and gEtys[ troop.eid ] == troop then gEtys[ troop.eid ] = nil end
 
-    if troop.eid then gEtys[ troop.eid ] = nil end
 	troop_id_map[troop_id] = nil
     gPendingDelete.troop[ troop_id ] = 0
     troop.delete = true
 
-    local owner_pid = troop.owner_pid
     for pid, _ in pairs(troop.arms) do
         if pid >= 10000 then
             local ply = getPlayer(pid)
@@ -218,6 +225,8 @@ gTroopActionTrigger[TroopAction.SiegePlayer] = function(troop)
         dest:city_break( owner )
         rages = fight.rage(troop, dest) 
 
+        dumpTab( rages, "rages" )
+
         for _, one in pairs( troops ) do
             one.win = 1
             local pid = one.owner_pid
@@ -225,6 +234,7 @@ gTroopActionTrigger[TroopAction.SiegePlayer] = function(troop)
             if tmp_player then
                 local rage = rages[ one.owner_pid ]
                 if rage then
+                    dumpTab( rage, "rage" )
                     one.goods = rage
                     one.goods_reason = VALUE_CHANGE_REASON.RAGE
                     one:save()
@@ -417,6 +427,7 @@ gTroopActionTrigger[TroopAction.SiegeMonster] = function(ack_troop)
 
     local result = ack_troop:statics()
 
+    monster.send_union_item(dest, ack_troop.owner_pid)
     for pid, arm in pairs( ack_troop.arms or {} ) do
         local A = getPlayer( pid )
         if A then
@@ -438,10 +449,10 @@ gTroopActionTrigger[TroopAction.SiegeMonster] = function(ack_troop)
 
             local rate = 1 + A:get_num( "HeroPveExp_R" ) * 0.0001
 
-            for k, v in pairs( its ) do
+            for k, v in pairs( its or {}) do
                 local tmp = awards[ 1 ]
                 if k == "final" then tmp = awards[ 2 ] end
-                for key, item in pairs( v ) do
+                for key, item in pairs( v or {}) do
                     if item[1] == "hero_exp" then
                         for _, hid in pairs( arm.heros or {} ) do
                             if hid ~= 0 then
@@ -497,7 +508,7 @@ gTroopActionTrigger[TroopAction.SiegeMonster] = function(ack_troop)
     local mid = dest.propid
     if win then win = 1 end
 
-    for k, v in pairs(ts) do
+    for k, v in pairs(ts or {}) do
         v.win = win
         local tmp_player = getPlayer(k)
         if tmp_player ~= nil then
@@ -991,7 +1002,7 @@ function spy_castle(player, dest_obj, content)
         for i = 1, 4, 1 do
             local prop_res = resmng.get_conf("prop_resource", i)
             if castle_lv >= prop_res.Open then
-                table.insert(content.res, {spied_ply:get_res_num(i), res0[i]})
+                table.insert(content.res, {spied_ply:get_res_num_normal(i), res0[i]})
             end
         end
     end
@@ -1126,7 +1137,7 @@ function spy_union_miracle(player, dest_obj, content)
     if prop_miracle == nil then
         return
     end
-    if prop_miracle.Mode ~= 1 and prop_miracle.Mode ~= 2 then
+    if prop_miracle.Class ~= 10 or prop_miracle.Mode < 20 then
         return
     end
 
@@ -1673,6 +1684,7 @@ send_report[TroopAction.King] = function(atk_troop, defense_troop)
                 ply.kill_per = 0
             else
                 ply.kill_per = math.ceil((kill_num / dead) * 100)
+                if ply.kill_per > 100 then  ply.kill_per = 100 end
             end
 
             local hurt_num = 0
@@ -1760,7 +1772,7 @@ end
 
 send_report[TroopAction.SiegeNpc] = function(atk_troop, defense_troop)
     local atkReport = {}
-    atkReport.win = atk_troop.win
+    atkReport.win = atk_troop.win or false
     local dest = get_ety(atk_troop.target_eid)
     if dest then
         local target = {}
@@ -1973,7 +1985,7 @@ send_report[TroopAction.SiegeMonsterCity] = function(atk_troop, defense_troop)
             ply.point = math.floor(arm.mkdmg)
             ply.name = A.name
             local kill_num = 0
-            for k, v in pairs(arm.kill_soldier) do
+            for k, v in pairs(arm.kill_soldier or {}) do
                 kill_num = kill_num + v
             end
             ply.kill_num = kill_num
@@ -2013,7 +2025,7 @@ gTroopActionTrigger[TroopAction.AtkMC] = function(ack_troop)
     end
 
     -- only one chance to atk defense mc
-    for pid, arm in pairs(ack_troop.arms) do
+    for pid, arm in pairs(ack_troop.arms or {}) do
         local be_atked_list = dest.be_atked_list or {}
         if be_atked_list[pid] then
             local tr  = ack_troop:split_pid(pid)
@@ -2416,14 +2428,17 @@ function dismiss_mass(troop)
 
     if T then
         if action == TroopAction.SiegeMonster then T:inc_sinew( 10 ) end
-        for tid, action in pairs( T.troop_comings or {} ) do
-            if action == TroopAction.JoinMass then
+        for tid, taction in pairs( T.troop_comings or {} ) do
+            if taction == TroopAction.JoinMass then
                 local one = troop_mng.get_troop( tid )
                 if one and one:is_go() and one.dest_troop_id == troop._id then
                     local pid = one.owner_pid
                     if pid >= 10000 then
                         local A = getPlayer( pid )
-                        if A then A:troop_recall( tid ) end
+                        if A then 
+                            A:troop_recall( tid, true ) 
+                            if action == TroopAction.SiegeMonster then A:inc_sinew( 10 ) end
+                        end
                     end
                 end
             end

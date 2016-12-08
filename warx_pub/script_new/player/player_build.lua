@@ -2068,7 +2068,7 @@ function wall_fire( self, dura )
 end
 
 
-function wall_repair( self, mode ) -- mode == 0, free, mode == 1, use gold
+function wall_repair( self, mode ) -- mode == 0; free, mode == 1, use gold; mode == 2, use item
     local wall = self:get_wall()
     if not wall then return end
 
@@ -2085,12 +2085,19 @@ function wall_repair( self, mode ) -- mode == 0, free, mode == 1, use gold
         if cur > max then cur = max end
         wall:set_extra( "last", gTime )
 
-    else
+    elseif mode == 1 then
         local cost = math.ceil( ( max - cur ) / 300 ) * 20
         if cost < 1 then return end
         if self.gold < cost then return end
         self:do_dec_res( resmng.DEF_RES_GOLD, cost, VALUE_CHANGE_REASON.WALL_REPAIR)
         cur = max
+
+    elseif mode == 2 then
+        if self:dec_item_by_item_id( resmng.ITEM_PROMPTLY_RECOVERY, 1, VALUE_CHANGE_REASON.WALL_REPAIR ) then
+            cur = max
+        else
+            return
+        end
     end
 
     if cur >= max then
@@ -2103,7 +2110,9 @@ function wall_repair( self, mode ) -- mode == 0, free, mode == 1, use gold
     else
         wall:set_extra( "cur", cur )
     end
+    return true
 end
+
 
 
 function wall_outfire( self )
@@ -2121,4 +2130,9 @@ function wall_outfire( self )
     wall:clr_extra( "fire" )
 end
 
+
+-- for item use api
+function wall_recover( self )
+    self:wall_repair( 2 )
+end
 

@@ -10,16 +10,26 @@ _funs["toMongo"] = function(sn, host, port, db, sid)
 end
 
 _funs["cron"] = function(sn)
-    local nextCron = 60 - (gTime % 60) + 30
-    timer.new("cron", nextCron)
+    timer.cron_base_func()
 
-    c_mem_info()
+    --local nextCron = 60 - (gTime % 60) + 30
+    --timer.new("cron", nextCron)
+    --c_mem_info()
+    --set_sys_status( "tick", gTime )
+    --crontab.loop()
 
-    crontab.loop()
     monster.loop()
     farm.loop()
     fight.clean_report()
-    set_sys_status( "tick", gTime )
+
+
+    for what, cos in pairs( gCoroPend ) do
+        INFO( "CoroPend %s, %d", what, table_count( cos ) )
+    end
+
+    for what, cos in pairs( gCoroPool ) do
+        INFO( "CoroPool %s, %d", what, table_count( cos ) )
+    end
 
     Tlog("GameSvrState",config.GameHost,(player_t.g_online_num or 0),(get_sys_status("start") or 0) ,0 )
 end
@@ -428,5 +438,19 @@ _funs["tool_test"] = function(sn)
     tool_test()
 end
 
+_funs["cross_act_notify"] = function(sn, notify_id, time)
+    time = time or 0
+    cross_mng.cross_act_notify(notify_id, time)
+end
+
+_funs["cross_act"] = function(sn, state)
+    if state == CROSS_STATE.FIGHT then
+        cross_mng.cross_act_fight()
+    elseif state == CROSS_STATE.PEACE then
+        cross_mng.cross_act_end()
+    elseif state == CROSS_STATE.PREPARE then
+        cross_mng.cross_act_prepare()
+    end
+end
 
 

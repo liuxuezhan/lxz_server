@@ -17,7 +17,6 @@ function load_player()
 
             local p = player_t.new(data)
             player_t._cache[ data.pid ] = nil
-            gEtys[ p.eid ] = p
             rawset( p, "token", token )
             rawset(p, "eid", data.eid)
             rawset(p, "size", 4)
@@ -27,8 +26,10 @@ function load_player()
                 local union = unionmng.get_union(data.uid)
                 if union then
                     rawset(p, "uname", union.alias)
+                    rawset(p, "uflag", union.flag)
                 end
             end
+            gEtys[ p.eid ] = p
 
             count = count + 1
             if count >= 100 then
@@ -313,6 +314,10 @@ function action()
     load_sys_status()
     INFO("-- load_sys_status done-----")
     monitoring(MONITOR_TYPE.LOADDATA, "load_sys_status")
+
+    INFO("-- load_wander -------------")
+    wander.load()
+    INFO("-- load_wander done --------")
 
     load_troop()
     monitoring(MONITOR_TYPE.LOADDATA, "load_troop")

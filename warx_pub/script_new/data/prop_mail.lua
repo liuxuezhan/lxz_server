@@ -10,7 +10,7 @@ prop_mail = {
 	[MAIL_10001] = { ID = MAIL_10001, Class = 1, Name = LG_MAIL_NAME_10001, Title = LG_MAIL_TITLE_10001, Content = LG_MAIL_CONTENT_10001, AddBonus = nil,},
 	[MAIL_10002] = { ID = MAIL_10002, Class = 1, Name = LG_MAIL_NAME_10001, Title = LG_MAIL_TITLE_10002, Content = LG_MAIL_CONTENT_10002, AddBonus = {"mutex_award",{{"res",8,5000,10000}}},},
 	[MAIL_20001] = { ID = MAIL_20001, Class = 2, Name = LG_NIL, Title = LG_MAIL_TITLE_20001, Content = LG_MAIL_CONTENT_20001, AddBonus = nil,},
-	[MAIL_30001] = { ID = MAIL_30001, Class = 3, Name = LG_NIL, Title = LG_MAIL_TITLE_30001, Content = LG_MAIL_CONTENT_30001, AddBonus = nil,},
+	[MAIL_30001] = { ID = MAIL_30001, Class = 3, Name = LG_MAIL_NAME_10001, Title = LG_MAIL_TITLE_30001, Content = LG_MAIL_CONTENT_30001, AddBonus = nil,},
 	[MAIL_10003] = { ID = MAIL_10003, Class = 1, Name = LG_MAIL_NAME_10001, Title = LG_MAIL_TITLE_10003, Content = LG_MAIL_CONTENT_10003, AddBonus = nil,},
 	[MAIL_10004] = { ID = MAIL_10004, Class = 1, Name = LG_MAIL_NAME_10001, Title = LG_MAIL_TITLE_10003, Content = LG_MAIL_CONTENT_10004, AddBonus = nil,},
 	[MAIL_10005] = { ID = MAIL_10005, Class = 1, Name = LG_MAIL_NAME_10001, Title = LG_MAIL_TITLE_10004, Content = LG_MAIL_CONTENT_10005, AddBonus = nil,},
@@ -39,4 +39,5 @@ prop_mail = {
 	[MAIL_10028] = { ID = MAIL_10028, Class = 1, Name = LG_MAIL_NAME_10001, Title = LG_MAIL_TITLE_10028, Content = LG_MAIL_CONTENT_10028, AddBonus = nil,},
 	[MAIL_10029] = { ID = MAIL_10029, Class = 1, Name = LG_MAIL_NAME_10001, Title = LG_MAIL_TITLE_10029, Content = LG_MAIL_CONTENT_10029, AddBonus = nil,},
 	[MAIL_10030] = { ID = MAIL_10030, Class = 1, Name = LG_MAIL_NAME_10001, Title = LG_MAIL_TITLE_10030, Content = LG_MAIL_CONTENT_10030, AddBonus = nil,},
+	[MAIL_10031] = { ID = MAIL_10031, Class = 1, Name = LG_MAIL_NAME_10001, Title = LG_MAIL_TITLE_10031, Content = LG_MAIL_CONTENT_10031, AddBonus = nil,},
 }

@@ -42,6 +42,7 @@ function getOne(self, policy)
     if #self.idxMap < 1 then
         local co = coroutine.running()
         table.insert(dbmng.pending, co)
+        coro_mark( co, "waitdb" )
         coroutine.yield("waitdb")
     end
     policy = policy or math.random(64)

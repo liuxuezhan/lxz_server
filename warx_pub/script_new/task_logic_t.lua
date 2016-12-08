@@ -256,7 +256,7 @@ do_task[TASK_ACTION.SPY_NPC_CITY] = function(player, task_data, con_type, real_t
         return false
     end
 
-    if con_type ~= real_type then
+    if con_type ~= 0 and con_type ~= real_type then
         return false
     end
     add_task_process(player, task_data, 1, 1)
@@ -281,7 +281,7 @@ do_task[TASK_ACTION.ATTACK_NPC_CITY] = function(player, task_data, con_type, con
         return false
     end
 
-    if con_type ~= real_type then
+    if con_type ~= 0 and con_type ~= real_type then
         return false
     end
     add_task_process(player, task_data, con_num, real_num)
@@ -961,3 +961,71 @@ do_task[TASK_ACTION.HERO_STATION] = function(player, task_data, real_num)
     return true
 end
 
+
+
+
+
+
+
+--世界频道说话
+do_task[TASK_ACTION.WORLD_CHAT] = function(player, task_data, con_num, real_num)
+    if real_num == nil then
+        return false
+    end
+
+    add_task_process(player, task_data, con_num, real_num)
+    return true
+end
+
+--完成日常任务
+do_task[TASK_ACTION.FINISH_DAILY_TASK] = function(player, task_data, con_activity)
+    update_task_process(task_data, con_activity, player.activity)
+    return true
+end
+
+--完成军团任务
+do_task[TASK_ACTION.FINISH_UNION_TASK] = function(player, task_data, con_score, real_score)
+    if real_score == nil then
+        return false
+    end
+    update_task_process(task_data, con_score, real_score)
+    return true
+end
+
+--迁城到资源带
+do_task[TASK_ACTION.MOVE_TO_ZONE] = function(player, task_data, con_lv, real_lv)
+    if real_lv == nil then
+        return false
+    end
+
+    if con_lv ~= real_lv then
+        return false
+    end
+
+    add_task_process(player, task_data, 1, 1)
+    return true
+end
+
+--叛军突袭活动获得积分
+do_task[TASK_ACTION.PANJUN_SCORE] = function(player, task_data, con_score, real_score)
+    if real_score == nil then
+        return false
+    end
+    update_task_process(task_data, con_score, real_score)
+    return true
+end
+
+--遗迹塔获得贤者之石
+do_task[TASK_ACTION.LOSTTEMPLE_SCORE] = function(player, task_data, con_score, real_score)
+    if real_score == nil then
+        return false
+    end
+    update_task_process(task_data, con_score, real_score)
+    return true
+end
+
+--向王城行军
+do_task[TASK_ACTION.TROOP_TO_KING_CITY] = function(player, task_data, con_num)
+    update_task_process(task_data, con_num, 1)
+    return true
+end

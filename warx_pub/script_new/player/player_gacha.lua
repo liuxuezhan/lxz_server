@@ -17,7 +17,9 @@ PROP_YINBI_ID = 1
 PROP_JINBI_ID = 2
 PROP_HUNXIA_ID = 3
 HUNXIA_LIMIT_VIP = 10
-ITEM_HUNXIA_ID = 20001003
+
+ITEM_JINGYIN_ID = resmng.ITEM_MIDDLE_SEARCH --20001002
+ITEM_HUNXIA_ID = resmng.ITEM_HIGH_SEARCH --20001003
 
 function gacha_on_day_pass(self)
     self.gacha_yinbi_num = 0  --银币抽卡次数
@@ -54,8 +56,12 @@ function get_gacha_status(self)
 	if prop_jinbi == nil then
 		return
 	end
+	local gold_item = self:get_item_num(ITEM_JINGYIN_ID)
+
 	if gTime >= self.gacha_jinbi_cd and self.gacha_jinbi_free_num < prop_jinbi.Free then
 		msg_send.jinbi = {0, 0, self.gacha_jinbi_free_num, prop_jinbi.Free, self.gacha_jinbi_first}
+	elseif gold_item > 0 then
+		msg_send.jinbi = {2, 0, self.gacha_jinbi_free_num, prop_jinbi.Free}
 	else
 		local dest_stamp = self.gacha_jinbi_cd
 		msg_send.jinbi = {1, dest_stamp, self.gacha_jinbi_free_num, prop_jinbi.Free}
@@ -253,6 +259,7 @@ function do_jinbi_one(self, msg_send)
 		msg_send.result = 1
 		return
 	end
+	local gold_item = self:get_item_num(ITEM_JINGYIN_ID)
 	if self.gacha_jinbi_free_num < prop_jinbi.Free and gTime >= self.gacha_jinbi_cd then
 		self.gacha_jinbi_free_num = self.gacha_jinbi_free_num + 1
 		if self.gacha_jinbi_free_num >= prop_jinbi.Free then
@@ -260,6 +267,9 @@ function do_jinbi_one(self, msg_send)
 		else
 			self.gacha_jinbi_cd = gTime + prop_jinbi.FreeCD[self.gacha_jinbi_free_num]
 		end
+	elseif gold_item > 0 then
+		local con = {{resmng.CLASS_ITEM, ITEM_JINGYIN_ID, 1}}
+	    self:consume(con, 1, VALUE_CHANGE_REASON.REASON_GACHA_DEC_ITEM)
 	else
 		if self.gold < prop_jinbi.Price then
             msg_send.result = 3

@@ -1,6 +1,5 @@
 -- 军团战神模块
 module(..., package.seeall)
-_tm = 24*60*60
 
 function load()--启动加载
     local db = dbmng:getOne()
@@ -20,9 +19,7 @@ end
 
 function set(u,propid)
     local c = resmng.get_conf("prop_union_god",propid )
-    if not c then
-        return false
-    end
+    if not c then return false end
     u.god = {propid =propid ,exp = 0, }
     gPendingSave.union_god[u.uid] = u.god
     return true
@@ -30,7 +27,7 @@ end
 
 function add(p,mode)--膜拜
     if mode > 3  then return end
-    if gTime < (p._union.god_log.tm + _tm)  then return end
+    if not can_date(p._union.god_log.tm)  then return end
     local u = unionmng.get_union(p:get_uid())
     if not u  then return end
 

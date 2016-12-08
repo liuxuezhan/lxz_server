@@ -157,14 +157,14 @@ function attach_check_pending(example)
     end
 
     function get_db_checker(db, frame)
-        local f = function( )
-            local info = db:runCommand("getPrevError")
-            dumpTab(info)
-            if frame > _ack_frame then
-                _ack_frame = frame
-            end
-        end
-        return coroutine.wrap(f)
+        --local f = function( )
+        --    local info = db:runCommand("getPrevError")
+        --    dumpTab(info)
+        --    if frame > _ack_frame then
+        --        _ack_frame = frame
+        --    end
+        --end
+        --return coroutine.wrap(f)
     end
 
     function add_pending(self, k)

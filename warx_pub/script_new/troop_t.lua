@@ -1,5 +1,7 @@
 module("troop_t", package.seeall)
 
+gPendingNotify = gPendingNotify or {}
+
 __troop_mt = {__index = troop_t}
 function new()
     local obj = {}
@@ -61,11 +63,15 @@ function load_data(data)
             if target and is_union_building( target ) then
                 if data:get_base_action() == TroopAction.Gather then
                     if not target.my_troop_id then target.my_troop_id = {} end
-                    setIns(target.my_troop_id,data._id)
-                else
-                    target.my_troop_id = data._id
+                    if type( target.my_troop_id ) == "number" then
+                        local ids = {}
+                        table.insert( ids, target.my_troop_id )
+                        table.insert( ids, data._id )
+                        target.my_troop_id = ids
+                    else
+                        setIns(target.my_troop_id,data._id)
+                    end
                 end
-                save_ety(target)
             end
         end
     end
@@ -255,6 +261,7 @@ function back(self)
                     troop.flag = self.flag
                     troop:start_march()
                     ts[ pid ] = troop
+                    print( "create_back_troop,", action, pid, troop.sx, troop.sy, troop.dx, troop.dy )
                 end
             end
         end
@@ -845,22 +852,50 @@ function start_march(self, default_speed)
 end
 
 
-function notify_owner(self, info)
-    if self.delete then
-        info = {_id = self._id, delete = true }
-    else
-        if info then info._id = self._id 
-        else info = self:get_info() end
-    end
-
+function do_notify_owner(self, chgs)
     local pids = {}
-    if not next(self.arms or {})then
+    if not next(self.arms or {}) then 
         table.insert(pids, self.owner_pid)
-    else
+    else 
         for pid, _ in pairs(self.arms) do table.insert(pids, pid) end
     end
-    Rpc:stateTroop(pids, info)
+
+    if #pids > 0 then
+        local info
+        if self.delete then
+            info = {_id = self._id, delete = true }
+        else
+            if chgs then
+                info = chgs
+                info._id = self._id
+            else
+                info = self:get_info() 
+            end
+        end
+        Rpc:stateTroop(pids, info)
+    end
 end
+
+
+function notify_owner(self, info)
+    gPendingNotify[ self._id ] = self
+
+    --if self.delete then
+    --    info = {_id = self._id, delete = true }
+    --else
+    --    if info then info._id = self._id 
+    --    else info = self:get_info() end
+    --end
+
+    --local pids = {}
+    --if not next(self.arms or {})then
+    --    table.insert(pids, self.owner_pid)
+    --else
+    --    for pid, _ in pairs(self.arms) do table.insert(pids, pid) end
+    --end
+    --Rpc:stateTroop(pids, info)
+end
+
 
 function notify_player(self, ply)
     local info
@@ -1696,7 +1731,7 @@ function acc_march(troop, ratio)
         chg.speed   = troop.speed
 
         c_troop_set_speed( troop.eid, troop.speed, troop.use_time )
-        troop:notify_owner( {tmOver=troop.tmOver} )
+        troop:do_notify_owner( {tmOver=troop.tmOver} )
         player_t.update_watchtower_speed(troop)
         --troop:save()
     end
@@ -1769,17 +1804,26 @@ function is_robot_troop(self)
 end
 
 function is_own_hero(self, pid, idx)
-    local arms = self.arms or {}
-    local arm = arms[pid]
-    if arm then
+    for k, arm in pairs(self.arms or {}) do
         local heros = arm.heros or {}
-        if heros[idx] then
-            if heros[idx] ~= 0 then
+        for index, id in pairs(heros) do
+            if id ~= 0 then
                 return true
             end
         end
     end
     return false
+    --local arms = self.arms or {}
+    --local arm = arms[pid]
+    --if arm then
+    --    local heros = arm.heros or {}
+    --    if heros[idx] then
+    --        if heros[idx] ~= 0 then
+    --            return true
+    --        end
+    --    end
+    --end
+    --return false
 end
 
 function get_arm_by_pid(self, pid)

@@ -169,6 +169,9 @@ function set_mc_start(self, time, ply)
 end
 
 function mc_notify(self, notify_id)
+
+    self.set_mc_time = gTime  -- when default timer set do set 
+
     for k, v in pairs(self.npc_citys) do
         local city = get_monster_city(v)
     end
@@ -182,12 +185,11 @@ end
 
 function get_default_time(self)
     -- base on language
-    return 16
+    return 18
 end
 
 function get_left_time(endTime)
     local now = os.date("*t", gTime)
-    local hour = now.hour
     local temp = { year=now.year, month=now.month, day=now.day, hour=0, min=0, sec=0 }
 
     temp.hour = endTime
@@ -196,9 +198,14 @@ function get_left_time(endTime)
 end
 
 function set_default_start(self)
+    if  os.date("%d", self.set_mc_time) == os.date("%d", gTime) then
+        return
+    end
+
     if self.mc_start_time == 999 then
         self.mc_start_time =  get_default_time(self)
     end
+
     timer.del(self.mc_timer)
     timer.del(self.mc_ntf_timer)
     local time = get_left_time(self.mc_start_time)
@@ -208,6 +215,10 @@ function set_default_start(self)
     local mc_ntf_time = time - 30 * 60
     if mc_ntf_time <= 0 then
         mc_ntf_time = 10
+    end
+
+    if time <= 0 and time >= -60 then
+        time = 10
     end
 
     self.mc_ntf_timer = timer.new("mc_notify", mc_ntf_time, resmng.MC_PREPARE, self.uid)
@@ -552,8 +563,6 @@ function create(A, name, alias, language, propid)
 
     gPendingSave.union_log[id] = {_id=id}
 
-    --- create chat room
-    --Rpc:create_room(A, tostring(union.uid), CHAT_HOST, A.chat_account)
     return union
 end
 
@@ -1094,7 +1103,7 @@ function notifyall(self, what, mode, data)
         or (what ==resmng.UNION_EVENT.MEMBER and mode ==resmng.UNION_MODE.DELETE )
         or (what ==resmng.UNION_EVENT.MEMBER and mode ==resmng.UNION_MODE.RANK_UP )
         or (what ==resmng.UNION_EVENT.MEMBER and mode ==resmng.UNION_MODE.RANK_DOWN )
-        or (what ==resmng.UNION_EVENT.MEMBER and mode ==resmng.UNION_MODE.TITLE )
+        or (what ==resmng.UNION_EVENT.MEMBER and mode ==resmng.UNION_MODE.TITLE and data.title~="" )
         or (what ==resmng.UNION_EVENT.TECH and mode ==resmng.UNION_MODE.ADD )
         or (what ==resmng.UNION_EVENT.BUILDLV and mode ==resmng.UNION_MODE.UPDATE )
         or (what ==resmng.UNION_EVENT.BUILD_SET and mode ==resmng.UNION_MODE.ADD )
@@ -1168,31 +1177,6 @@ function get_tech_mark(self)
 end
 
 
-function upgrade_tech(self, idx)
-    local tech = self:get_tech(idx)
-    if not tech or not union_tech_t.is_exp_full(tech) then
-        return resmng.E_FAIL
-    end
-
-    local next_conf = resmng.get_conf("prop_union_tech",tech.id + 1)
-    if not next_conf then
-        return resmng.E_MAX_LV
-    end
-
-    if tech.tmOver ~= 0 then
-        return resmng.E_FAIL
-    end
-
-    local tm = next_conf.TmLevelUp
-    tech.tmStart = gTime
-    tech.tmOver = gTime + tm
-    tech.tmSn = timer.new("uniontech", tm, self.uid, idx)
-    gPendingSave.union_tech[tech._id] = tech
-
-    self:notifyall(resmng.UNION_EVENT.TECH, resmng.UNION_MODE.UPDATE, { idx=tech.idx,id=tech.id,tmStart=tech.tmStart, tmOver=tech.tmOver })
-
-    return resmng.E_OK
-end
 
 function do_timer_tech(self, tsn, idx)
     local tech = self:get_tech(idx)
@@ -1217,10 +1201,10 @@ function do_timer_tech(self, tsn, idx)
 end
 
 
-function get_donate_rank(self, what)
-    if not self.donate_rank[what] then
+function get_donate_rank(u, what)
+    if not u.donate_rank[what] then
         local result = {}
-        for _, v in pairs(self._members) do
+        for _, v in pairs(u._members) do
             table.insert(result, {
                 pid=v.pid,
                 name=v.name,
@@ -1245,9 +1229,9 @@ function get_donate_rank(self, what)
                 return l.techexp > r.techexp
             end
         end)
-        self.donate_rank[what] = result
+        u.donate_rank[what] = result
     end
-    return self.donate_rank[what]
+    return u.donate_rank[what]
 end
 
 function donate_summary_day(self)
@@ -1337,6 +1321,7 @@ function add_log(self, what, op,data)
         data = data,
     }
 
+    --[[
     local len = #self.log
     for i = #self.log, 1, -1 do
         if self.log[i].tm < (gDayStart or gTime) - 2592000 then
@@ -1350,6 +1335,7 @@ function add_log(self, what, op,data)
             table.remove(self.log, 1)
         end
     end
+    --]]
 
     table.insert(self.log, log)
     dbmng:getOne().union_log:update( {_id=self._id}, { ["$push"]={ log={["$each"]={log}, ["$slice"]=-100 }} }, true )

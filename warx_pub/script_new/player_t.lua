@@ -370,7 +370,7 @@ function is_token_overdue(time)
 end
 
 function pre_tlog(self,name,...)
-    Tlog(name,tms2str(self.tm_create),self.tm_create,8,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
+    Tlog(name,tms2str(self.tm_create),self.tm_create,0,"ios","mac","mac","googleid","andid","udid","openudid","imei","client_var","client_name","channel","ip","40",
         self.account,self.pid,self.name,self:get_castle_lv(),self.vip_lv,(self.rmb or 0),self.smap,self.reg_name,1,self.language,...)
 end
 
@@ -481,6 +481,7 @@ function first_login(self)
     self:init_task()
     self:take_life_task()
     self:take_daily_task()
+    self:take_target_task()
 
     --开启在线领奖
     self:open_online_award()
@@ -702,6 +703,7 @@ end
 function get_union_info(self)
     return {
         pid = self.pid,
+        propid = self.propid,
         name = self.name,
         lv = self.lv,
         language = self.language,
@@ -852,6 +854,12 @@ function check_pending()
     end
     gDelayAction = {}
 
+    local notifys = troop_t.gPendingNotify
+    troop_t.gPendingNotify = {}
+    for tid, troop in pairs( notifys ) do
+        print( "troop pending notify", tid )
+        troop:do_notify_owner()
+    end
 end
 
 
@@ -1553,7 +1561,13 @@ function gm_user(self, cmd)
         return tb[idx + 1]
     end
 
-    if choose == "addexp" then
+    if choose == "showbuf" then
+        for k, v in pairs( self.bufs ) do
+            self:add_debug( "%d, %d, %d, %d", v[1], v[2], v[3], v[3]-gTime )
+        end
+        coro_info()
+
+    elseif choose == "addexp" then
         local value = get_parm(1)
         self:add_exp(tonumber(value))
     elseif choose == "build_exp" then
@@ -1580,6 +1594,21 @@ function gm_user(self, cmd)
         for k, v in pairs( self._ef ) do
             self:add_debug( "[EF], %s = %d", k, v )
         end
+
+        local ef_u, ef_ue = self:get_union_ef()
+        for k, v in pairs( ef_u or {} ) do
+            self:add_debug( "[EF_U], %s = %d", k, v )
+        end
+
+        for k, v in pairs( ef_ue or {}) do
+            self:add_debug( "[EF_UE], %s = %d", k, v )
+        end
+
+        for k, v in pairs( kw_mall.gsEf or {}) do
+            self:add_debug( "[EF_GS], %s = %s", k, v )
+        end
+
+
     elseif choose == "showgsef" then
         for k, v in pairs( kw_mall.gsEf ) do
             if k ~= "_id" then
@@ -1720,6 +1749,7 @@ function gm_user(self, cmd)
     elseif choose  == "ltinfo" then -- 遗迹塔活动页面
         lost_temple.test(self)
         lt_info_req(self)
+
     elseif choose == "ache" then
         self:ache_info_req()
     elseif choose == "addac" then
@@ -1759,6 +1789,8 @@ function gm_user(self, cmd)
         kw_info_req(self)
     elseif choose == "king" then
         king_city.select_default_king()
+    elseif choose == "gsking" then
+        self:king_info_req()
     elseif choose == "kingct" then --世界boss 加积分
         local uid = tonumber(tb[2])
         local kingCity = king_city.get_king()
@@ -1768,6 +1800,10 @@ function gm_user(self, cmd)
         monster.bossKillScore.score = score
         gPendingSave.status[ "bossKillScore" ].score =  score
         monster.try_upgrade_stage()
+    elseif choose == "forceboss" then --世界boss 加积分
+        local lv = tonumber(tb[2])
+        local x, y = monster.force_born(math.floor(self.x/16), math.floor(self.y/16), lv)
+        self:add_debug(string.format("boss pos , %d, %d", x, y))
     elseif choose == "syncall" then --同步call
         local union = unionmng:get_union(self.uid)
         local map_id = 8
@@ -1779,6 +1815,14 @@ function gm_user(self, cmd)
     elseif choose == "jump" then --跨服
         local map_id = tonumber(tb[2])
         self:cross_migrate(8, 1200, 1200)
+    elseif choose == "jumpback" then --跨服
+        local map_id = tonumber(tb[2])
+        self:cross_migrate_back(7, 1200, 1200)
+    elseif choose == "upgs" then --跨服
+        crontab.upload_gs_info()
+    elseif choose == "crossgm" then --跨服
+        local map_id = 999
+        Rpc:callAgent(map_id, "cross_gm", tb)
     elseif choose == "eyemove" then --跨服
         local map_id = tonumber(tb[2])
         self:movEye(map_id, 1200, 1200)
@@ -1865,17 +1909,21 @@ function gm_user(self, cmd)
         gPendingSave.union_member[self.pid] = self._union
 
     elseif choose == "test" then
-        self.hurts = {}
-        self.cures = {}
-        self.res = { {0,0},{0,0},{0,0},{0,0} }
-        local troop = self:get_my_troop()
-        troop.arms[ self.pid ].live_soldier = { }
-        for _, h in pairs(self._hero or {}) do h.hp = 0 end
-        self:ef_add( {CountSoldier = 40000 } )
-        Rpc:upd_arm(self, troop:get_live(self.pid))
+        local clv = tonumber(tb[2])
+        self:search_entity( 0, clv )
+
+        --self.hurts = {}
+        --self.cures = {}
+        --self.res = { {0,0},{0,0},{0,0},{0,0} }
+        --local troop = self:get_my_troop()
+        --troop.arms[ self.pid ].live_soldier = { }
+        --for _, h in pairs(self._hero or {}) do h.hp = 0 end
+        --self:ef_add( {CountSoldier = 40000 } )
+        --Rpc:upd_arm(self, troop:get_live(self.pid))
 
     elseif choose == "clearres" then
         self.res = { {0,0},{0,0},{0,0},{0,0} }
+        self.foodTm = gTime
         self.gold = 0
         self.silver = 0
 
@@ -2149,6 +2197,10 @@ function loadData(self, what)--本函数严禁加日志
 
     elseif what == "client_parm" then
         t.val = self:load_client_parm()
+
+    elseif what == "target" then
+        t.val = self:packet_target_task()
+
     elseif what == "done" then
     end
 
@@ -2531,7 +2583,7 @@ function do_inc_res_normal(self, mode, num, reason)
     elseif mode == resmng.DEF_RES_PERSONALHONOR then
         union_member_t.add_donate(self, num,reason)
         local union = unionmng.get_union(self:get_uid())
-        if union then union:add_donate(num * 1.4, self) end
+        if union then union:add_donate(num, self) end
     elseif mode == resmng.DEF_RES_UNITHONOR then
         -- 不做任何事情
 
@@ -2578,9 +2630,9 @@ function do_dec_res(self, mode, num, reason)
         if conf then
             local key = conf.CodeKey
             if self[ key ] and self[ key ] >= num then
-                self:add_count( resmng.ACH_COUNT_GOLD_COST, num )
                 self[ key ] = math.floor(self[ key ] - num)
                 if  mode ==resmng.DEF_RES_GOLD  then
+                    self:add_count( resmng.ACH_COUNT_GOLD_COST, num )
                     self:pre_tlog("MoneyFlow",0,num,2,1,self[key],reason )
                     union_mission.ok(self,UNION_MISSION_CLASS.COST, num)
                 end
@@ -2623,7 +2675,7 @@ function reCalcFood(self)
         end
     end
 
-    for k, v in pairs(self.busy_troop_ids) do
+    for k, v in pairs(self.busy_troop_ids or {}) do
         local troop = troop_mng.get_troop(v)
         local arm = troop:get_arm_by_pid(self.pid)
         if arm ~= nil then
@@ -2731,10 +2783,7 @@ function chat(self, channel, word, sn)
         lvip = self.vip_lv
     end
     if channel == resmng.ChatChanelEnum.World then
-        --local count = math.random(1,1024)
-        --word = string.rep( word, count, "_" )
         Rpc:chat({pid=-1,gid=_G.GateSid}, channel, self.pid, self.photo, self.name, word, 0, {vip=lvip})
-        --Rpc:chat({self.pid}, channel, self.pid, self.photo, self.name, word, 0, {})
 
 
     elseif channel == resmng.ChatChanelEnum.Union then
@@ -2758,6 +2807,11 @@ function chat(self, channel, word, sn)
             end
         end
         Rpc:chat(pids, channel, self.pid, self.photo, self.name, word, 0, {vip=lvip})
+
+    elseif channel == resmng.ChatChanelEnum.Notice then
+        if not self:dec_item_by_item_id( resmng.ITEM_NOTICE, 1, VALUE_CHANGE_REASON.USE_ITEM ) then return end
+        Rpc:chat({pid=-1,gid=_G.GateSid}, channel, self.pid, self.photo, self.name, word, 0, {vip=lvip})
+
     end
 
     reply_ok(self, "chat", sn)
@@ -2914,6 +2968,13 @@ end
 function migrate_random( self )
     local itemid = resmng.ITEM_RANDOMMOVE
     if self:get_item_num( itemid ) < 1 then return self:add_debug( "no item ITEM_RANDOMMOVE" ) end
+    for _, tid in pairs( self.busy_troop_ids or {} ) do
+        local troop = troop_mng.get_troop( tid )
+        if troop then
+            if troop.owner_eid ~= self.eid then return end
+            if troop.action ~= TroopAction.DefultFollow then return end
+        end
+    end
 
     local lv_castle = self:get_castle_lv()
     local x, y
@@ -3033,14 +3094,14 @@ function do_migrate(self, x, y)
     end
 
     if math.abs( sx - x ) >= 4 or math.abs( sy - y ) >= 4 then
-        if c_map_test_pos(x, y, 4) ~= 0 then return ack(self, "migrate", resmng.E_NO_ROOM, 0) end
+        if c_map_test_pos_for_ply(x, y, 4) ~= 0 then return ack(self, "migrate", resmng.E_NO_ROOM, 0) end
     else
         for tx = x, x + 3, 1 do
             if tx >= 1280 then return false end
             for ty = y, y + 3, 1 do
                 if ty >= 1280 then return false end
                 if math.abs( tx - sx ) > 3 or math.abs( ty - sy ) > 3 then
-                    if c_map_test_pos( tx, ty, 1 ) ~= 0 then
+                    if c_map_test_pos_for_ply( tx, ty, 1 ) ~= 0 then
                         self:add_debug( "overlap" )
                         return
                     end
@@ -3058,6 +3119,11 @@ function do_migrate(self, x, y)
     self:add_count( resmng.ACH_COUNT_MIGRATE, 1 )
     reply_ok(self, "migrate", y*65536+x)
     union_build_t.ply_move(self)
+
+    --任务
+    local zone_lv = get_pos_lv(x, y)
+    task_logic_t.process_task(self, TASK_ACTION.MOVE_TO_ZONE, zone_lv)
+
     return "ok"
 end
 
@@ -3133,7 +3199,6 @@ function on_day_pass(self)
 end
 
 
-
 function change_name(self, name)
     for k, v in pairs(gPlys) do
         if v.name == name then
@@ -3141,6 +3206,13 @@ function change_name(self, name)
             return
         end
     end
+
+    if not self:dec_item_by_item_id( resmng.ITEM_CHANGE_NAME, 1, VALUE_CHANGE_REASON.CHANGE_NAME ) then
+        local price = get_item_price( resmng.ITEM_CHANGE_NAME )
+        if self.gold < price then return end
+        self:dec_gold( price, VALUE_CHANGE_REASON.CHANGE_NAME )
+    end
+
     self.name = name
     etypipe.add(self)
     rank_mng.change_name( 1, self.pid, name )
@@ -4014,6 +4086,29 @@ function get_eye_info(self,eid)--查询大地图建筑信息
 end
 ------ king city
 --
+function king_info_req(self)
+    local pack = {}
+    local kings = king_city.kings
+    local king = {}
+    if kings then
+        local now_king = kings[king_city.season]
+        if now_king then
+            local king_ply = getPlayer(now_king[2])
+            if king_ply then
+                king.name = king_ply.name
+                king.flag = king_ply.flag
+                pack.king = king
+            else
+                king.name = now_king[6]
+                king.flag = now_king[7]
+                pack.king = king
+            end
+        end
+    end
+    pack.gs_name = "wait doing"
+    pack.s_id = _G.gSysStatus._id
+    Rpc:king_info_ack(self, pack)
+end
 
 function kw_info_req(self)
     local pack = {}
@@ -4041,6 +4136,11 @@ function kw_info_req(self)
                         king.name = king_ply.name
                         king.photo = king_ply.photo
                         king.lv = king_ply:get_castle_lv()
+                        pack.king = king
+                    else
+                        king.name = now_king[6]
+                        king.photo = now_king[7]
+                        king.lv = now_king[8]
                         pack.king = king
                     end
                 end
@@ -4347,7 +4447,8 @@ function add_buf(self, bufid, count)
                         else
                             local remain = v[3] - gTime
                             if remain < 0 then remain = 0 end
-                            local tmOver = gTime + remain + count
+                            remain = remain + count
+                            local tmOver = gTime + remain
                             v[3] = tmOver
                             timer.new("buf", remain, self.pid, bufid, tmOver)
                         end
@@ -5084,30 +5185,14 @@ function choose_head_icon(self, id)
         return
     end
 
-    --是否有道具
-    local item_num = self:get_item_num(CHANGE_HEAD_ICON_ITEM)
-    if item_num > 0 then
-        self:dec_item_by_item_id(CHANGE_HEAD_ICON_ITEM, 1, VALUE_CHANGE_REASON.REASON_DEC_ITEM_CHANGE_HEAD)
-        self.photo = id
-        Rpc:choose_head_icon_resp(self, 0)
-
-        rank_mng.change_icon( 1, self.pid, id )
-        rank_mng.change_icon( 2, self.pid, id )
-        rank_mng.change_icon( 3, self.pid, id )
-        rank_mng.change_icon( 4, self.pid, id )
-
-        return
+    if not self:dec_item_by_item_id( resmng.ITEM_CHANGE_PORTRAIT, 1, VALUE_CHANGE_REASON.REASON_DEC_ITEM_CHANGE_HEAD) then
+        local conf = get_mall_item( resmng.ITEM_CHANGE_PORTRAIT )
+        if not conf then return end
+        if self.gold < conf.NewPrice then return end
+        self:dec_gold( conf.NewPrice, VALUE_CHANGE_REASON.REASON_DEC_ITEM_CHANGE_HEAD )
     end
 
-    --判断金币
-    if self.gold < CHANGE_HEAD_ICON_COST then
-        Rpc:choose_head_icon_resp(self, 1)
-        return
-    end
-    local con = {{resmng.CLASS_RES, resmng.DEF_RES_GOLD, CHANGE_HEAD_ICON_COST}}
-    self:consume(con, 1, VALUE_CHANGE_REASON.REASON_DEC_RES_CHANGE_HEAD)
     self.photo = id
-
     rank_mng.change_icon( 1, self.pid, id )
     rank_mng.change_icon( 2, self.pid, id )
     rank_mng.change_icon( 3, self.pid, id )
@@ -5117,7 +5202,7 @@ function choose_head_icon(self, id)
 end
 
 function get_buff(self, what)--本函数严禁加日志
-    local val = self:get_val(what)
+    local val = self:get_num(what)
     Rpc:get_buff(self,what,val)
 end
 
@@ -5142,20 +5227,28 @@ function get_uname_by_propid(self, propid)
 end
 
 
+--function search_task_monster( self, lv )
+--    local propid, x, y = monster.force_born(math.floor(self.x/16), math.floor(self.y/16), lv)
+--    if propid then Rpc:found_entity( self, sn, propid, target_ety.x, target_ety.y )
+--end
+--
 
-function search_entity( self, sn, propid )
+function search_entity( self, sn, clv )
     local eids = get_around_eids( self.eid, 200 )
     local target_ety = false
     local target_dist = math.huge
     if #eids > 0 then
         for _, eid in pairs( eids ) do
             local ety = get_ety( eid )
-            if ety and ety.propid == propid then
-                if not ety.troop_comings or table_count( ety.troop_comings ) < 1 then
-                    local dist = math.max( math.abs( ety.x - self.x ), math.abs( ety.y - self.y ) )
-                    if dist < target_dist then
-                        target_dist = dist
-                        target_ety = ety
+            if ety and is_monster( ety ) then
+                local prop = resmng.get_conf( "prop_world_unit", ety.propid )
+                if prop and prop.Clv == clv then
+                    if not ety.troop_comings or table_count( ety.troop_comings ) < 1 then
+                        local dist = math.max( math.abs( ety.x - self.x ), math.abs( ety.y - self.y ) )
+                        if dist < target_dist then
+                            target_dist = dist
+                            target_ety = ety
+                        end
                     end
                 end
             end
@@ -5163,8 +5256,38 @@ function search_entity( self, sn, propid )
     end
 
     if target_ety then
-        print( "found_ety", propid, target_ety.x, target_ety.y )
-        Rpc:found_entity( self, sn, propid, target_ety.x, target_ety.y )
+        print( "found", target_ety.x, target_ety.y )
+        Rpc:found_entity( self, sn, target_ety.propid, target_ety.x, target_ety.y )
+    else
+        local propid, x, y = monster.force_born(math.floor(self.x/16), math.floor(self.y/16), clv)
+        if propid then
+            print( "create", x, y )
+            Rpc:found_entity( self, sn, propid, x, y )
+        end
     end
+end
+
+function get_lv_6_gift( self )
+    if self:get_castle_lv() ~= 6 then return end
+    local db = self:getDb()
+    if db then
+        local info = db.player_mark:findOne( {_id=self.pid } )
+        if info then
+            if info.lv_6_gift == 1 then
+                return
+            end
+        end
+        db.player_mark:update( {_id=self.pid}, { [ "$set"] = {lv_6_gift=1} }, true )
+        self:inc_item(resmng.ITEM_ZONEMOVE2, 1, VALUE_CHANGE_REASON.CASTLE_6_GIFT)
+    end
+end
+
+---cross act
+function cross_act_st_req(self)
+    cross_act.cross_act_st(self)
+end
+
+function world_chat_task(self)
+    task_logic_t.process_task(self, TASK_ACTION.WORLD_CHAT, 1)
 end
 

@@ -51,6 +51,7 @@ VALUE_CHANGE_REASON = {
     CANCEL_ACTION  = 24,
     WALL_REPAIR    = 25,
     TROOP_RECALL = 26,
+    CHANGE_NAME = 27,
 
     -- [30, 39] Hero
     HERO_CREATE       = 30,
@@ -65,6 +66,7 @@ VALUE_CHANGE_REASON = {
     HERO_DESTORY      = 39,
     GENIUS_RESET      = 40,
 
+    CASTLE_6_GIFT     = 41,
 
     -- [50, 79] Play
     GATHER = 50,
@@ -76,7 +78,6 @@ VALUE_CHANGE_REASON = {
     BLACK_MARKET_PAY = 61,
     BLACK_MARKET_BUY = 62,
     BLACK_MARKET_REFRESH = 63,
-
 
     RESOURCE_MARKET_PAY = 71,
     RESOURCE_MARKET_BUY = 72,
@@ -252,7 +253,6 @@ ROI_MSG = {
 --resmng.CLASS_UNION_BUILD_
 --
 CLASS_UNIT = {
-    UNION_BUILD = 10,
     PLAYER_CITY = 0,
     RESOURCE = 1,
     MONSTER = 2,
@@ -315,6 +315,13 @@ KW_STATE =
     FIGHT = 5,
 }
 
+CROSS_STATE =
+{
+    LOCK = 0,
+    PREPARE = 1,
+    FIGHT = 2,
+    PEACE = 3,
+}
 
 KING = 1001 --国王称号的id
 
@@ -708,6 +715,9 @@ EidType = {
     UnionBuild = 10,
     Troop = 11,
     CLOWN = 12,
+    Wander = 13,
+    Refugee = 14,
+
 }
 
 --聊天频道枚举
@@ -715,6 +725,7 @@ ChatChanelEnum = {
     World = 0,        --世界
     Union = 1,        --军团
     Culture = 2,      --文明
+    Notice = 3,       --for item ITEM_NOTICE redmine 13106
 }
 
 TECH_DONATE_TYPE = {
@@ -1202,6 +1213,7 @@ TASK_TYPE = {
     TASK_TYPE_BRANCH        = 2,    --支线任务
     TASK_TYPE_DAILY         = 3,    --日常任务
     TASK_TYPE_UNION         = 4,    --军团任务
+    TASK_TYPE_TARGET        = 5,    --目标任务
 }
 -- 任务前置类型
 TASK_COND_TYPE = {
@@ -1284,6 +1296,13 @@ TASK_ACTION = {
     PROMOTE_POWER                   = 49,    --提升战力途径
     DEAD_SOLDIER                    = 50,    --阵亡士兵数量
     HERO_STATION                    = 51,    --派遣驻守英雄
+    WORLD_CHAT                      = 52,    --世界频道说话
+    FINISH_DAILY_TASK               = 53,    --完成日常任务
+    FINISH_UNION_TASK               = 54,    --完成军团任务
+    MOVE_TO_ZONE                    = 55,    --迁城到资源带
+    PANJUN_SCORE                    = 56,    --叛军突袭活动获得积分
+    LOSTTEMPLE_SCORE                = 57,    --遗迹塔获得贤者之石
+    TROOP_TO_KING_CITY              = 58,    --向王城行军
 }
 -- 打开UI任务
 TASK_UI_ID = {
@@ -1348,6 +1367,13 @@ g_task_func_relation = {
 ["promote_power"] = TASK_ACTION.PROMOTE_POWER,                     --提升战力途径
 ["dead_soldier"] = TASK_ACTION.DEAD_SOLDIER,                       --阵亡士兵数量
 ["hero_station"] = TASK_ACTION.HERO_STATION,                       --派遣驻守英雄
+["world_chat"] = TASK_ACTION.WORLD_CHAT,                           --世界频道说话
+["finish_daily_task"] = TASK_ACTION.FINISH_DAILY_TASK,             --完成日常任务
+["finish_union_task"] = TASK_ACTION.FINISH_UNION_TASK,             --完成军团任务
+["move_to_zone"] = TASK_ACTION.MOVE_TO_ZONE,                       --迁城到资源带
+["panjun_score"] = TASK_ACTION.PANJUN_SCORE,                       --叛军突袭活动获得积分
+["losttemple_score"] = TASK_ACTION.LOSTTEMPLE_SCORE,               --遗迹塔获得贤者之石
+["troop_to_king_city"] = TASK_ACTION.TROOP_TO_KING_CITY,           --向王城行军
 }
 -------------------------------------------------------------
 --奖励
@@ -1505,6 +1531,7 @@ function is_lost_temple(ety) return is_type( ety, EidType.LostTemple ) end
 function is_union_building(ety) return is_type( ety, EidType.UnionBuild ) end
 function is_npc_city(ety) return is_type( ety, EidType.NpcCity ) end
 function is_clown(ety) return is_type( ety, EidType.CLOWN ) end
+function is_wander(ety) return is_type( ety, EidType.Wander ) end
 
 function can_attack(ety)
     if is_ply(ety) then return true end
@@ -1540,6 +1567,7 @@ PLAYER_INIT = {
     vip_gift = 0,
     build_queue = { 0 },
     photo = 1,
+    flag = 1,
     reg_name = "unknown",
     name = "unknown",
     photo_url = "",
@@ -1641,11 +1669,6 @@ PLAYER_INIT = {
     ef_ue = {}, --飞服时使用军团奇迹buf,
     cross_gs = 0, --所在服的id服 跨服用,
 }
-
---改变头像金币消耗
-CHANGE_HEAD_ICON_COST = 200
---改变头像道具ID
-CHANGE_HEAD_ICON_ITEM = resmng.ITEM_4005001
 
 map_city_zone = {
     [0] = 3001001,

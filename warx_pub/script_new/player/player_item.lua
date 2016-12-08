@@ -152,7 +152,8 @@ end
 
 
 function addItem(self, id, num)
-    self:inc_item(id, num, VALUE_CHANGE_REASON.DEBUG)
+    num = math.floor( num )
+    if num > 0 then self:inc_item(id, num, VALUE_CHANGE_REASON.DEBUG) end
 end
 
 

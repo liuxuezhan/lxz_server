@@ -1,10 +1,10 @@
 module("rpchelper",package.seeall)
 
 RpcConfig = {}
-RpcConfig.unionmember = {"pid","name","lv","language","rank","title","photo","eid","x","y","pow","tm_login","tm_logout","buildlv"}
+RpcConfig.unionmember = {"pid","name","lv","language","rank","title","photo","eid","x","y","pow","tm_login","tm_logout","buildlv","propid"}
 RpcConfig.union = {
                     "uid","new_union_sn","name","alias","mars_propid","membercount","memberlimit","language","flag","","note_in","leader","pow","tm_buf_over",
-                    {"enlist","text","lv","pow","check",},"state","range",
+                    {"enlist","text","lv","pow","check",},"state","range"
                 }
 
 local function get_table_cfg(tab)

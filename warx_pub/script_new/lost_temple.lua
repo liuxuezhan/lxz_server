@@ -170,6 +170,9 @@ function update_ply_score(key, score)
     local org_score = rank_mng.get_score(10, key) or 0
     score = score + org_score
     rank_mng.add_data(10, key, {score})
+    --任务
+    local ply = getPlayer(key)
+    task_logic_t.process_task(ply, TASK_ACTION.LOSTTEMPLE_SCORE, score)
 end
 
 function update_union_score(key, score)
@@ -569,10 +572,13 @@ function finish_grap_state(self)
         end
         tr:back()
     end
+
+
     rem_ety(self.eid)
     citys[self.eid] = nil
     add_pool(self.band_id)
     update_act_tag() 
+
 end
 
 function new_defender_state(self)

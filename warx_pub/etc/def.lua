@@ -7,12 +7,10 @@ g_host = "192.168.100.12"
 _list={
 
     db_server1 ={ 
-        db1={ host = "192.168.100.12", port = 27017, },
-    --    db1={ host = "127.0.0.1", port = 27017, },
+        db1={ port = 27017, },
         -- db={  host = "127.0.0.1", port = 27017,username="admin",password="admin" },
     },
 
-    warx = {   host = "192.168.103.225", port = 8888, maxclient=3000, room ="room1", db_name = "db_server1" }, 
 }
 
 g_warx_t = {   port = 8888, maxclient=3000, room ="room1", db_name = "db_server1" } 
@@ -166,6 +164,10 @@ mathx = {
 
  function c_md5(...)
  end
+
+function c_get_pos_by_lv(...)
+    return 0,0
+end
 
  function connect(host,port,...)
     local driver = require "socketdriver"

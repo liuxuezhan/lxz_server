@@ -433,24 +433,25 @@ function statePro(self,pack)
     end
 end
 
-function tech(self, id,lv,quick)
+function tech(self, id,lv,quick,check)
     quick = quick or 1
-    print("tech",id,lv)
+    --print("tech",id,lv)
     local c = resmng.prop_tech[id]
     for _, v in pairs(self._tech) do
         local n = resmng.prop_tech[ v ]
         if n and n.Class == c.Class and n.Mode == c.Mode then 
-            if n.Lv >= lv then
-                return true
-            end
+            if n.Lv >= lv then return true end
+
             id = c.Class*1000*1000 + c.Mode*1000 
             for i=n.Lv+1,lv do
                 c = resmng.prop_tech[id+i]
                 local f = self:condCheck(c.Cond)
-                if not  f then
-                    return 
+                if not  f then return end
+
+                if 0 == check_on(self,self.acc,check[c.ID],1) or math.huge == check_on(self,self.acc,check[c.ID],1)  then
+                    Rpc:learn_tech(self,1001,c.ID,quick)
+                    _check[self.acc].ret = _check[self.acc].ret + 1 
                 end
-                Rpc:learn_tech(self,1001,c.ID,quick)
             end
             return true
         end
@@ -460,10 +461,12 @@ function tech(self, id,lv,quick)
         id = c.Class*1000*1000 + c.Mode*1000 
         c = resmng.prop_tech[id+i]
         local f = self:condCheck(c.Cond)
-        if not f then
-            return 
+        if not f then return end
+
+        if 0 == check_on(self,self.acc,check[c.ID],1) or math.huge == check_on(self,self.acc,check[c.ID],1)  then
+            Rpc:learn_tech(self,1001,c.ID,quick)
+            _check[self.acc].ret = _check[self.acc].ret + 1 
         end
-        Rpc:learn_tech(self,1001,c.ID,quick)
     end
         return true  
 end
@@ -982,13 +985,50 @@ function build_train(self, class, mode,a_lv)
     return 0
 end
 
-function get_buf(self, what,val)
-    self._buf[what]= val
+
+function do_gacha_resp(self, pack)
+    if pack.result~=0 then return end 
+    if not self.gacha then self.gacha = {} end 
+    if not self.gacha[pack.type] then self.gacha[pack.type] = {} end 
+    for _, vs in pairs(pack.award) do
+        local v = vs[1]
+        if not self.gacha[pack.type][v[1]] then self.gacha[pack.type][v[1]] = {} end 
+        self.gacha[pack.type][v[1]][v[2]] = (self.gacha[pack.type][v[1]][v[2]] or  0) + v[3]  
+    end
+end
+
+function gacha_test(name,type)
+    local self = g_name[name]
+    if self and self.active and gTime - self.active  > 1 then
+        Rpc:do_gacha(self,type) 
+    end    
+end
+
+function item_test(name,item_id,check) --参数：机器人名称，道具id，检查项目
+    local self = g_name[name]
+    if self and self.active and gTime - self.active  > 1 then
+        if 0 == check_on(self,name,check) then 
+            for idx, v in pairs(self._item) do
+                if v[2] == item_id then
+                    WARN("使用道具:"..item_id)
+                    Rpc:use_item(self,idx,1) 
+                    _check[name].ret = _check[name].ret + 1  
+                    return
+                end
+            end
+        end
+    end    
+end
+
+function get_buff(self, what,val)
+    --lxz(what,val)
+    if not self.buff then self.buff= {} end
+    self.buff[what]= val
 end
 
 function get_res(self, k,v)
     if k=="item" then
-        local t = copyTab(v)
+        local t = {} 
         for _, obj in pairs(self._item) do
             for id, _ in pairs(v) do
                 if obj[2]==id then
@@ -1007,11 +1047,13 @@ function get_res(self, k,v)
         return self._hero  
     elseif k=="arm" then
         return self._arm  
-    elseif k=="buf" then
+    elseif k=="buff" then
         for  what,_ in pairs(v) do
+            --lxz(what)
             Rpc:get_buff( self, what )
         end
-        return self._buf
+        if  self.buff then return self.buff[what] end
+
     elseif k=="god" then
     else
         return self[k]
@@ -1019,76 +1061,107 @@ function get_res(self, k,v)
 end
 
 _check  = {} 
-function check_on(self, name,check)
-    if not _check[name] then 
-        local d = {ply=self,ret=1,data = {}}
-        for k, v in pairs(check) do
-            d.data[k] = {dst = v, start = self:get_res(k,v) or 0 }
-        end
-        _check[name] = d  
-    else
-        check_ret(name) 
-        return false
-    end
-
+function check_up(self, name,check)
+    _check[name].ret = 0 
     for k, v in pairs(check) do
         if k == "buff" then
             for what, _ in pairs(v) do
-                if not _check[name][k].start[what]  then 
-                    return false
+                if (not _check[name].data[k].start) or (not _check[name].data[k].start[what]) then 
+                    local d  = self:get_res(k,v) 
+                    if not d then _check[name].ret = -1 end
+                    if not next(d) then _check[name].ret = -1 end
+                    _check[name].data[k].start[what] =  d 
                 end
+                if (not _check[name].data[k].start[what]) then _check[name].ret = -1 end
             end
         else
-            if not _check[name].data[k]  then 
-                return false
-            end
             if not _check[name].data[k].start then 
-                return false
+                local d  = self:get_res(k,v) 
+                if not d then _check[name].ret = -1 end
+                if not next(d) then _check[name].ret = -1 end
+                _check[name].data[k].start = d 
             end
         end
     end
+end
 
-    return true
+--  -1:创建， 0:初始化，math.huge:成功
+function check_on(self, name,check,f)
+    if not _check[name] then 
+        local d = {ply=self,ret=-1,data = {}}
+        for k, v in pairs(check) do
+            d.data[k] = {dst = v, start = self:get_res(k,v) }
+        end
+        _check[name] = d  
+    end
+
+    self:check_up(name,check)
+    return check_ret(name,f) 
 end
 
 function check_off(name)
     local d = _check[name] 
     for k, v in pairs(d.data) do
-        v.over = d.ply:get_res(k) or 0
+        v.over = d.ply:get_res(k,v.dst) 
     end
 end
 
-function check_ret(name)
-    if _check[name].ret == 0 then 
-        return 
-    elseif _check[name].ret == 1 then 
+function check_ret(name,fl)
+    if _check[name].ret < 1 then 
+        return _check[name].ret  
+    elseif _check[name].ret > 0 then 
         Ply.check_off(name)
     end
 
     for k, v in pairs(_check[name].data) do
-        if k == "buff" or k=="item" then
-            for what, _ in pairs(v.dst) do
-                if (v.start[what] or 0) + v.dst[what]~= (v.over[what] or 0)   then 
-                    return  
+        if v.start  and v.over then
+            if k == "buff" or k=="item" then
+                for what, _ in pairs(v.dst) do
+                    if  fl then
+                        if v.dst[what] ~= v.over[what] then 
+                            return _check[name].ret  
+                        end
+                    else
+                        if (v.start[what] or 0) + v.dst[what]~= (v.over[what] or 0)   then 
+                            return _check[name].ret  
+                        end
+                    end
                 end
-            end
-        elseif k == "res" then
-            for what, nums in pairs(v.dst) do
-                if (v.start[what][1] or 0) + v.dst[what][1]~= (v.over[what][1] or 0)   then 
-                    return  
+            elseif k == "res" then
+                for what, nums in pairs(v.dst) do
+                    if fl then
+                        if v.dst[what][1]~= (v.over[what][1] or 0)   then 
+                            return _check[name].ret  
+                        end
+                        if v.dst[what][2]~= (v.over[what][2] or 0)   then 
+                            return _check[name].ret  
+                        end
+                    else
+                        if (v.start[what][1] or 0) + v.dst[what][1]~= (v.over[what][1] or 0)   then 
+                            return _check[name].ret  
+                        end
+                        if (v.start[what][2] or 0) + v.dst[what][2]~= (v.over[what][2] or 0)   then 
+                            return _check[name].ret  
+                        end
+                    end
                 end
-                if (v.start[what][2] or 0) + v.dst[what][2]~= (v.over[what][2] or 0)   then 
-                    return  
+            else
+                if fl then
+                    if v.dst ~= v.over then 
+                        return _check[name].ret  
+                    end
+                else
+                    if v.start + v.dst ~= v.over then 
+                        return _check[name].ret  
+                    end
                 end
             end
         else
-            if v.over+v.dst~= v.start then 
-                return  
-            end
+            return _check[name].ret  
         end
     end
-    _check[name].ret = 0 
-    return  
+    _check[name].ret =  math.huge  
+    return _check[name].ret  
 end
 
 function fight(self, cmd, eid,arms)

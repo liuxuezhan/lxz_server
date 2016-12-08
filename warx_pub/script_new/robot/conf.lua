@@ -1,8 +1,22 @@
+--[[
+    脚本标题：道具使用自动回归测试
+    ==========================
+    执行过程
+    1、下载配置 --为了保证留下上次测试脚本，不丢失
+    2、选择配置文件，上传
+    3、开始序号：建立机器人开始的序号 --建立前，需要上传脚本，会读脚本中的机器人名字配置
+    4、结束序号：建立机器人结束的序号
+    5、开始执行
+    6、关闭执行
+    7、获取日志：可以填写获取日志的行数，点击按钮下载
+    ==========================
+--]]
+
+--------------------------------------------------------------------------
 module("config")
 
-
 -- Map 跟 Tips 每个服务器都不一样，要改
-Map = 5
+Map = 10 --服务器ID
 Tips = "robot"
 
 -- 脚本所在目录，可以不改，也可以用全路径
@@ -19,7 +33,7 @@ DbHostG = "192.168.100.12"
 GateHost = "192.168.100.12"
 GatePort = 8002 
 
-LogLevel = 3
+LogLevel = 1
 --Release = true
 BuddySize = 128
 
@@ -32,41 +46,50 @@ PLAT_ID = 1
 TlogSwitch = 1
 ---------------------------------------------机器人专用
 
-g_start = 1 
-g_num = 1000 
-gName ="robot" 
-gTotalTime = 60  --登录秒数 
+g_start = 1 --起始账号
+g_num = 2 --建立账号数量
+gName ="robot" --机器人名字
+gTotalTime = 1  --登录秒数 
 g_client_port = 8001
-g_name = {}
 
-tm_check = 0
-function robot_plan()
-  --  move()
- --   robot_union_build()
-  --  Ply.union_mission()
+tm_check = 0 --检查时间
 
-  use_item("use_item")
-  if gTime > tm_check + 3 then
-    tm_check = gTime 
-    for name, v in pairs(Ply._check) do
-        WARN("check:"..name..":"..v.ret)
-    end
-  end
+
+gm = { --登录加载gm命令
+    "@additem=1001001=1",
+    "@additem=1001002=1",
+    "@buildall",
+    "@addres=6=100000000",
+    "@addres=8=100000000",
+}
+
+g_check = { --被动执行gm
+    --arm = {num=100000,gm={} }, --士兵小于num 时执行
+    --sinew = {num=100 }, --体力小于num 时执行
+    --gold = {num=1000000 }, --金币小于num 时执行
+}
+
+function get_cival(self)
+        --return self.robot_id % 4 + 1 --创建机器人时对应设置文明
+        if self.robot_id >= g_start and self.robot_id <= g_start + 17 then return 1 end
+        if self.robot_id > g_start + 17 and self.robot_id <= g_start + 35 then return 2 end
+        if self.robot_id > g_start + 35 and self.robot_id <= g_start + 53 then return 3 end
+        if self.robot_id > g_start + 53 and self.robot_id <= g_start + 71 then return 4 end
 end
 
 
-function use_item(name)
-    local self = g_name["robot1"]
-    if self and self.active and gTime - self.active  > 1 then
-        if Ply.check_on(self, name,{gold=0,item={[4002014]=1,}}) then
-            Rpc:chat(self, 0, "@item=4003003=1", 0 )
-            for idx, v in pairs(self._item) do
-                if v[2] == 4003003 then
-                    Rpc:use_item(self,idx,1) 
-                end
+-------------------------------------------------------------------------------------------------
+
+function setname()
+    for i = g_start,g_start+g_num-1 do 
+        local name = gName..tostring(i)
+        local self = g_name[name] 
+        if self and self.active and gTime - self.active  > 1 then
+            if self.name ~= self.acc then
+                Rpc:change_name(self,self.acc)
+                --WARN("change name to:"..self.acc)
             end
         end
-    -- lxz(self._check[name])
     end
 end
 
@@ -79,14 +102,6 @@ function buildup(name)
     end
 end
 
-function techup(name)
-    local self = g_name["robot1"]
-    if self and self.active and gTime - self.active  > 1 then
-        if Ply.check_on(self, name,{gold=0,buf={SpeedRes2=1,}}) then
-            self:tech(1001001,2,1)
-        end
-    end
-end
 
 function genius_up(name)
     local self = g_name["robot1"]
@@ -119,96 +134,68 @@ function equip_on(name)
     end
 end
 
-
-lvtable = {1,5,8,10,12,14,16,18,20,22,23,24,25,26,27,28,29,30} --城堡外观等级设置
-
-setx = 100  --指定迁城坐标x值
-sety = 0  --指定迁城坐标y值
-
-function get_cival(self)
-        --return self.robot_id % 4 + 1 --创建机器人时对应设置文明
-        if self.robot_id >= g_start and self.robot_id <= g_start + 17 then return 1 end
-        if self.robot_id > g_start + 17 and self.robot_id <= g_start + 35 then return 2 end
-        if self.robot_id > g_start + 35 and self.robot_id <= g_start + 53 then return 3 end
-        if self.robot_id > g_start + 53 and self.robot_id <= g_start + 71 then return 4 end
-end
-
-function setname(self)
-    for i = g_start,g_start+g_num do
-        local name = gName..tostring(i)
-        local self = g_name[name]
-    end
-end
-
-function setlvbuild(start,last)
-    local lv = 1
-    for l = start,last do
-        if self.active and gTime - self.active  > gInterval then
-            Rpc:chat(self, 0, "@lvbuild=0=0="..tostring(lvtable[lv]), 0 )  --建筑等级到lvtable[i]等级
-            lv = lv + 1
-        end       
-    end
-end
-
-
-function move()
-    local movex = 200
-    local movey = 200
-    for i = g_start,g_start+g_num do
-        local name = gName..tostring(i)
-        local self = g_name[name]
-        local x,y = setx,sety  --指定迁城坐标
-        if self and self.active and gTime - self.active  > 1 then
-            Ply.pending( self )
-            if self.name ~= self.acc then
-                Rpc:change_name(self,self.acc)
-            end
-            if self.x < x + movex and self.x > 0 and self.y < y + movey and self.y > 0 then  --设置迁城坐标和范围，范围由x，y后面加的值控制
-            else 
-                Rpc:request_empty_pos(self,x,y,2,{key="move"})  --移动到指定范围
-            end
+function techup(name,tech_id,tech_lv,check)  --升级科技:机器人名称，科技ID，科技等级，检查项目
+    local self = g_name[name]
+    if self and self.active and gTime - self.active  > 1 then
+        if not Ply.check_on(self,name,check) then
+            Ply.tech(self,tech_id,tech_lv,1,check)
         end
-    end 
+    end
 end
 
 
-gm = { --登录加载gm命令
 
-    "@ef_add=CountSoldier_R=1000000",
-    "@addres=6=10000000", 
-    "@addarm=1010=100000", 
-    "@addarm=2010=100000", 
-    "@addarm=3010=100000", 
-    "@addarm=4010=100000", 
+function robot_plan()
+
+    setname()
+
+    item_test("robot1",1001001,{res={{0,100},{0,0},{0,0},{0,0}}})       
+    item_test("robot2",1001002,{res={{0,1000},{0,0},{0,0},{0,0}}})
+    if gTime > tm_check + 3 then
+        tm_check = gTime
+        for name, v in pairs(Ply._check) do
+            WARN("check:"..name..":"..v.ret)
+            os.execute("echo "..gTime..","..name..","..v.ret.." >> /tmp/check.csv")
+            if  v.ret == 1 then lxz(name,v.data) end
+        end
+    end
 
     --[[
-    "@ef_add=SpeedMarch_R=10000000", 
-    "@ef_add=SpeedMarchPvE_R=10000000", 
-    "@ef_add=SpeedRes_R=10000000", 
-    "@ef_add=SpeedGather_R=10000000", 
+-----------------------------测试代码------------------------------
 
-    "@buildall", 
-    "@buildfarm", 
-    "@addres=1=10000000", 
-    "@addres=2=10000000", 
-    "@addres=3=10000000", 
-    "@addres=4=10000000", 
-    "@item=4=10000000", 
-    "@item=3001003=10000000", 
-    "@item=4003003=10000000",
+    techup("techT1",1021019,19,{buff={SpeedRes4_R=11900}})
+    techup("techT2",1021020,20,{buff={SpeedRes4_R=13000}})
+
+-------------------------------------------------------------------
+
+    if gTime > tm_check + 30 then
+        tm_check = gTime
+        for name, v in pairs(Ply._check) do
+            WARN("check:"..name..":"..v.ret) --输出值：0是成功，1是失败
+            os.execute("echo "..gTime..","..name..","..v.ret.." >> /tmp/check.csv") --结果输出到指定文件
+            if  v.ret == 1 then lxz(name,v.data) end
+        end
+    end
 
 
-    "@addbuf=1=-1", 
-    "@ef_add=CountRes_R=10000000",
-    "@addallitem", 
 
-    "@addexp=1000000000000", 
-    "@debug", 
+
+    local name = "robot1"
+    Ply.gacha_test(name,GACHA_TYPE.YINBI_ONE )
+    if gTime > tm_check + 10 then
+        tm_check = gTime
+        local self = g_name[name]
+        for type, vs in pairs(self.gacha or {} ) do
+            for k, v in pairs(vs) do
+                for id, num in pairs(v) do
+                    local p = gTime..","..name..","..type..","..k..","..id..","..num
+                    WARN("gacha:"..p)
+                    os.execute("echo "..p..">> /tmp/check.csv")
+                end
+            end
+        end
+    end
     --]]
-}
 
-g_check = { --被动执行gm
-    arm = {num=100000,gm={} }, --士兵小于num 时执行
-    sinew = {num=100 }, --体力小于num 时执行
-    gold = {num=1000000 }, --金币小于num 时执行
-}
+end
+

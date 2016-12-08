@@ -231,6 +231,8 @@ function siege(self, dest_eid, arm)
             end
         end
         action = TroopAction.King
+        --任务
+        task_logic_t.process_task(self, TASK_ACTION.TROOP_TO_KING_CITY, 1)
 
     elseif is_monster_city(dest) then
         action = TroopAction.AtkMC
@@ -314,6 +316,9 @@ end
 function gather(self, dest_eid, arm)
     local dest = get_ety(dest_eid)
     if not dest then return end
+    if is_union_superres(dest.propid) then
+        if not union_build_t.can_troop( TroopAction.Gather, self, dest_eid ) then return end
+    end
     if not self:can_move_to(dest.x, dest.y)  then return self:add_debug("can not move by castle lv") end
 
     local conf = resmng.get_conf("prop_world_unit", dest.propid)
@@ -349,6 +354,9 @@ function spy(self, dest_eid)
         if dest.pid > 0 then
             if dest.uid == self.uid and self.uid ~= 0 then return end
         end
+    elseif is_king_city(dest) then
+        --任务
+        task_logic_t.process_task(self, TASK_ACTION.TROOP_TO_KING_CITY, 1)
     end
     local troop = troop_mng.create_troop(TroopAction.Spy, self, dest)
     troop:go()
@@ -359,7 +367,7 @@ end
 function camp(self, x, y, arm)
     if x < 1 or x >= 1278 then return end
     if y < 1 or y >= 1278 then return end
-    if c_map_test_pos(x, y, 2) ~= 0 then 
+    if c_map_test_pos_for_ply(x, y, 2) ~= 0 then 
         self:add_debug( string.format("camp, map_test_pos, x = %d, y = %d, w = %d", x, y, 2 ) )
         return 
     end
@@ -434,6 +442,8 @@ function union_mass_create(self, dest_eid, wait_time, arm)
             end
         end
         action = TroopAction.King
+        --任务
+        task_logic_t.process_task(self, TASK_ACTION.TROOP_TO_KING_CITY, 1)
     elseif is_monster_city(D) then
         action = TroopAction.AtkMC
         if not can_ply_join_act[ACT_TYPE.MC](self) then
@@ -452,6 +462,10 @@ function union_mass_create(self, dest_eid, wait_time, arm)
     elseif is_ply(D) then
         if D.uid == self.uid then return end
         action = TroopAction.SiegePlayer
+    elseif is_union_building( D ) then
+        if not union_build_t.can_troop( TroopAction.SiegeUnion, self, dest_eid ) then return end
+        action = TroopAction.SiegeUnion
+
     else
         --todo
         return
@@ -475,7 +489,7 @@ function union_mass_create(self, dest_eid, wait_time, arm)
     troopA.tmSn = timer.new("troop_action", wait_time, troopA._id)
     troopA:notify_owner()
 
-    if is_monster(D) then  -- cut point
+    if action == TroopAction.SiegeMonster then
         D:mark()
         self:dec_sinew( 10 )
     end
@@ -559,6 +573,8 @@ function union_mass_join(self, dest_eid, dest_troop_id, arm)
                 return 
             end
         end
+        --任务
+        task_logic_t.process_task(self, TASK_ACTION.TROOP_TO_KING_CITY, 1)
     elseif is_monster_city(T) then
         action = TroopAction.AtkMC
         if not can_ply_join_act[ACT_TYPE.MC](self) then
@@ -869,8 +885,7 @@ end
 
 --驻守
 function hold_defense(self, dest_eid, arm)
-    --todo
-    --if is_union_building(dest_eid) and not union_build_t.can_troop( TroopAction.HoldDefense,self,dest_eid) then return end
+    if is_union_building(dest_eid) and not union_build_t.can_troop( TroopAction.HoldDefense,self,dest_eid,arm) then return end
 
     local dest = get_ety(dest_eid)
     if not dest then return end
@@ -891,6 +906,8 @@ function hold_defense(self, dest_eid, arm)
                 return 
             end
         end
+        --任务
+        task_logic_t.process_task(self, TASK_ACTION.TROOP_TO_KING_CITY, 1)
     end
 
     if is_lost_temple(dest) then
@@ -944,7 +961,7 @@ function union_build(self, dest_eid, arm)
     local dest = get_ety(dest_eid)
     if not dest then return end
 
-    if not union_build_t.can_troop( TroopAction.UnionBuild, self, dest_eid) then 
+    if not union_build_t.can_troop( TroopAction.UnionBuild, self, dest_eid,arm) then 
         return 
     end
 
@@ -1120,6 +1137,7 @@ function troop_recall(self, dest_troop_id, force)
         troop.sx, troop.sy = troop.dx, troop.dy
         troop.dx, troop.dy = get_ety_pos( self )
 
+        troop.speed = troop.speed0
         local speed = troop.speed
         local dist = c_calc_distance( troop.curx, troop.cury, troop.dx, troop.dy )
         local use_time = dist / speed
@@ -1129,7 +1147,7 @@ function troop_recall(self, dest_troop_id, force)
         --c_troop_set_move( troop.eid, troop.sx, troop.sy, troop.dx, troop.dy, troop.speed, troop.use_time )
         c_troop_set_move( troop.eid, troop.action, troop.sx, troop.sy, troop.dx, troop.dy, troop.curx, troop.cury, troop.speed, troop.use_time )
 
-        troop:notify_owner( {sx=troop.sx, sy=troop.sy, dx=troop.dx, dy=troop.dy, tmStart=troop.tmStart, tmOver=troop.tmOver, action=troop.action } )
+        troop:do_notify_owner( {sx=troop.sx, sy=troop.sy, dx=troop.dx, dy=troop.dy, tmStart=troop.tmStart, tmOver=troop.tmOver, action=troop.action } )
 
         local chg = gPendingSave.troop[ troop._id ]
         chg.curx    = troop.curx
@@ -1245,7 +1263,8 @@ end
 function troop_acc(self, troopid, itemid)
     local troop = troop_mng.get_troop(troopid)
     if troop and (troop:is_go() or troop:is_back()) then
-        if troop.owner_eid == self.eid or ( troop.arms and troop.arms[ self.pid ] ) then
+        --if troop.owner_eid == self.eid or ( troop.arms and troop.arms[ self.pid ] ) then
+        if troop.owner_eid == self.eid then
             if troop.tmOver - gTime < 2 then return end
             local item = resmng.get_conf( "prop_item", itemid )
             if item and item.Class == 3 and item.Mode == 6 then
@@ -1258,6 +1277,14 @@ function troop_acc(self, troopid, itemid)
                 end
                 local rate = 1 + item.Param * 0.0001
                 troop:acc_march( rate )
+                if troop.action == TroopAction.JoinMass + 100 then
+                    if troop.dest_troop_id then
+                        local troopT = troop_mng.get_troop( troop.dest_troop_id )
+                        if troopT then
+                            union_hall_t.battle_room_update(OPERATOR.UPDATE, troopT )
+                        end
+                    end
+                end
             end
         end
     end

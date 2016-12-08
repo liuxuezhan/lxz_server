@@ -7,14 +7,15 @@ function use_item(self, idx, num)
     if prop_tab == nil then
         return
     end
-    if use_item_logic[prop_tab.Action] == nil then
-        return
-    end
-    if self:do_item_check(prop_tab) == false then
-    	return
-    end
-    if self:dec_item(idx, num, VALUE_CHANGE_REASON.USE_ITEM) == true then
-    	use_item_logic[prop_tab.Action](self, prop_tab.ID, num, prop_tab)
+    if self:do_item_check(prop_tab) == false then return end
+
+    if prop_tab.RouteToRpc then
+        player_t[ prop_tab.RouteToRpc ]( self, prop_tab )
+    else
+        if use_item_logic[prop_tab.Action] == nil then return end
+        if self:dec_item(idx, num, VALUE_CHANGE_REASON.USE_ITEM) == true then
+            use_item_logic[prop_tab.Action](self, prop_tab.ID, num, prop_tab)
+        end
     end
 end
 
@@ -201,4 +202,16 @@ use_item_logic.Compound = function(player, id, num, prop_item)
         end
     end
 end
+
+
+use_item_logic.RandomMove = function(player, id, num, prop_item)
+    player:migrate_random()
+end
+
+use_item_logic.QuickRecover = function(player, id, num, prop_item)
+    player:migrate_random()
+end
+
+
+
 

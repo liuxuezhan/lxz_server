@@ -90,6 +90,7 @@ function do_reload()
     do_load("use_item_logic")
     do_load("rank_mng")
     do_load("gmmng")
+    do_load("wander")
 
     --gTimeReload = c_get_time()
 end
@@ -265,6 +266,8 @@ function save_ety(e)
         elseif is_troop( e ) then
             e:save()
             e:notify_owner()
+        elseif is_wander( e ) then
+            e:save()
         else
             WARN( "no save_ety, propid=%s", e.propid or "none" )
         end
@@ -274,8 +277,25 @@ end
 
 gRemEty = gRemEty or {}
 function rem_ety( eid )
-    if gEtys[ eid ] then
+    local ety = gEtys[ eid ]
+    if ety then
         gRemEty[ eid ] = 1
+        if ety.rooms then
+            for _, rid in pairs( ety.rooms ) do
+                local troop = troop_mng.get_troop( rid )
+                if troop then
+                    union_hall_t.battle_room_remove( troop )
+                    if troop:is_go() or troop:is_ready() then
+                        if troop.owner_pid >= 10000 then
+                            local owner = getPlayer( troop.owner_pid )
+                            if owner then
+                                owner:troop_recall( troop._id, true )
+                            end
+                        end
+                    end
+                end
+            end
+        end
     end
 end
 
@@ -386,19 +406,49 @@ function send_invite()
 
 end
 
+function split( AS, count, nkey, total, key )
+    -- a1[ key ] + a2[ key ] + a3[ key ] + ... + an[ key ] = total, share the count [ nkey ]
+    local num = 0
+    if total > 0 and count > 0 then
+        for _, A in pairs( AS ) do
+            local c = A[ key ]
+            if c > 0 then
+                local n
+                if c >= total then
+                    n = count
+                    count = 0
+                    total = 0
+                else
+                    n = math.ceil( count * c / total )
+                    if n > count then n = count end
+                end
+                count = count - n
+                total = total - c
+                A[ nkey ] = n
+            end
+        end
+    end
+end
+
+
 
 function test()
-    local pid = 3750016
-    local p = getPlayer( pid )
-    if p then
-        p:mail_load( 0 )
-        p:mail_drop_by_class( 4, 2, -1 )
-    end
+    --local pid = 3750050
+    --local p = getPlayer( pid )
+    --if p then
+    --    p:migrate_random()
+    --    --p:get_lv_6_gift()
+    --    --p:mail_load( 0 )
+    --    --p:mail_drop_by_class( 4, 2, -1 )
+    --end
 
-    local db = dbmng:getOne()
-    for i = 1, 10000, 1 do
+    local as = {
+        { mkdmg = 33 },
+    }
 
-    end
+    split( as, 10, "kill", 33, "mkdmg" )
+    dumpTab( as )
+
 
 
     --for i = 1, 20, 1 do
@@ -773,6 +823,20 @@ function get_mall_item( itemid )
         end
     end
 end
+
+function get_item_price( itemid )
+    for _, conf in pairs( resmng.prop_mall ) do
+        if type(conf.Item) == "table" and #conf.Item == 1 then
+            local node = conf.Item[1]
+            if node[1] == "item" and node[2] == itemid then
+                return conf.NewPrice
+            end
+        end
+    end
+    return math.huge
+end
+
+
 
 function get_pos_lv( x, y )
     return c_get_zone_lv( math.floor( x/16 ), math.floor( y/16 ) )

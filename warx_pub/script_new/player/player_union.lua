@@ -68,6 +68,21 @@ function union_select(self, uid,what)
                 result.val = val
             end
         end
+    elseif what == "apply" then
+        local info = {}
+        if union_t.is_legal(self, "Invite") then
+            for k, v in pairs(union.applys) do
+                if gTime > v.tm + 60*60*24*2 then
+                    union:remove_apply( v.pid)
+                else
+                    local A  = getPlayer(v.pid)
+                    local data = A:get_union_info()
+                    data.rank = 0
+                    table.insert(info, data)
+                end
+            end
+        end
+        result.val = info
     elseif what == "mass" then
         local info = {}
         for idx, _ in pairs(union.mass or {}) do
@@ -146,7 +161,7 @@ function union_search(self, what)
             end
         end
         if #l < num then
-            local info = dbmng:getOne().player:find({language={["$ne"]=u.lanuage},uid=0})
+            local info = dbmng:getOne().player:find({language={["$ne"]=u.language},uid=0})
             while info:hasNext() do
                 local p = info:next()
                 local v = getPlayer(p.pid)
@@ -281,6 +296,10 @@ function union_set_info(self, info)
     if union_t.is_legal(self, "ChgFlag") and info.flag then
         if self:do_dec_res(resmng.DEF_RES_GOLD, UNION_CHANGEFLAGPRICE, VALUE_CHANGE_REASON.UNION_FLAG) then
             u.flag = info.flag
+            for _, v in pairs(self._members) do
+                v.uflag = u.flag 
+                etypipe.add(v)
+            end
         end
     end
 
@@ -294,6 +313,7 @@ function union_set_info(self, info)
     if union_t.is_legal(self, "ChgFlag") and info.language then
         u.language = info.language
     end
+
 
     ack(self, "union_set_info", resmng.E_OK)
 end
@@ -699,14 +719,17 @@ function union_member_title(self, pid, t)
     end
 
     if not u:has_member(self, B) then return resmng.E_FAIL end
-    if self:get_rank() >= resmng.UNION_RANK_4 then
-        B._union.title = t
-        gPendingSave.union_member[B.pid] = B._union
-        u:notifyall(resmng.UNION_EVENT.MEMBER, resmng.UNION_MODE.TITLE, B:get_union_info())
-        return resmng.E_OK
-    else
-        return resmng.E_FAIL
+
+    if not union_t.is_legal(self, "MemMark") then
+        WARN("没权限")
+        return
     end
+
+    B._union.title = t
+    gPendingSave.union_member[B.pid] = B._union
+    u:notifyall(resmng.UNION_EVENT.MEMBER, resmng.UNION_MODE.TITLE, B:get_union_info())
+    return resmng.E_OK
+
 end
 
 function union_leader_auto(self )--自动移交军团长,返回是否删除军团
@@ -847,7 +870,7 @@ function union_tech_info(self, idx)
     end
 
     local tech = union:get_tech(idx)
-    local donate = union_member_t.get_donate_cache(self,idx)
+    local donate = union_tech_t.get_donate_cache(self,idx)
     Rpc:union_tech_info(self, {
         idx = tech.idx,
         id = tech.id,
@@ -859,6 +882,7 @@ function union_tech_info(self, idx)
 end
 
 function union_tech_mark(self, info)
+
 
     if check_ply_cross(self) then
         ack(self, "union_tech_mark", resmng.E_DISALLOWED) return
@@ -951,7 +975,7 @@ function union_mall_buy(self,propid,num)
     end
 
     union_mall.buy(self,propid,num)
-    Rpc:union_donate_info(self, {donate=self._union.donate,tmOver=self._union.tmDonate,flag=union_member_t.get_donate_flag(self)})
+    Rpc:union_donate_info(self, {donate=self._union.donate,CD_num = self._union.CD_doante_num, tmOver=self._union.tmDonate,flag=union_member_t.get_donate_flag(self)})
 end
 
 function union_donate_clear(self)
@@ -960,7 +984,7 @@ function union_donate_clear(self)
         ack(self, "union_donate_clear", resmng.E_DISALLOWED) return
     end
 
-    union_member_t.clear_tmdonate(self)
+    union_tech_t.clear_tmdonate(self)
     Rpc:union_donate_info(self, {tmOver=self._union.tmDonate,CD_num = self._union.CD_doante_num, flag=union_member_t.get_donate_flag(self)})
 end
 
@@ -969,80 +993,10 @@ function union_donate(self, idx, type)
         ack(self, "union_donate", resmng.E_DISALLOWED) return
     end
 
-    local union = unionmng.get_union(self:get_uid())
-    if not union then
-        ack(self, "union_donate", resmng.E_NO_UNION) return
-    end
-    local tech = union:get_tech(idx)
-    if not tech then
-        ack(self, "union_donate", resmng.E_FAIL) return
-    end
-
-    if union_member_t.get_donate_flag(self) == 1 then
-        ack(self, "union_donate", resmng.E_TIMEOUT) return
-    end
-
-    local donate = union_member_t.get_donate_cache(self,idx)
-    if donate[type] == 0 then
-        ack(self, "union_donate", resmng.E_FAIL) return
-    end
-
-    if not union:can_donate(idx) then
-        ack(self, "union_donate", resmng.E_DISALLOWED) return
-    end
-
-    local cost = nil
-    local reward = nil
-    local conf = resmng.get_conf("prop_union_donate",union_tech_t.get_class(tech.idx))
-    if not conf then
-        ack(self, "union_donate", resmng.E_FAIL) return
-    end
-    if type == resmng.TECH_DONATE_TYPE.PRIMARY then
-        cost = conf.Primary[donate[type]]
-        reward = conf.Pincome
-    elseif type == resmng.TECH_DONATE_TYPE.MEDIUM then
-        if donate[type] == 1 then
-            cost = conf.Primary[donate[resmng.TECH_DONATE_TYPE.PRIMARY]]
-        elseif donate[type] == 2 then
-            cost = conf.Medium
-        end
-        reward = conf.Mincome
-    elseif type == resmng.TECH_DONATE_TYPE.SENIOR then
-        if donate[type] == 1 then
-            cost = conf.Primary[donate[resmng.TECH_DONATE_TYPE.PRIMARY]]
-        elseif donate[type] == 2 then
-            cost = conf.Senior
-        end
-        reward = conf.Sincome
-    end
-    if not cost or not reward then
-        ack(self, "union_donate", resmng.E_FAIL) return
-    end
-
-    if not self:do_dec_res(cost[1], cost[2], VALUE_CHANGE_REASON.UNION_DONATE) then
-        return
-    end
-
-    self:add_donate(reward[1], VALUE_CHANGE_REASON.REASON_UNION_DONATE)
-    union_member_t.add_techexp(self,reward[3],VALUE_CHANGE_REASON.REASON_UNION_DONATE)
-    union_mission.ok(self,UNION_MISSION_CLASS.DONATE,1)
-
-    local c = resmng.get_conf("prop_union_tech", tech.id + 1)
-    if not c then return end
-    local mode = math.floor(tech.exp/c.Exp)
-    union_tech_t.add_exp(tech,reward[3])
-
-    union.donate_rank = {}
-    union_member_t.add_donate_cooldown(self,conf.TmAdd)
-
-    if mode ~= math.floor(tech.exp/c.Exp) then
-        union_member_t.random_donate_cons(self,idx, true,type)
-    else
-        union_member_t.random_donate_cons(self,idx, false,type)
-    end
+    if not union_tech_t.donate(self, idx, type) then return end
 
     self:union_tech_info(idx)
-    Rpc:union_donate_info(self, {tmOver=self._union.tmDonate,flag=union_member_t.get_donate_flag(self)})
+    Rpc:union_donate_info(self, {tmOver=self._union.tmDonate,CD_num = self._union.CD_doante_num, flag=union_member_t.get_donate_flag(self)})
     --成就
     self:add_count(resmng.ACH_TASK_TECH_DONATE, 1)
     --任务
@@ -1067,7 +1021,7 @@ function union_tech_upgrade(self, idx)
         ack(self, "union_tech_upgrade", resmng.E_DISALLOWED) return
     end
 
-    local ret = union:upgrade_tech(idx)
+    local ret = union_tech_t.upgrade(union,idx)
     ack(self, "union_tech_upgrade", ret)
 end
 
@@ -1138,7 +1092,9 @@ function union_task_get (self )--发布悬赏任务
     end
 
     local l = union_task.get(self:get_uid())
-    Rpc:union_task_get(self,l)
+    if l then
+        Rpc:union_task_get(self,l)
+    end
 end
 
 function union_mission_log (self,type,id )--获取定时任务日志
@@ -1420,87 +1376,87 @@ function add_hold_tr_info(players, trs)
     end
 end
 
-function do_battle_room_title(room)
-    if room.title then return room.title end
-
-    local troop = troop_mng.get_troop(room._id)
-    if not troop then return nil end
-
-    local info = { {}, {} }
-    local A = get_ety(troop.owner_eid)
-    local D = get_ety(troop.target_eid)
-
-    for k, v in ipairs({A, D}) do
-        local node = info[ k ]
-        node.eid = v.eid
-        node.class = get_type(v.eid)
-        node.players = {}
-
-        if k == 2 then troop = get_home_troop( v ) end
-
-        if troop then
-            node.troop_id = troop._id
-            node.action = troop.action
-            node.arms = troop.arms
-        else
-            ndoe.troop_id = 0
-        end
-        node.propid = v.propid
-
-        if is_monster( v ) then
-            node.monster = v.propid
-            node.hp = v.hp
-        end
-
-        if is_monster_city(v) then
-            node.monster_city = v.propid
-        end
-
-        for pid, arm in pairs( troop.arms or {} ) do
-            if pid >= 10000 then
-                local p = getPlayer( pid )
-                if p then
-                    if pid == troop.owner_pid then
-                        table.insert(node.players, 1, { name=p.name, photo=p.photo, pid=p.pid} )
-                    else
-                        table.insert(node.players, { name=p.name, photo=p.photo, pid=p.pid} )
-                    end
-                end
-            end
-        end
-
-        if k == 1 then
-            if is_ply( v ) then
-                node.count_max = v:get_val( "CountRallySoldier" )
-                node.count_cur = v:get_mass_count( troop )
-            end
-
-            if troop:is_ready() then
-                for tid, action in pairs( v.troop_comings or {} ) do
-                    local join = troop_mng.get_troop( tid )
-                    if join and join.dest_troop_id == troop._id and join:is_go() then
-                        local p = get_ety( join.owner_eid )
-                        if p and is_ply( p ) then
-                            table.insert(node.players, { name=p.name, photo=p.photo, pid=p.pid} )
-                        end
-                    end
-                end
-            end
-        else
-            node.coming_hold_tr = coming_hold_tr(v)
-            add_hold_ply(node.players, node.coming_hold_tr)
-        end
-        
-        node.uid = v.uid
-        local union = unionmng.get_union(v.uid)
-        if union then
-            node.name = union.name
-            node.alias = union.alias
-        end
-    end
-    room.title = info
-    return info
-end
+--function do_battle_room_title(room)
+--    if room.title then return room.title end
+--
+--    local troop = troop_mng.get_troop(room._id)
+--    if not troop then return nil end
+--
+--    local info = { {}, {} }
+--    local A = get_ety(troop.owner_eid)
+--    local D = get_ety(troop.target_eid)
+--
+--    for k, v in ipairs({A, D}) do
+--        local node = info[ k ]
+--        node.eid = v.eid
+--        node.class = get_type(v.eid)
+--        node.players = {}
+--
+--        if k == 2 then troop = get_home_troop( v ) end
+--
+--        if troop then
+--            node.troop_id = troop._id
+--            node.action = troop.action
+--            node.arms = troop.arms
+--        else
+--            ndoe.troop_id = 0
+--        end
+--        node.propid = v.propid
+--
+--        if is_monster( v ) then
+--            node.monster = v.propid
+--            node.hp = v.hp
+--        end
+--
+--        if is_monster_city(v) then
+--            node.monster_city = v.propid
+--        end
+--
+--        for pid, arm in pairs( troop.arms or {} ) do
+--            if pid >= 10000 then
+--                local p = getPlayer( pid )
+--                if p then
+--                    if pid == troop.owner_pid then
+--                        table.insert(node.players, 1, { name=p.name, photo=p.photo, pid=p.pid} )
+--                    else
+--                        table.insert(node.players, { name=p.name, photo=p.photo, pid=p.pid} )
+--                    end
+--                end
+--            end
+--        end
+--
+--        if k == 1 then
+--            if is_ply( v ) then
+--                node.count_max = v:get_val( "CountRallySoldier" )
+--                node.count_cur = v:get_mass_count( troop )
+--            end
+--
+--            if troop:is_ready() then
+--                for tid, action in pairs( v.troop_comings or {} ) do
+--                    local join = troop_mng.get_troop( tid )
+--                    if join and join.dest_troop_id == troop._id and join:is_go() then
+--                        local p = get_ety( join.owner_eid )
+--                        if p and is_ply( p ) then
+--                            table.insert(node.players, { name=p.name, photo=p.photo, pid=p.pid} )
+--                        end
+--                    end
+--                end
+--            end
+--        else
+--            node.coming_hold_tr = coming_hold_tr(v)
+--            add_hold_ply(node.players, node.coming_hold_tr)
+--        end
+--        
+--        node.uid = v.uid
+--        local union = unionmng.get_union(v.uid)
+--        if union then
+--            node.name = union.name
+--            node.alias = union.alias
+--        end
+--    end
+--    room.title = info
+--    return info
+--end
 
 function get_name_info( ety )
     local info = {}
@@ -1519,15 +1475,19 @@ function get_name_info( ety )
         end
     end
 
-    --if is_ply( ety ) then
-    --    info.name = ety.name
-    --    local union = ety:get_union()
-    --    if union then
-    --        info.uid = union.uid
-    --        info.alias = union.alias
-    --    end
-    --    info.eid = ety.eid
-    --end
+    local uid = ety.uid
+    if uid and uid > 0 then
+        local union = unionmng.get_union( uid )
+        if union then
+            info.uid = union.uid
+            info.alias = union.alias
+        end
+    end
+
+    if ety.propid and is_union_miracal( ety.propid ) then 
+        info.name = ety.name 
+    end
+
     return info
 end
 
@@ -1542,6 +1502,10 @@ function make_room_list( troop )
         info.list = {}
         info.list.ack = get_name_info( A )
         info.list.def = get_name_info( D )
+        if troop:get_base_action() == TroopAction.SiegeMonsterCity then
+            info.list.ack.extra = troop.mcid
+        end
+
         valid = true
         return info
     end
@@ -1670,86 +1634,84 @@ function union_battle_room_info(self, room_id)
 end
 
 
-
-
-function do_battle_room_info(room)
-    if room.info then return room.info end
-
-    local troop = troop_mng.get_troop(room._id)
-    if not troop then return nil end
-
-    local atk = troop
-
-    local info = { {}, {} }
-    local A = get_ety(troop.owner_eid)
-    local D = get_ety(troop.target_eid)
-
-    for k, v in ipairs({A, D}) do
-        local node = info[ k ]
-        node.eid = v.eid
-        node.class = get_type(v.eid)
-        node.propid = v.propid
-
-        if k == 2 then troop = get_home_troop(v) end
-        if troop then node.troop_id = troop._id else node.troop_id = 0 end
-
-        node.uid = v.uid
-        local union = unionmng.get_union( v.uid )
-        if union then
-            node.name = union.name
-            node.alias = union.alias
-        end
-
-        node.players = {}
-        if troop then
-            for pid, arm in pairs( troop.arms or {} ) do
-                if pid >= 10000 then
-                    local p = getPlayer( pid )
-                    if p then
-                        table.insert(node.players, { name=p.name, photo=p.photo, pid=p.pid} )
-                    end
-                end
-            end
-        end
-
-        if k == 1 then
-            if troop:is_ready() then
-                for tid, action in pairs( v.troop_comings or {} ) do
-                    if action == TroopAction.Mass then
-                        local tr = troop_mng.get_troop( tid )
-                        if tr and tr:is_go() and tr.dest_troop_id == troop._id then
-                            if tr.owner_pid >= 10000 then
-                                local p = getPlayer( tr.owner_pid )
-                                if p then
-                                    table.insert(node.players, { name=p.name, photo=p.photo, pid=p.pid} )
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        else
-            for tid, action in pairs( v.troop_comings or {} ) do
-                if action == TroopAction.SupportArm or action == TroopAction.HoldDefense then
-                    local tr = troop_mng.get_troop( tid )
-                    if tr and tr:is_go() then
-                        if tr.owner_pid >= 10000 then
-                            local p = getPlayer( tr.owner_pid )
-                            if p then
-                                table.insert(node.players, { name=p.name, photo=p.photo, pid=p.pid} )
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-    dumpTab( info, "do_battle_room_info" )
-
-    room.info = info
-    return info
-end
-
+--function do_battle_room_info(room)
+--    if room.info then return room.info end
+--
+--    local troop = troop_mng.get_troop(room._id)
+--    if not troop then return nil end
+--
+--    local atk = troop
+--
+--    local info = { {}, {} }
+--    local A = get_ety(troop.owner_eid)
+--    local D = get_ety(troop.target_eid)
+--
+--    for k, v in ipairs({A, D}) do
+--        local node = info[ k ]
+--        node.eid = v.eid
+--        node.class = get_type(v.eid)
+--        node.propid = v.propid
+--
+--        if k == 2 then troop = get_home_troop(v) end
+--        if troop then node.troop_id = troop._id else node.troop_id = 0 end
+--
+--        node.uid = v.uid
+--        local union = unionmng.get_union( v.uid )
+--        if union then
+--            node.name = union.name
+--            node.alias = union.alias
+--        end
+--
+--        node.players = {}
+--        if troop then
+--            for pid, arm in pairs( troop.arms or {} ) do
+--                if pid >= 10000 then
+--                    local p = getPlayer( pid )
+--                    if p then
+--                        table.insert(node.players, { name=p.name, photo=p.photo, pid=p.pid} )
+--                    end
+--                end
+--            end
+--        end
+--
+--        if k == 1 then
+--            if troop:is_ready() then
+--                for tid, action in pairs( v.troop_comings or {} ) do
+--                    if action == TroopAction.Mass then
+--                        local tr = troop_mng.get_troop( tid )
+--                        if tr and tr:is_go() and tr.dest_troop_id == troop._id then
+--                            if tr.owner_pid >= 10000 then
+--                                local p = getPlayer( tr.owner_pid )
+--                                if p then
+--                                    table.insert(node.players, { name=p.name, photo=p.photo, pid=p.pid} )
+--                                end
+--                            end
+--                        end
+--                    end
+--                end
+--            end
+--        else
+--            for tid, action in pairs( v.troop_comings or {} ) do
+--                if action == TroopAction.SupportArm or action == TroopAction.HoldDefense then
+--                    local tr = troop_mng.get_troop( tid )
+--                    if tr and tr:is_go() then
+--                        if tr.owner_pid >= 10000 then
+--                            local p = getPlayer( tr.owner_pid )
+--                            if p then
+--                                table.insert(node.players, { name=p.name, photo=p.photo, pid=p.pid} )
+--                            end
+--                        end
+--                    end
+--                end
+--            end
+--        end
+--    end
+--    dumpTab( info, "do_battle_room_info" )
+--
+--    room.info = info
+--    return info
+--end
+--
 --function union_battle_room_info(self, room_id)
 --    local room = union_hall_t.get_battle_room(room_id)
 --    if not room then return end
@@ -1772,7 +1734,6 @@ end
 --    end
 --end
 --
-
 
 
 
@@ -1896,97 +1857,97 @@ function get_arm_info(pid, troop)
 end
 
 
-function do_battle_room_detail(room)
-    if room.detail then return room.detail end
-
-    local troop = troop_mng.get_troop(room._id)
-    if not troop then return nil end
-
-    local atk = troop
-
-    local info = { {}, {} }
-    local A = get_ety(troop.owner_eid)
-    local D = get_ety(troop.target_eid)
-
-    for k, v in ipairs({A, D}) do
-        local node = info[ k ]
-        node.eid = v.eid
-        node.class = get_type(v.eid)
-        node.uid = v.uid
-        node.owner_eid = v.eid
-        node.propid = v.propid
-        node.players = {}
-        
-        if k == 2 then troop = v:get_my_troop() end
-
-        if troop then 
-            node.troop_id = troop._id 
-            node.action = troop.action
-            node.arms = troop.arms
-            for pid, arm in pairs( troop.arms or {} ) do
-                if pid >= 10000 then
-                    local t = get_arm_info( pid, troop )
-                    if t then
-                        if pid == troop.owner_pid then table.insert(node.players, 1, t) else table.insert(node.players, t) end
-                    end
-                else
-                    table.insert(node.players, {monster=v.propid, total_soldier=0, arm = arm, hp=v.hp})
-                end
-            end
-        else 
-            node.troop_id = 0 
-        end
-            
-        if k == 1 then
-            node.x = troop.sx
-            node.y = troop.sy
-            if is_ply( v ) then
-                node.count_max = A:get_val( "CountRallySoldier" )
-                node.count_cur = A:get_mass_count( troop )
-            end
-
-            if troop:is_ready() then
-                for tid, action in pairs( v.troop_comings or {} ) do
-                    local join = troop_mng.get_troop( tid )
-                    if join and join.dest_troop_id == troop._id and join:is_go() then
-                        local t = get_arm_info(join.owner_pid, join)
-                        if t then
-                            table.insert(node.players, t)
-                        end
-                    end
-                end
-            end
-        else
-            node.x = atk.dx
-            node.y = atk.dy
-
-            if is_npc_city(v) then
-                local num, max = npc_city.hold_limit(v)
-                node.count_cur = num
-                node.count_max = max
-            elseif is_ply( v ) then
-                node.count_max = v:get_val( "CountRelief" )
-                node.count_cur = v:get_aid_count()
-            end
-
-            for tid, action in pairs( v.troop_comings or {} ) do
-                if action == TroopAction.SupportArm or action == TroopAction.HoldDefense then
-                    local come = troop_mng.get_troop( tid )
-                    if come and come:is_go() then
-                        local t = get_arm_info( come.owner_pid, come )
-                        if t then
-                            table.insert( node.players, t )
-                        end
-                    end
-                end
-            end
-        end
-    end
-    --dumpTab( info, "do_battle_room_detail" )
-    room.detail = info
-    return info
-end
-
+--function do_battle_room_detail(room)
+--    if room.detail then return room.detail end
+--
+--    local troop = troop_mng.get_troop(room._id)
+--    if not troop then return nil end
+--
+--    local atk = troop
+--
+--    local info = { {}, {} }
+--    local A = get_ety(troop.owner_eid)
+--    local D = get_ety(troop.target_eid)
+--
+--    for k, v in ipairs({A, D}) do
+--        local node = info[ k ]
+--        node.eid = v.eid
+--        node.class = get_type(v.eid)
+--        node.uid = v.uid
+--        node.owner_eid = v.eid
+--        node.propid = v.propid
+--        node.players = {}
+--        
+--        if k == 2 then troop = v:get_my_troop() end
+--
+--        if troop then 
+--            node.troop_id = troop._id 
+--            node.action = troop.action
+--            node.arms = troop.arms
+--            for pid, arm in pairs( troop.arms or {} ) do
+--                if pid >= 10000 then
+--                    local t = get_arm_info( pid, troop )
+--                    if t then
+--                        if pid == troop.owner_pid then table.insert(node.players, 1, t) else table.insert(node.players, t) end
+--                    end
+--                else
+--                    table.insert(node.players, {monster=v.propid, total_soldier=0, arm = arm, hp=v.hp})
+--                end
+--            end
+--        else 
+--            node.troop_id = 0 
+--        end
+--            
+--        if k == 1 then
+--            node.x = troop.sx
+--            node.y = troop.sy
+--            if is_ply( v ) then
+--                node.count_max = A:get_val( "CountRallySoldier" )
+--                node.count_cur = A:get_mass_count( troop )
+--            end
+--
+--            if troop:is_ready() then
+--                for tid, action in pairs( v.troop_comings or {} ) do
+--                    local join = troop_mng.get_troop( tid )
+--                    if join and join.dest_troop_id == troop._id and join:is_go() then
+--                        local t = get_arm_info(join.owner_pid, join)
+--                        if t then
+--                            table.insert(node.players, t)
+--                        end
+--                    end
+--                end
+--            end
+--        else
+--            node.x = atk.dx
+--            node.y = atk.dy
+--
+--            if is_npc_city(v) then
+--                local num, max = npc_city.hold_limit(v)
+--                node.count_cur = num
+--                node.count_max = max
+--            elseif is_ply( v ) then
+--                node.count_max = v:get_val( "CountRelief" )
+--                node.count_cur = v:get_aid_count()
+--            end
+--
+--            for tid, action in pairs( v.troop_comings or {} ) do
+--                if action == TroopAction.SupportArm or action == TroopAction.HoldDefense then
+--                    local come = troop_mng.get_troop( tid )
+--                    if come and come:is_go() then
+--                        local t = get_arm_info( come.owner_pid, come )
+--                        if t then
+--                            table.insert( node.players, t )
+--                        end
+--                    end
+--                end
+--            end
+--        end
+--    end
+--    --dumpTab( info, "do_battle_room_detail" )
+--    room.detail = info
+--    return info
+--end
+--
 function get_troop_detail( troop )
     local infos = {}
     for pid, arm in pairs( troop.arms or {} ) do
@@ -2031,7 +1992,19 @@ function get_troop_detail( troop )
         else
             local owner = get_ety( troop.owner_eid )
             if owner then
-                infos[ 0 ] = { hp = owner.hp }
+                if is_monster_city( owner ) then
+                    local info = {}
+                    local soldier = {}
+                    for id, num in pairs( arm.live_soldier or {} ) do
+                        table.insert( soldier, { id=id, num=num} )
+                    end
+                    info.soldier = soldier
+                    info.heros = arm.heros or {}
+                    infos[ 0 ] = info
+
+                elseif is_monster( owner ) then
+                    infos[ 0 ] = { hp = owner.hp }
+                end
             end
             break
         end
@@ -2083,7 +2056,11 @@ function union_battle_room_detail(self, room_id)
                     end
                 end
             end
-            if is_npc_city( D ) then
+            if is_lost_temple( D ) then
+                _, infoD.count_max = npc_city.hold_limit( D )
+            elseif is_npc_city( D ) then
+                _, infoD.count_max = npc_city.hold_limit( D )
+            elseif is_king_city( D ) then
                 _, infoD.count_max = npc_city.hold_limit( D )
             elseif is_ply( D ) then
                 infoD.count_max = D:get_val( "CountRelief" )

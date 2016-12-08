@@ -159,6 +159,7 @@ function init_npc_citys(have)
 end
 
 function reset_npc(self)
+    self:drop_city(self.uid) -- post to cross center
     self.uid = 0
     --self.pid = 0
     self.my_troop_id = nil
@@ -357,7 +358,7 @@ end
 function send_end_tw_award()
     local us = unionmng.get_all()
     for k, v in pairs(us or {}) do
-        if check_union_cross(v) then
+        if not check_union_cross(v) then
             local award = each_union_award(v)
             if get_table_valid_count(award or {}) >= 1 then
                 local _members = v:get_members()
@@ -862,6 +863,9 @@ function make_new_defender(ackTroop, defenseTroop, npcCity)
     end
     deal_npc_old_defender(npcCity)
     maxUnion =  unionmng.get_union(maxHurtUnion)
+
+    npcCity:drop_city(npcCity.uid) -- post to cross center
+
     if maxUnion then
         if union_t.is_npc_city_full(maxUnion) then
             npcCity.uid = 0
@@ -907,13 +911,16 @@ end
 function deal_npc_new_defender(newdefender, npcCity, ackTroop)
     reset_declare(npcCity.eid, {npcCity.uid})
     npcCity.uid = newdefender
+
+    npcCity:occu_city(npcCity.uid)  --- post to center
+
     if ackTroop then
         --npcCity.pid = ackTroop.owner_pid
     end
 
     occupy_notify(npcCity)
 
-    if king_city.state == KW_STATE.FIGHT then  -- notify only in fight state
+--    if king_city.state == KW_STATE.FIGHT then  -- notify only in fight state
         local npc_conf = resmng.get_conf("prop_world_unit", npcCity.propid) or {}
         local buff = npcCity.kw_buff or {}
         local buf = {}
@@ -945,7 +952,7 @@ function deal_npc_new_defender(newdefender, npcCity, ackTroop)
                 end
             end
         end
-    end
+  --  end
 
     npcCity.my_troop_id = nil
     npcCity.dmg = {}
@@ -1047,6 +1054,8 @@ function abandon_npc(self)
 
     del_timer(self)
 
+    self:drop_city(self.uid) -- post to cross center
+
     self.uid = 0
     self.my_troop_id = 0
     --self.pid = 0
@@ -1136,6 +1145,7 @@ function hold_num_limit(self, ply) --已驻守和将要驻守数量
     end
     return num,limit
 end
+
 
 function try_hold_troop(self, tr)
 
@@ -1228,5 +1238,24 @@ function send_score_reward()
             end
         end
     end
+end
+
+function drop_city(self, uid)
+    local u = unionmng.get_union(uid)
+    if check_union_cross(union) then
+        post_change(self.propid, union.map_id, -1)
+    end
+end
+
+function occu_city(self, uid)
+    local u = unionmng.get_union(uid)
+    if check_union_cross(union) then
+        post_change(self.propid, union.map_id, 1)
+    end
+end
+
+function post_change(propid, map_id, tag)
+    center_id = 999
+     Rpc:callAgent(center_id, "post_npc_change", propid, map_id, tag)
 end
 

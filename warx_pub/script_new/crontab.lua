@@ -88,4 +88,30 @@ function send_lt_award()
     rank_mng.clear(10)
 end
 
+function cross_act_start()
+    cross_mng.cross_act_start()
+end
+
+function upload_gs_info()
+    local map_id = 999
+    local pack = {}
+    pack.pid = gMapID
+    pack.power = 999
+    
+    local kings = king_city.kings
+    local king = {}
+    if kings then
+        local now_king = kings[king_city.season]
+        if now_king then
+            local king_ply = getPlayer(now_king[2])
+            if king_ply then
+                pack.king_name = king_ply.name
+            else
+                pack.king_name = now_king[6]
+            end
+        end
+    end
+    Rpc:callAgent(map_id, "upload_gs_info", pack)
+end
+
 

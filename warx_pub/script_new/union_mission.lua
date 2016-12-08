@@ -282,6 +282,9 @@ function ok(ply,cond,num)--完成军团任务
             else
                 _d[ply.uid].sort[ply.pid].num= _d[ply.uid].sort[ply.pid].num + num
             end
+            --任务
+            task_logic_t.process_task(ply, TASK_ACTION.FINISH_UNION_TASK, _d[ply.uid].sort[ply.pid].num)
+            
             gPendingSave.union_mission[ply.uid] = _d[ply.uid]
             add(ply.uid)
         end
@@ -313,7 +316,7 @@ function add(uid)--领取军团任务奖励
         mode =3
     end
 
-    while (mode > d.cur_item and d.cur_item>=0) do
+    while ( mode > d.cur_item and d.cur_item >= 0 ) do
         d.cur_item =  d.cur_item + 1 
         gPendingSave.union_mission[uid] = d
         local id = d.class *10000 + d.cur_item*100 + c.Lv

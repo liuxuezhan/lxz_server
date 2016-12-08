@@ -209,6 +209,125 @@ function get_boss_pos_in_zone(tx, ty, prop, grade)
     return x, y
 end
 
+function force_born(tx, ty, clv)
+    local prop = resmng.prop_world_unit
+    if prop then
+        for k, v in pairs(prop) do
+            if v.Class == CLASS_UNIT.MONSTER and v.Clv == clv then
+                local pos_lv = get_pos_lv(v.Lv)
+                local tar_x, tar_y = tx, ty
+                if pos_lv then
+                    tar_x, tar_y = get_near_lv_pos(tx, ty, pos_lv)
+
+                    local idx = tar_y * 80 + tar_x
+                    local node = distrib[ idx ]
+                    if node then
+                        for _, n in pairs( node ) do
+                            local m = get_ety( n.eid )
+                            if m and is_monster( m ) then
+                                local conf = resmng.get_conf( "prop_world_unit", m.propid )
+                                if conf and conf.Clv == clv  then
+                                    return m.propid, m.x, m.y
+                                end
+                            end
+                        end
+                    end
+                    return gen_task_boss(tar_x, tar_y, v.ID)
+                end
+                return
+            end
+        end
+    end
+end
+
+function gen_task_boss(tx, ty, propid)
+    if tx <= 0 or tx > 80 then
+        tx = 1
+    end
+    if ty <=0 or ty > 80 then
+        ty =1
+    end
+
+    local prop = resmng.prop_world_unit[propid] 
+    if prop then
+        local x, y = get_boss_pos_in_zone(tx, ty, prop, BOSS_TYPE.NORMAL)
+        print("boss pos ", x, y)
+        if x then
+            local eid = get_eid_monster()
+            if eid then
+                local m = create_monster(prop)
+                --local tr= debug.traceback()
+                --LOG( "CREATE_MONSTER, eid=%d, x=%d, y=%d, propid=%d, grade= %d %d", eid, x, y, bossPropid, grade, ty * 80 + tx)
+
+                m._id = eid
+                m.eid = eid
+                m.x = x
+                m.y = y
+                m.zx = tx
+                m.zy = ty
+                m.born = gTime
+                if npc_id then
+                    m.npc_id = npc_id
+                end
+                m.grade = BOSS_TYPE.NORMAL
+                m.level = prop.Lv
+                m.size = prop.Size
+                setmetatable(m, _mt)
+                gEtys[ eid ] = m
+                etypipe.add(m)
+                return propid, x, y
+            end
+        end
+    end
+end
+
+function get_pos_lv(boss_lv)
+    local lv_range ={
+        {1, 5},
+        {6, 9},
+        {10, 12},
+        {13, 15},
+        {16, 25},
+    }
+    for k , v in pairs(lv_range) do
+        if boss_lv >= v[1] and boss_lv <= v[2] then
+            return k
+        end
+    end
+end
+
+function get_near_lv_pos(tx, ty, target_lv)
+    local cur_lv = c_get_zone_lv(tx, ty)
+    print(cur_lv, target_lv, tx, ty)
+
+    if cur_lv == target_lv then
+        return tx, ty
+    end
+
+    local tag = 1 
+    if cur_lv > target_lv then
+        tag = -1
+    end
+
+    local index = tag
+    local index1 = tag
+
+    local dis1 = 40 - tx
+    local dis2 = 40 - ty
+
+    if math.abs(dis1) > math.abs(dis2) then
+        if tx > 40 then index  = -tag end
+        return get_near_lv_pos(tx + index, ty, target_lv)
+    elseif math.abs(dis1) < math.abs(dis2) then
+        if ty > 40 then index  = -tag end
+        return get_near_lv_pos(tx , ty + index, target_lv)
+    else
+        if tx > 40 then index  = -tag end
+        if ty > 40 then index1  = -tag end
+        return get_near_lv_pos(tx + index, ty + index1, target_lv)
+    end
+end
+
 function respawn(tx, ty, grade, npc_id)
     if tx <= 0 then
         tx = 1 
@@ -231,22 +350,24 @@ function respawn(tx, ty, grade, npc_id)
 
     local bossMod = 0
     local bossLv = 0
-    --print("gen boss mod", date, civil, grade, lv)
+    --print("gen boss mod", tx, ty, date, civil, grade, lv)
     local bossPropid = get_boss_mod(date, civil, grade, lv)
     if not bossPropid then
         return
     end
     bossLv = get_boss_level(bossPropid)
 
-    local unlockBossCfg = resmng.prop_boss_unlock[openStage.num]
+    local unlockBossCfg = resmng.prop_boss_unlock[openStage.num or 1]
     --check can generate boss by grade and level
     if  unlockBossCfg then
         if grade ~= BOSS_TYPE.SPECIAL then
             if unlockBossCfg.OpenBossLevel[ grade ] < bossLv then
+                print("no unlockBossCfg")
                 return
             end
         end
     else
+                print("no unlockBossCfg")
         return
     end
 
@@ -294,6 +415,8 @@ function respawn(tx, ty, grade, npc_id)
                 elseif m.grade == BOSS_TYPE.SUPER then
                     super_boss = m.eid
                     m:mark()
+                elseif m.grade == BOSS_TYPE.NORMAL then
+                    --m:mark()
                 end
 
                 boss_notify(m)
@@ -460,6 +583,17 @@ function load_from_db()
     end
    init_global()
    try_upgrade_stage()
+   --gen_all_boss()
+end
+
+function gen_all_boss()
+    print("start gen all boss ", os.date())
+    for i = 1, 80, 1 do
+        for j = 1, 80, 1 do
+            do_check(i, j)
+        end
+    end
+    print("end gen all boss ", os.date())
 end
 
 function do_check(zx, zy, isloop)
@@ -497,7 +631,7 @@ function do_check(zx, zy, isloop)
         local access = c_get_map_access(zx, zy)
         --test
         --if math.abs(gTime - access) >= 3600 then
-        if math.abs(gTime - access) >= 1 then
+        if access ~= 0 and math.abs(gTime - access) >= 3600 then
             if num == 0 then
                 distrib[ idx ] = nil
             end
@@ -874,8 +1008,35 @@ function trans_num(reward, rate)
     return reward
 end
 
+function send_union_item(self, pid)
+    local rewards = self.rewards or {}
+    if rewards.unit and self.hp <= 0 then
+        if get_table_valid_count(rewards.unit) > 1 then
+            local ply = getPlayer(pid)
+            if ply then
+                local union = unionmng.get_union(ply.uid)
+                if union and not check_union_cross(union) then  --跨服不加军团礼包
+                    local _members = union:get_members()
+                    for _, meb  in pairs(_members or {}) do
+
+                        if player_t.debug_tag then
+                            union_item.add(meb, rewards.unit, UNION_ITEM.BOSS, self.propid, pid)
+                        end
+
+                        if meb:get_castle_lv() >= 6 and v then  --6级一下无礼包
+                            --print("monster.lua:793", v[1][2], ",", UNION_ITEM.BOSS, ",", self.propid, ",", pid)
+                            union_item.add(meb, rewards.unit, UNION_ITEM.BOSS, self.propid, pid)
+                            --meb:add_bonus(v[1], v[2], VALUE_CHANGE_REASON.REASON_MONSTER)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
 function get_jungle_reward(self, pid, mkdmg, totalDmg , hp_lost, is_mass)
-    local rate = 1
+    local rate = 1.5
     if is_mass ~= 1 then
         rate= 0.5
     end
@@ -901,27 +1062,6 @@ function get_jungle_reward(self, pid, mkdmg, totalDmg , hp_lost, is_mass)
             for key, award in pairs(val or {}) do
                 table.insert(rewards[ k ], award[1])
             end
-        elseif k == "unit" and self.hp <= 0 then
-            local ply = getPlayer(pid)
-            if ply then
-                local union = unionmng.get_union(ply.uid)
-                if union and not check_union_cross(union) then  --跨服不加军团礼包
-                    local _members = union:get_members()
-                    for _, meb  in pairs(_members or {}) do
-
-                        if player_t.debug_tag then
-                            union_item.add(meb, v, UNION_ITEM.BOSS, self.propid, pid)
-                        end
-
-                        if meb:get_castle_lv() >= 6 and v then  --6级一下无礼包
-                            --print("monster.lua:793", v[1][2], ",", UNION_ITEM.BOSS, ",", self.propid, ",", pid)
-                            union_item.add(meb, v, UNION_ITEM.BOSS, self.propid, pid)
-                            --meb:add_bonus(v[1], v[2], VALUE_CHANGE_REASON.REASON_MONSTER)
-                        end
-                    end
-                end
-            end
-            -- final award to do
         end
     end
     return rewards

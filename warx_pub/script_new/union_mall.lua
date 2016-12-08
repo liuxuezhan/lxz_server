@@ -113,16 +113,16 @@ function get_log(u,type)
         if type == 1 then
             for k, v in pairs(u.mall.add or {}) do
                 if gTime - v.tm >= 60*60*24 *7 then
-                    v.buy[k]=nil
-                    gPendingSave.union_mall[u.uid] = u.mall
+                    u.mall.add[k]=nil
+                    gPendingSave.union_mall[u.uid].add = u.mall.add
                 end
             end
             return (u.mall.add or {})
         else
             for k, v in pairs(u.mall.buy or {}) do
                 if gTime - v.tm >= 60*60*24 *7 then
-                    v.buy[k]=nil
-                    gPendingSave.union_mall[u.uid] = u.mall
+                    u.mall.buy[k]=nil
+                    gPendingSave.union_mall[u.uid].buy = u.mall.buy
                 end
             end
             return (u.mall.buy or {})

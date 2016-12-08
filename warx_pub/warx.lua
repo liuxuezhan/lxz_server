@@ -107,6 +107,7 @@ skynet.start(function()
  
     require "debugger"
     skynet.newservice("lib/mongo_t",g_warx_t.db_name)--数据库写中心
+    socket_id = socket.listen(g_warx_t.host or g_host, g_warx_t.port)
     save_db()
     require "warx_pub/frame"
     init(os.time(),os.time())
@@ -115,7 +116,6 @@ skynet.start(function()
         main_loop(os.time(), os.time(), 0, 0, 0, 0)
     end
 
-    socket_id = socket.listen(g_warx_t.host or g_host, g_warx_t.port)
     socket.start ( socket_id , function(fd, addr)
         open_fd(fd)	-- may raise error here
         lxz(string.format("connect from %s (fd = %d)", addr, fd))

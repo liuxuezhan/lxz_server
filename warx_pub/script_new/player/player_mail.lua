@@ -223,7 +223,7 @@ function mail_new(self, v, isload)
     local sn = self.mail_max + 1
     self.mail_max = sn
 
-    v._id = string.format("%d_%d", sn, v.to or self.pid)
+    v._id = string.format("%d_%d", sn, self.pid)
     v.idx = sn
     v.from = v.from or 0
     v.to = self.pid
@@ -267,10 +267,16 @@ end
 function mail_send_union(self, title, content)
     local union = self:get_union()
     if union then
-        local m = {class=MAIL_CLASS.PLAYER, mode=MAIL_PLAYER_MODE.UNION_ANNOUNCE, from=self.pid, title=title, content=content, its=0}
+        local v = {}
+        v.title = title
+        v.content = content
+        v.alias = union.alias
+        v.pname = self.name
+        v.photo = self.photo
         local members = union:get_members()
         if members then
             for _, p in pairs( members ) do
+                local m = {class=MAIL_CLASS.UNION, mode=MAIL_UNION_MODE.ANNOUNCE, from=self.pid, content=v, its=0}
                 p:mail_new( m )
             end
         end
@@ -471,7 +477,6 @@ function generate_fight_mail(ack_troop, def_troop, is_win, catch_hero, rages, to
         end
     end
 end
-
 
 -- player.mail_all({ class=class, title="hello", content="world", its={{1001,100}}})
 function mail_all(v)

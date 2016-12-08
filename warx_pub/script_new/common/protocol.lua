@@ -11,6 +11,8 @@ Server = {
     change_name = "string name",
     change_language = "int language",
 
+    get_lv_6_gift = "",
+
     union_help_add = "int tmSn",--请求军团帮助
     union_help_get = "",--获取军团帮助
     union_help_set = "int tmSn",--帮助请求
@@ -108,6 +110,7 @@ Server = {
     draft = "int idx",
 
     migrate = "int x, int y",
+    migrate_random = "",
 
     --------------------------------------------------------------------------------
     -- build begin
@@ -163,9 +166,19 @@ Server = {
     -- cross gs
     agent_migrate = "int map, int x, int y, pack data, pack task, pack timers, pack union_pro, pack troop",
     agent_migrate_ack = "int map, int pid, int param",
+    agent_migrate_back = "int map, int x, int y, pack data, pack task, pack timers, pack union_pro, pack troop",
+    agent_migrate_back_ack = "int map, int pid, int param",
     agent_syn_call = "int id, string func, pack arg",
     agent_syn_call_ack = "int id, pack ret",
     agent_login = "int pid",
+    cross_act_ntf = "int ntf_id, pack param1, pack param2",
+    upload_gs_info = "pack union_info",
+    cross_npc_info_req = "int pid",  -- gs to cross mng
+    cross_act_st_cast = "pack info",
+    --cross act
+    cross_act_st_req = "int pid",
+    upload_gs_info = "pack info",
+    cross_gm = "pack info",
     
 
     -- allience
@@ -349,8 +362,10 @@ Server = {
     get_union_npc_req = "", --  取得本军团占领的npc
     npc_act_info_req =  "", -- npc 活动页面
     abandon_npc = "int eid", -- 弃城
+    post_npc_change = "int npc_propid, int occu_gs_id, int tag", --post npc change to cross mng center
     ---- king city 
     officers_info_req = "",  --任命官员大厅
+    king_info_req = "", -- king info
     select_officer_req = "int pid, int index", --任命官员
     rem_officer_req = "int index", --卸任
     acc_tower_recover_req = "int eid",
@@ -372,6 +387,7 @@ Server = {
     lt_info_req = "", --遗迹塔活动页面
     lt_citys_info_req = "int index", -- 分页请求遗迹塔活动数据
     get_lt_award = "int index", --lt 个人奖励
+
 
 
     black_market_buy = "int idx",
@@ -432,6 +448,8 @@ Server = {
 
     choose_head_icon = "int id",
     get_uname_by_propid = "int propid",
+    world_chat_task = "",
+    packet_target_task = "",
 
 }
 
@@ -506,6 +524,9 @@ Client = {
     agent_migrate_ack = "int map, int pid, int param",
     agent_syn_call = "int map, int id, string func, pack arg",
     agent_syn_call_ack = "int id, pack ret",
+    cross_npc_info_ack = "pack info",  -- cross mng  to client
+    --cross act
+    cross_act_st_ack = "pack info",
 
     -- state change
     stateBuild = "pack build",
@@ -699,6 +720,7 @@ Client = {
     kw_mall_info_ack = "pack info",
     find_player_by_name_ack = "pack info", 
     kw_info_ack = "pack info",
+    king_info_ack = "pack info",
     mark_king_ack = "int score",
     gs_buf_ntf = "pack info",
     --monster city
@@ -708,7 +730,8 @@ Client = {
 
     --lost temple
     lt_info_ack = "pack info",
-    lt_citys_info_ack = "pack", -- 分页请求遗迹塔活动数据
+    lt_citys_info_ack = "pack info", -- 分页请求遗迹塔活动数据
+
 
 
 
@@ -772,12 +795,15 @@ Client = {
     --rpc dostring
     do_string = "string trunk",
     get_uname_by_propid_resp = "pack info",
+
+    target_task_list_resp = "",
 }
 
 CrossQuery = {
     get_union_npc_rank_req = 1,
     get_npc_map_req = 1,
     act_info_req = 1,
+    king_info_req = 1,
 
 }
 

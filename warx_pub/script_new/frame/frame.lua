@@ -1,4 +1,34 @@
 
+if not gCoroMark then
+    gCoroMark = {}
+    setmetatable( gCoroMark, { __mode="k" } )
+end
+
+function coro_mark_create( co, name )
+    local node = gCoroMark[ co ]
+    if not node then
+        node = {}
+        gCoroMark[ co ] = node 
+        node.action = "create"
+    end
+    node.tick = gTime
+    node.name = name
+end
+
+
+function coro_mark( co, action )
+    local node = gCoroMark[ co ]
+    if not node then
+        node = {}
+        gCoroMark[ co ] = node 
+        node.name = "unknown"
+        node.action = "unknown"
+    end
+    node.tick = gTime
+    node.action = action
+end
+
+
 function thanks()
     local t = {}
     table.insert(t, [[                   _ooOoo_]])
@@ -22,7 +52,6 @@ function thanks()
     table.insert(t, [[^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^]])
 
     for k, v in ipairs(t) do
-        --print(v)
         WARN( v )
     end
     INFO("[GameStart], map=%d", _G.gMapID)
@@ -86,6 +115,8 @@ function loadMod()
 
     require("frame/player_t")
     require("frame/perfmon")
+    require("frame/snapshot")
+    require("frame/snapshot_diff")
 end
 
 function handle_dbg(sid)
@@ -145,6 +176,7 @@ function do_threadAction()
         if gCoroBad[ co ] then
             gCoroBad[ co ] = nil
             LOG("Coro, threadAction, i should go away, %s", co)
+            print("Coro, threadAction, i should go away", co)
             return
         end
         putCoroPool("action")
@@ -171,6 +203,7 @@ function do_threadTimer()
         if gCoroBad[ co ] then
             gCoroBad[ co ] = nil
             LOG("Coro, threadTimer, i should go away, %s", co)
+            print("Coro, threadTimer, i should go away", co)
             return
         end
     end
@@ -197,6 +230,7 @@ function do_threadRoi()
         if gCoroBad[ co ] then
             gCoroBad[ co ] = nil
             LOG("Coro, threadRoi, i should go away, %s", co)
+            print("Coro, threadRoi, i should go away", co)
             return
         end
     end
@@ -292,7 +326,8 @@ function do_threadPK()
 
         if gCoroBad[ co ] then
             gCoroBad[ co ] = nil
-            LOG("Coro, threadPk, i should go away, %s", co)
+            --LOG("Coro, threadPk, i should go away, %s", co)
+            print("Coro, threadPk, i should go away", co)
             return
         end
     end
@@ -441,8 +476,6 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
             conn.toGate(config.GateHost, config.GatePort)
             crontab.initBoot()
             clean_replay() --清理战斗录像
-
-            if config.GatePort == 8002 then _G.g_warx = true end
 
             local hit = false
             for k, v in pairs(timer._sns) do
@@ -598,14 +631,14 @@ gUpdateCallBack = {}
 function check_tool_ack()
     local dels = {}
     for k, v in pairs(gPendingToolAck) do
-        if gTime - v._t_ >= 60 then
-            table.insert(dels, k)
-            resend_to_tool(k, v.info)
+        if gTime - v._t_ >= 100 then
+            dels[k] = v
         end
     end
 
     for k, v in pairs(dels) do
-        gPendingToolAck[v] = nil
+        gPendingToolAck[k] = nil
+        resend_to_tool(k, v.info)
     end
 
 end
@@ -628,6 +661,8 @@ function global_save()
     local cbs = gUpdateCallBack
     local update = false
     local cur = gFrame
+    --为了避免在遍历gPendingSave的途中去调用on_check_pending接口，防止开发者错误的在on_check_pending中去进行了数据库操作
+    local cb_map = {}       --key为函数，value为table(key为id, value为chgs)
     for tab, doc in pairs(gPendingSave) do
         local cache = doc.__cache
         local cb = nil
@@ -638,9 +673,9 @@ function global_save()
                 if not chgs._a_ then
                     local oid = chgs._id
                     chgs._id = id
-                    dumpTab( chgs, "global_save: "..tab )
                     db[ tab ]:update({_id=id}, {["$set"] = chgs }, true)
                     chgs._id = oid
+                    dumpTab( chgs, string.format( "global_save: %s@%s, frame=%d", tab, id, cur ) )
                     print( "[DB], update", tab, id,  "global" )
 
                 else
@@ -672,12 +707,35 @@ function global_save()
                 end
 
                 if cb then
-                    cb( db, id, chgs )
+                    cb_map[cb] = cb_map[cb] or {}
+                    cb_map[cb][id] = chgs
+                    --cb( db, id, chgs )
                 end
             end
         end
     end
+
+    -- on_check_pending统一在外部调用
+    for cb, params in pairs(cb_map) do
+        for id, chgs in pairs(params) do
+            cb(db, id, chgs)
+        end
+    end
+
     if update then gen_global_checker( db, cur ) end
+end
+
+function cache_check(cache, table_name)
+    -- 校验了不同的key指向了同一个cache的错误，出现此问题肯定是逻辑上写错了
+    local t = {}
+    for id, chgs in pairs(cache) do
+        if t[chgs] ~= nil then
+            WARN("zhoujy_warning: cache_check failed tab=%s, id_1=%s, id_2=%s", table_name, id, t[chgs])
+        else
+            t[chgs] = id
+        end
+    end
+    t = nil
 end
 
 gGlobalChecker = {}
@@ -687,9 +745,12 @@ function global_save_checker()
 
         local info = db:runCommand("getLastError")
         if info.ok then
+            INFO( "global_save_checker, checked frame %d, now=%d, diff=%d", frame, gFrame, gFrame - frame )
             local code = info.code
             for tab, doc in pairs(gPendingSave) do
                 local cache = doc.__cache
+                cache_check(cache, tab)
+                local adds = {}
                 local dels = {}
                 for id, chgs in pairs(cache) do
                     if chgs._n_ == frame then
@@ -705,10 +766,13 @@ function global_save_checker()
                         WARN("mongo_error, %s:%s, %s, %s, %s", tab, id, chgs._n_, frame, gFrame)
                         dumpTab( chgs, "mongo_error" )
                         rawset( chgs, "_n_", nil )
-                        doc[ id ] = chgs
+                        adds[id] = chgs
                         table.insert(dels, id)
 
                     end
+                end
+                for id, chgs in pairs(adds) do
+                    doc[id] = chgs
                 end
                 if #dels > 0 then
                     for _, v in pairs(dels) do
@@ -723,21 +787,35 @@ function global_save_checker()
             end
         end
 
+        local co = coroutine.running()
         if #gGlobalChecker < 20 then
-            local co = coroutine.running()
+            coro_mark( co, "inpool" )
             table.insert( gGlobalChecker, co )
+        else
+            gCoroBad[ co ] = nil
+            return
         end
     end
 end
 
+function thread_global_save_checker()
+    if _ENV then
+        xpcall(global_save_checker, STACK )
+    else
+        global_save_checker()
+    end
+end
 
 function gen_global_checker( db, frame )
     local co
     if #gGlobalChecker > 0 then
         co = table.remove( gGlobalChecker )
+        coro_mark( co, "outpool" )
         coroutine.resume( co, db, frame )
     else
-        co = coroutine.create( global_save_checker )
+        co = coroutine.create( thread_global_save_checker)
+        coro_mark_create( co, "global_checker" )
+        coro_mark( co, "outpool" )
         coroutine.resume( co )
         coroutine.resume( co, db, frame )
     end
@@ -911,15 +989,19 @@ end
 function getCoroPool(what)
     if #gCoroPool[ what ] > 0 then
         local co = table.remove(gCoroPool[ what ])
+        coro_mark(co, "outpool")
         return co
     else
         local co = createCoro(what)
+        coro_mark_create( co, what )
+        coro_mark(co, "outpool")
         return co
     end
 end
 
 function putCoroPool(what)
     local co = coroutine.running()
+    coro_mark( co, "pool" )
     local pool = gCoroPool[ what ]
     if #pool < 10 then table.insert(gCoroPool[ what ], co) end
     coroutine.yield("ok")
@@ -929,14 +1011,19 @@ function getCoroPend(what, id)
     local co = gCoroPend[ what ][ id ]
     if co then
         gCoroPend[ what ][ id ] = nil
-        if type(co) == "table" then return unpack(co)
-        else return co end
+        if type(co) == "table" then 
+            coro_mark( co[1], "outpend" )
+            return unpack(co)
+        else 
+            coro_mark( co, "outpend" )
+            return co 
+        end
     end
 end
 
-
 function putCoroPend(what, id, extra)
     local co = coroutine.running()
+    coro_mark( co, what.."_pend" )
     if extra then gCoroPend[ what ][ id ] = { co, extra }
     else gCoroPend[ what ][ id ] = co end
     return coroutine.yield(what)
@@ -1060,8 +1147,7 @@ end
 -- 1. rpc, send_mul
 -- 2. first packet
 --
---
---
+
 gCheckers = {}
 function save_checker()
     while true do
@@ -1069,6 +1155,7 @@ function save_checker()
         local info = db:runCommand("getPrevError")
         if info.ok then
             local dels = {}
+            cache_check(cache, name)
             for k, v in pairs(cache) do
                 local n = v._n_
                 if n then
@@ -1087,10 +1174,22 @@ function save_checker()
                 end
             end
         end
+        local co = coroutine.running()
         if #gCheckers < 20 then
-            local co = coroutine.running()
+            coro_mark( co, "pool" )
             table.insert( gCheckers, co )
+        else
+            gCoroBad[ co ] = nil
+            return
         end
+    end
+end
+
+function thread_save_checker()
+    if _ENV then
+        xpcall(save_checker, STACK )
+    else
+        save_checker()
     end
 end
 
@@ -1098,12 +1197,25 @@ function gen_checker( db, frame, cache, name )
     local co
     if #gCheckers > 0 then
         co = table.remove(gCheckers)
+        coro_mark( co, "check" )
         coroutine.resume( co, db, frame, cache, name )
     else
-        co = coroutine.create( save_checker )
+        co = coroutine.create( thread_save_checker )
+        coro_mark_create( co, "checker" )
+        coro_mark( co, "check" )
         coroutine.resume( co )
         coroutine.resume( co, db, frame, cache, name )
     end
 end
 
+function coro_info()
+    collectgarbage()
+    for k, v in pairs( gCoroMark ) do
+        --local status = "none"
+        --if v.co then status = coroutine.status( v.co ) end
+        local status = coroutine.status( k )
+        print( string.format( "Coro, name=%s, action=%s, tick=%s, last=%d, status=%s", v.name, v.action, v.tick, gTime-v.tick, status ) )
+        if status == "dead" then print( "coro dead", k ) end
+    end
+end
 

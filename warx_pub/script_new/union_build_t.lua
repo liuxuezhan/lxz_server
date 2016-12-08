@@ -13,7 +13,6 @@ function load()
         if u  and data.state ~= BUILD_STATE.DESTROY then
             u.build[data.idx] = data
             gEtys[ data.eid ] = data
-            data.name = ""
             data.holding = is_hold(data)
             data.culture = data.culture or 1
             etypipe.add(data)
@@ -417,7 +416,7 @@ function restore_add_res(e, pid,res )--存储资源
 
 	gPendingSave.union_t[u._id].restore = u.restore
     for _, v in pairs(u.build or {}) do
-        if is_union_restore(v) then
+        if is_union_restore(v.propid) then
             save(v)
         end
     end
@@ -553,15 +552,14 @@ end
 
 function can_troop(action, p, eid, res)--行军队列发出前判断
 
-    if player_t.debug_tag then
-        return true
-    end
+    if player_t.debug_tag then return true end
     
     local dp = get_ety(eid)
     if not dp then 
         WARN("")
         return false 
     end
+
     if not is_union_building(dp) then 
         WARN("")
         return false 
@@ -593,9 +591,19 @@ function can_troop(action, p, eid, res)--行军队列发出前判断
             end
 
             if is_union_miracal(dp.propid) then
+                local total = 0
+                for k, v in pairs(res.live_soldier or {}) do
+                    total = total + v
+                end
                 local sum,max = p:get_hold_limit(dp)
                 if sum <= max then
-                    return true
+                    if max - sum < total then
+                        Rpc:tips(p,1,resmng.UNION_HOLD_OVER,{ total-max + sum})
+                    else
+                        return true
+                    end
+                else
+                    Rpc:tips(p,1,resmng.UNION_HOLD_MAX,{})
                 end
             end
         end
@@ -608,21 +616,10 @@ function can_troop(action, p, eid, res)--行军队列发出前判断
 
     elseif action == TroopAction.Gather then
         if dp.uid == p.uid then
-            --[[
-            local t = troop_mng.get_troop(dp.my_troop_id)
-            if t then
-                for pid, _ in pairs(t.arms or {} ) do
-                    if pid == p.pid then
-                        WARN("")
-                        return false
-                    end
-                end
-            end
-            --]]
-
-            for _, id in pairs(self.busy_troop_ids or {} ) do
+            for _, id in pairs(p.busy_troop_ids or {} ) do
                 local t = troop_mng.get_troop(id)
-                if t:get_base_action() == action then
+                local e = get_ety(t.target_eid)
+                if is_union_superres(e.propid) and t:get_base_action() == action then
                     return false
                 end
             end
@@ -633,10 +630,19 @@ function can_troop(action, p, eid, res)--行军队列发出前判断
 
     elseif action == TroopAction.UnionBuild or action == TroopAction.UnionFixBuild or action == UnionUpgradeBuild then
 
+        local total = 0
+        for _, v in pairs(res.live_soldier or {}) do
+            total = total + v
+        end
         local sum,max = p:get_hold_limit(dp)
         if sum <= max then
-            LOG("到达驻守上限:"..sum..":"..max)
-            return true
+            if max - sum < total then
+                Rpc:tips(p,1,resmng.UNION_HOLD_OVER,{ total-max + sum})
+            else
+                return true
+            end
+        else
+            Rpc:tips(p,1,resmng.UNION_HOLD_MAX,{})
         end
 
     elseif action == resmng.TroopAction.SaveRes then
@@ -717,7 +723,7 @@ function save(obj)
             return
         end
 
-        if obj.val and obj.val == 0 then
+        if is_union_superres(obj.propid) and obj.val == 0 then
             remove(obj)
             return 
         end
@@ -735,13 +741,18 @@ end
 
 function del(e)
     if is_union_building(e) then
-        e.state = BUILD_STATE.DESTROY
         local u = unionmng.get_union(e.uid)
         if u then
-            u.build[e.idx] = e
-            u:notifyall("build", resmng.OPERATOR.DELETE, e)
+            --u:notifyall("build", resmng.OPERATOR.DELETE, e)
+            if is_union_superres(e.propid) then 
+                u.build[e.idx] = nil
+                gPendingDelete.union_build[e._id] = 0
+            else
+                e.state = BUILD_STATE.DESTROY
+                u.build[e.idx] = e
+                gPendingSave.union_build[e._id] = e
+            end
         end
-        gPendingSave.union_build[e._id] = e
         c_rem_ety(e.eid)
         gEtys[e.eid] = nil
     end
@@ -940,21 +951,20 @@ function gather(obj ) --采集
 end
 
 function fire(obj,s)
-    local tm = s or 10 
-    obj.fire_speed = -0.5
 
-    if obj.hp + obj.fire_speed*tm  < 0  then
-        tm = math.ceil(-obj.hp/obj.fire_speed)
-    end
+    building(obj) --部队修理
 
-    obj.fire_tmStart = gTime
-    if obj.fire_tmSn~= 0  then
-        obj.fire_tmOver = obj.fire_tmOver + tm
-    else
+    if 0 == obj.fire_tmSn then
+        obj.fire_speed = -0.5
+        local tm = -obj.hp/obj.fire_speed
+        if tm > 30*60 then  tm = 30*60 end
+        obj.fire_tmStart = gTime
         obj.fire_tmOver = obj.fire_tmStart + tm
+        obj.fire_tmSn = timer.new("union_build_fire", tm, obj.eid)
+    else
+        obj.fire_tmOver = obj.fire_tmOver + tm
+        timer.add(obj.fire_tmSn,tm)
     end
-    local need = obj.fire_tmOver - obj.fire_tmStart  
-    obj.fire_tmSn = timer.new("union_build_fire", need, obj.eid)
     save_ety(obj)
 
 end
@@ -973,7 +983,7 @@ function buf_open(e)--奇迹生成
                         local tmp = get_ety(ply.ef_eid)
                         if tmp  then
                             old = tmp
-                            if e.sn <= old.sn  or ply.ef_eid == e.eid then
+                            if e.sn <= (old.sn or math.huge)  or ply.ef_eid == e.eid then
                                 ply.ef_eid = e.eid
                             end
                         else
@@ -1029,7 +1039,7 @@ function ply_move(ply)--迁城变奇迹影响
     for _, eid in pairs( builds ) do
         if is_union_building(eid) then
             local e = get_ety(eid) 
-            if is_union_miracal(e.propid) then
+            if is_union_miracal(e.propid) and e.state == BUILD_STATE.WAIT then
                 if  union_build_t.can_ef(e,ply) then
                     if e.sn < sn then
                         ply.ef_eid = e.eid

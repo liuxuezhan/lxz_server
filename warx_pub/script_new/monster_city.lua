@@ -28,7 +28,6 @@ module_class(
     mc_reward_pool = {},
     --atk_troops= {},    --攻击该城市的部队
     --leave_troops = {},  --从该城市出发的部队
-
 }
 )
 
@@ -36,6 +35,9 @@ function try_update_ply_hurt(key, score)
     local org_score = rank_mng.get_score(8, key) or 0
     score = score + org_score
     rank_mng.add_data(8, key, {score})
+    --任务
+    local ply = getPlayer(key)
+    task_logic_t.process_task(ply, TASK_ACTION.PANJUN_SCORE, score)
 end
 
 function try_update_union_hurt(key, score)
@@ -78,6 +80,13 @@ function load_monster_city()
         local m = monster_city.wrap(info:next())
         gEtys[m.eid] = m
         citys[m.atk_eid] = m.eid
+
+        if m.band_eid ~= 0 then
+            local band_citys = citys[m.band_eid] or {}
+            band_citys[m.eid] = m.eid
+            citys[m.band_eid] = band_citys
+        end
+
         print("monster city eid = ", m.eid)
         etypipe.add(m)
     end
@@ -591,7 +600,7 @@ function send_act_award(mc)
     end
 end
 
---怪物城攻击玩家
+--怪物城攻击玩家占领npc
 function after_fight(atkTroop, defenseTroop)
     local mc = get_ety(atkTroop.owner_eid)
     if mc and check_atk_win(atkTroop, defenseTroop) then
