@@ -14,7 +14,6 @@
 | json |   [不同语言API](http://www.json.org/) | 
 | mysql |   [csdn知识库](http://lib.csdn.net/base/14) | 
 | 前端 |   [博客](http://qiankanglai.me/) | 
-| vim配置 |   [vim](https://github.com/humiaozuzu/dot-vimrc.git) | 
 | 机器人算法 |   [facebook](https://github.com/torch/torch7) | 
 | bootstrap |   [布局](http://www.ibootstrap.cn/v2/) | 
 | ansible |  [模块](http://blog.csdn.net/modoo_junko/article/category/3084431) [应用](https://galaxy.ansible.com/explore#/) | 
@@ -42,6 +41,13 @@ ansible-playbook site.yml -vv --skip-tags="ali"
 
 ## vim ##
 ### 配置 ###
+```
+mv ~/.vim ~/.vim.orig
+mv ~/.vimrc ~/.vimrc.orig
+git clone git://github.com/humiaozuzu/dot-vimrc.git ~/.vim
+ln -s ~/.vim/vimrc ~/.vimrc
+git clone https://github.com/gmarik/vundle.git ~/.vim/bundle/vundle
+```
 :BundleInstall    
 .bashrc增加export TERM="screen-256color"
 ```
