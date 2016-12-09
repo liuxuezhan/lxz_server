@@ -15,12 +15,6 @@ _list={
 
 g_warx_t = {   port = 8888, maxclient=3000, room ="room1", db_name = "db_server1" } 
 
---数据库
-g_db = {
-    db1={ host = "192.168.100.12", port = 27017, },
-    -- db={  host = "127.0.0.1", port = 27017,username="admin",password="admin" },
-}
-
     getfenv = getfenv or function(f)
         f = (type(f) == 'function' and f or debug.getinfo(f + 1, 'f').func)
         local name, val

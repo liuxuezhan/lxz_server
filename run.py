@@ -17,11 +17,12 @@ def get_ip(ifname):
         )[20:24])
 
 if __name__ == "__main__":
-   # ip = socket.gethostbyname(socket.gethostname())
-    #ip = get_ip("enp0s3")
-    ip = sys.argv[2]
-    if len(sys.argv) < 3:
-        print "输入路径,ip"
+   #ip = socket.gethostbyname(socket.gethostname())
+    ip = get_ip("enp0s3")
+    #ip = sys.argv[2]
+   #print ip
+    if len(sys.argv) < 2:
+        print "输入路径"
         exit() 
     (path,name) = os.path.split(sys.argv[1])
     (name,ext) = os.path.splitext(name)
