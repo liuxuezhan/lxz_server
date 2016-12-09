@@ -221,6 +221,7 @@ local function around1( rpc, eid, name, ... )
 end
 
 local function callAgent( rpc, map, name, ... )
+    lxz(map,name)
     local rf = rpc.localF[name]
    	if not rf then
 		error(string.format("can't find remote function named %s",name))

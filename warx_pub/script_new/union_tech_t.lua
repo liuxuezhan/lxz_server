@@ -2,6 +2,8 @@
 -- 军团科技模块
 module(..., package.seeall)
 
+tm_cool = 4 *60*60 --捐献冷却时间
+
 function init(self)
 end
 
@@ -138,7 +140,6 @@ function random_donate_cons(ply, idx, flag,type)
     gPendingSave.union_member[ply.pid] = ply._union
 end
 
-tm_cool = 4 *60*60 --捐献冷却时间
 
 function add_donate_cooldown(ply, tm)
     if ply._union.tmDonate < gTime then
@@ -155,6 +156,8 @@ end
 function clear_tmdonate(ply)
     if ply._union.tmDonate > gTime then
         ply._union.CD_doante_num  = ply._union.CD_doante_num or 0
+        if can_date(ply._union.CD_doante_tm)  then ply._union.CD_doante_tm  = gTime end
+
         local g =  0
         if ply._union.CD_doante_num < #resmng.CLEAR_DONATE_COST then
             g = resmng.CLEAR_DONATE_COST[ply._union.CD_doante_num +1]
@@ -197,27 +200,17 @@ end
 function donate(self, idx, type)
 
     local union = unionmng.get_union(self:get_uid())
-    if not union then
-        ack(self, "union_donate", resmng.E_NO_UNION) return
-    end
+    if not union then ack(self, "union_donate", resmng.E_NO_UNION) return end
 
     local tech = union:get_tech(idx)
-    if not tech then
-        ack(self, "union_donate", resmng.E_FAIL) return
-    end
+    if not tech then ack(self, "union_donate", resmng.E_FAIL) return end
 
-    if union_member_t.get_donate_flag(self) == 1 then
-        ack(self, "union_donate", resmng.E_TIMEOUT) return
-    end
+    if union_member_t.get_donate_flag(self) == 1 then ack(self, "union_donate", resmng.E_TIMEOUT) return end 
 
     local donate = get_donate_cache(self,idx)
-    if donate[type] == 0 then
-        ack(self, "union_donate", resmng.E_FAIL) return
-    end
+    if donate[type] == 0 then ack(self, "union_donate", resmng.E_FAIL) return end
 
-    if not union:can_donate(idx) then
-        ack(self, "union_donate", resmng.E_DISALLOWED) return
-    end
+    if not union:can_donate(idx) then ack(self, "union_donate", resmng.E_DISALLOWED) return end
 
     local cost = nil
     local reward = nil
@@ -295,5 +288,27 @@ function upgrade(union, idx)
     union:notifyall(resmng.UNION_EVENT.TECH, resmng.UNION_MODE.UPDATE, { idx=tech.idx,id=tech.id,tmStart=tech.tmStart, tmOver=tech.tmOver })
 
     return resmng.E_OK
+end
+
+function up_ok(u, tsn, idx)
+    local tech = u:get_tech(idx)
+    if not tech then
+        WARN("timer got no tech") return
+    end
+
+    local next_conf = resmng.get_conf("prop_union_tech",tech.id + 1)
+    if not next_conf then
+        INFO("没有下一级:"..tech.id+1) 
+        return
+    end
+
+    tech.id = next_conf.ID
+    tech.exp = tech.exp - next_conf.Exp * next_conf.Star
+    tech.tmSn = 0
+    tech.tmStart = 0
+    tech.tmOver = 0
+    u:ef_init()
+    gPendingSave.union_tech[tech._id] = tech
+    u:notifyall(resmng.UNION_EVENT.TECH, resmng.UNION_MODE.ADD, { idx=tech.idx,id=tech.id,exp=tech.exp,tmOver=tech.tmOver,tmStart=tech.tmStart })
 end
 

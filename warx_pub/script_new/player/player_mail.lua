@@ -345,9 +345,9 @@ function generate_fight_mail(ack_troop, def_troop, is_win, catch_hero, rages, to
             table.insert(unit.hero, hero)
         end
 
-        unit.kill = arm.kill_soldier
-        unit.death = arm.dead_soldier
-        unit.live = arm.live_soldier
+        unit.kill = arm.kill_soldier or {}
+        unit.death = arm.dead_soldier or {}
+        unit.live = arm.live_soldier or {}
         --unit.hurt = arm.hurt_soldier
 
         local amend = arm.amend
@@ -492,7 +492,7 @@ function mail_all(v)
 
     for k, ply in pairs(gPlys) do
         if ply:is_online() == true then
-            ply:mail_new(v)
+            ply:mail_new(copyTab(v))
         end
     end
 end

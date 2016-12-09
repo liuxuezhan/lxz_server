@@ -13,21 +13,26 @@ function load_data(t)
         return
     end
 
-    troop_id_map[troop._id] = troop
     local obj = get_ety(t.target_eid)
-    if t:is_go() and t:get_base_action() == TroopAction.HoldDefense then 
-        if obj == nil then return troop:back() end
-        if not obj.hold_troop then
-            obj.hold_troop = {}
-        end
-        obj.hold_troop[t._id] = 1  
-    elseif t:is_settle() then
-        if obj and is_union_building( obj ) then
-            if t:get_base_action() == TroopAction.Gather then
-            else
-                obj.my_troop_id = t._id
+    if obj then
+        troop_id_map[troop._id] = troop
+
+        if t:is_go() and t:get_base_action() == TroopAction.HoldDefense then 
+            if obj == nil then return troop:back() end
+            if not obj.hold_troop then
+                obj.hold_troop = {}
             end
-            save_ety(obj)
+            obj.hold_troop[t._id] = 1  
+
+        elseif t:is_settle() then
+            if obj and is_union_building( obj ) then
+                if t:get_base_action() == TroopAction.Gather then
+
+                else
+                    obj.my_troop_id = t._id
+                end
+                save_ety(obj)
+            end
         end
     end
 end
@@ -792,8 +797,13 @@ function do_gather(troop, dest)
         if not A then return troop:back() end
         if A.uid ~= dest.uid then return troop:back() end
 
-        if not dest.my_troop_id then dest.my_troop_id = {} end
+        if not dest.my_troop_id then 
+            dest.my_troop_id = {} 
+        elseif type( dest.my_troop_id ) == "number" then
+            dest.my_troop_id = { dest.my_troop_id }
+        end
         table.insert(dest.my_troop_id, troop._id)
+
         local dura = (troop:get_extra("count") - troop:get_extra("cache")) / troop:get_extra("speed")
         dura = math.ceil(dura)
         troop.tmOver = gTime + dura
@@ -2282,16 +2292,26 @@ function troop_timer(tsn, tid)
                 local A = getPlayer(pid)
                 if A then
                     task_logic_t.process_task(A, TASK_ACTION.JOIN_MASS, mass_type, 1)
+                    if A.uid then
+                        local u = unionmng.get_union( A.uid )
+                        if u then u.battle_list = nil end
+                    end
                 end
             end
 
             local dest = get_ety(troop.target_eid)
             if dest then
+                if dest.uid then
+                    local u = unionmng.get_union( dest.uid )
+                    if u then u.battle_list = nil end
+                end
+
                 local dest_troop = get_troop(dest.my_troop_id)
                 if dest_troop then
                     union_hall_t.battle_room_update(OPERATOR.UPDATE, troop, dest_troop)
                 end
             end
+
         end
 
     elseif troop:is_settle() then

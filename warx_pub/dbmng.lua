@@ -29,7 +29,7 @@ function getOne(self, policy)
         g_db_s = mongo.client(v)
     end
 
-    local name = config.Game or "warx"
+    local name = "my"
     local dbname = string.format("%s_%d", name, config.Map)
     return g_db_s[dbname]
 end

@@ -912,7 +912,7 @@ function getId(what)
         t.wait = 0
     end
 
-    local id = t.at * 10000 + t.sn
+    local id = 10000 + t.sn
     t.sn = t.sn + 1
 
     --addPendSave("uniq", what, "sn", t.sn)
@@ -928,8 +928,8 @@ function getId(what)
 end
 
 function getAutoInc(what)
-    --local db = dbmng:getOne(0)
-    local db = dbmng:getByTips("Global")
+    local db = dbmng:getOne()
+    --local db = dbmng:getByTips("Global")
     LOG("getAutoInc, getdb after")
     local r = db:runCommand("findAndModify", "uniq", "query", {_id=what}, "update", {["$inc"]={sn=1}}, "new", true, "upsert", true)
     LOG("getAutoInc, runCommand after")

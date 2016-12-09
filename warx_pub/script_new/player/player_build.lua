@@ -69,15 +69,40 @@ function get_build(self, idx)
     end
 end
 
+function check_is_building( self, idx )
+    if idx then
+        local build = self:get_build( idx )
+        if build then
+            if build.tmSn > 0 then
+                local tm = timer.get( build.tmSn ) 
+                if tm then
+                    if tm.over >= gTime then return true end
+                end
+            end
+        end
+    end
+end
+
 function check_build_queue( self, dura )
     local queues = self.build_queue
     if queues[ 1 ] == 0 then return true end
+
+    if not self:check_is_building( queues[ 1 ] ) then
+        queues[ 1 ] = 0
+        return true
+    end
+
     local remain = self:get_buf_remain( resmng.BUFF_COUNT_BUILD )
     if remain > 0 then
-        if queues[ 2 ] and queues[ 2 ] == 0 then
+        queues[ 2 ] = queues[ 2 ] or 0
+        if queues[ 2 ] == 0 then return remain >= dura end
+
+        if not self:check_is_building( queues[ 2 ] ) then
+            queues[ 2 ] = 0
             return remain >= dura
         end
     end
+
     return false
 end
 
@@ -251,6 +276,8 @@ function upgrade(self, idx)
             if dst then
                 if self:condCheck(dst.Cond) and self:consCheck(dst.Cons) then
                     if not self:check_build_queue( dst.Dura ) then return end
+
+                    if dst.Class == BUILD_CLASS.RESOURCE then self:reap( idx ) end
 
                     local dura = math.ceil( dst.Dura / ( 1 + self:get_num( "SpeedBuild_R" ) * 0.0001 ) )
                     self:consume(dst.Cons, 1, VALUE_CHANGE_REASON.BUILD_UPGRADE)
@@ -470,11 +497,12 @@ function doTimerBuild(self, tsn, build_idx, arg_1, arg_2, arg_3, arg_4)
                 if build.propid == resmng.BUILD_BLACKMARKET_1 then self:refresh_black_marcket() end
                 if build.propid == resmng.BUILD_MANOR_1 or build.propid == resmng.BUILD_MONSTER_1 or build.propid == resmng.BUILD_RELIC_1 then self:refresh_mall() end
                 if build.propid == resmng.BUILD_RESOURCESMARKET_1 then self:refresh_res_market() end
-                if build.propid == resmng.BUILD_HOSPITAL_1 and table_count( self.cures ) > 0 then
-                    build.state = BUILD_STATE.WORK
-                    build.tmStart = self.cure_start
-                    build.tmOver = self.cure_over
-                end
+
+                --if build.propid == resmng.BUILD_HOSPITAL_1 and table_count( self.cures ) > 0 then
+                --    build.state = BUILD_STATE.WORK
+                --    build.tmStart = self.cure_start
+                --    build.tmOver = self.cure_over
+                --end
 
                 if node.Pow then
                     self.pow_build = (self.pow_build or 0) + node.Pow
@@ -841,8 +869,8 @@ function train(self, idx, armid, num, quick)
         build.extra = { count = dura }
         build:recalc()
         build:set_extras({id=armid, num=num})
-        reply_ok( self, "train", 0 )
         build.tmSn = timer.new( "build", build.tmOver-gTime, self.pid, idx )
+        reply_ok( self, "train", 0 )
 
     elseif quick == 1 then
         local cons = {}
@@ -1916,6 +1944,7 @@ function destroy_build( self, build_idx )
         build.tmStart = gTime
         build.tmOver = gTime + dura
         build.tmSn = timer.new( "build", dura, self.pid, build_idx )
+        self:dispatch_hero( build.idx, 0 )
 
         self:mark_build_queue( build_idx )
 
@@ -1955,37 +1984,37 @@ function build_action_cancel( self, build_idx )
         end
 
     elseif build.state == BUILD_STATE.WORK then
-        if build:is_hospital() then
-            local hurt = self.hurts
-            local cure = self.cures
-            local proptab = resmng.prop_arm
-            local res = {}
-            local cure_rate = self.cure_rate
-            if cure_rate < 0.1 then cure_rate = 1 end
-            for id, num in pairs( cure ) do
-                local prop = proptab[ id ]
-                if prop then
-                    hurt[ id ] = ( hurt[ id ] or 0 ) + num
-                    local cons = prop.Cons
-                    for _, v in pairs( cons ) do
-                        local mode = v[2]
-                        local pay = v[3]
-                        res[ mode ] = (res[ mode ] or 0) + pay * 0.5 * num * 0.6 * cure_rate
-                    end
-                end
-            end
-            for mode, num in pairs( res ) do
-                self:doObtain( resmng.CLASS_RES, mode, num, VALUE_CHANGE_REASON.CANCEL_ACTION )
-            end
+        --if build:is_hospital() then
+        --    local hurt = self.hurts
+        --    local cure = self.cures
+        --    local proptab = resmng.prop_arm
+        --    local res = {}
+        --    local cure_rate = self.cure_rate
+        --    if cure_rate < 0.1 then cure_rate = 1 end
+        --    for id, num in pairs( cure ) do
+        --        local prop = proptab[ id ]
+        --        if prop then
+        --            hurt[ id ] = ( hurt[ id ] or 0 ) + num
+        --            local cons = prop.Cons
+        --            for _, v in pairs( cons ) do
+        --                local mode = v[2]
+        --                local pay = v[3]
+        --                res[ mode ] = (res[ mode ] or 0) + pay * 0.5 * num * 0.6 * cure_rate
+        --            end
+        --        end
+        --    end
+        --    for mode, num in pairs( res ) do
+        --        self:doObtain( resmng.CLASS_RES, mode, num, VALUE_CHANGE_REASON.CANCEL_ACTION )
+        --    end
 
-            self.hurts = hurt
-            self.cures = {}
-            self:cure_off()
-            self.tm_cure = 0
-            self.cure_start = 0
-            self.cure_over = 0
+        --    self.hurts = hurt
+        --    self.cures = {}
+        --    self:cure_off()
+        --    self.tm_cure = 0
+        --    self.cure_start = 0
+        --    self.cure_over = 0
 
-        elseif build:is_academy() then
+        if build:is_academy() then
             local id = build:get_extra("id")
             if not id then return end
             local conf = resmng.get_conf("prop_tech", id)
@@ -2016,8 +2045,9 @@ function build_action_cancel( self, build_idx )
             local id = build:get_extra( "id" )
             local num = build:get_extra( "num" )
             local conf = resmng.get_conf( "prop_arm", id )
-            if not conf then return end
-            self:obtain( conf.Cons, num * CANCEL_BUILD_FACTOR, VALUE_CHANGE_REASON.CANCEL_ACTION )
+            if conf then
+                self:obtain( conf.Cons, num * CANCEL_BUILD_FACTOR, VALUE_CHANGE_REASON.CANCEL_ACTION )
+            end
 
             build.state = BUILD_STATE.WAIT
             build.tmStart = gTime

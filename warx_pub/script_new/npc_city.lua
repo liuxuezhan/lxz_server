@@ -525,7 +525,7 @@ function occupy_notify(self)
     end
 
     if conf.Chat then
-        Rpc:chat({pid=-1,gid=_G.GateSid}, 0, 0, 0, "system", "", conf.Chat, {npc_conf.X, npc_conf.Y, union.name, npc_conf.Name})
+        Rpc:chat({pid=-1,gid=_G.GateSid}, 0, {pid=0}, "", conf.Chat, {npc_conf.X, npc_conf.Y, union.name, npc_conf.Name})
     end
 end
 
@@ -576,7 +576,7 @@ end
     end
 
     if conf.Chat then
-        Rpc:chat({pid=-1,gid=_G.GateSid}, 0, 0, 0, "system", "", conf.Chat, {npc_conf.X, npc_conf.Y, unions, npc_conf.Name, time})
+        Rpc:chat({pid=-1,gid=_G.GateSid}, 0, {pid=0}, "", conf.Chat, {npc_conf.X, npc_conf.Y, unions, npc_conf.Name, time})
     end
 end
 

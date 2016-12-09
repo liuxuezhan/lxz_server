@@ -1286,7 +1286,7 @@ function union_chat(self, word, chatid, args)
              table.insert(pids, pid)
          end
     end
-    Rpc:chat(pids, resmng.ChatChanelEnum.Union, 0, 0, "system", word, chatid, args)
+    Rpc:chat(pids, resmng.ChatChanelEnum.Union, {pid=0}, word, chatid, args)
 end
 
 function clear_kw_buff(self)

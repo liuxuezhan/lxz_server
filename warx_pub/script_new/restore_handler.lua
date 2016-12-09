@@ -285,7 +285,7 @@ function restore_timer()
                         if hid ~= 0 then
                             local h = heromng.get_hero_by_uniq_id(hid)
                             if h then
-                                if h.status == HERO_STATUS_TYPE.MOVING then h.status = HERO_STATUS_TYPE.FREE end
+                                if h.status == HERO_STATUS_TYPE.MOVING then p:hero_set_free( h ) end
                                 h.troop = 0
                             end
                         end
@@ -319,8 +319,10 @@ function action()
     wander.load()
     INFO("-- load_wander done --------")
 
-    load_troop()
-    monitoring(MONITOR_TYPE.LOADDATA, "load_troop")
+    INFO("-- load_player -------------")
+    load_player()
+    INFO("-- load_player done --------")
+    monitoring(MONITOR_TYPE.LOADDATA, "load_player")
 
     INFO("-- load_union --------------")
     union_t.load()
@@ -328,10 +330,29 @@ function action()
     INFO("-- load_union done ---------")
     monitoring(MONITOR_TYPE.LOADDATA, "load_union")
 
-    INFO("-- load_player -------------")
-    load_player()
-    INFO("-- load_player done --------")
-    monitoring(MONITOR_TYPE.LOADDATA, "load_player")
+    INFO("-- load_union_member -------")
+    union_member_t.load()
+    INFO("-- load_union_member done --")
+    monitoring(MONITOR_TYPE.LOADDATA, "load_union_member")
+
+    INFO("-- unoin_buildlv -----") -- union_t后 在load_troop 前
+    union_buildlv.load()--
+    INFO("-- unoin_buildlv done -----")
+    monitoring(MONITOR_TYPE.LOADDATA, "unoin_buildlv")
+
+    INFO("-- load_union_build --------")
+    union_build_t.load()
+    INFO("-- load_union_build done ---")
+    monitoring(MONITOR_TYPE.LOADDATA, "load_union_build")
+
+    INFO("-- load_union_tech ---------")
+    union_tech_t.load()
+    INFO("-- load_union_tech done ----")
+    monitoring(MONITOR_TYPE.LOADDATA, "load_union_tech")
+
+    load_troop() --军团建筑扩建中需要读union_buildlv,所以在union_build_t和union_buildlv后
+    monitoring(MONITOR_TYPE.LOADDATA, "load_troop")
+
 
     INFO("-- load_count -------------")
     --load_count()
@@ -343,15 +364,6 @@ function action()
     INFO("-- load_build done ---------")
     monitoring(MONITOR_TYPE.LOADDATA, "load_build")
 
-    INFO("-- load_union_member -------")
-    union_member_t.load()
-    INFO("-- load_union_member done --")
-    monitoring(MONITOR_TYPE.LOADDATA, "load_union_member")
-
-    INFO("-- load_union_tech ---------")
-    union_tech_t.load()
-    INFO("-- load_union_tech done ----")
-    monitoring(MONITOR_TYPE.LOADDATA, "load_union_tech")
 
     INFO("-- load_npc_city -----------")
     npc_city.load_npc_city()
@@ -385,10 +397,6 @@ function action()
     --lost_temple.load_lost_temple()
     --INFO("-- load_lost_temple -----------")
 
-    INFO("-- load_union_build --------")
-    union_build_t.load()
-    INFO("-- load_union_build done ---")
-    monitoring(MONITOR_TYPE.LOADDATA, "load_union_build")
 
     INFO("-- load_hero ---------------")
     load_hero()
@@ -466,10 +474,6 @@ function action()
     INFO("-- unoin_word done -----")
     monitoring(MONITOR_TYPE.LOADDATA, "unoin_word")
 
-    INFO("-- unoin_buildlv -----")
-    union_buildlv.load()--
-    INFO("-- unoin_buildlv done -----")
-    monitoring(MONITOR_TYPE.LOADDATA, "unoin_buildlv")
 
     INFO("-- unoin_relation -----")
     union_relation.load()--

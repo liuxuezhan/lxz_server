@@ -132,7 +132,9 @@ function check_arm(self, arm)
                     hsgo[ i ] = h._id
                 elseif h.status == HERO_STATUS_TYPE.BUILDING then
                     self:hero_offduty(h)
-                    hsgo[ i ] = h._id
+                    if h.status == HERO_STATUS_TYPE.FREE then
+                        hsgo[ i ] = h._id
+                    end
                 end
             end
         end
@@ -1469,44 +1471,44 @@ function troop_cure(self, troop, arms)
 end
 
 
-
-function cure_on( self, start, over, timer_sn)
-    local class = BUILD_CLASS.FUNCTION
-    local mode = BUILD_FUNCTION_MODE.HOSPITAL
-    local max_seq = (BUILD_MAX_NUM[class] and BUILD_MAX_NUM[class][mode]) or 1
-    for i = 1, max_seq, 1 do
-        local idx = self:calc_build_idx(class, mode, i)
-        local build = self:get_build( idx )
-        if build then
-            if build.state == BUILD_STATE.WAIT or build.state == BUILD_STATE.WORK then
-                build.state = BUILD_STATE.WORK
-                build.tmStart = start
-                build.tmOver = over
-                if timer_sn then build.tmSn = timer_sn end
-            end
-        end
-    end
-end
-
-
-function cure_off( self )
-    local class = BUILD_CLASS.FUNCTION
-    local mode = BUILD_FUNCTION_MODE.HOSPITAL
-
-    local max_seq = (BUILD_MAX_NUM[class] and BUILD_MAX_NUM[class][mode]) or 1
-    for i = 1, max_seq, 1 do
-        local idx = self:calc_build_idx(class, mode, i)
-        local build = self:get_build( idx )
-        if build then
-            if build.state == BUILD_STATE.WORK then
-                build.state = BUILD_STATE.WAIT
-                build.tmStart = 0
-                build.tmOver = 0
-                build.tmSn = 0
-            end
-        end
-    end
-end
+--function cure_on( self, start, over, timer_sn)
+--    local class = BUILD_CLASS.FUNCTION
+--    local mode = BUILD_FUNCTION_MODE.HOSPITAL
+--    local max_seq = (BUILD_MAX_NUM[class] and BUILD_MAX_NUM[class][mode]) or 1
+--    for i = 1, max_seq, 1 do
+--        local idx = self:calc_build_idx(class, mode, i)
+--        local build = self:get_build( idx )
+--        if build then
+--            if build.state == BUILD_STATE.WAIT or build.state == BUILD_STATE.WORK then
+--                build.state = BUILD_STATE.WORK
+--                build.tmStart = start
+--                build.tmOver = over
+--                if timer_sn then build.tmSn = timer_sn end
+--            end
+--        end
+--    end
+--end
+--
+--
+--function cure_off( self )
+--    local class = BUILD_CLASS.FUNCTION
+--    local mode = BUILD_FUNCTION_MODE.HOSPITAL
+--
+--    local max_seq = (BUILD_MAX_NUM[class] and BUILD_MAX_NUM[class][mode]) or 1
+--    for i = 1, max_seq, 1 do
+--        local idx = self:calc_build_idx(class, mode, i)
+--        local build = self:get_build( idx )
+--        if build then
+--            if build.state == BUILD_STATE.WORK then
+--                build.state = BUILD_STATE.WAIT
+--                build.tmStart = 0
+--                build.tmOver = 0
+--                build.tmSn = 0
+--            end
+--        end
+--    end
+--end
+--
 
 function dismiss( self, id, num, ishurt )
     if ishurt == 1 then
@@ -1530,6 +1532,22 @@ function cure( self, arm, quick )
         return ack( self, "cure", resmng.E_ALREADY_CURE, 0)
     end
 
+    local class = BUILD_CLASS.FUNCTION
+    local mode = BUILD_FUNCTION_MODE.HOSPITAL
+    local max_seq = (BUILD_MAX_NUM[class] and BUILD_MAX_NUM[class][mode]) or 1
+    local have = false
+    for i = 1, max_seq, 1 do
+        local idx = self:calc_build_idx(class, mode, i)
+        local build = self:get_build( idx )
+        if build then
+            if build.state == BUILD_STATE.WAIT then
+                have = true
+                break
+            end
+        end
+    end
+    if not have then return end
+
     local hurts = self.hurts
     local total = 0
     local dura = 0
@@ -1542,15 +1560,16 @@ function cure( self, arm, quick )
     
     for id, num in pairs( arm ) do
         if hurts[ id ] and hurts[ id ] >= num then
-            total = total + num
             local prop = proptab[ id ]
             if not prop then return ack(self, "cure", resmng.E_NO_CONF, id) end
             dura = dura + prop.TrainTime * 0.05 * num 
+            total = total + num
+
             local cons = prop.Cons
             for _, v in pairs( cons ) do
                 local mode = v[2]
                 local pay = v[3]
-                res[ mode ] = res[ mode ] + pay * 0.5 * num * consume_rate
+                res[ mode ] = ( res[ mode ] or 0 ) + pay * 0.5 * num * consume_rate
             end
         else
             return ack(self, "cure", resmng.E_NO_HURT, id)
@@ -1573,9 +1592,7 @@ function cure( self, arm, quick )
 
         -- 扣除 cons_have 和 gold_need
         self:dec_cons(cons_have, VALUE_CHANGE_REASON.CURE, true)
-        if gold_need > 0 then
-            self:do_dec_res(resmng.DEF_RES_GOLD, gold_need, VALUE_CHANGE_REASON.CURE)
-        end
+        if gold_need > 0 then self:do_dec_res(resmng.DEF_RES_GOLD, gold_need, VALUE_CHANGE_REASON.CURE) end
 
         local hurts = self.hurts
         local c_count = 0
@@ -1623,7 +1640,7 @@ function cure( self, arm, quick )
         self.tm_cure = timer.new("cure", dura, self.pid )
         self.cure_start = gTime
         self.cure_over = gTime + dura
-        self:cure_on( gTime, gTime+dura, self.tm_cure)
+        --self:cure_on( gTime, gTime+dura, self.tm_cure)
         reply_ok(self, "cure", 0)
     end
 end
@@ -1631,12 +1648,99 @@ end
 function cure_acc( self, mode )
     if self.tm_cure and timer.get( self.tm_cure ) then 
         local remain = self.cure_over - gTime 
-        remain = math.floor( remain * 0.5 )
-        if remain > 1 then
-            timer.acc( self.tm_cure, remain )
-            self.cure_over = gTime + remain
-            self:cure_on( gTime, gTime + remain)
+        if remain > 0 then
+            if mode == ACC_TYPE.FREE then
+                local quick = self:get_val( "BuildFreeTime" )
+                if quick < remain then return end
+
+            elseif mode == ACC_TYPE.GOLD then
+                local quick = self:get_val( "BuildFreeTime" )
+                local dura = self.cure_over - gTime - quick
+                if dura < 0 then dura = 0 end
+                local num = calc_acc_gold( dura )
+                if num > 0 then
+                    if self:get_res_num(resmng.DEF_RES_GOLD) < num  then return end
+                    self:do_dec_res(resmng.DEF_RES_GOLD, num, VALUE_CHANGE_REASON.BUILD_ACC)
+                    task_logic_t.process_task(self, TASK_ACTION.GOLD_ACC, 1)
+                end
+            end
+            self:do_cure_acc( remain )
         end
+    end
+end
+
+function cure_acc_item( self, item_idx, num)
+    if self.tm_cure <= 0 then return end
+    local remain = self.cure_over - gTime 
+    if remain < 1 then return end
+
+    local item = self:get_item( item_idx )
+    if not item then return end
+    
+    if item[3] < num then return end
+
+    local conf = resmng.get_conf("prop_item" ,item[2])
+    if not conf then return end
+
+    if conf.Class ~= ITEM_CLASS.SPEED then return end
+    if conf.Mode ~= ITEM_SPEED_MODE.CURE then return end
+
+    local max = math.ceil( remain / conf.Param )
+    if num > max then num = max end
+
+    local cut = conf.Param * num
+    self:do_cure_acc( cut )
+    
+    self:dec_item(item_idx, num, VALUE_CHANGE_REASON.BUILD_ACC)
+end
+
+
+function do_cure_acc( self, sec )
+    if self.tm_cure then
+        local remain = self.cure_over - gTime - sec
+        if remain < 0 then remain = 0 end
+        self.cure_over = gTime + remain
+
+        local tm = timer.get( self.tm_cure )
+        if tm then
+            local dec = tm.over - self.cure_over
+            if dec > 0 then
+                timer.acc( self.tm_cure, dec )
+            end
+        end
+    end
+end
+
+
+function cure_cancel( self )
+    if self.tm_cure > 0 then
+        local hurt = self.hurts
+        local cure = self.cures
+        local proptab = resmng.prop_arm
+        local res = {}
+        local cure_rate = self.cure_rate
+        if cure_rate < 0.1 then cure_rate = 1 end
+        for id, num in pairs( cure ) do
+            local prop = proptab[ id ]
+            if prop then
+                hurt[ id ] = ( hurt[ id ] or 0 ) + num
+                local cons = prop.Cons
+                for _, v in pairs( cons ) do
+                    local mode = v[2]
+                    local pay = v[3]
+                    res[ mode ] = (res[ mode ] or 0) + pay * 0.5 * num * 0.6 * cure_rate
+                end
+            end
+        end
+        for mode, num in pairs( res ) do self:doObtain( resmng.CLASS_RES, mode, num, VALUE_CHANGE_REASON.CANCEL_ACTION ) end
+
+        timer.del( self.tm_cure )
+        union_help.del( self, self.tm_cure)
+        self.hurts = hurt
+        self.cures = {}
+        self.tm_cure = 0
+        self.cure_start = 0
+        self.cure_over = 0
     end
 end
 

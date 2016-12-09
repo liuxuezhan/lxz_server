@@ -555,6 +555,7 @@ function create(A, name, alias, language, propid)
     if not union_god.set(union,propid) then
         return
     end
+    union.flag = (propid%4 + 1) 
 
     unionmng.add_union(union)
 
@@ -574,6 +575,10 @@ function on_check_pending(db, _id, chgs)
     end
 end
 
+function ef_init(self)
+    self._ef = nil
+    self:get_ef()
+end
 function get_ef(self)--军团buf
 
     if self._ef then return self._ef end
@@ -608,10 +613,16 @@ function get_ef(self)--军团buf
 
     for _, t in pairs(self.build or {} ) do
         local c = resmng.get_conf("prop_world_unit",t.propid)
-        if c.Mode == resmng.CLASS_UNION_BUILD_RESTORE then
+        if c and is_union_restore(t.propid) and t.state == BUILD_STATE.WAIT then
             for k, num in pairs(c.Buff3 or  {} ) do
                 self._ef[k] = (self._ef[k] or 0) + num
             end
+        end
+    end
+
+    for k, fun in pairs(player_t.g_ef_notify) do
+        if self._ef[k] then
+            for _, p in pairs(self._members) do fun(p) end
         end
     end
 
@@ -665,7 +676,7 @@ function add_buf(self, bufid, count)
                             timer.new("union_buf", remain, self.uid, bufid, tmOver)
                         end
                         self.buf = bufs
-                        self._ef = nil
+                        self:ef_init()
                         return
                     end
                 end
@@ -683,7 +694,7 @@ function add_buf(self, bufid, count)
         local buf = {bufid, gTime, tmOver}
         table.insert(bufs, buf)
         self.buf = bufs
-        self._ef = nil
+        self:ef_init()
 
         lxz(string.format("add_buf, pid=%d, bufid=%d, count=%d", self.uid, bufid, count))
 
@@ -705,7 +716,7 @@ function rem_buf(self, bufid, tmOver)
                 table.remove(bufs, k)
                 local node = resmng.prop_buff[ bufid ]
                 self.buf = bufs
-                self._ef = nil
+                self:ef_init()
                 print(string.format("rem_buf, pid=%d, bufid=%d, buf_tmOver=%d, tmOver=%d, now=%d", self.uid, bufid, v[3], tmOver or 0, gTime))
                 return v[3]
             end
@@ -723,17 +734,6 @@ function get_memberlimit(self)--军团人数上限
     return ((c.Default or 0) + num)
 end
 
-function get_day_store(self,p,dp)--仓库每日上限
-    local bc = resmng.get_conf("prop_world_unit", dp.propid)
-    if not bc then bc = {} end
-    return p:get_val("CountDailyStore",bc.Buff)
-end
-
-function get_sum_store(self,p,dp)--仓库总上限
-    local bc = resmng.get_conf("prop_world_unit", dp.propid)
-    if not bc then bc = {} end
-    return p:get_val("CountUnionStore",bc.Buff3)
-end
 
 function check(self)
     if not self:is_new() then
@@ -868,9 +868,7 @@ function rm_member(self, A,kicker)
     etypipe.add(A)
 
     self.donate_rank = {} --清除捐献排行
-    if f then
-        unionmng.rm_union(self)
-    end
+    if f then unionmng.rm_union(self) end
 
     if self:is_new() then
         local u1,u3
@@ -1178,27 +1176,6 @@ end
 
 
 
-function do_timer_tech(self, tsn, idx)
-    local tech = self:get_tech(idx)
-    if not tech then
-        WARN("timer got no tech") return
-    end
-
-    local next_conf = resmng.get_conf("prop_union_tech",tech.id + 1)
-    if not next_conf then
-        INFO("没有下一级:"..tech.id+1) 
-        return
-    end
-
-    tech.id = next_conf.ID
-    tech.exp = tech.exp - next_conf.Exp * next_conf.Star
-    tech.tmSn = 0
-    tech.tmStart = 0
-    tech.tmOver = 0
-    self._ef = nil
-    gPendingSave.union_tech[tech._id] = tech
-    self:notifyall(resmng.UNION_EVENT.TECH, resmng.UNION_MODE.ADD, { idx=tech.idx,id=tech.id,exp=tech.exp,tmOver=tech.tmOver,tmStart=tech.tmStart })
-end
 
 
 function get_donate_rank(u, what)
@@ -1568,24 +1545,6 @@ function get_build(self, idx )
 end
 
 --}}}
-function add_room_id(self, id)
-    for k, v in pairs(self.battle_room_ids or {}) do
-        if v == id then return end
-    end
-    self.battle_list = nil
-    table.insert(self.battle_room_ids, id)
-end
-
-
-function rem_room_id(self, id)
-    for k, v in pairs(self.battle_room_ids or {}) do
-        if v == id then
-            table.remove( self.battle_room_ids, k )
-            self.battle_list = nil
-
-        end
-    end
-end
 
 function union_pow(self)
     local pow = 0
@@ -1620,7 +1579,7 @@ function union_chat(self, word, chatid, args)
              table.insert(pids, pid)
          end
     end
-    Rpc:chat(pids, resmng.ChatChanelEnum.Union, 0, 0, "system", word, chatid, args)
+    Rpc:chat(pids, resmng.ChatChanelEnum.Union, {pid=0}, word, chatid, args)
 end
 
 function clear_kw_buff(self)

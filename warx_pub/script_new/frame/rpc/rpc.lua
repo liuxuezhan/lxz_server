@@ -27,7 +27,7 @@ local function isTypeOf(i,s,v)
 	if ut then
 		-- if has check function
 		if ut._check then
-			if ut:_check(v) then
+			if ut._check(v) then
 				return true
 			else
 				error(string.format("bad argument %d, expected %s, but got %s",i,s,type(v)))
@@ -59,8 +59,8 @@ local function makeRpc( rpc, name, ... )
     local packet = LuaPacket(rf.id)
 
     for i, v in ipairs(arg) do
-        local t = rf.args[i].t
-		if t and isTypeOf(i,t,v) then
+        local t = rf.args[i].t	
+        if t and isTypeOf(i,t,v) then
 			RpcType[t]._write( packet, v )
 		else
 			error(string.format("bad argument %d, expected %s, but a %s",i,t,type(v)))
@@ -139,7 +139,7 @@ end
 
 local function parseFunction( funcimpl )
    	local rf = { args = {} }
-	for t,n in string.gmatch(funcimpl,"(%w+)%s+(%w+)") do
+	for t,n in string.gmatch(funcimpl,"(%w+)%s+([%w_]+)") do
         table.insert(rf.args, {t=t, n=n})
 	end
 	return rf
@@ -193,7 +193,7 @@ local function parseRpcType()
 			_write=function( packet, v )
 	    		for i, arg in ipairs(desc) do
 					local rt = RpcType[arg.t]
-					rt._write( packet, v[arg.n] )
+  					rt._write( packet, v[arg.n] )
 	    		end
 			end,
 			_read=function( packet )
@@ -358,21 +358,15 @@ local function callRpc( rpc, name, plA, ... )
         else
             if not _G.GateSid then return end
 
-            local pids = {}
-            local num = 0
-            for k, v in ipairs(plA) do
-                table.insert(pids, v)
-                num = num + 1
-            end
+            local num = #plA
+            if num == 0 then return end
+            pushHead(_G.GateSid, 0, 15) --gNetPt.NET_SEND_MUL
+            pushInt( num )
 
-                if #pids == num then
-                    pushHead(_G.GateSid, 0, 15) --gNetPt.NET_SEND_MUL
-                    pushInt( num )
-                    for _, pid in pairs( plA ) do
-                        pushInt( pid )
-                    end
-                    pushInt(rf.id)
-                end
+            for _, pid in ipairs( plA ) do
+                pushInt( pid )
+            end
+            pushInt(rf.id)
         end
     else
         pushHead2s(plA.gid or _G.GateSid, rf.id)
@@ -380,7 +374,7 @@ local function callRpc( rpc, name, plA, ... )
 
     for i, v in ipairs(arg) do
         local t = rf.args[i].t
-		if t and isTypeOf(i,t,v) then
+        if t and isTypeOf(i,t,v) then
 			RpcType[t]._write( packet, v )
 		else
 			error(string.format("bad argument %d, expected %s, but a %s",i,t,type(v)))

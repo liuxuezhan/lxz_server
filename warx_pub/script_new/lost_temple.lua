@@ -216,8 +216,7 @@ function lt_ntf(notify_id)
         end
 
         if prop.Chat1 then 
-    --Rpc:chat({pid=-1,gid=_G.GateSid}, 0, 0, 0, "system", "lost temple begin", 0,{})
-            Rpc:chat({pid=-1,gid=_G.GateSid}, 0, 0, 0, "system", "", prop.Chat1, {})
+            Rpc:chat({pid=-1,gid=_G.GateSid}, 0, {pid=0}, "", prop.Chat1, {})
         end
 
     end
@@ -226,7 +225,6 @@ end
 
 function start_lt()
     lt_ntf(resmng.LT_START)
-    --Rpc:chat({pid=-1,gid=_G.GateSid}, 0, 0, 0, "system", "lost temple begin")
     gPendingSave.status["lostTemple"].start_time  = gTime
     actState = LT_STATE.ACTIVE
     gPendingSave.status["lostTemple"].actState  = actState
@@ -389,8 +387,7 @@ function new_lt_notify(self)
         end
 
         if prop.Chat1 then 
-    --Rpc:chat({pid=-1,gid=_G.GateSid}, 0, 0, 0, "system", "lost temple begin", 0,{})
-            Rpc:chat({pid=-1,gid=_G.GateSid}, 0, 0, 0, "system", "", prop.Chat1, {self.x, self.y, self.x, self.y})
+            Rpc:chat({pid=-1,gid=_G.GateSid}, 0, {pid=0}, "", prop.Chat1, {self.x, self.y, self.x, self.y})
         end
 
     end

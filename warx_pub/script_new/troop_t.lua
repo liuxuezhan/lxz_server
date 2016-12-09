@@ -292,7 +292,7 @@ function home_hurt_tr(self) --伤兵直接回城
                 if hid ~= 0 then
                     local h = heromng.get_hero_by_uniq_id(hid)
                     if h then
-                        if h.status == HERO_STATUS_TYPE.MOVING then h.status = HERO_STATUS_TYPE.FREE end
+                        if h.status == HERO_STATUS_TYPE.MOVING then owner:hero_set_free( h ) end
                         if h.prisoner and h.prisoner ~= 0 then
                             local hero = heromng.get_hero_by_uniq_id(h.prisoner)
                             if hero then
@@ -352,7 +352,7 @@ function home(self)
         if hid ~= 0 then
             local h = heromng.get_hero_by_uniq_id(hid)
             if h then
-                if h.status == HERO_STATUS_TYPE.MOVING then h.status = HERO_STATUS_TYPE.FREE end
+                if h.status == HERO_STATUS_TYPE.MOVING then owner:hero_set_free( h )  end
                 if h.prisoner and h.prisoner ~= 0 then
                     local hero = heromng.get_hero_by_uniq_id(h.prisoner)
                     if hero then
@@ -366,29 +366,11 @@ function home(self)
             end
         end
     end
+
     owner:add_soldiers( arm.live_soldier )
     if arm.amend then
         if arm.amend.relive then
             owner:add_soldiers( arm.amend.relive )
-        end
-    end
-
-    for _, hid in pairs(arm.heros or {}) do
-        if hid ~= 0 then
-            local h = heromng.get_hero_by_uniq_id(hid)
-            if h then
-                if h.status == HERO_STATUS_TYPE.MOVING then h.status = HERO_STATUS_TYPE.FREE end
-                if h.prisoner and h.prisoner ~= 0 then
-                    local hero = heromng.get_hero_by_uniq_id(h.prisoner)
-                    if hero then
-                        if not owner:imprison(hero) then
-                            owner:release(hero)
-                        end
-                    end
-                    h.prisoner = 0
-                end
-                h.troop = 0
-            end
         end
     end
 end
@@ -607,6 +589,7 @@ function try_back_overflow_hero(self, hold_tr)
             local owner = getPlayer(pid)
             local target = get_ety(self.target_eid)
             local tr = troop_mng.create_troop(self.action, owner, target)
+            tr.fid = self.fid
             tr:add_arm(pid, {live_soldier = {}, heros = back_heros})
             tr.curx = self.curx
             tr.cury = self.cury
@@ -703,6 +686,7 @@ function split_pid(self, pid)
 
         local target = get_ety(self.target_eid)
         local troop = troop_mng.create_troop(self.action, owner, target, arm)
+        troop.fid = self.fid
         troop.curx = self.curx
         troop.cury = self.cury
 
@@ -855,9 +839,11 @@ end
 function do_notify_owner(self, chgs)
     local pids = {}
     if not next(self.arms or {}) then 
-        table.insert(pids, self.owner_pid)
+        if self.owner_pid >= 10000 then table.insert(pids, self.owner_pid) end
     else 
-        for pid, _ in pairs(self.arms) do table.insert(pids, pid) end
+        for pid, _ in pairs(self.arms) do 
+            if pid >= 10000 then table.insert(pids, pid) end
+        end
     end
 
     if #pids > 0 then
@@ -1046,7 +1032,7 @@ function get_info(self)
             info.propid = owner.propid
         end
     else
-        WARN( "troop_no_onwer, id=%d, action=%d, owner_eid=%d, owner_pid=%d, ", self._id, self.action, self.owner_pid )
+        WARN( "troop_no_onwer, id=%d, action=%d, owner_eid=%d, owner_pid=%d, ", self._id, self.action, self.owner_eid, self.owner_pid )
     end
 
     if self.status == TroopStatus.Moving then

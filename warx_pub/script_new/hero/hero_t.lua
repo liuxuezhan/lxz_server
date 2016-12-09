@@ -33,6 +33,7 @@ module_class("hero_t",
     status       = HERO_STATUS_TYPE.FREE,
     culture      = CULTURE_TYPE.EAST,
     build_idx    = 0,    -- 所派遣建筑的idx
+    build_last   = 0,    -- 上次所派遣建筑的idx
 
     tmSn         = 0,
     tmStart      = 0,
@@ -503,9 +504,14 @@ end
 -- Others   : 满级或者达到城主等级不能继续升级
 --------------------------------------------------------------------------------
 function can_lv_up(self)
-    if not self:is_valid() and self.status ~= HERO_STATUS_TYPE.BEING_CURED  then
+    --if not self:is_valid() and self.status ~= HERO_STATUS_TYPE.BEING_CURED  then
+    --    WARN("can_lv_up: hero_id(%s) isn't valid.", self._id)
+    --    return
+    --end
+
+    if not self:is_valid() then 
         WARN("can_lv_up: hero_id(%s) isn't valid.", self._id)
-        return
+        return 
     end
 
     -- 满级
@@ -996,7 +1002,11 @@ end
 -- Others   : 英雄处于被俘虏或者监禁状态时, 城主不能对其进行操作
 --------------------------------------------------------------------------------
 function is_valid(self)
-    return self.status == HERO_STATUS_TYPE.FREE 
+    if self.status == HERO_STATUS_TYPE.FREE then return true end
+    WARN( "hero_is_not_valid, pid = %d, _id = %s, name = %s, status = %d", self.pid, self._id, self.name, self.status )
+
+    return false
+
 
     --local invalid_status = {
     --    [HERO_STATUS_TYPE.BUILDING]      = true,

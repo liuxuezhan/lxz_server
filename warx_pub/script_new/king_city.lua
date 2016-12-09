@@ -195,7 +195,7 @@ function kw_notify()
             Rpc:tips({pid=-1,gid=_G.GateSid}, 2, prop.Notify,{})
         end
         if prop.Chat1 then
-            Rpc:chat({pid=-1,gid=_G.GateSid}, 0, 0, 0, "system", "", prop.Chat1, {})
+            Rpc:chat({pid=-1,gid=_G.GateSid}, 0, {pid=0}, "", prop.Chat1, {})
         end
     end
     for k, v in pairs(resmng.prop_kw_notify or {}) do
@@ -222,7 +222,7 @@ function prepare_kw_notify()
             Rpc:tips({pid=-1,gid=_G.GateSid}, 2, prop.Notify,{})
         end
         if prop.Chat1 then
-            Rpc:chat({pid=-1,gid=_G.GateSid}, 0, 0, 0, "system", "", prop.Chat1, {})
+            Rpc:chat({pid=-1,gid=_G.GateSid}, 0, {pid=0}, "", prop.Chat1, {})
         end
     end
     for k, v in pairs(resmng.prop_kw_notify or {}) do
@@ -253,7 +253,7 @@ function send_notify(notify_id, occu_time)
                     Rpc:tips({pid=-1,gid=_G.GateSid}, 2, conf.Notify, {union.name, occu_time})
                 end
                 if conf.chat then
-                    Rpc:chat({pid=-1,gid=_G.GateSid}, 0, 0, 0, "system", "", conf.Chat, {union.name, occu_time} )
+                    Rpc:chat({pid=-1,gid=_G.GateSid}, 0, {pid=0}, "", conf.Chat, {union.name, occu_time} )
                 end
             end
         end
@@ -285,7 +285,7 @@ function send_notify(notify_id, occu_time)
         end
 
         if conf.Chat then
-            Rpc:chat({pid=-1,gid=_G.GateSid}, 0, 0, 0, "system", "",  conf.Chat, {time} )
+            Rpc:chat({pid=-1,gid=_G.GateSid}, 0, {pid=0}, "",  conf.Chat, {time} )
         end
     end
 
@@ -330,7 +330,7 @@ function fight_kw()
             Rpc:tips({pid=-1,gid=_G.GateSid}, 2, prop.Notify,{})
         end
         if prop.Chat1 then
-            Rpc:chat({pid=-1,gid=_G.GateSid}, 0, 0, 0, "system", "", prop.Chat1, {})
+            Rpc:chat({pid=-1,gid=_G.GateSid}, 0, {pid=0}, "", prop.Chat1, {})
         end
     end
     clear_officer()
@@ -502,6 +502,9 @@ function do_peace_city()
                 if troop.owner_eid ~= city.eid then
                     troop:back()
                     --troop_back(troop)
+                else
+                    troop_mng.delete_troop(troop._id)
+                    city.my_troop_id = 0
                 end
             end
             etypipe.add(city)
@@ -1365,7 +1368,7 @@ function select_officer(king, pid, index)
                 Rpc:tips({pid=-1,gid=_G.GateSid}, 2, prop.Notify,{ply.name, officer_conf.GDDesc})
             end
             if prop.Chat1 then
-                Rpc:chat({pid=-1,gid=_G.GateSid}, 0, 0, 0, "system", "", prop.Chat1, {ply.name, officer_conf.GDDesc})
+                Rpc:chat({pid=-1,gid=_G.GateSid}, 0, {pid=0}, "", prop.Chat1, {ply.name, officer_conf.GDDesc})
             end
         end
 

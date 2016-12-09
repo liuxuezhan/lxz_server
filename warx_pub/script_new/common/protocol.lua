@@ -240,7 +240,7 @@ Server = {
     union_mission_set = "",     --领取军团定时任务
     union_mission_chat = "",     --刷新邀请时间
     union_mission_log = "string type,int id",     --获取军团定时任务日志
-    union_word_add = "int uid,string title,string word",--军团留言
+    union_word_add = "int uid,string title,string word int flag",--军团留言
     union_word_update = "int wid,string title,string word",--军团内部留言修改
     union_word_top = "int wid,int flag",--军团内部留言置顶 1:置顶 0：取消
     union_word_del = "int wid",--军团内部留言删除
@@ -292,6 +292,9 @@ Server = {
     cancel_cure_hero = "int hero_idx",
     cure = "pack arm, int quick",
     cure_acc = "int mode",
+    cure_acc_item = "int item_idx, int num",
+    cure_cancel = "",
+
     dismiss = "int id, int num, int ishurt",
 
     hero_cure = "int hero_idx, int tohp",
@@ -470,7 +473,9 @@ Client = {
     say1 = "string say, int nouse",
 
     -- 聊天
-    chat = "int chanelID, int pid, int photo, string name, string word, int language, pack args",    --chanelId: enum in common/define/ChatChanelEnum;   pid==-1 means system;   word:the word somebody say
+   --chat = "int chanelID, pack speaker, string word, int language, pack args",    --chanelId: enum in common/define/ChatChanelEnum;   pid==-1 means system;   word:the word somebody say
+    chat = "int chanelID, pack speaker, string word, int language, pack args",
+
     --chatWithAudio         --TODO
     --获取用户简单信息回应，这次通讯主要是用来获取玩家的聊天基本信息，获取详细信息可以采用另外的接口,remoteAvatarId为空时代表没有自定义头像
     on_get_user_simple_info = "int pid, int vipLevel, string userName, int defaultAvatarId, string remoteAvatarId",

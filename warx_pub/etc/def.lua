@@ -119,11 +119,6 @@ end
 
 function   addTimer(...)
 end
-local id = 1 
-function getId(name)
-    id = id + 1
-    return id
-end
 
 skiplist = {
 

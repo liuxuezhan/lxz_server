@@ -425,7 +425,7 @@ function firstPacket2(self, sockid, from_map, cival, pid, signature, time, open_
     if not p then
         --Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.TOKEN_OUT_OF_DATE)
         --return
-        if not config.Release then
+        if not config.Release or (config.Robot)  then
             p = player_t.create(open_id, gMapID, pid, cival)
         else
             Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.TOKEN_OUT_OF_DATE)
@@ -545,7 +545,8 @@ function king_online(self)
                  Rpc:tips({pid=-1,gid=_G.GateSid}, 2, prop.Notify, {self.name})
             end
             if prop.Chat1 then
-                Rpc:chat({pid=-1,gid=_G.GateSid}, 0, 0, 0, "system", string.format("king online,", prop.Chat1))
+                --Rpc:chat({pid=-1,gid=_G.GateSid}, 0, 0, 0, "system", string.format("king online,", prop.Chat1))
+                Rpc:chat({pid=-1,gid=_G.GateSid}, 0, {pid=0}, string.format("king online,", prop.Chat1))
             end
         end
     end
@@ -697,6 +698,21 @@ end
 function leave_union(self)
     union_member_t.leave_union(self)
     self:set_uid()
+    for _, tid in pairs( self.busy_troop_ids or {} ) do
+        local troop = troop_mng.get_troop( tid )
+        if troop then
+            if troop.action == TroopAction.DefultFollow and troop.owner_eid ~= self.eid then
+                self:troop_recall( tid )
+            end
+
+            if troop:is_settle() and troop:get_base_action() == TroopAction.HoldDefense then
+                local target = get_ety( troop.target_eid )
+                if target and target.uid and target.uid > 0 then
+                    self:troop_recall( tid )
+                end
+            end
+        end
+    end
 end
 
 
@@ -857,7 +873,6 @@ function check_pending()
     local notifys = troop_t.gPendingNotify
     troop_t.gPendingNotify = {}
     for tid, troop in pairs( notifys ) do
-        print( "troop pending notify", tid )
         troop:do_notify_owner()
     end
 end
@@ -1068,7 +1083,6 @@ function ef_add(self, eff, init)
         end
     end
 end
-
 
 function ef_rem(self, eff)
     if not eff then return end
@@ -1474,7 +1488,8 @@ function do_add_bonus(self, class, mode, num, ratio, reason)
                 end
             end
         end
-        self:addItem(mode, real_num)
+        print( "do_add_bonus, additem", mode, real_num )
+        self:addItem(mode, real_num, reason)
 
     elseif class == "res" then
         self:do_inc_res_normal(mode, real_num, reason)
@@ -1628,11 +1643,10 @@ function gm_user(self, cmd)
 
     elseif choose == "clearcure" then
         self.cures = {}
-        self:cure_off()
+        self.hurts = {}
         self.tm_cure = 0
         self.cure_start = 0
         self.cure_over = 0
-        self.hurts = {}
     elseif choose == "bossaward" then
         monster.send_score_reward()
     elseif choose == "undebug" then
@@ -1820,6 +1834,8 @@ function gm_user(self, cmd)
         self:cross_migrate_back(7, 1200, 1200)
     elseif choose == "upgs" then --跨服
         crontab.upload_gs_info()
+    elseif choose == "crosst" then --跨服
+        self:cross_act_st_req()
     elseif choose == "crossgm" then --跨服
         local map_id = 999
         Rpc:callAgent(map_id, "cross_gm", tb)
@@ -1849,7 +1865,7 @@ function gm_user(self, cmd)
     elseif choose == "reload" then
         --os.execute("./reload.sh")
         do_reload()
-        Rpc:chat(self, 0, 0, 0, "system", "ok", 0, {})
+        Rpc:chat(self, 0, {pid=0}, "ok", 0, {})
 
     elseif choose == "ef_add" then
         local key = tb[2]
@@ -1963,6 +1979,23 @@ function gm_user(self, cmd)
         self.hurts = {}
         local troop = self:get_my_troop()
         troop.arms[ self.pid ].live_soldier = { [1010]=10000, [2010]=10000, [3010]=10000, [4010]=10000 }
+
+        for k, v in pairs( self:get_hero() ) do
+            if v.status == HERO_STATUS_TYPE.MOVING or v.status == HERO_STATUS_TYPE.FREE then
+                self:hero_set_free( v )
+                v.hp = v.max_hp
+            end
+        end
+
+        --local s = {}
+        --for mode = 1, 4, 1 do
+        --    for lv = 1, 10, 1 do
+        --        local id = mode * 1000 + lv
+        --        s[ id ] = 1000
+        --    end
+        --end
+        --troop.arms[ self.pid ].live_soldier = s
+
         Rpc:upd_arm(self, troop:get_live(self.pid))
 
 
@@ -2051,7 +2084,7 @@ function gm_user(self, cmd)
     elseif choose == "reset_hero" then
         for k, v in pairs( self:get_hero() ) do
             if v.status == HERO_STATUS_TYPE.MOVING or v.status == HERO_STATUS_TYPE.FREE then
-                v.status = HERO_STATUS_TYPE.FREE
+                self:hero_set_free( v )
                 v.hp = math.floor(v.max_hp * 0.5)
             end
         end
@@ -2764,7 +2797,7 @@ end
 function add_debug(self, val, ...)
     if ... then val = string.format( val, ... ) end
     Rpc:notify_server(self, val)
-    Rpc:chat(self, 0, self.pid, self.photo, self.name, "DEBUG " .. val, 0, {} )
+    Rpc:chat(self, 0, {pid=self.pid, photo=self.photo, name=self.name}, "DEBUG " .. val, 0, {} )
     return false
 end
 
@@ -2779,12 +2812,16 @@ function chat(self, channel, word, sn)
     end
 
     local lvip = nil
-    if self:is_vip_enable() then
-        lvip = self.vip_lv
-    end
-    if channel == resmng.ChatChanelEnum.World then
-        Rpc:chat({pid=-1,gid=_G.GateSid}, channel, self.pid, self.photo, self.name, word, 0, {vip=lvip})
+    if self:is_vip_enable() then lvip = self.vip_lv end
 
+    local speaker = { pid = self.pid, photo = self.photo, name = self.name, vip = lvip , title = self.title}
+    local u = self:union()
+    if u then speaker.uname = u.alias end
+    
+
+    if channel == resmng.ChatChanelEnum.World then
+        --Rpc:chat({pid=-1,gid=_G.GateSid}, channel, self.pid, self.photo, self.name, word, 0, {vip=lvip})
+        Rpc:chat({pid=-1,gid=_G.GateSid}, channel, speaker, word, 0, {} )
 
     elseif channel == resmng.ChatChanelEnum.Union then
         local u = self:union()
@@ -2796,7 +2833,8 @@ function chat(self, channel, word, sn)
                 table.insert(pids, pid)
             end
         end
-        Rpc:chat(pids, channel, self.pid, self.photo, self.name, word, 0, {vip=lvip})
+        --Rpc:chat(pids, channel, self.pid, self.photo, self.name, word, 0, {vip=lvip})
+        Rpc:chat(pids, channel, speaker,  word, 0, {} )
 
     elseif channel == resmng.ChatChanelEnum.Culture then
         local pids = {}
@@ -2806,11 +2844,13 @@ function chat(self, channel, word, sn)
                 table.insert(pids, pid)
             end
         end
-        Rpc:chat(pids, channel, self.pid, self.photo, self.name, word, 0, {vip=lvip})
+        --Rpc:chat(pids, channel, self.pid, self.photo, self.name, word, 0, {vip=lvip})
+        Rpc:chat(pids, channel, speaker, word, 0, {})
 
     elseif channel == resmng.ChatChanelEnum.Notice then
         if not self:dec_item_by_item_id( resmng.ITEM_NOTICE, 1, VALUE_CHANGE_REASON.USE_ITEM ) then return end
-        Rpc:chat({pid=-1,gid=_G.GateSid}, channel, self.pid, self.photo, self.name, word, 0, {vip=lvip})
+        --Rpc:chat({pid=-1,gid=_G.GateSid}, channel, self.pid, self.photo, self.name, word, 0, {vip=lvip})
+        Rpc:chat({pid=-1,gid=_G.GateSid}, channel, speaker, word, 0, {} )
 
     end
 
@@ -3863,23 +3903,15 @@ function get_hold_limit(self,dp)
     local tr = troop_mng.get_troop(dp.my_troop_id)
     if tr then num = tr:get_troop_total_soldier() end
 
-    for tid, action in pairs( self.troop_comings or {} ) do
-        if action == TroopAction.SupportArm then
-            local troop = troop_mng.get_troop( tid )
-            if troop and troop:is_go() then
-                num = num + troop:get_troop_total_soldier()
-            end
+    for tid, action in pairs( dp.troop_comings or {} ) do
+        local troop = troop_mng.get_troop( tid )
+        if troop and troop:is_go() then
+            num = num + troop:get_troop_total_soldier()
         end
     end
 
     local c = resmng.get_conf("prop_world_unit",dp.propid)
-    if c then
-        limit = get_val_by("CountGarrison",c.Buff,u:get_ef(),self._ef, kw_mall.gsEf)
-        local b = resmng.get_conf("prop_effect_type", "CountGarrison")
-        if b then
-            limit = limit+b.Default
-        end
-    end
+    if c then limit = self:get_val("CountGarrison",c.Buff) end
     return num,limit
 end
 
@@ -3891,8 +3923,8 @@ function get_hold_info(self,dp)
             local single = self:fill_player_info_by_arm(v, troop.action, troop.owner_pid)
             if single then
                 single._id = troop._id
-                single.tmStart = 0
-                single.tmOver = 0
+                single.tmStart = troop.tmStart
+                single.tmOver = troop.tmOver
                 single.action = troop.action
                 table.insert(troops, single)
             end
@@ -3900,7 +3932,7 @@ function get_hold_info(self,dp)
     end
 
     for tid, action in pairs( dp.troop_comings or {} ) do
-        if action == TroopAction.SupportArm or action == TroopAction.HoldDefense then
+        if action == TroopAction.SupportArm or action == TroopAction.HoldDefense or action == TroopAction.UnionBuild then
             local troop = troop_mng.get_troop( tid )
             if troop and troop:is_go() then
                 local single = self:fill_player_info_by_arm(troop:get_arm_by_pid(troop.owner_pid), troop.action, troop.owner_pid)
@@ -4073,6 +4105,22 @@ function get_eye_info(self,eid)--查询大地图建筑信息
                         single.speed = tm_troop:get_extra("speed")
                         single.speedb = tm_troop:get_extra("speedb")
                         single.action = tm_troop.action
+                        table.insert(troop, single)
+                    end
+                end
+            end
+
+            for tid, action in pairs( dp.troop_comings or {} ) do
+                if action == TroopAction.Gather then
+                    local t = troop_mng.get_troop( tid )
+                    if t and t:is_go() then
+                        local single = self:fill_player_info_by_arm(t:get_arm_by_pid(t.owner_pid), t.action, t.owner_pid)
+                        single._id = t._id
+                        single.tmStart = t.tmStart
+                        single.tmOver = t.tmOver
+                        single.speed = 0 
+                        single.speedb = 0 
+                        single.action = t.action
                         table.insert(troop, single)
                     end
                 end
@@ -5268,7 +5316,7 @@ function search_entity( self, sn, clv )
 end
 
 function get_lv_6_gift( self )
-    if self:get_castle_lv() ~= 6 then return end
+    if self:get_castle_lv() >= 6 then return end
     local db = self:getDb()
     if db then
         local info = db.player_mark:findOne( {_id=self.pid } )
@@ -5284,10 +5332,15 @@ end
 
 ---cross act
 function cross_act_st_req(self)
-    cross_act.cross_act_st(self)
+    cross_act.cross_act_st_req(self)
 end
 
 function world_chat_task(self)
     task_logic_t.process_task(self, TASK_ACTION.WORLD_CHAT, 1)
+end
+
+function cross_npc_info_req(self)
+    local center_id = 999
+    Rpc:callAgent(center_id, "cross_npc_info_req", self.pid)
 end
 

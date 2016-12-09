@@ -49,7 +49,7 @@ _funs["cure"] = function(sn, pid)
         p.tm_cure = 0
         p.cure_start = 0
         p.cure_over = 0
-        p:cure_off()
+        --p:cure_off()
 
         local count = 0
         for id, num in pairs( p.cures ) do
@@ -73,7 +73,7 @@ _funs["hero_cure"] = function(sn, pid, hidx, tohp)
             --任务
             task_logic_t.process_task(p, TASK_ACTION.CURE, 1, (tohp - hero.hp))
 
-            hero.status = HERO_STATUS_TYPE.FREE
+            p:hero_set_free( hero )
             hero.hp = math.floor( tohp )
             hero.tmSn = 0
             hero.tmStart = 0
@@ -218,7 +218,7 @@ end
 
 _funs["uniontech"] = function(sn, uid, idx)
     local union = unionmng.get_union(uid)
-    union:do_timer_tech(sn, idx)
+    union_tech_t.up_ok(union,sn, idx)
 end
 
 

@@ -58,7 +58,7 @@ local function _apply_dmg(D, amode, total)
         if d.num > 0 then
             -- ############################ --
             local dmg = total * d.pow / D.pow
-            dmg = dmg * (1-d.prop.Imm * immR)
+            dmg = dmg * (1-d.Imm * immR)
             -- ############################ --
             --print(string.format("amode=%d, dmode=%d, dmg=%f", amode, dmode, dmg))
 
@@ -121,9 +121,6 @@ local function _attack(A, As, D, Ds, mode, rate)
     atkR = (1 + atkR * 0.0001)
     immR = (1 + immR * 0.0001)
 
-    --if atkR > 1 then print( string.format( "_attack, mode=%d, atkR=%s", amode, atkR ) ) end
-    --if immR > 1 then print( string.format( "_attack, mode=%d, immR=%s", dmode, immR ) ) end
-
     local atkImm0 = 0
     local atkImmN = 0
 
@@ -141,26 +138,22 @@ local function _attack(A, As, D, Ds, mode, rate)
 
     for _, a in pairs(A.objs) do
         if a.num > 0 then
-
-            local atk = a.prop.Atk * atkR * a.num * rate
+            local atk = a.Atk * atkR * a.num * rate
             atk = atk * (1 - atkImm0 * 0.0001) * (1 - atkImmN * 0.0001)
 
             for _, d in pairs(D.objs) do
                 if d.num > 0 then
                     -- ############################ --
                     local dmg = atk * d.pow / D.pow
-                    dmg = dmg * (1-d.prop.Imm * immR)
+                    dmg = dmg * (1-d.Imm * immR)
                     -- ############################ --
 
-                    if a.hero or d.hero or Ds.monster then
-                        -- nothing
-                    else
-                        dmg = dmg * math.pow(1.2, a.prop.Lv - d.prop.Lv)
+                    if As.is_player and Ds.is_player and ( not a.hero ) and ( not d.hero ) then
+                        dmg = dmg * math.pow(1.2, a.Lv - d.Lv)
                     end
 
                     if dmg < 0 then dmg = 0 end
 
-                    --local most = d.hpAll - d.dmg
                     local most = d.hpAll + 1
                     if dmg > most then dmg = most end
 
@@ -172,7 +165,6 @@ local function _attack(A, As, D, Ds, mode, rate)
 
                     a.mkdmg = (a.mkdmg or 0) + dmg
                     d.dmg = (d.dmg or 0) + dmg
-                    D.dmg = ( D.dmg or 0 ) + dmg
 
                 end
             end
@@ -193,7 +185,6 @@ function _calc(As)
             local dmgToHp0 = A.ef.DmgToHp0 or 0
             local dmgToHp1 = A.ef.DmgToHp1 or 0
             local hpR = (A.ef.Hp_R or 0) + (A.ef[ string.format( "Hp%d_R", mode ) ] or 0) + (A.ef.Def_R or 0) + (A.ef[ string.format( "Def%d_R", mode ) ] or 0) 
-            --if hpR > 0 then print( "_calc, mode, hpR =", mode, hpR ) end
 
             for _, v in pairs(A.objs) do
                 if v.num > 0 then
@@ -207,7 +198,7 @@ function _calc(As)
 
                     -- ############################ --
                     if v.dmg > 1 then
-                        local dead = v.dmg / (v.prop.Hp * (1 + hpR * 0.0001))
+                        local dead = v.dmg / (v.Hp * (1 + hpR * 0.0001))
                         v.num = v.num - dead
                         if v.num < 0 then v.num = 0 end
                     end
@@ -218,12 +209,11 @@ function _calc(As)
                     v.mkdmg1 = 0
                 end
 
-                if v.hero and v.lead then heros[ mode ] = v.num end
+                if v.hero then heros[ mode ] = v.num end
                 lives = lives + v.num
             end
 
             A.num = lives
-            A.dmg = 0
             total = total + lives
         end
         res[mode] = math.ceil(lives)
@@ -269,9 +259,9 @@ local _fight_seqs = {
 local function _round(A, D)
     for amode, a in pairs(A.arms) do
         local double = a.ef.ExtraAtk or 0
-        if double > 0 then print( "double", double ) end
+
         if a.num > 0 then
-            if a.mode == 4 then
+            if amode == 4 then
                 local rate = {0.05, 0.05, 0.05, 1}
                 local sum = 0
                 for dmode, d in pairs(D.arms) do
@@ -286,7 +276,7 @@ local function _round(A, D)
                     end
                 end
             else
-                local seq = _fight_seqs[ a.mode ]
+                local seq = _fight_seqs[ amode ]
                 for _, dmode in ipairs(seq) do
                     local d = D.arms[ dmode ]
                     if d and d.num > 0 then
@@ -297,6 +287,7 @@ local function _round(A, D)
                 end
             end
         end
+
     end
 end
 
@@ -340,7 +331,7 @@ local function _tactics(As, Ds, round, report, who)
                         flag = true
                         fires[ amode ] = D.mode
                         _attack(A, As, D, Ds, 1, 2 * (1 + extra * 0.0001))
-                        table.insert(report, {round, 4, who, A.mode, "tactics"})
+                        table.insert(report, {round, 4, who, amode, "tactics"})
 
                         local more = A.ef.TacticsMore or 0
                         if more > 0 then
@@ -377,7 +368,7 @@ local function _tactics_link(fires, As, Ds, round, report, who)
                         local k = string.format("TacticsAtk%d_R", mode)
                         local extra = (A.ef.TacticsAtk_R or 0) + (A.ef[ k ] or 0) 
                         _attack(A, As, D, Ds, 1, 2 * (1 + extra * 0.0001))
-                        table.insert(report, {round, 5, who, A.mode, "tactics_link"})
+                        table.insert(report, {round, 5, who, amode, "tactics_link"})
                         link_count = link_count + 1
                     end
                 end
@@ -387,7 +378,12 @@ local function _tactics_link(fires, As, Ds, round, report, who)
 
     --任务
     if link_count > 0 and As.owner then
-        task_logic_t.process_task(As.owner, TASK_ACTION.BATTLE_LIANDONG, link_count)
+        if As.owner_pid >= 10000 then
+            local owner = getPlayer( As.owner_pid )
+            if owner then
+                task_logic_t.process_task(owner, TASK_ACTION.BATTLE_LIANDONG, link_count)
+            end
+        end
     end
 end
 
@@ -673,6 +669,9 @@ fight.pvp = function(action, A0, D0)
     if A0.notify_owner then A0:notify_owner() end
     if D0.notify_owner then D0:notify_owner() end
 
+    if A0.save then A0:save() end
+    if D0.save then D0:save() end
+
     local A = init_troop(A0)
     local D = init_troop(D0)
 
@@ -705,10 +704,11 @@ fight.pvp = function(action, A0, D0)
     table.insert(report, {0, 1, _get_num(A), _get_num(D), A.herohp, D.herohp })
 
     local count_round = 30
-    --local count_round = 1
     if action == TroopAction.SiegePlayer then
         if math.abs( atker:get_castle_lv() - defer:get_castle_lv() ) >= 5 then count_round = 16 end
     end
+
+    print( "fight_before", c_tick(1) )
     
     local round = 0
     local tutter_dmg = 0
@@ -735,9 +735,9 @@ fight.pvp = function(action, A0, D0)
                 local hpR = (arm.ef.Hp_R or 0) + (arm.ef[ string.format( "Hp%d_R", mode ) ] or 0) + (arm.ef.Def_R or 0) + (arm.ef[ string.format( "Def%d_R", mode ) ] or 0) 
                 for _, obj in pairs(arm.objs) do
                     if obj.num > 0 then
-                        obj.pow = obj.num * obj.prop.Pow
+                        obj.pow = obj.num * obj.Pow
                         pow = pow + obj.pow
-                        obj.hpAll = obj.prop.Hp * (1 + hpR * 0.0001) * obj.num
+                        obj.hpAll = obj.Hp * (1 + hpR * 0.0001) * obj.num
                     end
                 end
                 arm.pow = pow
@@ -750,7 +750,8 @@ fight.pvp = function(action, A0, D0)
                 if pow and pow > 0 then
                     pow = _tower_attack( A, pow )
                     if pow > 0 then
-                        D0.arms[ defer.pid ].kill_soldier[ 0 ] = pow
+                        pow = math.ceil( pow )
+                        --D0.arms[ defer.pid ].kill_soldier[ 0 ] = pow
                         tutter_dmg = pow
                     end
                 end
@@ -775,13 +776,13 @@ fight.pvp = function(action, A0, D0)
         _counter_attack(A, D)
         _counter_attack(D, A)
 
-        local ta, la, ha = _calc(A)
+        local ta, la, ha = _calc(A)  --total, live, hero
         local td, ld, hd = _calc(D)
         table.insert(report, {i, 1, ta, td, ha, hd })
 
         if la == 0 or ld == 0 then break end
     end
-    print( c_tick(1), "fight over")
+    print( "fight_over", c_tick(1) )
 
     --dumpTab(report, "fight")
 
@@ -790,14 +791,22 @@ fight.pvp = function(action, A0, D0)
     local lostA, liveA, make_dmgA, dead_numA, dead_lvlA = fight_status(A) 
     local lostD, liveD, make_dmgD, dead_numD, dead_lvlD = fight_status(D) 
 
+
+    print( lostA, liveA, make_dmgA, dead_numA, dead_lvlA )
+    print( lostD, liveD, make_dmgD, dead_numD, dead_lvlD )
+
     if tutter_dmg > 0 then
         make_dmgD = make_dmgD + tutter_dmg
-        local arm = D0.arms[ defer.pid ]
-        arm.mkdmg = ( arm.mkdmg or 0 ) + tutter_dmg
+
+        --local arm = D0.arms[ defer.pid ]
+        --arm.mkdmg = ( arm.mkdmg or 0 ) + tutter_dmg
+
+        local pid = defer.pid
+        local obj = { id = 0, mode = 0, pid = pid, num = 1, num0 = 1, Pow = 1, mkdmg = tutter_dmg, pids = { [ pid ] = { num0 = 1, mkdmg = tutter_dmg } } }
+        D.arms[ 0 ] = { mode = 0, num = 1, objs = { [0] = obj } }
     end
 
-    --A0.mkdmg = make_dmgA
-    --D0.mkdmg = make_dmgD
+
     A0.mkdmg = lostD
     D0.mkdmg = lostA
     A0.lost = lostA
@@ -807,8 +816,10 @@ fight.pvp = function(action, A0, D0)
     table.insert(losts, lostD)
     table.insert(report, losts)
 
-    calc_kill( action, A0, make_dmgA, lostD, dead_numD, dead_lvlD ) 
-    calc_kill( action, D0, make_dmgD, lostA, dead_numA, dead_lvlA )
+    local ispvp = ( A.is_player and D.is_player )
+
+    calc_kill( action, A, A0, make_dmgA, lostD, dead_numD, dead_lvlD, ispvp ) 
+    calc_kill( action, D, D0, make_dmgD, lostA, dead_numA, dead_lvlA, ispvp )
 
     local win = 0
 
@@ -844,6 +855,7 @@ fight.pvp = function(action, A0, D0)
     local replay_id = get_replay_id()
     gPendingInsert.replay[ replay_id ] = { gTime, report }
     A0.replay_id = replay_id
+    print( "fight_finish", c_tick(1) )
 
     return (win == 1), round
 end
@@ -943,22 +955,7 @@ function hero_capture(At, Dt)
         end
     end
     if #hsDeadD < 1 and #hsLiveD < 1 then return end
-
-    --if #hsDeadD < 1 and #hsLiveD < 1 then 
-    --    if true then return end -- do you want to capture hero not fighting ?
-    --    local more = false
-    --    local hs = D:get_hero()
-    --    for k, h in pairs( hs or {} ) do
-    --        if h.status == HERO_STATUS_TYPE.FREE or h.status == HERO_STATUS_TYPE.BUILDING then
-    --            if h.hp <= 0 then table.insert(hsDeadD, h) else table.insert(hsLiveD, h) end 
-    --            local ef = h:get_ef_after_fight()
-    --            if ef then counter = counter + (ef.CounterCaptive or 0) end
-    --            more = true
-    --        end
-    --    end
-    --    if not more then return end
-    --end
-
+    
     local plD = getPlayer(pidD)
     counter = counter + plD:get_num("CounterCaptive")
 
@@ -1214,106 +1211,163 @@ function init_troop(T)
     local t = {
         num=0, 
         arms={
-            {mode=1, num=0, objs={}, dmg=0, ef=copyTab(ef), buf={}},
-            {mode=2, num=0, objs={}, dmg=0, ef=copyTab(ef), buf={}},
-            {mode=3, num=0, objs={}, dmg=0, ef=copyTab(ef), buf={}},
-            {mode=4, num=0, objs={}, dmg=0, ef=copyTab(ef), buf={}},
+            {mode=1, num=0, objs={}, ef=copyTab(ef), buf={}},
+            {mode=2, num=0, objs={}, ef=copyTab(ef), buf={}},
+            {mode=3, num=0, objs={}, ef=copyTab(ef), buf={}},
+            {mode=4, num=0, objs={}, ef=copyTab(ef), buf={}},
         },
         heroid = {0,0,0,0},
         herohp = {0,0,0,0},
         heros = {},
-        owner = owner,
+        owner_pid = T.owner_pid,
+        is_player = false
     }
-
-    if not is_ply(T.owner_eid) then t.monster = true end
 
     T.win = nil
     for pid, arm in pairs(T.arms) do
         arm.dead_soldier = {}
-        if arm.hurt_soldier then
-            local pre_hurt = arm.pre_hurt
-            if not pre_hurt then
-                pre_hurt = {}
-                arm.pre_hurt = pre_hurt
-            end
-            for id, num in pairs( arm.hurt_soldier ) do
-                if num > 0 then
-                    pre_hurt[ id ] = ( pre_hurt[ id ] or 0 ) + num
-                end
-            end
-            arm.hurt_soldier = {}
-        end
-
         arm.mkdmg = 0
         arm.lost = 0
-
+        
         local kill = {0,0,0,0}
         for id, num in pairs(arm.live_soldier or {}) do
-            local prop = resmng.prop_arm[ id ]
-            if prop then
-                local pow = num * prop.Pow
-                kill[ id ] = 0
-                local mode = prop.Mode
-                table.insert(t.arms[ mode ].objs, { id=id, num=num, num0=num, prop=prop, link=arm, kill=kill })
-                t.arms[ mode ].num = t.arms[ mode ].num + num
-                t.num = t.num + num
+            if num > 0 then
+                local prop = resmng.prop_arm[ id ]
+                if prop then
+                    kill[ id ] = 0
+                    local mode = prop.Mode
+                    local node_a = t.arms[ mode ]
+                    local objs = node_a.objs
+                    local node = objs[ id ]
+                    if not node then
+                        node = { id = id, mode=mode, num = 0, Atk = prop.Atk, Imm = prop.Imm, Lv = prop.Lv, Hp = prop.Hp, Pow = prop.Pow, pids = {} }
+                        objs[ id ] = node
+                    end
+                    node.num = node.num + num
+                    node.num0 = node.num
+                    node.pids[ pid ] = { num0 = num }
+                    node_a.num = node_a.num + num
+                    if pid >= 10000 then t.is_player = true end
+                end
             end
         end
 
         for mode, hero in pairs(arm.heros or {}) do
             if hero ~= 0 then
                 local h = heromng.get_fight_attr(hero)
-                if h then kill[ mode ] = 0
-                    --local ht = {id=h.id, num=h.num, num0=h.num, prop=h.prop, link=arm, kill=kill, hero=h.hero, skill=h.skill, skills=h.skills, cul=h.cul, per=h.per}
+                if h and h.num > 0 then 
 
-                    h.num0 = h.num
-                    h.link = arm
-                    h.kill = kill
+                    local node_a = t.arms[ mode ]
+                    local objs = node_a.objs
+                    if not objs[ mode ] then
+                        t.heroid[ mode ] = h.id
+                        t.herohp[ mode ] = h.num
+                        t.heros[ mode ] = h
 
-                    if t.arms[ mode ] then
-                        table.insert(t.arms[ mode ].objs, h)
-                        if pid == 0 or pid == T.owner_pid then
-                            h.lead = 1
-                            local pow = h.num * h.prop.Pow
-                            t.heroid[ mode ] = h.id
-                            t.herohp[ mode ] = h.num
-                            t.heros[ mode ] = h
-                            if pid == 0 then t.arms[ mode ].ef = copyTab( h.ef ) end
-                        end
-                        t.arms[ mode ].num = t.arms[ mode ].num + h.num
-                        t.num = t.num + h.num
-                    else
-                        WARN( "mode = %d, tid = %d, hero=%s", mode, T._id or 0, hero )
+                        local node = { id = hero, mode=mode, num = h.num, Atk = h.prop.Atk, Imm = h.prop.Imm, Lv = h.prop.Lv, Hp = h.prop.Hp, Pow = h.prop.Pow, pids = {} }
+                        node.num0 = node.num
+                        node.hero = hero
+                        node.cul = h.cul
+                        node.per = h.per
+                        objs[ mode  ] = node
 
+                        t.heroid[ mode ] = h.id
+                        t.herohp[ mode ] = h.num
+                        t.heros[ mode ] = node
+
+                        node.pids[ pid ] = { num0 = h.num }
+                        node_a.num = node_a.num + node.num
+                        if pid == 0 then t.arms[ mode ].ef = copyTab( h.ef ) end
                     end
                 end
             end
         end
-        arm.kill_soldier = kill
     end
+
+    --dumpTab(t, "init_troop" )
+    --for _, arm in pairs( T.arms ) do
+    --    local pow = 0
+    --    local num = 0
+    --    for _, obj in pairs( arm.objs ) do
+    --        obj.num0 = obj.num
+    --        obj.pow = obj.Pow * obj.num
+    --        num = num + obj.num
+    --        pow = pow + obj.pow
+    --    end
+    --    arm.num = num
+    --    arm.pow = pow
+    --end
+
     return t
+end
+
+function split( AS, count, total, key, nkey )
+    -- a1[ key ] + a2[ key ] + a3[ key ] + ... + an[ key ] = total, share the count [ nkey ]
+    for _, A in pairs( AS ) do
+        local c = A[ key ]
+        if c > 0 and total > 0 and count > 0 then
+            local n
+            if c >= total then
+                n = count
+                count = 0
+                total = 0
+            else
+                n = math.ceil( count * c / total )
+                if n > count then n = count end
+            end
+            count = count - n
+            total = total - c
+            A[ nkey ] = n
+        else
+            A[ nkey ] = 0
+        end
+    end
+    return
+end
+
+function split2( AS, count, total, key )
+    -- a1[ key ] + a2[ key ] + a3[ key ] + ... + an[ key ] = total, share the count [ nkey ]
+    local res = {}
+    if total > 0 and count > 0 then
+        for id, A in pairs( AS ) do
+            local c = A[ key ]
+            if c > 0 then
+                local n
+                if c >= total then
+                    n = count
+                    count = 0
+                    total = 0
+                else
+                    n = math.ceil( count * c / total )
+                    if n > count then n = count end
+                end
+                count = count - n
+                total = total - c
+                res[ id ] = n
+            else
+                res[ id ] = 0
+            end
+        end
+    end
+    return res
 end
 
 
 -- return lost_pow, live_num, make_dmg, dead_num, dead_lvl
 function fight_status(T)
-    local live_num = 0
     local lost_pow = 0
+    local live_num = 0
     local make_dmg = 0
-    local dead_lvl = {}
     local dead_num = 0
+    local dead_lvl = {}
 
     for mode, arm in pairs(T.arms) do
         for _, obj in pairs(arm.objs) do
-            local node = obj.link
-            local kill = obj.kill
-            obj.mkdmg = obj.mkdmg or 0
-
+            obj.mkdmg = math.ceil( obj.mkdmg or 0 )
             local dead = 0
             if obj.hero then
-                kill[ mode ] = obj.mkdmg
                 dead = obj.num0 - obj.num
-                if not T.monster and dead > 0 then
+                if T.is_player and dead > 0 then
                     local h = heromng.get_hero_by_uniq_id(obj.hero)
                     if h then 
                         local lost = math.ceil( dead * h.max_hp )
@@ -1324,43 +1378,27 @@ function fight_status(T)
                         if h.hp > h.max_hp then h.hp = h.max_hp end
                     end
                 end
-            else
-                kill[ obj.id ] = obj.mkdmg
+                if obj.num > 0 then live_num = live_num + 1 end
 
+            else
                 obj.num = math.ceil(obj.num)
                 dead = obj.num0 - obj.num
                 dead_num = dead_num + dead
+                
+                local lv = obj.Lv
+                if not dead_lvl[ lv ] then dead_lvl[ lv ] = dead 
+                else dead_lvl[ lv ] = dead_lvl[ lv ] + dead end
 
-                local deads = node.dead_soldier
-                local lives = node.live_soldier
-
-                if not deads then
-                    deads = {}
-                    node.dead_soldier = deads
-                end
-                if not lives then
-                    lives = {}
-                    node.live_soldier = lives
-                end
-                local id = obj.id
-                deads[ id ] = (deads[ id ] or 0) + dead
-                lives[ id ] = obj.num
-
-                local lv = obj.prop.Lv
-                if not dead_lvl[ lv ] then dead_lvl[ lv ] = 0 end
-                dead_lvl[ lv ] = dead_lvl[ lv ] + dead
-
+                live_num = live_num + obj.num
             end
-            node.mkdmg = (node.mkdmg or 0) + obj.mkdmg
-            node.lost = (node.lost or 0) + obj.prop.Pow * dead
 
-            live_num = live_num + obj.num
-            lost_pow = lost_pow + obj.prop.Pow * dead
+            lost_pow = lost_pow + obj.Pow * dead
             make_dmg = make_dmg + obj.mkdmg
         end
     end
-    return lost_pow, live_num, make_dmg, dead_num, dead_lvl
+    return math.ceil(lost_pow), live_num, make_dmg, dead_num, dead_lvl
 end
+
 
 function sort_func( A, B ) 
     if A[3] ~= B[3] then
@@ -1369,6 +1407,7 @@ function sort_func( A, B )
         return A[1] < B[1]
     end
 end
+
 
 function rage(troop, D)
    -- if not is_ply(D) then return end
@@ -1411,11 +1450,11 @@ function rage(troop, D)
             local r2 = get_num_by( "PlunderCount_R", ply._ef, ef_u, ef_t, ef_gs ) 
             total = total * ( 1 + r2 * 0.0001 )
         end
-        total = total * 0.5 
-
-        table.insert(weights, {pid, total, arm.tm_join or pid })
+        total = math.floor( total * 0.5 )
+        if total > 0 then
+            table.insert(weights, {pid, total, arm.tm_join or pid })
+        end
     end
-    dumpTab( weights, "weights" )
     table.sort( weights, sort_func )
 
     local haves = D:get_res_over_store()
@@ -1544,65 +1583,159 @@ function rage(troop, D)
     return gets
 end
 
-function calc_kill(action, troop, make_dmg, lost_powD, kill_num, kill_lvl)
-    if make_dmg < 1 then return end
+function calc_kill(action, troop, troop0, make_dmg, lost_powD, kill_num, kill_lvl, ispvp)
+    --if make_dmg < 1 then return end
 
-    local calc = 0
-    local last = false
-    local proptab = resmng.prop_arm
-    for pid, arm in pairs(troop.arms or {}) do
-        if pid > 0 then
-            local p = getPlayer(pid)
-            if p then
-                arm.mkdmg = arm.mkdmg * lost_powD / make_dmg
-                if action == TroopAction.SiegePlayer then
-                    local r = arm.mkdmg / lost_powD
-                    local nkill = 0
-                    for lv, num in pairs(kill_lvl) do
-                        local n = math.floor( r * num )
-                        --任务
-                        task_logic_t.process_task(p, TASK_ACTION.KILL_SOLDIER, lv, n)
-                        --成就
-                        p:add_count(resmng["ACH_TASK_KILL_SOLDIER"..lv], n)
-                        nkill = nkill + n
-                    end
-                    p:add_count( resmng.ACH_COUNT_KILL, nkill )
-                    rank_mng.add_data(4, pid, { p:get_count( resmng.ACH_COUNT_KILL) } )
+    LOG( "calc_kill, make_dmg=%s, lost_powD=%s, kill_num=%s", make_dmg, lost_powD, kill_num )
+    dumpTab( troop.arms, "calc_kill" )
+    for _, arm in pairs( troop.arms or {} ) do
+        for id, obj in pairs( arm.objs or {} ) do
+            split( obj.pids, obj.num, obj.num0, "num0", "num" )
+            split( obj.pids, obj.mkdmg, obj.num0, "num0", "mkdmg" )
+        end
+    end
 
-                    local u = p:get_union()
-                    if u then
-                        u.kill = (u.kill or 0) + nkill 
-                        rank_mng.add_data(6, p.uid, {u.kill})
-                    end
+    local statis = {}
+    local total = 0
+    for _, arm in pairs( troop.arms or {} ) do
+        for id, obj in pairs( arm.objs or {} ) do
+            for pid, ply in pairs( obj.pids or {} ) do
+                total = total + ply.mkdmg
+                local node = { pid = pid, id = id, live = ply.num, dead = ply.num0 - ply.num, mkdmg = ply.mkdmg, pow = obj.Pow }
+                table.insert( statis, node )
+            end
+        end
+    end
 
-                    local dead = arm.dead_soldier 
-                    if dead then
-                        local num = 0
-                        for k, v in pairs(dead) do
-                            num = num + v
+    split( statis, lost_powD, total, "mkdmg", "mkdmg" )
+    split( statis, kill_num, lost_powD, "mkdmg", "kill" )
+
+    dumpTab( statis, "calc_kill_result" )
+
+    local result = {}
+    for _, v in pairs( statis ) do
+        local pid = v.pid
+        local node = result[ pid ]
+        if not node then
+            node = { pid = pid, mkdmg = 0, nkill = 0, ndead = 0, lost = 0, live={}, dead={}, kill={} }
+            result[ pid ] = node
+        end
+        if v.id > 4 then
+            node.live[ v.id ] = v.live
+            node.dead[ v.id ] = v.dead
+            node.ndead = node.ndead + v.dead
+        end
+
+        node.kill[ v.id ] = v.kill
+        node.nkill = node.nkill + v.kill
+        node.mkdmg = node.mkdmg + v.mkdmg
+        node.lost = node.lost + v.dead * v.pow
+    end
+
+    for pid, node in pairs( result ) do
+        local arm = troop0.arms[ pid ] 
+        if arm then
+            arm.live_soldier = node.live
+            arm.dead_soldier = node.dead
+            arm.kill_soldier = node.kill
+            arm.mkdmg = node.mkdmg
+            arm.lost = node.lost
+
+            if pid >= 10000 then
+                local p = getPlayer( pid )
+                if p then
+                    local action = troop0.action % 100
+
+                    if ispvp and ( not ( action == TroopAction.LostTemple or action == TroopAction.SiegeNpc ) ) then
+                        p:add_count( resmng.ACH_COUNT_KILL, node.nkill )
+                        p:add_count( resmng.ACH_COUNT_KILL_POW, node.mkdmg )
+
+                        rank_mng.add_data(4, pid, { p:get_count( resmng.ACH_COUNT_KILL) } )
+                        local u = p:get_union()
+                        if u then
+                            u.kill = ( u.kill or 0 ) + node.nkill
+                            rank_mng.add_data(6, p.uid, {u.kill})
                         end
-                        task_logic_t.process_task(p, TASK_ACTION.DEAD_SOLDIER, num)
+                        task_logic_t.process_task(p, TASK_ACTION.DEAD_SOLDIER, node.ndead)
                     end
-                end
 
-                local total = arm.mkdmg
-                if total and total > 0 then
-                    local kill = arm.kill_soldier
-                    if kill then
-                        for id, mkdmg in pairs( kill ) do
-                            local n = math.floor( mkdmg * kill_num / make_dmg )
-                            kill[ id ] = n
-                            calc = calc + n
-                            last = {kill, id, n}
+                    if ispvp then
+                        for lv, num in pairs( kill_lvl or {} ) do
+                            local n = math.floor( ( node.nkill / kill_num ) * num )
+                            if n > 0 then
+                                p:add_count(resmng["ACH_TASK_KILL_SOLDIER"..lv], n)
+                                task_logic_t.process_task(p, TASK_ACTION.KILL_SOLDIER, lv, n)
+                            end
                         end
                     end
                 end
             end
+            dumpTab( arm, "calc_kill_for_arm" )
         end
     end
-    local remain = kill_num - calc
-    if remain >= 1 and last then
-        last[ 1 ][ last[2] ] = last[3] + remain
-    end
+    dumpTab( result, "fight_result" )
 end
 
+
+--function calc_kill(action, troop, make_dmg, lost_powD, kill_num, kill_lvl)
+--    if make_dmg < 1 then return end
+--
+--    local calc = 0
+--    local last = false
+--    local proptab = resmng.prop_arm
+--    for pid, arm in pairs(troop.arms or {}) do
+--        if pid > 0 then
+--            local p = getPlayer(pid)
+--            if p then
+--                arm.mkdmg = arm.mkdmg * lost_powD / make_dmg
+--                if action == TroopAction.SiegePlayer then
+--                    local r = arm.mkdmg / lost_powD
+--                    local nkill = 0
+--                    for lv, num in pairs(kill_lvl) do
+--                        local n = math.floor( r * num )
+--                        --任务
+--                        task_logic_t.process_task(p, TASK_ACTION.KILL_SOLDIER, lv, n)
+--                        --成就
+--                        p:add_count(resmng["ACH_TASK_KILL_SOLDIER"..lv], n)
+--                        nkill = nkill + n
+--                    end
+--                    p:add_count( resmng.ACH_COUNT_KILL, nkill )
+--                    rank_mng.add_data(4, pid, { p:get_count( resmng.ACH_COUNT_KILL) } )
+--
+--                    local u = p:get_union()
+--                    if u then
+--                        u.kill = (u.kill or 0) + nkill 
+--                        rank_mng.add_data(6, p.uid, {u.kill})
+--                    end
+--
+--                    local dead = arm.dead_soldier 
+--                    if dead then
+--                        local num = 0
+--                        for k, v in pairs(dead) do
+--                            num = num + v
+--                        end
+--                        task_logic_t.process_task(p, TASK_ACTION.DEAD_SOLDIER, num)
+--                    end
+--                end
+--
+--                local total = arm.mkdmg
+--                if total and total > 0 then
+--                    local kill = arm.kill_soldier
+--                    if kill then
+--                        for id, mkdmg in pairs( kill ) do
+--                            local n = math.floor( mkdmg * kill_num / make_dmg )
+--                            kill[ id ] = n
+--                            calc = calc + n
+--                            last = {kill, id, n}
+--                        end
+--                    end
+--                end
+--            end
+--        end
+--    end
+--    local remain = kill_num - calc
+--    if remain >= 1 and last then
+--        last[ 1 ][ last[2] ] = last[3] + remain
+--    end
+--end
+--

@@ -24,6 +24,8 @@ end
 
 -- one item = {idx, id, num, extra ...}
 function inc_item(self, id, num, reason)
+    num = math.floor( num )
+    print( "inc_item", id, num, reason )
     local its = self:get_item()
     local hit = false
     local idx = 0
@@ -55,6 +57,8 @@ function inc_item(self, id, num, reason)
     if reason == VALUE_CHANGE_REASON.DEFAULT then
         ERROR("inc_item: pid = %d, don't use the default reason.", self.pid)
     end
+    dumpTab( its, "inc_item" )
+    print("[ITEM] inc_item: pid = %d, idx = %d, item_id = %d, num = %d, total = %d, reason = %d.", self.pid, idx, id, num, its[idx][3], reason)
     LOG("[ITEM] inc_item: pid = %d, idx = %d, item_id = %d, num = %d, total = %d, reason = %d.", self.pid, idx, id, num, its[idx][3], reason)
 end
 
@@ -82,6 +86,7 @@ function dec_item(self, idx, num, reason)
         ERROR("dec_item: pid = %d, idx = %d, num = %d", self and self.pid or -1, idx or -1, num or -1)
         return false
     end
+    num = math.floor( num )
 
     local item = self:get_item(idx)
     local propid = item[2]
@@ -151,9 +156,9 @@ function dec_item_by_item_id(self, item_id, num, reason)
 end
 
 
-function addItem(self, id, num)
+function addItem(self, id, num, reason)
     num = math.floor( num )
-    if num > 0 then self:inc_item(id, num, VALUE_CHANGE_REASON.DEBUG) end
+    if num > 0 then self:inc_item(id, num, reason or VALUE_CHANGE_REASON.DEBUG) end
 end
 
 

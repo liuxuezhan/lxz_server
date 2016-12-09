@@ -44,16 +44,10 @@ end
 
 function get_cons(ply,mode)
     local u = unionmng.get_union(ply.uid)
-    if not u then
-        WARN("")
-        return
-    end
+    if not u then WARN("") return end
 
     local l = get_buildlv(ply.uid, mode)
-    if not l then
-        WARN("")
-        return
-    end
+    if not l then WARN("") return end
 
 
     if not ply._union.buildlv[mode] then
@@ -62,21 +56,14 @@ function get_cons(ply,mode)
 
     if can_date(ply._union.buildlv[mode].open_tm) then
         ply._union.buildlv[mode].open_tm =gTime
-        if not  u.god then
-            WARN("")
-            return
-        end
+        if not  u.god then WARN("") return end
 
         local god = resmng.get_conf("prop_union_god",u.god.propid )
-        if not god then
-            WARN("")
-            return
-        end
+        if not god then WARN("") return end
 
-        local c = resmng.get_conf("prop_union_buildlv",l.id + 1 )
-        if not c  then
-            return
-        end
+        local c = resmng.get_conf("prop_union_buildlv",l.id )
+        if not c  then return end
+
         local i = {}
         if god.Mode == CULTURE_TYPE.EAST then
             i=(c.East)
@@ -174,26 +161,25 @@ function add_buildlv_donate(ply, mode)
     local c = resmng.get_conf("prop_union_buildlv",u.buildlv.data[mode].id+1)
     if c then
         u.buildlv.data[mode].exp = u.buildlv.data[mode].exp + c.DonateExp
-        if u.buildlv.data[mode].exp >= c.UpExp or player_t.debug_tag then
+        if player_t.debug_tag then c.UpExp = 0 end
+
+        if u.buildlv.data[mode].exp >= c.UpExp then
             local nc = resmng.get_conf("prop_union_buildlv",u.buildlv.data[mode].id+1)
             u.buildlv.data[mode].exp = u.buildlv.data[mode].exp - c.UpExp
             u.buildlv.data[mode].id = nc.ID
-            u._ef = nil
+            u:ef_init()
             u:notifyall(resmng.UNION_EVENT.BUILDLV, resmng.UNION_MODE.UPDATE, u.buildlv.data[mode])
         end
         gPendingSave.union_buildlv[ply.uid] = u.buildlv
     else
         c = resmng.get_conf("prop_union_buildlv",u.buildlv.data[mode].id)
-        if not c  then
-            WARN("")
-            return
-        end
+        if not c  then WARN("") return end
     end
 
     for _, v in pairs(c.BonusID) do
         ply:add_bonus(v[1], v[2], VALUE_CHANGE_REASON.UNION_BUILDLV )
     end
-    union_member_t.add_techexp(ply,c.DonateExp,VALUE_CHANGE_REASON.UNION_BUILDLV)
+    union_tech_t.add_techexp(ply,c.DonateExp,VALUE_CHANGE_REASON.UNION_BUILDLV)
 
     ply._union.buildlv[mode].tm = gTime
     gPendingSave.union_member[ply.pid].buildlv = ply._union.buildlv

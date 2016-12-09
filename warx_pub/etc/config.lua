@@ -1,7 +1,7 @@
 module("config")
 
 Map = 5
-Tips = "map_5"
+Tips = "my_5"
 
 DbHost = "192.168.100.12"
 DbPort = 27017
@@ -13,11 +13,12 @@ GateHost = "192.168.100.12"
 GatePort = 8002
 
 
-Game = "warx"
+Game = "my"
 IsEnableGm=1
 
 LogLevel = 3
 Release = false
+Robot= true
 Daemon = 0
 --BuddySize = 1024
 

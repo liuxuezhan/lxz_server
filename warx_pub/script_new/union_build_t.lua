@@ -9,15 +9,15 @@ function load()
     local info = db.union_build:find({})
     while info:hasNext() do
         local data = info:next()
+        if _sn < (data.sn or 0 ) then _sn = data.sn end
         local u = unionmng.get_union(data.uid)
-        if u  and data.state ~= BUILD_STATE.DESTROY then
+        if u  then
             u.build[data.idx] = data
-            gEtys[ data.eid ] = data
-            data.holding = is_hold(data)
-            data.culture = data.culture or 1
-            etypipe.add(data)
-            if _sn < (data.sn or 0 ) then
-                _sn = data.sn
+            if data.state ~= BUILD_STATE.DESTROY then
+                gEtys[ data.eid ] = data
+                data.holding = is_hold(data)
+                data.culture = data.culture or 1
+                etypipe.add(data)
             end
         end
     end
@@ -69,8 +69,7 @@ function create(uid,idx, propid, x, y,name)
 
     local cc = resmng.get_conf("prop_world_unit",propid)
     if (not cc) or cc.Class ~= BUILD_CLASS.UNION then return end
-    --TODO: 地图空位检测
-    if c_map_test_pos(x, y, cc.Size) ~= 0 then 
+    if c_map_test_pos_for_ply(x, y, cc.Size) ~= 0 then 
         LOG("军团建筑不在空地")
         return 
     end
@@ -144,9 +143,7 @@ function create(uid,idx, propid, x, y,name)
         e.my_troop_id = nil
         e.val = cc.Count or 0
         save_ety(e)
-        if cc.Hp == e.hp then
-            union_build_t.buf_open(e)
-        end
+        if cc.Hp == e.hp then union_build_t.buf_open(e) end
     end
     u:add_log(resmng.UNION_EVENT.BUILD_SET, resmng.UNION_MODE.ADD,{propid=e.propid,name=e.name})
 end
@@ -230,55 +227,43 @@ function remove_build(e)
                 return
             end
         end
+        e.state = BUILD_STATE.DESTROY
         restore_del_res(e.uid)--取出资源
         del(e)
-        --[[
-    elseif bcc.Mode == resmng.CLASS_UNION_BUILD_MARKET then        --市场
-        for _, v in pairs(u.build ) do
-            local c = resmng.get_conf("prop_world_unit",v.propid)
-            if v.eid ~= e.eid  and c.Mode == resmng.CLASS_UNION_BUILD_MARKET and v.state~= BUILD_STATE.DESTORY then--仓库
-                del(e)
-                return 
-            end
-        end
-        market_del(e)--取出
-        del(e)
-        --]]
     end
 end
 
 function restore_del_res(uid,pid,e,res )--取出资源
     local u = unionmng.get_union(uid)
-    if not u  then
-        WARN("not union")
-        return false
-    end
-
-    if not e then
-        for _, v in pairs(u.build ) do
-            local c = resmng.get_conf("prop_world_unit",v.propid)
-            if c.Mode == resmng.CLASS_UNION_BUILD_RESTORE then--仓库
-                e = v
-                break
-            end
-        end
-    end
-
-    if not e  then
-        return false
-    end
+    if not u  then return false end
 
     if not u.restore then return false  end
-    for k, v in pairs(u.restore.sum or {}) do
-        if not pid  then--全取时需要创建行军队列
-            if not res then 
-                res = copyTab(v.res)
+
+    if (not e) and (not pid) then--回收仓库处理
+        local f = false
+        for _, v in pairs(u.build ) do
+            if is_union_restore(v.propid) then 
+                if v.state == BUILD_STATE.WAIT then
+                    f = true
+                    break
+                else
+                    e = v
+                end
             end
+        end
+        if f then return false end
+    end
+
+    for k, v in pairs(u.restore.sum or {}) do
+
+        if not pid  then--全取时需要创建行军队列
+            res = copyTab(v.res) 
             local p = getPlayer(v.pid)
             local troop = troop_mng.create_troop(TroopAction.GetRes, p, e)
             troop.curx, troop.cury = get_ety_pos(e)
             troop:set_extra("union_expect_res", res) 
             troop_mng.trigger_event(troop)
+
         elseif v.pid == pid then
             if not res then 
                 res = copyTab(v.res)
@@ -290,20 +275,15 @@ function restore_del_res(uid,pid,e,res )--取出资源
                 gPendingSave.union_t[ u._id ].restore = u.restore
                 return true
             else
-                if not can_res(u,v.pid,res) then
-                    return false
-                end
+                if not can_res(u,v.pid,res) then return false end
 
                 local f = true 
                 for i = 1, #res do
                     v.res[i] = v.res[i] - res[i] 
-                    if v.res[i]~= 0  then
-                        f = false
-                    end
+                    if v.res[i]~= 0  then f = false end
                 end
-                if f==true then
-                    u.restore.sum[k]= nil 
-                end
+
+                if f==true then u.restore.sum[k]= nil end
                 gPendingSave.union_t[u._id].restore = u.restore
                 return true
             end
@@ -312,9 +292,7 @@ function restore_del_res(uid,pid,e,res )--取出资源
     end
     gPendingSave.union_t[u._id].restore = u.restore
     for _, v in pairs(u.build or {}) do
-        if is_union_restore(v) then
-            save(v)
-        end
+        if is_union_restore(v) then save(v) end
     end
     return true
 end
@@ -517,14 +495,13 @@ function get_restore_limit(p,dp)--计算军团仓库上限
         ack(p, "get_eye_info", resmng.E_NO_UNION) return
     end
 
-    pack.day.limit = u:get_day_store(p,dp)
-    pack.sum.limit = u:get_sum_store(p,dp)
+    pack.day.limit = p:get_val("CountDailyStore")
+    pack.sum.limit = p:get_val("CountUnionStore")
     pack.day.num   = get_res_day(u,p.pid)
     pack.sum.num   = get_res_count(u,p.pid)
 
     return pack
 end
-
 
 function arms(obj)
     if not is_union_building(obj) then return false end
@@ -649,9 +626,7 @@ function can_troop(action, p, eid, res)--行军队列发出前判断
         if dp.uid == p.uid then
             if is_union_restore(dp.propid) then
                 for mode, num in pairs(res or {} ) do
-                    if num > p:get_res_num_normal(mode) then
-                        return false
-                    end
+                    if num > p:get_res_num_normal(mode) then return false end
                 end
 
                 --仓库上限
@@ -676,9 +651,7 @@ function can_troop(action, p, eid, res)--行军队列发出前判断
         local u = unionmng.get_union(dp.uid)
         if dp.uid == p.uid then
             if is_union_restore(dp.propid) then
-                if can_res(u,p.pid,res) then
-                    return true
-                end
+                if can_res(u,p.pid,res) then return true end
             end
         end
     end
@@ -752,6 +725,7 @@ function del(e)
                 u.build[e.idx] = e
                 gPendingSave.union_build[e._id] = e
             end
+            u:ef_init()
         end
         c_rem_ety(e.eid)
         gEtys[e.eid] = nil
@@ -787,26 +761,15 @@ function building(obj) --部队修理
     local obj_id = obj.propid
     if obj.state == BUILD_STATE.UPGRADE then 
         local c = resmng.get_conf("prop_world_unit",obj.propid)
-        if not c  then 
-            exception_troop_back(troop)
-            return 
-        end
+        if not c  then exception_troop_back(troop) return end
 
         local id  = union_buildlv.get_buildlv(obj.uid, c.BuildMode).id
-        if not id  then 
-            exception_troop_back(troop)
-            return 
-        end
+        if not id  then exception_troop_back(troop) return end
 
         local cc = resmng.get_conf("prop_union_buildlv",id)
-        if not cc  then 
-            exception_troop_back(troop)
-            return 
-        end
+        if not cc  then exception_troop_back(troop) return end
 
-        if c.Lv < cc.Lv then
-            obj_id = obj.propid - c.Lv + cc.Lv  
-        end
+        if c.Lv < cc.Lv then obj_id = obj.propid - c.Lv + cc.Lv  end
     end
 
     local maxhp = resmng.get_conf("prop_world_unit", obj_id).Hp
@@ -819,6 +782,8 @@ function building(obj) --部队修理
         obj.tmSn = 0
         obj.build_speed = 0
         obj.state = BUILD_STATE.WAIT
+        local u = unionmng.get_union(obj.uid)
+        if u then u:ef_init() end
         union_build_t.buf_open(obj)
         troop_mng.work(obj)
         return
@@ -979,7 +944,7 @@ function buf_open(e)--奇迹生成
                 local ply = get_ety(eid) 
                 if  union_build_t.can_ef(e,ply) then
                     local old = {sn=math.huge }
-                    if ply.ef_eid then
+                    if ply.ef_eid ~= 0 then
                         local tmp = get_ety(ply.ef_eid)
                         if tmp  then
                             old = tmp

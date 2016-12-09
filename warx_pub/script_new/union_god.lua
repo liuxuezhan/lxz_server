@@ -7,9 +7,7 @@ function load()--启动加载
     while info:hasNext() do
         local data = info:next()
         local u = unionmng.get_union(data._id)
-        if u then
-            u.god = data
-        end
+        if u then u.god = data end
     end
 end
 
@@ -34,9 +32,7 @@ function add(p,mode)--膜拜
     local c = resmng.get_conf("prop_union_god",u.god.propid )
     if not c  then return end
 
-    if not p:do_dec_res(c.Cons[mode][1], c.Cons[mode][2], VALUE_CHANGE_REASON.UNION_GOD) then
-        return
-    end
+    if not p:do_dec_res(c.Cons[mode][1], c.Cons[mode][2], VALUE_CHANGE_REASON.UNION_GOD) then return end
     p._union.god_log.tm = gTime
     gPendingSave.union_member[p.pid] = p._union
 
@@ -56,7 +52,7 @@ function add_exp(p,num)--战神经验
     if u.god.exp > c.Exp  then
         u.god.propid =  u.god.propid + 1
         u.god.exp = u.god.exp - c.Exp
-        u._ef = nil
+        u:ef_init()
     end
     gPendingSave.union_god[u.uid] = u.god
     p:union_load("mars")
@@ -69,9 +65,7 @@ function get(p)--获取升级礼包
     local c = resmng.get_conf("prop_union_god",u.god.propid )
     if not c  then return end
 
-    if p._union.god_log.lv >=  c.Lv then
-        return
-    end
+    if p._union.god_log.lv >=  c.Lv then return end
 
     c = resmng.get_conf("prop_union_god",c.Mode*1000+p._union.god_log.lv+1 )
     if c then

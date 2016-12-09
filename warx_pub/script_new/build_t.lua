@@ -76,25 +76,10 @@ function acceleration(self, secs)
         ERROR("acceleration: build._id = %s, build.state = BUILD_STATE.WAIT.", self._id)
         return
 
-    else
-        if self:is_hospital() and self.state == BUILD_STATE.WORK then
-            local start = self.tmStart
-            local over = self.tmOver - secs
-            local owner = getPlayer( self.pid )
-            if owner then 
-                player_t.cure_on( owner, start, over) 
-                owner.cure_start = start
-                owner.cure_over = over
-                if owner.tm_cure > 0 then timer.acc( owner.tm_cure, secs ) end
-            end
-
-        else
-            if self.tmOver > gTime then 
-                self.tmStart = self.tmStart - secs 
-                self.tmOver = self.tmOver - secs 
-            end
-            if self.tmSn > 0 then timer.acc(self.tmSn, secs) end
-        end
+    elseif self.tmOver > gTime then 
+        self.tmStart = self.tmStart - secs 
+        self.tmOver = self.tmOver - secs 
+        if self.tmSn > 0 then timer.acc(self.tmSn, secs) end
     end
 end
 

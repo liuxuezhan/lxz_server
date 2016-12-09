@@ -212,6 +212,3 @@ use_item_logic.QuickRecover = function(player, id, num, prop_item)
     player:migrate_random()
 end
 
-
-
-

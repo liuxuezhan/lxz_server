@@ -28,31 +28,19 @@ end
 
 function add(p,tm_sn)
     local u = unionmng.get_union(p:get_uid())
-    if not u  then
-        return 
-    end
+    if not u  then return end
 
-    if not u.help then
-        u.help={}
-    end
+    if not u.help then u.help={} end
 
-    if u.help[tm_sn] then
-        LOG("已求助:"..tm_sn)
-        return
-    end
+    if u.help[tm_sn] then LOG("已求助:"..tm_sn) return end
 
     local t = timer.get(tm_sn)
-    if not t then
-        LOG("没有定时器:"..tm_sn)
-        return
+    if not t then LOG("没有定时器:"..tm_sn) return end
+
+    if t.is_help then LOG("已帮助:"..tm_sn) return
     end
 
-    if t.is_help then
-        LOG("已帮助:"..tm_sn)
-        return
-    end
-
-    if (t.what =="build" or t.what =="cure" or t.what =="hero_cure") and p.pid == t.param[1] then
+    if (t.what =="build" or t.what =="cure") and p.pid == t.param[1] then
         u.help[tm_sn]={id=tm_sn,log={}}
         local d = get_one(u.help[tm_sn])
         u:notifyall(resmng.UNION_EVENT.HELP, resmng.UNION_MODE.ADD, d)
@@ -69,30 +57,22 @@ function set_one(p,cur)
     if not u then return end
     if not u.help then return end
     if not u.help[cur] then return end
-    if  u.help[cur].log[p.pid] then
-        LOG("已帮助")
-        return 
-    end
+    if  u.help[cur].log[p.pid] then LOG("已帮助") return end
 
     local num = get_table_valid_count(u.help[cur].log or {} )
 
     local t = timer.get(u.help[cur].id)
     local pid = t.param[1]
-    if t and (t.what == "build" or t.what == "cure" or t.what == "hero_cure")and p.pid~=pid  then
+    if t and (t.what == "build" or t.what == "cure")and p.pid~=pid  then
         local w = getPlayer(pid)
         if  w then
             local limit = w:get_val("CountHelp")
             local tm = w:get_val("TimeHelp")
             if limit>num then
                 timer.acc(t._id,tm)
-                if t.what == "cure" or t.what == "hero_cure"  then
-                    for k, v in pairs( w:get_build() or {}) do
-                        local conf = resmng.get_conf("prop_build", v.propid)
-                        if conf.Mode == BUILD_FUNCTION_MODE.HOSPITAL then
-                            v.tmOver = t.over
-                           -- Rpc:stateBuild(w, {idx=v.idx,tmOver=build.tmOver,h_name=p.name })
-                        end
-                    end
+                if t.what == "cure" then
+                    w.cure_over = t.over
+
                 else
                     local idx = t.param[2]
                     local build = w:get_build(idx)
@@ -113,35 +93,28 @@ end
 
 function set(p,id)
     local u = unionmng.get_union(p:get_uid())
-    if not u then
-        return
-    end
+    if not u then return end
+
     for k, v in pairs(u.help or {}) do
-        if id == 0 then
-            set_one(p,k)
+        if id == 0 then set_one(p,k)
         else
-            if  v.id == id and v.pid ~= p.pid then
-                set_one(p,k)
-                return
-            end
+            if  v.id == id and v.pid ~= p.pid then set_one(p,k) return end
         end
     end
-
 end
+
 
 function get_one(v)
     local t = timer.get(v.id)
-    if  t and (t.what == "build" or  t.what == "cure" or  t.what == "hero_cure") then
+    if  t and (t.what == "build" or  t.what == "cure") then
         local pid = t.param[1]
         local idx = t.param[2]
         local p = getPlayer(pid)
         local build = p:get_build(idx)
         local limit = p:get_val("CountHelp")
         local d = {id=t._id, pid=p.pid, photo=p.photo, name = p.name, limit=limit,idx=idx,}
-        if t and (t.what == "cure" or t.what == "hero_cure") then
-            d.type = HELP_TYPE.HEAL
-            return d
-        end
+        if t and (t.what == "cure") then d.type = HELP_TYPE.HEAL return d end
+
         if build.state == BUILD_STATE.CREATE then
             d.type = HELP_TYPE.CONSTRUCT
             d.propid=build.propid
@@ -158,17 +131,11 @@ function get_one(v)
             elseif conf.Mode == BUILD_FUNCTION_MODE.FORGE then
                 d.type = HELP_TYPE.CAST
                 d.propid = build:get_extra_val("forge")
-            else
-                return
-            end
-        else
-            return
-        end
+            else return end
+        else return end
 
         d.num =tabNum(v.log)
-        if d.num < d.limit then
-            return d
-        end
+        if d.num < d.limit then return d end
     end
 end
 
@@ -187,17 +154,11 @@ function get(p)
         for k, v in pairs(u.help or {}) do
             if not v.log[p.pid] then 
                 local d = get_one(v)
-                if d  then
-                    table.insert(l,d)
-                else
-                    u.help[k]=nil
-                end
+                if d  then table.insert(l,d)
+                else u.help[k]=nil end
             end
         end
     end
     return l
 end
-
-
-
 

@@ -97,6 +97,7 @@ function union_select(self, uid,what)
         end
         result.val = {info=l, mark=union.tech_mark}
     elseif what == "donate" then
+        if can_date(self._union.CD_doante_tm)  then self._union.CD_doante_num  = 0 end
         result.val = {donate=self._union.donate,tmOver=self._union.tmDonate,CD_num = self._union.CD_doante_num or 0, flag=union_member_t.get_donate_flag(self)}
     elseif what == "mars" then --膜拜
         local god = union:get_god()
@@ -294,9 +295,10 @@ function union_set_info(self, info)
         u.alias = info.alias
     end
     if union_t.is_legal(self, "ChgFlag") and info.flag then
-        if self:do_dec_res(resmng.DEF_RES_GOLD, UNION_CHANGEFLAGPRICE, VALUE_CHANGE_REASON.UNION_FLAG) then
+        local c = resmng.get_conf("prop_flag",info.flag)
+        if c and c.Price and self:do_dec_res(resmng.DEF_RES_GOLD, c.Price, VALUE_CHANGE_REASON.UNION_FLAG) then
             u.flag = info.flag
-            for _, v in pairs(self._members) do
+            for _, v in pairs(u._members) do
                 v.uflag = u.flag 
                 etypipe.add(v)
             end
@@ -691,6 +693,7 @@ function union_member_rank(self, pid, r)
     if not B then
         ack(self, "union_member_rank", resmng.E_NO_PLAYER) return
     end
+
     local u = unionmng.get_union(self:get_uid())
     if not u then
         ack(self, "union_member_rank", resmng.E_NO_UNION) return
@@ -698,7 +701,7 @@ function union_member_rank(self, pid, r)
 
     if not u:has_member(self, B) then return  end
 
-    if self:get_rank() >= r then
+    if self:get_rank() >= r and self:get_rank() > B:get_rank()  then
         B:set_rank(r)
     end
 end
@@ -1751,6 +1754,7 @@ function fill_player_info_by_arm(self, arm, troop_action, owner_pid)
     unit.heros_lv = {}
     unit.heros_star = {}
     unit.heros_hp = {}
+    unit.heros_maxhp = {}
     local tm_heros = {}
     --如果是城主的部队，英雄要算出来
     if troop_action == TroopAction.DefultFollow and arm.pid == owner_pid then tm_heros = self:get_defense_heros()
@@ -1764,6 +1768,7 @@ function fill_player_info_by_arm(self, arm, troop_action, owner_pid)
                 table.insert(unit.heros_lv, hero.lv)
                 table.insert(unit.heros_star, hero.star)
                 table.insert(unit.heros_hp, hero.hp)
+                table.insert(unit.heros_maxhp, hero.max_hp)
             end
         end
     end
@@ -2078,7 +2083,6 @@ function union_help_get(self )
 end
 
 function union_help_add(self ,sn)
-
     if check_ply_cross(self) then
         ack(self, "union_help_add", resmng.E_DISALLOWED) return
     end
@@ -2102,8 +2106,9 @@ function union_word_update(self,wid,title,word)
     union_word.update(self,wid,title,word)
 end
 
-function union_word_add(self,uid,title,word)
+function union_word_add(self,uid,title,word,top)
     local d = union_word.add(self,uid,title,word)
+    d = union_word.top(self,d.wid,top)
     Rpc:union_word_add(self, d)
 end
 

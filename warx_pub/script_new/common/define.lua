@@ -518,9 +518,6 @@ UNION_CONSTRUCT_TYPE =
 -- [2] = 步进值，每满足一个步进值，可占领系统城市数量加 1
 UNION_OCCUPY_LIMIT = {2,1}
 
------军团修改旗帜的价格，金币
-UNION_CHANGEFLAGPRICE = 2000
-
 ----军团帮助的类型
 HELP_TYPE =
 {
@@ -1637,12 +1634,14 @@ PLAYER_INIT = {
     month_award_round = 1,    --玩家月登陆第N轮,
 
     hurts = {},     -- soldiers who are waiting for cure,
-    cures = {},     -- soldiers who are curing,
     lives = {},
+
+    cures = {},     -- soldiers who are curing,
     tm_cure = 0,     -- timer,
     cure_start = 0,     -- timer  start,
     cure_over = 0,     -- timer  over,
     cure_rate = 0,     -- CountConsumeCure_R for cure time,
+
     language = 10000,
 
     gacha_yinbi_num = 0,  --银币抽卡次数,

@@ -444,7 +444,7 @@ function boss_notify(monster)
     end
 
     if notify.Chat then
-        Rpc:chat({pid=-1,gid=_G.GateSid}, 0, 0, 0, "system", "", notify.Chat, {monster.x, monster.y, prop.Name, npc_prop.Name, monster.x, monster.y})
+        Rpc:chat({pid=-1,gid=_G.GateSid}, 0, {pid=0}, "", notify.Chat, {monster.x, monster.y, prop.Name, npc_prop.Name, monster.x, monster.y})
     end
 end
 
@@ -1023,7 +1023,7 @@ function send_union_item(self, pid)
                             union_item.add(meb, rewards.unit, UNION_ITEM.BOSS, self.propid, pid)
                         end
 
-                        if meb:get_castle_lv() >= 6 and v then  --6级一下无礼包
+                        if meb:get_castle_lv() >= 6  then  --6级一下无礼包
                             --print("monster.lua:793", v[1][2], ",", UNION_ITEM.BOSS, ",", self.propid, ",", pid)
                             union_item.add(meb, rewards.unit, UNION_ITEM.BOSS, self.propid, pid)
                             --meb:add_bonus(v[1], v[2], VALUE_CHANGE_REASON.REASON_MONSTER)

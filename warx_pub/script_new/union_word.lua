@@ -152,7 +152,7 @@ function top(p,wid,flag)
                 u.word.log[k].tm_top = nil
             end
             gPendingSave.union_word[u.uid] = u.word
-            return
+            return v
         end
     end
 end

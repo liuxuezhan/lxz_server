@@ -725,17 +725,21 @@ function global_save()
     if update then gen_global_checker( db, cur ) end
 end
 
-function cache_check(cache, table_name)
+function cache_check(cache, table_name, check_table)
     -- 校验了不同的key指向了同一个cache的错误，出现此问题肯定是逻辑上写错了
-    local t = {}
-    for id, chgs in pairs(cache) do
-        if t[chgs] ~= nil then
-            WARN("zhoujy_warning: cache_check failed tab=%s, id_1=%s, id_2=%s", table_name, id, t[chgs])
-        else
-            t[chgs] = id
+    -- 20161208 在act项目中，出现了2张不同的表里面的相同的id指向了同一个cache的错误
+    -- 如果在同一帧存储，也会导致_n_为nil的情况，所以增加了check的范围
+    if not config.Release then
+        for id, chgs in pairs(cache) do
+            if check_table[chgs] ~= nil then
+                local exist_record = check_table[chgs]
+                WARN("zhoujy_warning: cache_check failed tab_1=%s, id_1=%s, tab_2=%s, id_2=%s",
+                    table_name, id, exist_record[1], exist_record[2])
+            else
+                check_table[chgs] = {table_name, id}
+            end
         end
     end
-    t = nil
 end
 
 gGlobalChecker = {}
@@ -747,9 +751,10 @@ function global_save_checker()
         if info.ok then
             INFO( "global_save_checker, checked frame %d, now=%d, diff=%d", frame, gFrame, gFrame - frame )
             local code = info.code
+            local check_table = {}
             for tab, doc in pairs(gPendingSave) do
                 local cache = doc.__cache
-                cache_check(cache, tab)
+                cache_check(cache, tab, check_table)
                 local adds = {}
                 local dels = {}
                 for id, chgs in pairs(cache) do
@@ -1155,7 +1160,8 @@ function save_checker()
         local info = db:runCommand("getPrevError")
         if info.ok then
             local dels = {}
-            cache_check(cache, name)
+            local check_table = {}
+            cache_check(cache, name, check_table)
             for k, v in pairs(cache) do
                 local n = v._n_
                 if n then

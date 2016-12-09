@@ -73,6 +73,8 @@ RpcType.struct = {
 
 RpcType.__struct = {
     helloTest = "int id, int pid, string text",
+    fi = "int idx, int propid, int num, struct extra",
+    fx = "int hero_propid, int lv, int ef1, int ef2, int exvalue1, int exvalue2, pack random_moves",
 }
 
 
