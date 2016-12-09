@@ -2,12 +2,12 @@
 -- 原warx 的socket由c语言引擎统一队列处理 ，移植后由lua分发处理
 json = require "json"
 require "my_tools"
-g_host = "192.168.100.12"
+g_host = "10.0.2.15"
 
 _list={
 
     db_server1 ={ 
-        db1={ port = 27017, },
+        db1={ host="127.0.0.1",port = 27017, },
         -- db={  host = "127.0.0.1", port = 27017,username="admin",password="admin" },
     },
 
