@@ -18,7 +18,7 @@ def get_ip(ifname):
 
 if __name__ == "__main__":
    #ip = socket.gethostbyname(socket.gethostname())
-    ip = get_ip("enp0s3")
+    ip = get_ip("eth0")
     #ip = sys.argv[2]
    #print ip
     if len(sys.argv) < 2:
