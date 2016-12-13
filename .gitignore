@@ -2,7 +2,6 @@
 *.a
 *.log
 *.swp
-skynet
 resmng
 *.so
 *.dSYM
