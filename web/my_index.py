@@ -12,7 +12,7 @@ import sys
 from datetime import *
 
 from tornado.options import define, options
-define("port", default=9000, help="输入端口号", type=int)
+define("port", default=80, help="输入端口号", type=int)
 define("name", default="robot", help="输入机器人名字", type=str)
 define("path", default=sys.argv[1], help="路径", type=str)
 conf="conf.lua"
