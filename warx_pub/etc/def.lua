@@ -53,7 +53,9 @@ end
  c_pid = {}
 function c_mov_eye(pid,x,y)
     c_pid[pid] = {x=x,y=y}
-    monster.do_check(x, y)
+    local zx = math.floor( x / 16 ) 
+    local zy = math.floor( y / 16 )
+    monster.do_check(zx, zy)
     for _, e in pairs(gEtys or {} ) do
         if not is_troop(e) and  calc_line_length(x,y,e.x,e.y) < 10  then
             etypipe.add(e) 
@@ -63,7 +65,9 @@ end
 
 function c_add_eye(x, y, lv, pid, gid)
     c_pid[pid] = {x=x,y=y}
-    monster.do_check(x, y)
+    local zx = math.floor( x / 16 ) 
+    local zy = math.floor( y / 16 )
+    monster.do_check(zx, zy)
     for _, e in pairs(gEtys or {} ) do
         if  not is_troop(e) and calc_line_length(x,y,e.x,e.y) < 10  then
             etypipe.add(e) 
@@ -76,7 +80,7 @@ function c_add_ety(...)
     for pid, _ in pairs(c_pid or {} ) do
         local p = getPlayer(pid)
         if p then
-            --Rpc:addEty(p, d)
+            Rpc:addEty(p, d)
         end
     end
 end
@@ -86,7 +90,7 @@ function c_add_troop(...)
     for pid, _ in pairs(c_pid or {} ) do
         local p = getPlayer(pid)
         if p  then  
-            --Rpc:addEty(p, d)
+            Rpc:addEty(p, d)
         end
     end
 end
