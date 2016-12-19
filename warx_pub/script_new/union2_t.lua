@@ -64,7 +64,7 @@ function load()
             u.log = lg.log
             local csn = 0
             for _, v in pairs(lg.log or {}) do
-                if csn < v.sn then
+                if csn < (v.sn or 0) then
                     csn = v.sn
                 end
             end

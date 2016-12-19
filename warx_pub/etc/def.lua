@@ -47,37 +47,56 @@ module = module or function(mname)  --lua5.3 没有,模拟一个
     setfenv(2, _ENV[mname])
 end
 
+function c_pull_msg_roi()
+    return ROI_MSG.NTY_NO_RES 
+end
  c_pid = {}
 function c_mov_eye(pid,x,y)
     c_pid[pid] = {x=x,y=y}
-    for _, v in ipairs(c_eid or {} ) do
-        if  calc_line_length(x,y,v[3],v[4]) < 10  then
-        local p = getPlayer(pid)
-        if p  then  Rpc:addEty(v) end
-        end
-    end
-end
-function c_add_eye(x, y, lv, pid, gid)
-    c_pid[pid] = {x=x,y=y}
-    for _, v in ipairs(c_eid or {} ) do
-        if  calc_line_length(x,y,v[3],v[4]) < 10  then
-        local p = getPlayer(pid)
-        if p  then  Rpc:addEty(v) end
+    monster.do_check(x, y)
+    for _, e in pairs(gEtys or {} ) do
+        if not is_troop(e) and  calc_line_length(x,y,e.x,e.y) < 10  then
+            etypipe.add(e) 
         end
     end
 end
 
-c_eid = {}
-function c_add_ety(propid,eid,x,y,...)
-    c_eid[eid] = {propid,eid,x,y,...}
-    for pid, _ in ipairs(c_pid or {} ) do
+function c_add_eye(x, y, lv, pid, gid)
+    c_pid[pid] = {x=x,y=y}
+    monster.do_check(x, y)
+    for _, e in pairs(gEtys or {} ) do
+        if  not is_troop(e) and calc_line_length(x,y,e.x,e.y) < 10  then
+            etypipe.add(e) 
+        end
+    end
+end
+
+function c_add_ety(...)
+    local d = {...} 
+    for pid, _ in pairs(c_pid or {} ) do
         local p = getPlayer(pid)
-        if p  then  Rpc:addEty(c_eid[eid]) end
+        if p then
+            --Rpc:addEty(p, d)
+        end
     end
 end
 
 function c_add_troop(...)
-    c_add_eye(...)
+    local d = {...} 
+    for pid, _ in pairs(c_pid or {} ) do
+        local p = getPlayer(pid)
+        if p  then  
+            --Rpc:addEty(p, d)
+        end
+    end
+end
+
+function c_get_map_access(zx, zy)
+ return 0 
+end
+
+function c_get_pos_in_zone(x, y, r, r)
+    return x,y
 end
 
 function c_get_zone_lv(tx, ty)
