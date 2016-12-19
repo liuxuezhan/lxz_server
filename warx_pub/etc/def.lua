@@ -13,7 +13,7 @@ _list={
 
 }
 
-g_warx_t = {   port = 8888, maxclient=3000, room ="room1", db_name = "db_server1" } 
+g_warx_t = {   port = 8001, maxclient=3000, room ="room1", db_name = "db_server1" } 
 
 getfenv = getfenv or function(f)
     f = (type(f) == 'function' and f or debug.getinfo(f + 1, 'f').func)
