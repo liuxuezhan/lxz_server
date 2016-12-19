@@ -51,6 +51,7 @@ function c_pull_msg_roi()
     return ROI_MSG.NTY_NO_RES 
 end
  c_pid = {}
+local _x,_y=0,0
 function c_mov_eye(pid,x,y)
     c_pid[pid] = {x=x,y=y}
     local zx = math.floor( x / 16 ) 
@@ -70,7 +71,7 @@ function c_add_eye(x, y, lv, pid, gid)
     monster.do_check(zx, zy)
     for _, e in pairs(gEtys or {} ) do
         if  not is_troop(e) and calc_line_length(x,y,e.x,e.y) < 10  then
-            etypipe.add(e) 
+           -- etypipe.add(e) 
         end
     end
 end
@@ -96,7 +97,12 @@ function c_add_troop(...)
 end
 
 function c_get_map_access(zx, zy)
- return 0 
+    return 0 
+end
+
+function c_get_pos_by_lv(...)
+     _x = _x + 4
+    return _x,_y
 end
 
 function c_get_pos_in_zone(x, y, r, r)
@@ -140,10 +146,9 @@ end
 function c_add_scan(...)
 end
 
-local x,y=0,0
 function c_get_pos_born(...)
-    x = x + 4
-    return x,y
+    _x = _x + 4
+    return _x,_y
 end
 
 function c_roi_view_start(...)
@@ -201,9 +206,6 @@ mathx = {
  function c_md5(...)
  end
 
-function c_get_pos_by_lv(...)
-    return 0,0
-end
 
  function connect(host,port,...)
     local driver = require "socketdriver"
