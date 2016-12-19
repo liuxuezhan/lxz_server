@@ -79,6 +79,7 @@ local function accept(fd, addr)
                         player_t[d.f](plys[fd], unpack(d.args)  ) 
                     end
                 end
+                --main_loop(os.time(), os.time(), 0, 0, 1, 0)
             end
         end
     end

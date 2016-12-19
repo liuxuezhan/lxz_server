@@ -15,37 +15,70 @@ _list={
 
 g_warx_t = {   port = 8888, maxclient=3000, room ="room1", db_name = "db_server1" } 
 
-    getfenv = getfenv or function(f)
-        f = (type(f) == 'function' and f or debug.getinfo(f + 1, 'f').func)
-        local name, val
-        local up = 0
-        repeat
-            up = up + 1
-            name, val = debug.getupvalue(f, up)
-        until name == '_ENV' or name == nil
-        return val
-    end
+getfenv = getfenv or function(f)
+    f = (type(f) == 'function' and f or debug.getinfo(f + 1, 'f').func)
+    local name, val
+    local up = 0
+    repeat
+        up = up + 1
+        name, val = debug.getupvalue(f, up)
+    until name == '_ENV' or name == nil
+    return val
+end
 
-    setfenv = setfenv or function(f, t) --lua5.3 没有,模拟一个
-        f = (type(f) == 'function' and f or debug.getinfo(f + 1, 'f').func)
-        local name
-        local up = 0
-        repeat
-            up = up + 1
-            name = debug.getupvalue(f, up)
-        until name == '_ENV' or name == nil
-        if name then
-            debug.upvaluejoin(f, up, function() return name end, 1) -- use unique upvalue
-            debug.setupvalue(f, up, t)
+setfenv = setfenv or function(f, t) --lua5.3 没有,模拟一个
+    f = (type(f) == 'function' and f or debug.getinfo(f + 1, 'f').func)
+    local name
+    local up = 0
+    repeat
+        up = up + 1
+        name = debug.getupvalue(f, up)
+    until name == '_ENV' or name == nil
+    if name then
+        debug.upvaluejoin(f, up, function() return name end, 1) -- use unique upvalue
+        debug.setupvalue(f, up, t)
+    end
+end
+
+
+module = module or function(mname)  --lua5.3 没有,模拟一个
+    _ENV[mname] = _ENV[mname] or {}
+    setmetatable(_ENV[mname], {__index = _ENV})
+    setfenv(2, _ENV[mname])
+end
+
+ c_pid = {}
+function c_mov_eye(pid,x,y)
+    c_pid[pid] = {x=x,y=y}
+    for _, v in ipairs(c_eid or {} ) do
+        if  calc_line_length(x,y,v[3],v[4]) < 10  then
+        local p = getPlayer(pid)
+        if p  then  Rpc:addEty(v) end
         end
     end
-
-
-    module = module or function(mname)  --lua5.3 没有,模拟一个
-        _ENV[mname] = _ENV[mname] or {}
-        setmetatable(_ENV[mname], {__index = _ENV})
-        setfenv(2, _ENV[mname])
+end
+function c_add_eye(x, y, lv, pid, gid)
+    c_pid[pid] = {x=x,y=y}
+    for _, v in ipairs(c_eid or {} ) do
+        if  calc_line_length(x,y,v[3],v[4]) < 10  then
+        local p = getPlayer(pid)
+        if p  then  Rpc:addEty(v) end
+        end
     end
+end
+
+c_eid = {}
+function c_add_ety(propid,eid,x,y,...)
+    c_eid[eid] = {propid,eid,x,y,...}
+    for pid, _ in ipairs(c_pid or {} ) do
+        local p = getPlayer(pid)
+        if p  then  Rpc:addEty(c_eid[eid]) end
+    end
+end
+
+function c_add_troop(...)
+    c_add_eye(...)
+end
 
 function c_get_zone_lv(tx, ty)
     return 1
@@ -63,11 +96,7 @@ end
 function pullInt()
 end
 
-function c_add_eye(...)
-end
 
-function c_mov_eye(...)
-end
 
 function pullNext()
 end
@@ -84,11 +113,6 @@ function lwarn(...)
 lxz(...)
 end 
 
-function c_add_ety(...)
-end
-
-function c_add_troop(...)
-end
 
 function c_add_scan(...)
 end

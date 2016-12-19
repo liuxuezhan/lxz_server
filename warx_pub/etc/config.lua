@@ -23,7 +23,7 @@ Daemon = 0
 --BuddySize = 1024
 
 GameHost = "192.168.100.12"
-APP_ID = "warx_test" 
+APP_ID= "warx_test" 
 SERVER_ID = Map
 PLAT_ID = 1 
 
