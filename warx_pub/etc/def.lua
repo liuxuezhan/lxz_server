@@ -53,6 +53,7 @@ end
  c_pid = {}
 local _x,_y=0,0
 function c_mov_eye(pid,x,y)
+lxz(x,y)
     c_pid[pid] = {x=x,y=y}
     local zx = math.floor( x / 16 ) 
     local zy = math.floor( y / 16 )

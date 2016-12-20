@@ -13,7 +13,8 @@ local client_number = 0
 local function read(fd)
     local ok ,ret = pcall(socket.readline,fd)
     if not ok then
-		skynet.error(string.format("socket(%d) read fail", fd))
+        if ret then lxz(fd, ret) end
+        ret = nil
     end
     return ret
 end
@@ -68,7 +69,7 @@ local function accept(fd, addr)
         local ret = read(fd)
         if ret then
             local d = json.decode(copyTab(ret))
-                lxz(d)
+        --        lxz(d)
             if d then
                 if d.f == "firstPacket2" then
                     d.args[1]=fd
@@ -121,9 +122,7 @@ skynet.start(function()
         lxz(string.format("connect from %s (fd = %d)", addr, fd))
         local ok, err = pcall(accept, fd, addr)
         if not ok then
-            if err then
-                lxz(fd, err)
-            end
+            if err then lxz(fd, err) end
         end
         close_fd(fd)
     end

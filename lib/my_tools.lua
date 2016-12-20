@@ -814,3 +814,597 @@ module = module or function(mname)  --lua5.3 没有,模拟一个
     setmetatable(_ENV[mname], {__index = _ENV})
     setfenv(2, _ENV[mname])
 end
+function string_split(str, delim, maxNb)      
+    if string.find(str, delim) == nil then  
+        return { str }  
+    end  
+    if maxNb == nil or maxNb < 1 then  
+        maxNb = 0    -- No limit   
+    end  
+    local result = {}  
+    local pat = "(.-)" .. delim .. "()"   
+    local nb = 0  
+    local lastPos   
+    for part, pos in string.gfind(str, pat) do  
+        nb = nb + 1  
+        result[nb] = part   
+        lastPos = pos   
+        if nb == maxNb then break end  
+    end  
+    -- Handle the last field   
+    if nb ~= maxNb then  
+        result[nb + 1] = string.sub(str, lastPos)   
+    end  
+    return result   
+end  
+
+function string_startswith(str, prefix)
+    return string.find(str, prefix) == 1
+end
+
+function string_endswith(str, suffix)
+    return string_startswith(string.reverse(str), string.reverse(suffix))
+end
+
+function string_trim(s)
+    local first = string.find(s, '%S')
+    if not first then return '' end
+    local last = string.find(string.reverse(s), '%S')
+    return string.sub(s, first, #s + 1 - last)
+end
+
+-- 计算utf8字符串的字符个数，英文字符和中文字符等价都算作1个
+function string_utf8_len( s )
+    local _, count = string.gsub(s, "[^\128-\193]", "")
+    return count
+end
+
+function array_equal(t, t2)
+    for i, v in ipairs(t) do
+        if v ~= t2[i] then return false end
+    end
+    return true
+end
+
+function array_merge(array1, array2)
+    local ret = {}
+    for i = 1, #array1 do
+        table.insert(ret, array1[i])
+    end
+    for i = 1, #array2 do
+        table.insert(ret, array2[i])
+    end
+    return ret
+end
+
+function array_copy(ar)
+    return array_merge({}, ar)
+end
+
+function array_sub(ar, st, ed)
+    local r = {}
+    for i = st, ed do
+        table.insert(r, ar[i])
+    end
+    return r
+end
+
+function array_unique(array)
+    local r = {}
+    local s = {}
+    for _, v in ipairs(array) do
+        if not s[v] then
+            s[v] = true
+            table.insert(r, v)
+        end
+    end
+    return r
+end
+
+function array_new(len, val)
+    local r = {}
+    for i = 1, len do
+        table.insert(r, val)
+    end
+    return r
+end
+
+function array_find(t, val)
+    for i, v in ipairs(t) do
+        if val == v then return i end
+    end
+    return -1
+end
+
+function array_insert(t, val)
+    if array_find(t, val) == -1 then
+        table.insert(t, val)
+    end
+end
+
+function array_delete(t, val)
+    local ix = array_find(t, val)
+    if ix > -1 then
+        table.remove(t, ix)
+    end
+end
+
+function array_find_in_field(t, field, val)
+     for i, v in ipairs(t) do
+        if val == v[field] then return i end
+    end
+    return -1
+end
+
+function array_find_obj_in_field(t, field, val)
+    for i, v in ipairs(t) do
+        if val == v[field] then return v end
+    end
+    return nil
+end
+
+function array_reverse(t)
+    local ret = {}
+    for i= #t, 1, -1  do
+        table.insert(ret, t[i])
+    end
+    return ret
+end
+
+function array_random(t, num)
+    if num >= #t then return array_copy(t) end
+    local ret = {}
+    local ixs = {}
+    for i = 1, num do
+        local r = math.random(#t)
+        while array_find(ixs, r) > -1 do
+            r = math.random(#t)
+        end
+        table.insert(ixs, r)
+        table.insert(ret, t[r])
+    end
+    return ret
+end
+
+function array_resort(t)
+    for i = 1, #t do
+        local r = math.random(#t)
+        t[i], t[r] = t[r], t[i]
+    end
+end
+
+function table_size(t)
+    local r = 0
+    for _, _ in pairs(t) do r = r + 1 end
+    return r
+end
+
+function table_empty(t)
+    return not next(t)
+end
+
+function table_merge(dest, src)
+    for k, v in pairs(src) do
+        dest[k] = v
+    end
+    return dest
+end
+
+function table_find(t, val)
+    for k, v in pairs(t) do
+        if val == v then return k end
+    end
+    return nil
+end
+
+function table_equal(t, t2)
+    local n = 0
+    for k, v in pairs(t) do
+        if v ~= t2[k] then return false end
+        n = n + 1
+    end
+    return n == table_size(t2)
+end
+
+function table_copy(t)
+    return table_merge({}, t)
+end
+
+function table_keys(t)
+    local r = {}
+    for k, _ in pairs(t) do
+        table.insert(r, k)
+    end
+    return r
+end
+
+function table_values(t)
+    local r = {}
+    for _, v in pairs(t) do
+        table.insert(r, v)
+    end
+    return r
+end
+
+function table_filter(t, func)
+    local r = {}
+    for k, v in pairs(t) do
+        if func(k, v) then r[k] = v end
+    end
+    return r
+end
+
+function table_random(t, num)
+    local ar = table_values(t)
+    return array_random(ar, num)
+end
+
+function table_from_key(t, key, value)
+    local r = {}
+    for k, v in pairs(t) do
+        if v[key] == value then table.insert(r, v) end
+    end
+    return r
+end
+
+function table_map(t, func)
+    local r = {}
+    for k, v in pairs(t) do
+        local nk, nv = func(k, v)
+        r[nk] = nv
+    end
+    return r
+end
+
+function table_requal(t, t2)
+    local n = 0
+    for k, v in pairs(t) do
+        if type(v) == 'table' then
+            local v2 = t2[k]
+            if type(v2) ~= 'table' then return false end
+            if not table_requal(v, v2) then return false end
+        else
+            if v ~= t2[k] then return false end
+        end
+        n = n + 1
+    end
+    return n == table_size(t2)
+end
+
+function table_rcopy(t)
+    local r = {}
+    for k, v in pairs(t) do
+        if type(v) == 'table' then
+            r[k] = table_rcopy(v)
+        else
+            r[k] = v
+        end
+    end
+    return r
+end
+
+-- 是否为中文
+function is_gbchar( _char )
+    if _char >= 0x81 then
+        return true
+    else
+        return false     
+    end
+end
+
+function sub_gbstr(_str,_len)
+    local real_len = 0
+    local length = string.len(_str)
+    local i = 1
+
+    while real_len < _len and i <= length do
+        local char = string.sub(_str,i,i)
+        if is_gbchar(string.byte(char)) then
+            i = i + 3
+        else
+            i = i + 1
+        end
+        real_len = real_len + 1
+    end
+
+    return string.sub(_str,1,i)
+end
+
+--按照中文回车
+function gen_chinese_str(_str,len)
+    if _str == " " then
+        return _str
+    end
+    local length = string.len(_str)
+    local i = 1
+    local ret_arr = {}
+
+    while i <= length do
+        local char = string.sub(_str,i,i)
+        if is_gbchar(string.byte(char)) then
+            table.insert(ret_arr, string.sub(_str,i,i+2))
+            i = i + 3
+        else
+            table.insert(ret_arr, string.sub(_str,i,i))
+            i = i + 1
+        end
+    end
+    local ret = ""
+    local c = 0
+    for _, w in ipairs(ret_arr) do
+        c = c + 1
+        ret = ret .. w
+        if c >= len then
+            break
+        end
+    end
+    return ret
+end
+--按照中文回车
+function split_chinese(_str)
+    if _str == " " then
+        return _str
+    end
+    local length = string.len(_str)
+    local i = 1
+    local ret_arr = {}
+
+    while i <= length do
+        local char = string.sub(_str,i,i)
+        if is_gbchar(string.byte(char)) then
+            table.insert(ret_arr, string.sub(_str,i,i+2))
+            i = i + 3
+        else
+            table.insert(ret_arr, string.sub(_str,i,i))
+            i = i + 1
+        end
+    end
+    local name = ""
+    for _, w in ipairs(ret_arr) do
+        name = name .. w .. "\n"
+    end
+    return name
+end
+
+function is_utf8char( c )
+    if c >= 128 then
+        if c < 194 or c > 245 then
+            return false, 0
+        end
+
+        if c >= 194 and c < 224 then
+            b = 1
+        elseif c >= 224 and c < 240 then
+            b = 2
+        --elseif c >= 240 and c <= 244 then 不需要支持
+        --    b = 3
+        else
+            return false, 0
+        end
+        return true, b
+    end
+    return false, 0
+end
+
+
+function is_program_keyword( ch )
+    program_keyword = { [','] = true, [';'] = true, ['/'] = true, ['\''] = true, ['\\'] = true, ['%'] = true, ['?'] = true, ['#'] = true, ['<'] = true, ['>'] = true }
+    if( program_keyword[ch] == true )then
+        return true
+    else
+        return false
+    end
+end
+
+function is_punctuation_char( s )
+    if( type(s) == "string" and string.len(s) == 1 )then
+        if( string.match( s, "%p") )then
+            return true
+        else
+            return false
+        end
+    else
+        return false
+    end
+end
+
+function is_alpha_num_char( s )
+    if( type(s) == "string" and string.len(s) == 1 )then
+        if( string.match( s, "%w") )then
+            return true
+        else
+            return false
+        end
+    else
+        return false
+    end
+end
+--检查是否合法的字符
+function is_valid_string2(s)
+    if( type(s) == "string" )then
+        local length = string.len(s)
+        local i = 1
+        while( i <= length )do
+            local first_char = string.sub( s, i, i )
+            local utf8, offset = is_utf8char( string.byte( first_char ) )
+            if utf8 then
+                local utf8_char = string.sub( s, i+1, i+offset )
+                for j = 1, offset, 1 do
+                    local c = string.byte( utf8_char, j)
+                    if c < 128 or c >= 192 then
+                        print("is invalidate utf8")
+                        return false, "is invalidate utf8"
+                    end
+                end
+                i = i + offset
+            elseif( is_program_keyword( first_char ) == true )then
+                print("is keyword")
+                return false, "is keyword"
+            elseif( is_alpha_num_char( first_char ) == false )then
+                if( is_punctuation_char( first_char ) == false )then
+                    print("is alpha num char")
+                    return false, "is alpha num char"
+                end
+            end
+            i = i + 1
+        end
+    else
+        return false, "not string"
+    end
+    return true
+end
+
+--检查是否含有英文，数字
+function have_number_word(s)
+    if( type(s) == "string" )then
+        return false
+    end
+    local length = string.len(s)
+    local i = 1
+    while( i <= length )do
+        local first_char = string.sub( s, i, i )
+        local utf8, offset = is_utf8char( string.byte( first_char ) )
+        if utf8 then
+            i = i + offset
+        else
+            local c = string.byte(first_char)
+            if (c >= 0x41 and c <= 0x5A) or (c >= 0x61 and c <= 0x7A) then
+                return true
+            end
+        end
+        i = i + 1
+    end
+    return false
+end
+
+------------------------------------------------------------------------------
+--是否包含过滤词
+function is_include_filter(_str)
+    local filter_map = resmng.prop_filter
+    for word, _ in pairs(filter_map) do
+        if string.find( _str, word ) then 
+            return true
+        end
+    end
+    return false
+end
+
+
+function string.replace( str, tofind, toreplace )
+    tofind = tofind:gsub( "[%-%^%$%(%)%%%.%[%]%*%+%?]", "%%%1" )
+    toreplace = toreplace:gsub( "%%", "%%%1" )
+    return ( str:gsub( tofind, toreplace ) )
+end
+
+-- 替换敏感词
+function replace_filter(_str, _rep)
+    _rep = _rep or '*'
+    local filter_map = resmng.prop_filter
+    for word, _ in pairs(filter_map) do
+        _str = string.replace( _str, word, _rep )
+    end
+    return _str
+end
+
+-- 世界频道替换敏感词
+function replace_world_filter(_str, _rep)
+    _rep = _rep or '*'
+    local filter_map = resmng.prop_World_filter
+    for word, _ in pairs(filter_map) do
+        _str = string.replace( _str, word, _rep )
+    end
+    return _str
+end
+------------------------------------------------------------------------------
+
+local floor = math.floor
+function bxor(a,b)
+  local r = 0
+  for i = 0, 31 do
+    local x = a / 2 + b / 2
+    if x ~= floor (x) then
+      r = r + 2^i
+    end
+    a = floor (a / 2)
+    b = floor (b / 2)
+  end
+  return r
+end
+
+function gen_invite_id(id)
+    if id == 0 then
+        return id
+    end
+    return bxor(id,59864)
+end
+
+function bind_func( self, func )
+    local function target_func( ... )
+        func( self, unpack(arg) )
+    end
+    return target_func
+end
+
+function mergeAB2A(dst, src)
+    dst = dst or {}
+    for k, v in pairs(src) do
+        table.insert(dst, v)
+    end
+    return dst
+end
+
+--迭代器，与pairs用法相同，保证索引从小到大取值而不是按哈希值取值
+function pairsByIndex(tbl)
+    local key_list = {}
+    for k, v in pairs(tbl) do
+        table.insert(key_list, k)
+    end
+    table.sort(key_list)
+    local i = 0
+
+    return function()
+        i = i + 1
+        if key_list[i] then
+            return key_list[i], tbl[key_list[i]]
+        end
+    end
+end
+
+--- 分隔字符成组
+function string_split_array(str, exp)
+    local result = {}
+    local strlen = #str
+    local index = 1
+    while index < strlen do
+        local start_pos, end_pos = string.find(str, exp, index)
+        if start_pos == nil then
+            break;
+        else
+            local match_str = string.sub(str, index, start_pos - 1)
+            result[#result + 1] = match_str
+            index = end_pos + 1
+        end
+    end
+    result[#result + 1] = string.sub(str, index)
+
+    return result
+end
+
+--- table sort by key
+function table_sort_by_key(tbl, func)
+  local key_lst = table_keys(tbl)
+
+  sort_func = sort_func or function(a, b) return a < b end
+
+  table.sort(key_lst, function(a, b)
+    return sort_func(a, b)
+  end)
+
+  local i = 0
+  return function()
+    i = i + 1
+    if key_lst[i] then
+      return key_lst[i], tbl[key_lst[i]]
+    end
+  end
+end

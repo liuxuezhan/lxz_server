@@ -260,8 +260,8 @@ local function callRpc( rpc, name, plA, ... )
 
     local socket = require "socket"
     local pack = {name=name,args={...}, }
+    lxz(pack)
     pack = json.encode(pack)
-    --lxz(pack)
     pack = string.pack(">s", pack)
     if plA.sockid then
         socket.write(plA.sockid, pack)
