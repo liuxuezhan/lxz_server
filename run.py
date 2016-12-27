@@ -38,9 +38,8 @@ if __name__ == "__main__":
     else:
 
         lua_conf = '%s/etc/def.lua'%(path)
-        open(lua_conf, 'r+').write(
-            re.sub("g_host.*", "g_host = \"%s\""%(ip), open(lua_conf).read())
-            )
+        data = re.sub("g_host.*", "g_host = \"%s\""%(ip), open(lua_conf).read())
+        open(lua_conf, 'w').write(data)
 
         cluster = '%s/etc/clustername.lua'%(path)
         data = re.sub("login1.*", "login1 = \"%s:2528\""%(ip), open("lib/clustername.lua").read())
