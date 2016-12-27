@@ -1,3 +1,3 @@
-git fetch --all  
-git reset --hard origin/master 
+git stash
 git pull
+git stash pop stash@{0}
