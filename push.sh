@@ -10,4 +10,4 @@ else
    git commit -m "$timestamp" 
    echo "日志名：$timestamp"
 fi
-git push all -f 
+git push all 
