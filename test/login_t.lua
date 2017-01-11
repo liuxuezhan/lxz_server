@@ -4,8 +4,9 @@ local crypt = require "crypt"
 local cluster = require "cluster"
 local string = string
 local ply_t = require "ply_t"
-local name_t = require "name_t"
 local time_t = require "time_t"
+require "name_t"
+local bson = require "bson"
 
 local svrs = {}
 
@@ -82,7 +83,8 @@ local function accept(fd, addr)
 
     ins = msg_t.unpack(ins)
     ins = msg_t.unzip("cs_login",ins)
-    lxz(ins)
+    pause()
+    ins._id = bson.objectid()
     local p,pid = name_t.login(ins)
 
     if p then --踢掉上次登录

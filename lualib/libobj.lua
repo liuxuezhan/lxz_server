@@ -6,27 +6,6 @@ _M.save = {}
 local _name =...
 _G[_name] = _M
 
-__mt_rec = {
-    __index = function (self, recid)
-        local t = self.__cache[ recid ]
-        if t then
-            self.__cache[ recid ] = nil
-            t._n_ = nil
-        else
-            t = {}
-        end
-        self[ recid ] = t
-        return t
-    end
-}
-__mt_tab = {
-    __index = function (self, tab)
-        local t = { __cache={} }
-        setmetatable(t, __mt_rec)
-        self[ tab ] = t
-        return t
-    end
-}
 setmetatable(_M.save, __mt_tab)
 
 function _M.one(_name,_example)

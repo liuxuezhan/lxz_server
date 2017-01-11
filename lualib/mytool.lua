@@ -1,5 +1,44 @@
 -- warx项目common/tool.lua 移植
 
+_mt = { --自动表
+    __index = function (k, v)
+        local t = { }
+        setmetatable(t, _mt)
+        k[ v ] = t
+        return t
+    end
+}
+__mt_rec = {
+    __index = function (self, recid)
+        local t = self.__cache[ recid ]
+        if t then
+            self.__cache[ recid ] = nil
+            t._n_ = nil
+        else
+            t = {}
+        end
+        self[ recid ] = t
+        return t
+    end
+}
+__mt_tab = { --保存表
+    __index = function (self, tab)
+        local t = { __cache={} }
+        setmetatable(t, __mt_rec)
+        self[ tab ] = t
+        return t
+    end
+}
+
+function guid()
+    local seed = { '1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'} 
+    local tb = {}
+    for i =1,32 do
+        table.insert(tb,seed[math.random(16)])
+    end
+    return table.concat(tb)
+end
+
 function tab_add(...)--合并buff值
     local t = {}
     for _, ts in pairs({...}) do

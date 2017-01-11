@@ -2,6 +2,7 @@
 
 local _M= {
         _d = {},--数据
+        _acc = {},--帐号唯一
     }
 setmetatable(_M._d, {__mode = "v"})
 
@@ -24,35 +25,25 @@ function _M.load(conf)
 end
 
 
-function _M.login( ins )
-
-    local pid = ins.pid
-    local self = _M._d[ins.name] 
-    if not self then
-        g_nid = g_nid + 1
-        self = {_id=ins.name,nid=g_nid,pwd=ins.pwd }
+function _M.login( t )
+    if not t then return end
+    if t._id then
+    else
+        _M.new(t)
     end
-    if ins.pwd ~= self.pwd then return end
-
-    if not self[ins.pid] then
-        if not self.online then
-            g_pid = g_pid + 1
-            self[tostring(g_pid)] = ins.sid
-            pid = tostring(g_pid)
-        else
-            pid = self.online.pid 
-        end
-    end
-
-    return self,pid
 end
 
-function _M.new(server,name,pwd)
-    if not _M._d[name] then
-        _M._d[name]=libobj.one(_name,{_id=1,name=name,pwd=pwd})
---local bson = require "bson"
-        --_M._d[name]=libobj.one(_name,{_id=bson.objectid(),name=name,pwd=pwd})
-        return _M._d[name]
+function _M.new(t)
+    if not t then return end
+    if type(t)~="table" then return end
+    t._id = guid()
+    if not _M._d[t._id] then
+        local one = libobj.one(_name,t)
+        _M._d[t._id] = one 
+        _M._acc[t.acc] = one 
+        local one 
+    else
+        lxz1("guid失败:"..t._id)
     end
 end
 

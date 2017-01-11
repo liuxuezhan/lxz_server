@@ -1,7 +1,7 @@
-LUALIB=-I../../skynet/3rd/lua/ -L../../skynet.3rd/lua/ -llua 
+#LUALIB=-I../../skynet/3rd/lua/ -L../../skynet/3rd/lua/ -llua 
 
-#LUA_LIB=../../skynet/3rd/lua
-#LUALIB= -lm  $(LUA_LIB)/liblua.a -DLUA_USE_READLINE -ldl  -Wl,-E  -lrt
+LUA_LIB=../../skynet/3rd/lua
+LUALIB=   -I$(LUA_LIB) $(LUA_LIB)/liblua.a 
 
 SOCKETLIB=-lws2_32
 
@@ -19,7 +19,7 @@ mongo.dll : lua-mongo.c lua-socket.c
 	gcc --shared -Wall -g $^ -o$@ $(LUALIB) $(SOCKETLIB)
 
 mongo.so : lua-mongo.c lua-socket.c
-	gcc --shared -Wall -fPIC -g $^ -o$@ 
+	gcc --shared -Wall -fPIC -g $^ -o$@ $(LUALIB)
 
 bson.dll : bson.c
 	gcc --shared -Wall -O2 $^ -o$@ $(LUALIB) $(SOCKETLIB)
