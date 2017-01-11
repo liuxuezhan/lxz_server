@@ -1,10 +1,9 @@
 
 
-require "my_tools"
+require "mytool"
 json = require "json"
 save_t = require "my_save"
-
-msg_t = require "msg_t"
+msg_t = require "mymsg"
 --------------------------------------------服务器配置--------------------------------------------------------------------------------
 g_tm = os.time() --系统时间
 g_cid = 1    --集群id

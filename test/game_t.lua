@@ -1,7 +1,8 @@
 skynet = require "skynet"
 local socket = require "socket"
 local cluster = require "cluster"
-require "time_t"
+local time_t = require "time_t"
+local ply_t = require "ply_t"
 local assert = assert
 
 local socket_id	-- listen socket

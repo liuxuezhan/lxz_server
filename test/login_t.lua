@@ -100,7 +100,7 @@ local function accept(fd, addr)
     end
 
     p.online = {pid=pid,addr=addr,fd= fd, tm_login=g_tm }
-    name_t.save(p)
+    --name_t.save(p)
 
     local s = svrs[ins.sid]
     if not s then

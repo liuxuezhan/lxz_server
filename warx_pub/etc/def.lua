@@ -1,7 +1,7 @@
 -----------------------------------warx项目专用----------------------------------------------
 -- 原warx 的socket由c语言引擎统一队列处理 ，移植后由lua分发处理
 json = require "json"
-require "my_tools"
+require "mytool"
 g_host = "10.0.2.15"
 
 _list={

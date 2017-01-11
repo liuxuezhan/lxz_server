@@ -28,7 +28,7 @@ if __name__ == "__main__":
     (name,ext) = os.path.splitext(name)
     print ip
     print path
-    lua_path = "skynet/?.lua;skynet/lualib/?.lua;lib/?.lua;lualib/?.lua;lib/rpc/?.lua;?.lua;%s/?.lua"%(path)
+    lua_path = "skynet/?.lua;skynet/lualib/?.lua;lualib/?.lua;lib/rpc/?.lua;?.lua;%s/?.lua"%(path)
 
     if name == "warx":
         lua_path = lua_path + ";%s/script_new/?.lua"%(path)

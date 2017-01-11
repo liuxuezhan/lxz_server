@@ -27,7 +27,7 @@ end
 function _M.cs_login(msg)--接受
 lxz(msg)
     self={_id=msg.online.pid,nid=msg.nid }
-    ply_t.save(self)
+    --ply_t.save(self)
 end
 
 function _M.enter(pid,tid)
