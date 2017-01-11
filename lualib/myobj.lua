@@ -45,7 +45,7 @@ __mt_del_tab = {
 setmetatable(mod.del, __mt_del_tab)
 
 
-function mod.new(_name,_example)
+function mod.one(_name,_example)
     local _mt = {
         __index = function (t, k)
             if t._pro[k] ~= nil then return t._pro[k] end

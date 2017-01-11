@@ -90,7 +90,6 @@ function cache_check(cache, table_name, check_table)
     -- 校验了不同的key指向了同一个cache的错误，出现此问题肯定是逻辑上写错了
     -- 20161208 在act项目中，出现了2张不同的表里面的相同的id指向了同一个cache的错误
     -- 如果在同一帧存储，也会导致_n_为nil的情况，所以增加了check的范围
-    if not config.Release then
         for id, chgs in pairs(cache) do
             if check_table[chgs] ~= nil then
                 local exist_record = check_table[chgs]
@@ -100,9 +99,9 @@ function cache_check(cache, table_name, check_table)
                 check_table[chgs] = {table_name, id}
             end
         end
-    end
 end
 
+gUpdateCallBack = {}
 function mode.save_mongo(data,fd,db_name)
     local gFrame = (gFrame or 0) + 1
     if fd then

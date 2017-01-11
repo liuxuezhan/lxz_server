@@ -1,14 +1,20 @@
-module(..., package.seeall)
-_d = {}--数据
+
+local mongo = require "mongo"
+local bson = require "bson"
+local mod = require "myobj"
+
+local _M= {
+        _d = {},--数据
+    }
+
 local _name =...
-function load(conf)
-    local mongo = require "mongo"
+function _M.load(conf)
     for name,v  in pairs(conf) do
         local db = mongo.client(v)
         local info = db[name].name:find({})
         while info:hasNext() do
             local d = info:next()
-            _d[d._id]=d
+            _M._d[d._id]=d
             if  type(d.name)=="number"  and g_nid < d.pid then
                 g_nid = d.pid
             end
@@ -17,10 +23,10 @@ function load(conf)
 end
 
 
-function login( ins )
+function _M.login( ins )
 
     local pid = ins.pid
-    local self = _d[ins.name] 
+    local self = _M._d[ins.name] 
     if not self then
         g_nid = g_nid + 1
         self = {_id=ins.name,nid=g_nid,pwd=ins.pwd }
@@ -40,18 +46,11 @@ function login( ins )
     return self,pid
 end
 
-function save(self)
-    _d[self._id]=self
-    save_t.data[_name][self._id]=self
-end
-
-function new(server,name,pwd)
-    if not _d[name] then
-        cur = cur + 1
-        local id = server.."_"..cur
-        _d[name]={_id=id,pid=cur,name=name,pwd=pwd}
-        return _d[name]
+function _M.new(server,name,pwd)
+    if not _M._d[name] then
+        _M._d[name]=mod.one(_name,{_id=bson.objectid(),pid=cur,name=name,pwd=pwd})
+        return _M._d[name]
     end
 end
 
-
+return _M

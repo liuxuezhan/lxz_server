@@ -1,9 +1,8 @@
-module(..., package.seeall)
 cur = 1000--当前最大id
-_d = {}--数据
+local _M = {_d = {}}--数据
 _onlines = {} --在线玩家
 local _name = ...
-function load(conf)
+function _M.load(conf)
     local mongo = require "mongo"
     local db = mongo.client(conf)
     local info = db[g_sid].ply:find({})
@@ -16,7 +15,7 @@ function load(conf)
     end
 end
 
-function cs_msg( fd,pid,mid,msg )
+function _M.cs_msg( fd,pid,mid,msg )
     if mid == "cs_enter" then
         local self = _d[pid]
         if not self then log("没有角色")  return end
@@ -25,13 +24,13 @@ function cs_msg( fd,pid,mid,msg )
     end
 end
 
-function cs_login(msg)--接受
+function _M.cs_login(msg)--接受
 lxz(msg)
     self={_id=msg.online.pid,nid=msg.nid }
     ply_t.save(self)
 end
 
-function enter(pid,tid)
+function _M.enter(pid,tid)
     local self = _d[pid]
     if not self then
         self = {_id=pid,tid= tid }
@@ -39,12 +38,12 @@ function enter(pid,tid)
 end
 
 
-function save(self)
+function _M.save(self)
     _d[self._id]=self
     save_t.data[_name][self._id]=self
 end
 
-function new(server,name,pwd)
+function _M.new(server,name,pwd)
     if not _d[name] then
         cur = cur + 1
         local id = server.."_"..cur
@@ -105,3 +104,4 @@ function consCheck(pid,tab) --前置条件检查
     end
     return true
 end
+return _M

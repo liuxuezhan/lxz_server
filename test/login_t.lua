@@ -3,9 +3,9 @@ local socket = require "socket"
 local crypt = require "crypt"
 local cluster = require "cluster"
 local string = string
-require "ply_t"
-require "name_t"
-require "time_t"
+local ply_t = require "ply_t"
+local name_t = require "name_t"
+local time_t = require "time_t"
 
 local svrs = {}
 
