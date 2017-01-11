@@ -3,6 +3,7 @@ require("mytool")
 
 local _M = {}
 _M.save = {} 
+_M._ex = {} 
 local _name =...
 _G[_name] = _M
 
@@ -30,7 +31,8 @@ local __mt_tab = {
 }
 setmetatable(_M.save, __mt_tab)
 
-function _M.one(_name,_example)
+function _M.one(_name)
+    local _example = _M._ex[_name]
     local _mt1 = {
         __index = function (t, k)
             if t._pro[k]  then return t._pro[k] end
@@ -58,10 +60,30 @@ function _M.one(_name,_example)
             end
         end
     }
-    setmetatable(_example, _mt)
-    local one = { _name=_name, _pro = copyTab(_example) }
+    local one = { _pro = copyTab(_example) }
     setmetatable(one, _mt1)
+    if not one._id then  lxz1("没有_id") return  end
+    one._id = guid()
     _M.save[ _name ][ one._id ] = one._pro
+    return one
+end
+
+function _M.one2(_name)
+    local _example = _M._ex[_name]
+    local _mt1 = { --自动表
+    __index = function (k, v)
+        local t = { }
+        setmetatable(t, _mt)
+        k[ v ] = t
+        return t
+    end
+    }
+
+    local one = _example 
+    setmetatable(one, _mt1)
+    if not one._id then  lxz1("没有_id") return  end
+    one._id = guid()
+    _M.save[ _name ][ one._id ] = one
     return one
 end
 

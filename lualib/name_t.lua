@@ -9,6 +9,7 @@ setmetatable(_M._d, {__mode = "v"})
 require "libobj"
 local _name =...
 _G[_name] = _M
+libobj._ex[_name] = {_id=0,name="null",acc="null"}
 function _M.load(conf)
     local mongo = require "mongo"
     for name,v  in pairs(conf) do
@@ -38,9 +39,9 @@ function _M.new(t)
     if type(t)~="table" then return end
     t._id = guid()
     if not _M._d[t._id] then
-        local one = libobj.one(_name,t)
-        _M._d[t._id] = one 
-        _M._acc[t.acc] = one 
+        local one = libobj.one(_name)
+        _M._d[one._id] = one 
+        _M._acc[one.acc] = one 
         return one 
     else
         lxz1("guid失败:"..t._id)
