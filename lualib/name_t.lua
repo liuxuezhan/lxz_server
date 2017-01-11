@@ -5,9 +5,9 @@ local _M= {
     }
 setmetatable(_M._d, {__mode = "v"})
 
-
-local mod = require "myobj"
+require "libobj"
 local _name =...
+_G[_name] = _M
 function _M.load(conf)
     local mongo = require "mongo"
     for name,v  in pairs(conf) do
@@ -49,15 +49,15 @@ end
 
 function _M.new(server,name,pwd)
     if not _M._d[name] then
-        _M._d[name]=mod.one(_name,{_id=1,name=name,pwd=pwd})
+        _M._d[name]=libobj.one(_name,{_id=1,name=name,pwd=pwd})
 --local bson = require "bson"
-        --_M._d[name]=mod.one(_name,{_id=bson.objectid(),name=name,pwd=pwd})
+        --_M._d[name]=libobj.one(_name,{_id=bson.objectid(),name=name,pwd=pwd})
         return _M._d[name]
     end
 end
 
 function _M.del(one)
-    mod.save[_name][ one._id ]._a_ = 0
+    libobj.save[_name][ one._id ]._a_ = 0
     _M._d[one._id] = nil
 end
 

@@ -3,6 +3,8 @@ require("mytool")
 
 local _M = {}
 _M.save = {} 
+local _name =...
+_G[_name] = _M
 
 __mt_rec = {
     __index = function (self, recid)

@@ -3,6 +3,7 @@ local _M = {}
 max_sn =  g_cid*1000 
 _sns = _sns or {}
 local _funs = {}
+local save_t = require "my_save"
 _funs["save_db"] = function(sn,db)
     if next(save_t.data) then
         lxz(db,save_t.data)

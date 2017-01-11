@@ -139,7 +139,7 @@ function lxz(...)--打印表
 end
 
 function print_tab(sth,h)
-
+    h = h or ""
     if type(sth) ~= "table" then
         if type(sth) == "boolean" then
             if sth then
