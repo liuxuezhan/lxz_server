@@ -8,27 +8,6 @@ _mt = { --自动表
         return t
     end
 }
-__mt_rec = {
-    __index = function (self, recid)
-        local t = self.__cache[ recid ]
-        if t then
-            self.__cache[ recid ] = nil
-            t._n_ = nil
-        else
-            t = {}
-        end
-        self[ recid ] = t
-        return t
-    end
-}
-__mt_tab = { --保存表
-    __index = function (self, tab)
-        local t = { __cache={} }
-        setmetatable(t, __mt_rec)
-        self[ tab ] = t
-        return t
-    end
-}
 
 function guid()
     local seed = { '1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'} 

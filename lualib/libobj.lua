@@ -6,10 +6,32 @@ _M.save = {}
 local _name =...
 _G[_name] = _M
 
+local __mt_rec = {
+    __index = function (self, recid)
+        local t = self.__cache[ recid ]
+        if t then
+            self.__cache[ recid ] = nil
+            t._n_ = nil
+        else
+            t = {}
+        end
+        self[ recid ] = t
+        return t
+    end
+}
+
+local __mt_tab = { 
+    __index = function (self, tab)
+        local t = { __cache={} }
+        setmetatable(t, __mt_rec)
+        self[ tab ] = t
+        return t
+    end
+}
 setmetatable(_M.save, __mt_tab)
 
 function _M.one(_name,_example)
-    local _mt = {
+    local _mt1 = {
         __index = function (t, k)
             if t._pro[k]  then return t._pro[k] end
             if _example[k]  then
@@ -36,9 +58,10 @@ function _M.one(_name,_example)
             end
         end
     }
+    setmetatable(_example, _mt)
     local one = { _name=_name, _pro = copyTab(_example) }
-    setmetatable(one, _mt)
-    _M.save[ _name ][ one._id ] = v
+    setmetatable(one, _mt1)
+    _M.save[ _name ][ one._id ] = one._pro
     return one
 end
 

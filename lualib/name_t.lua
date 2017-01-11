@@ -41,7 +41,7 @@ function _M.new(t)
         local one = libobj.one(_name,t)
         _M._d[t._id] = one 
         _M._acc[t.acc] = one 
-        local one 
+        return one 
     else
         lxz1("guid失败:"..t._id)
     end

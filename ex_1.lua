@@ -12,8 +12,9 @@ d.c= 3
 d.a.b.c[1] = nil
 lxz(d)
 local a = name_t.new({1,1,1})
-a.name = 2
-lxz(libobj)
+lxz(name_t,libobj)
+a.name.a = 2
+lxz(name_t,libobj)
 a=a:del()
 lxz(a)
 
