@@ -117,6 +117,23 @@ function save_file (mod,path,buf)
     file:close()
 end
 ------------------------------------------打印相关-------------------------------------------
+function lxz(...)--打印表
+    local info = debug.getinfo(2)
+    local h = "["..tm_str(time).."]".."["..(info.short_src or "FILE")..":"..(info.name or "")..":"..(info.currentline or 0).."]:"
+
+    if ... == nil then
+        cprint(h,1)
+    else
+        for k,v in pairs({...}) do
+            if k == 1 then
+                print_tab(v,h)
+            else
+                print_tab(v)
+            end
+        end
+    end
+end
+
 function print_tab(sth,h)
 
     if type(sth) ~= "table" then
@@ -124,12 +141,12 @@ function print_tab(sth,h)
             if sth then
                 cprint(h.."true",1) 
             else 
-                cprint(h.."true",1)
+                cprint(h.."false",1)
             end 
         elseif type(sth) == "function" then 
             cprint(h.."function",1)
-        elseif type(sth) == "string" and (not string.find(sth,'^[_%a][_.%w]*$')) then
-            cprint(h.."\""..sth.."\"",1)
+        elseif type(sth) == "string" then
+            cprint(h.."\\\""..sth.."\\\"",1)
         else
             cprint(h..sth,1)
         end
@@ -146,8 +163,8 @@ function print_tab(sth,h)
             local key = tostring(k)
             if type(k)=="number" then
                 key = "["..key.."]"
-            elseif type(k) == 'string' and (not string.find(k,'^[_%a][_.%w]*$')) then
-                key = "[\""..key.."\"]"
+            elseif type(k) == "string" then
+                key = "[\\\""..key.."\\\"]"
             end
 
             if type(v) == "table" then
@@ -157,8 +174,16 @@ function print_tab(sth,h)
                 _dump(v)
                 cprint(string.format("%s}",string.rep(space, deep-1)))
                 deep = deep - 2
-            elseif type(v) == "string" and (not string.find(v,'^[_%a][_.%w]*$')) then
-                cprint(string.format("%s%s = \"%s\"", string.rep(space, deep + 1), key, v)) 
+            elseif type(v) == "string" then
+                cprint(string.format("%s%s = \\\"%s\\\"", string.rep(space, deep + 1), key, v)) 
+            elseif type(v) == "function" then 
+                cprint(string.format("%s%s = function", string.rep(space, deep + 1), key )) 
+            elseif type(v) == "boolean" then
+                if sth then
+                    cprint(string.format("%s%s = true", string.rep(space, deep + 1), key )) 
+                else 
+                    cprint(string.format("%s%s = false", string.rep(space, deep + 1), key )) 
+                end 
             else
                 cprint(string.format("%s%s = %s", string.rep(space, deep + 1), key, v)) 
             end 
@@ -192,14 +217,6 @@ function log_t(...)--日志
     os.execute("logger -p local0.info "..d )
 end
 
-function lxz(...)--打印lua变量数据到日志文件
-    local info = debug.getinfo(2)
-    local h = "["..tm_str(time).."]".."["..(info.short_src or "FILE")..":"..(info.name or "")..":"..(info.currentline or 0).."]:"
-
-    for _,v in pairs({...}) do
-        print_tab(v,h)
-    end
-end
 
 function lxz1(...)--打印lua变量数据到日志文件
     local info = debug.getinfo(2)

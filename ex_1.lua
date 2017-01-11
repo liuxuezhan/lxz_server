@@ -1,11 +1,11 @@
 
 package.path =package.path..";/root/skynet/lualib/?.lua"
 local mod = require("myobj")
+local name = require("name_t")
 require("debugger")
 json = require("json")
-obj = mod.one("json",{_id=1, pid=1,account="my"})
-obj.encode({1})
-lxz(obj)
-obj.pid= 2
-lxz(obj)
-lxz(mod.save)
+local a = name.new(1,1,1)
+lxz(a,mod)
+a.name = 2
+lxz(a,mod)
+lxz(1)

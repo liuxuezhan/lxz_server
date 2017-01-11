@@ -1,7 +1,4 @@
 
-local mongo = require "mongo"
-local bson = require "bson"
-local mod = require "myobj"
 
 local _M= {
         _d = {},--数据
@@ -9,6 +6,7 @@ local _M= {
 
 local _name =...
 function _M.load(conf)
+    local mongo = require "mongo"
     for name,v  in pairs(conf) do
         local db = mongo.client(v)
         local info = db[name].name:find({})
@@ -47,8 +45,11 @@ function _M.login( ins )
 end
 
 function _M.new(server,name,pwd)
+local mod = require "myobj"
     if not _M._d[name] then
-        _M._d[name]=mod.one(_name,{_id=bson.objectid(),pid=cur,name=name,pwd=pwd})
+        _M._d[name]=mod.one(_name,{_id=1,name=name,pwd=pwd})
+--local bson = require "bson"
+        --_M._d[name]=mod.one(_name,{_id=bson.objectid(),name=name,pwd=pwd})
         return _M._d[name]
     end
 end

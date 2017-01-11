@@ -1,9 +1,9 @@
 
 require("mytool")
 
-local mod = {}
-mod.save = {} 
-mod.del = {} 
+local _M = {}
+_M.save = {} 
+_M.del = {} 
 
 __mt_rec = {
     __index = function (self, recid)
@@ -26,12 +26,12 @@ __mt_tab = {
         return t
     end
 }
-setmetatable(mod.save, __mt_tab)
+setmetatable(_M.save, __mt_tab)
 
 
 __mt_del_rec = {
     __newindex = function (t, k, v)
-        mod.save[ t.tab_name ][ k ]._a_ = 0
+        _M.save[ t.tab_name ][ k ]._a_ = 0
     end
 }
 __mt_del_tab = {
@@ -42,10 +42,10 @@ __mt_del_tab = {
         return t
     end
 }
-setmetatable(mod.del, __mt_del_tab)
+setmetatable(_M.del, __mt_del_tab)
 
 
-function mod.one(_name,_example)
+function _M.one(_name,_example)
     local _mt = {
         __index = function (t, k)
             if t._pro[k] ~= nil then return t._pro[k] end
@@ -63,7 +63,7 @@ function mod.one(_name,_example)
         __newindex = function(t, k, v)
             if _example[k] ~= nil then
                 t._pro[k] = v
-                mod.save[ _name ][ t._id ][ k ] = v
+                _M.save[ _name ][ t._id ][ k ] = v
             else
                 rawset(t, k, v)
             end
@@ -71,8 +71,8 @@ function mod.one(_name,_example)
     }
     local one = {_pro = copyTab(_example)}
     setmetatable(one, _mt)
-    mod.save[ _name ][ one._id ] = v
+    _M.save[ _name ][ one._id ] = v
     return one
 end
 
-return mod
+return _M
