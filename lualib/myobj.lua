@@ -3,7 +3,6 @@ require("mytool")
 
 local _M = {}
 _M.save = {} 
-_M.del = {} 
 
 __mt_rec = {
     __index = function (self, recid)
@@ -28,28 +27,11 @@ __mt_tab = {
 }
 setmetatable(_M.save, __mt_tab)
 
-
-__mt_del_rec = {
-    __newindex = function (t, k, v)
-        _M.save[ t.tab_name ][ k ]._a_ = 0
-    end
-}
-__mt_del_tab = {
-    __index = function (self, tab)
-        local t = {tab_name=tab}
-        setmetatable(t, __mt_del_rec)
-        self[ tab ] = t
-        return t
-    end
-}
-setmetatable(_M.del, __mt_del_tab)
-
-
 function _M.one(_name,_example)
     local _mt = {
         __index = function (t, k)
-            if t._pro[k] ~= nil then return t._pro[k] end
-            if _example[k] ~= nil then
+            if t._pro[k]  then return t._pro[k] end
+            if _example[k]  then
                 if type(_example[k]) == "table" then
                     t._pro[k] = copyTab(_example[k])
                     return t._pro[k]
@@ -61,15 +43,19 @@ function _M.one(_name,_example)
         end,
 
         __newindex = function(t, k, v)
-            if _example[k] ~= nil then
+            if _example[k] then
                 t._pro[k] = v
-                _M.save[ _name ][ t._id ][ k ] = v
+                if v then
+                    _M.save[ _name ][ t._id ][ k ] = v
+                else
+                    lxz1(_name..":"..t._id..":"..k..":".."不能为空")
+                end
             else
                 rawset(t, k, v)
             end
         end
     }
-    local one = {_pro = copyTab(_example)}
+    local one = { _name=_name, _pro = copyTab(_example) }
     setmetatable(one, _mt)
     _M.save[ _name ][ one._id ] = v
     return one

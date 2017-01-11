@@ -117,6 +117,10 @@ function save_file (mod,path,buf)
     file:close()
 end
 ------------------------------------------打印相关-------------------------------------------
+function lxz1(...)--打印lua变量数据到日志文件
+    lxz(...)
+    cprint(debug.traceback(),1)
+end
 function lxz(...)--打印表
     local info = debug.getinfo(2)
     local h = "["..tm_str(time).."]".."["..(info.short_src or "FILE")..":"..(info.name or "")..":"..(info.currentline or 0).."]:"
@@ -218,13 +222,6 @@ function log_t(...)--日志
 end
 
 
-function lxz1(...)--打印lua变量数据到日志文件
-    local info = debug.getinfo(2)
-    cprint(debug.traceback(),1)
-    for _,v in pairs({...}) do
-        print_tab(v)
-    end
-end
 
 -----------------------字符串扩展----------------------------------------------------------------
 function string.starts_with(str,start_str)
