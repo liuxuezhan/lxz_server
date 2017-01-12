@@ -1,6 +1,6 @@
 
 
-local _M= {
+local _M = {
         _d = {},--数据
         _acc = {},--帐号唯一
     }
@@ -37,11 +37,10 @@ end
 function _M.new(t)
     if not t then return end
     if type(t)~="table" then return end
-    t._id = guid()
     if not _M._d[t._id] then
-        local one = libobj.one(_name)
-        _M._d[one._id] = one 
-        _M._acc[one.acc] = one 
+        local one = libobj.new(_name)
+        _M._d[one.M._id] = one 
+        _M._acc[one.M.acc] = one 
         return one 
     else
         lxz1("guid失败:"..t._id)
@@ -49,12 +48,12 @@ function _M.new(t)
 end
 
 function _M.del(one)
-    libobj.save[_name][ one._id ]._a_ = 0
-    _M._d[one._id] = nil
+    libobj.save[_name][ one.M._id ]._a_ = 0
+    _M._d[one.M._id] = nil
 end
 
-function _M.get(_id)
-    return _M._d[_id] 
+function _M.get( id )
+    return _M._d[id] 
 end
 
 return _M

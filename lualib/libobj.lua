@@ -31,44 +31,8 @@ local __mt_tab = {
 }
 setmetatable(_M.save, __mt_tab)
 
-function _M.one(_name)
-    local _example = _M._ex[_name]
-    local _mt1 = {
-        __index = function (t, k)
-            if t._pro[k]  then return t._pro[k] end
-            if _example[k]  then
-                if type(_example[k]) == "table" then
-                    t._pro[k] = copyTab(_example[k])
-                    return t._pro[k]
-                else
-                    return _example[k]
-                end
-            end
-            return rawget(_G[_name], k)
-        end,
 
-        __newindex = function(t, k, v)
-            if _example[k] then
-                t._pro[k] = v
-                if v then
-                    _M.save[ _name ][ t._id ][ k ] = v
-                else
-                    lxz1(_name..":"..t._id..":"..k..":".."不能为空")
-                end
-            else
-                rawset(t, k, v)
-            end
-        end
-    }
-    local one = { _pro = copyTab(_example) }
-    setmetatable(one, _mt1)
-    if not one._id then  lxz1("没有_id") return  end
-    one._id = guid()
-    _M.save[ _name ][ one._id ] = one._pro
-    return one
-end
-
-function _M.one2(_name)
+function _M.new(_name)
     local _example = _M._ex[_name]
     local _mt1 = { --自动表
     __index = function (k, v)
@@ -84,7 +48,17 @@ function _M.one2(_name)
     if not one._id then  lxz1("没有_id") return  end
     one._id = guid()
     _M.save[ _name ][ one._id ] = one
-    return one
+
+    local _mt2 = {
+        __index = function (t, k)
+            return rawget(_G[_name], k) 
+        end,
+    }
+
+    local d = { }  
+    setmetatable(d, _mt2)
+    d.M  = one
+    return d
 end
 
 return _M

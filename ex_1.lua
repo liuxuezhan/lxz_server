@@ -10,11 +10,12 @@ d.a.b.c= {1,2,}
 d.c= 3
 d.a.b.c[1] = nil
 lxz(d)
-require("debugger")
 local a = name_t.new({1,1,1})
 lxz(name_t,libobj)
-a.name = 2
+a.M.b.name = 2
 lxz(name_t,libobj)
-a=a:del()
+require("debugger")
+a:del()
+a = a:get()
 lxz(a)
 
