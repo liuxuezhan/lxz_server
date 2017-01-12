@@ -36,6 +36,7 @@ function self.new(t)
     if type(t)~="table" then return end
     if not t.acc then lxz1("没帐号名") end
     local one = _base.new(_name,t)
+    self.accs[one.acc] = one 
     return one 
 end
 

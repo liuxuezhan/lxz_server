@@ -60,6 +60,7 @@ function self.new(module,tab)
 
     local _mt_obj = { --对象
         __index = function (t, k)
+            if t.data.M[ k ] then return t.data.M[ k ] end
             return rawget(_G[module], k)
         end,
     }
