@@ -7,7 +7,7 @@ json = require("json")
 require("debugger")
 local a = account.new({acc="1",1,1})
 a.data.b = 1 
-a.b = 1
+a.b = 2
 lxz(_base)
 a:del()
 lxz(_base)
