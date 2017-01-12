@@ -4,8 +4,7 @@ local crypt = require "crypt"
 local cluster = require "cluster"
 local string = string
 local ply_t = require "ply_t"
-local time_t = require "time_t"
-require "name_t"
+require "account"
 local bson = require "bson"
 
 local svrs = {}
@@ -84,8 +83,7 @@ local function accept(fd, addr)
     ins = msg_t.unpack(ins)
     ins = msg_t.unzip("cs_login",ins)
     pause()
-    ins._id = bson.objectid()
-    local p,pid = name_t.login(ins)
+    local p,pid = account.login(ins)
 
     if p then --踢掉上次登录
         if p.online then 
@@ -102,7 +100,7 @@ local function accept(fd, addr)
     end
 
     p.online = {pid=pid,addr=addr,fd= fd, tm_login=g_tm }
-    --name_t.save(p)
+    --account.save(p)
 
     local s = svrs[ins.sid]
     if not s then
@@ -126,7 +124,7 @@ skynet.start ( function()
  print("开始")
     require "debugger"
     skynet.newservice("lib/mongo_t",g_login.db)--数据库写中心
-    time_t.new("save_db",3,g_login.db)
+    timer.new("save_db",3,g_login.db)
 
 	cluster.register(g_login.name, SERVERNAME)
 	cluster.open(  g_login.name )

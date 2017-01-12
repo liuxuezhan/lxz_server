@@ -1,21 +1,17 @@
 
 package.path =package.path..";/root/skynet/lualib/?.lua"
 package.cpath =package.cpath..";/root/skynet/lualib/?.so"
-require("libobj")
-require("name_t")
+require("_base")
+require("account")
 json = require("json")
-local d = {} 
-setmetatable(d, _mt)
-d.a.b.c= {1,2,}
-d.c= 3
-d.a.b.c[1] = nil
-lxz(d)
-local a = name_t.new({1,1,1})
-lxz(name_t,libobj)
-a.M.b.name = 2
-lxz(name_t,libobj)
 require("debugger")
+local a = account.new({acc="1",1,1})
+a.data.b = 1 
+a.b = 1
+lxz(_base)
 a:del()
+lxz(_base)
 a = a:get()
 lxz(a)
+
 

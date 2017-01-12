@@ -1,12 +1,12 @@
 -- warx项目common/tool.lua 移植
 
-_mt = { --自动表
-    __index = function (k, v)
-        local t = { }
-        setmetatable(t, _mt)
-        k[ v ] = t
-        return t
-    end
+_mt_auto = { --自动赋值
+    __index = function (t, k)
+        local new = { }
+        setmetatable(new, _mt_auto)
+        rawset( t, k, new )
+        return new
+    end,
 }
 
 function guid()

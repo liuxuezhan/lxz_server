@@ -1,6 +1,7 @@
 
-local _M = {} 
-max_sn =  g_cid*1000 
+local _name =...
+local self = {} 
+_G[_name] = self
 _sns = _sns or {}
 local _funs = {}
 local save_t = require "my_save"
@@ -10,10 +11,10 @@ _funs["save_db"] = function(sn,db)
         skynet.send(db, "lua",db, msg_t.pack(save_t.data))--不需要返回
         save_t.clear()
     end
-    _M.news("save_db",3,db)
+    self.news("save_db",3,db)
 end
 
-function _M.load(conf)--推动时间
+function self.load(conf)--推动时间
     local mongo = require "mongo"
     local db = mongo.client(conf)
     db.timer:delete({delete=true})
@@ -27,7 +28,6 @@ function _M.load(conf)--推动时间
         local t = info:next()
         if t.over > real then 
             timer._sns[ t._id ] = t
-            if tonumber(t._id) > max_sn then max_sn = tonumber(t._id) end
             if t.over < minTime then
                 print(string.format("SetTimerStart, min=%d, timer, what=%s", t.over, t.what))
                 minTime = t.over
@@ -46,22 +46,22 @@ function _M.load(conf)--推动时间
         g_tm = minTime
 
         for k, node in pairs(timer._sns) do
-            add(node, (node.over-minTime))
+            self.run(node, (node.over-minTime))
         end
 
         return "Compensation"
     else
         for k, node in pairs(timer._sns) do
-            add(node, (real - node.over))
+            self.run(node, (real - node.over))
         end
     end
 end
 
-function _M.get(id)
+function self.get(id)
     return _sns[ id ]
 end
 
-function _M.mark(node)
+function self.mark(node)
     if node.what ~= "cron" then
         if node.delete then
             save_t.del.timer[node._id]=0
@@ -71,27 +71,21 @@ function _M.mark(node)
     end
 end
 
-function _M.new(what, sec, ...)
+function self.new(what, sec, ...)
     if sec >= 0 and _funs[ what ] then
         local id = false
-        while true do
-            max_sn = max_sn + 1
-            local sn = tostring(max_sn)
-            if not _M.get(sn) then
-                id = sn
-                break
-            end
-        end
 
         local node = {_id=id, tag=0, start=g_tm, over=g_tm+sec, what=what, param={...}}
         _sns[ id ] = node
-        _M.add(node,sec)
-        _M.mark(node)
+        self.run(node,sec)
+        self.mark(node)
         return id, node
+
+        --local one = _base.new(_name)
     end
 end
 
-function _M.news(what, sec, ...)
+function self.news(what, sec, ...)
     local fun = _funs[ what ]
     local args = {...}
     skynet.timeout(sec*100, function() 
@@ -99,13 +93,13 @@ function _M.news(what, sec, ...)
     end)
 end
 
-function _M.add(node,sec)
+function self.run(node,sec)
     skynet.timeout(sec*100, function() 
         callback(node._id,node.tag)
     end)
 end
 
-function _M.cycle(what, sec, cycle, ...)
+function self.cycle(what, sec, cycle, ...)
     if sec >= 1 and cycle >= 1 then
         local id, node = new(what, sec, ...)
         if id then
@@ -115,7 +109,7 @@ function _M.cycle(what, sec, cycle, ...)
     end
 end
 
-function _M.del(id)
+function self.del(id)
     local node = _sns[id]
     if node then 
         node.delete = true
@@ -124,23 +118,23 @@ function _M.del(id)
     end
 end
 
-function _M.acc(id, sec)
+function self.acc(id, sec)
     local node = get(id)
     if node then
         node.over = node.over - sec
         node.tag = (node.tag or 0) + 1
-        add(node,node.over-g_tm)
+        self.run(node,node.over-g_tm)
         mark(node)
     end
 end
 
 function callback(id, tag)
-    local t = _M.get(id)
+    local t = self.get(id)
     if t and t.tag == tag then
         _sns[id] = nil
         if t.delete then return end
         t.delete = true
-        _M.mark(t)
+        self.mark(t)
 
         local fun = _funs[ t.what ]
         if fun then
@@ -154,8 +148,8 @@ function callback(id, tag)
                 t.delete = nil
             end
         end
-        _M.mark(t)
+        self.mark(t)
     end
 end
-return _M
+return self
 
