@@ -46,12 +46,8 @@ function self.new(module,tab)
             if t.M[ k ] then return t.M[ k ] end
         end,
         __newindex = function(t, k, v)
-            if v then
-                t.M[k] = v
-                self.save[ module ][ t._id ][ k ] = v
-            else
-                lxz1(module..":"..t._id..":"..k..":".."不能为空")
-            end
+            t.M[k] = v     -- 修改时保存
+            self.save[ module ][ t._id ][ k ] = v
         end
     }
     local one = { M = copyTab(tab) }
@@ -60,7 +56,7 @@ function self.new(module,tab)
 
     local _mt_obj = { --对象
         __index = function (t, k)
-            return rawget(_G[module], k)
+            return rawget(_G[module], k)-- 指向对象方法
         end,
     }
     local ret = { data=one,}
