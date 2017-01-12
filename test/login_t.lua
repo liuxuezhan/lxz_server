@@ -118,13 +118,27 @@ local function accept(fd, addr)
 --    socket.abandon(fd)	-- never raise error here
 end
 
+callback =  function(one)
+    if next(save_t.data) then
+        lxz(g_login.db,save_t.data)
+        skynet.send(g_login.db, "lua",g_login.db, msg_t.pack(save_t.data))--不需要返回
+        save_t.clear()
+    end
+    one.data.start = g_tm
+    one.data.start = g_tm + one.data.sec
+    one.data.tag = one.tag or 0 + 1
+    pause()
+    skynet.timeout(one.data.sec*100, function() callback(one) end)
+end
+
 skynet.start ( function()
 --    local console = skynet.newservice("console")
  --   skynet.newservice("debug_console",80000)
  print("开始")
-    require "debugger"
     skynet.newservice("lib/mongo_t",g_login.db)--数据库写中心
-    timer.new("save_db",3,g_login.db)
+    timer.set_call("save_db",callback)
+    require "debugger"
+    local one = timer.new("save_db",3)
 
 	cluster.register(g_login.name, SERVERNAME)
 	cluster.open(  g_login.name )

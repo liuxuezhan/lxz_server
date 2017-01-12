@@ -52,7 +52,6 @@ function self.new(module,tab)
     }
     local one = { M = copyTab(tab) }
     setmetatable(one, _mt_save)
-    one._id = guid()
 
     local _mt_obj = { --对象
         __index = function (t, k)
@@ -62,8 +61,18 @@ function self.new(module,tab)
     local ret = { data=one,}
     setmetatable(ret, _mt_obj)
 
-    self.main[ module ][ one.M._id ] = one.M
-    self.save[ module ][ one.M._id ] = one.M
+    if not one._id then 
+        while true do
+            local id = guid() 
+            local tmp = self.get(module,id) 
+            if not tmp then 
+                one._id = id 
+                break 
+            end
+        end
+    end
+    self.main[ module ][ one._id ] = one.M
+    self.save[ module ][ one._id ] = one.M
 
     return ret
 end
@@ -74,7 +83,12 @@ function self.del(module,_id)
 end
 
 function self.get(module,_id)
-    return _base.main[module][_id] 
+    if _id then
+        local t = _base.main[module][_id] 
+        if next(t) then return t end
+    else
+        return _base.main[module] 
+    end
 end
 
 return self

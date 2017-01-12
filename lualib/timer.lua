@@ -2,17 +2,8 @@
 local _name =...
 local self = {} 
 _G[_name] = self
-_sns = _sns or {}
 local _funs = {}
 local save_t = require "my_save"
-_funs["save_db"] = function(sn,db)
-    if next(save_t.data) then
-        lxz(db,save_t.data)
-        skynet.send(db, "lua",db, msg_t.pack(save_t.data))--不需要返回
-        save_t.clear()
-    end
-    self.news("save_db",3,db)
-end
 
 function self.load(conf)--推动时间
     local mongo = require "mongo"
@@ -27,16 +18,14 @@ function self.load(conf)--推动时间
     while info:hasNext() do
         local t = info:next()
         if t.over > real then 
-            timer._sns[ t._id ] = t
             if t.over < minTime then
                 print(string.format("SetTimerStart, min=%d, timer, what=%s", t.over, t.what))
                 minTime = t.over
             end
             if t.what == "cron" then
                 if not isCron then 
+                    _base.new(_name,t)
                     isCron = true
-                else
-                    timer._sns[ t._id ] = nil -- duplicate crontab
                 end
             end
         end
@@ -45,20 +34,20 @@ function self.load(conf)--推动时间
     if minTime < real then
         g_tm = minTime
 
-        for k, node in pairs(timer._sns) do
-            self.run(node, (node.over-minTime))
+        for k, node in pairs(self.get()) do
+            self.start(node, (node.over-minTime))
         end
 
         return "Compensation"
     else
-        for k, node in pairs(timer._sns) do
-            self.run(node, (real - node.over))
+        for k, node in pairs(self.get()) do
+            self.start(node, (real - node.over))
         end
     end
 end
 
 function self.get(id)
-    return _sns[ id ]
+    return _base.get(_name,_id)
 end
 
 function self.mark(node)
@@ -71,33 +60,20 @@ function self.mark(node)
     end
 end
 
-function self.new(what, sec, ...)
-    if sec >= 0 and _funs[ what ] then
-        local id = false
-
-        local node = {_id=id, tag=0, start=g_tm, over=g_tm+sec, what=what, param={...}}
-        _sns[ id ] = node
-        self.run(node,sec)
-        self.mark(node)
-        return id, node
-
-        --local one = _base.new(_name)
-    end
+function self.set_call( what,fun)
+    _funs[what] = fun
 end
 
-function self.news(what, sec, ...)
-    local fun = _funs[ what ]
-    local args = {...}
-    skynet.timeout(sec*100, function() 
-        fun(1, table.unpack(args))
-    end)
+function self.new( what,sec, ...)
+
+    if not _funs[what] then lxz1("没有回调函数:"..what) return end
+    if sec < 0 then return  end
+
+    local one = _base.new(_name,{sec=sec, what=what, param={...}})
+    _funs[what](one)
+    return one
 end
 
-function self.run(node,sec)
-    skynet.timeout(sec*100, function() 
-        callback(node._id,node.tag)
-    end)
-end
 
 function self.cycle(what, sec, cycle, ...)
     if sec >= 1 and cycle >= 1 then
@@ -109,13 +85,8 @@ function self.cycle(what, sec, cycle, ...)
     end
 end
 
-function self.del(id)
-    local node = _sns[id]
-    if node then 
-        node.delete = true
-        mark(node)
-        _sns[ id ] = nil
-    end
+function self.del(one)
+    _base.del(_name,one.data._id)
 end
 
 function self.acc(id, sec)
@@ -123,33 +94,10 @@ function self.acc(id, sec)
     if node then
         node.over = node.over - sec
         node.tag = (node.tag or 0) + 1
-        self.run(node,node.over-g_tm)
+        self.start(node,node.over-g_tm)
         mark(node)
     end
 end
 
-function callback(id, tag)
-    local t = self.get(id)
-    if t and t.tag == tag then
-        _sns[id] = nil
-        if t.delete then return end
-        t.delete = true
-        self.mark(t)
-
-        local fun = _funs[ t.what ]
-        if fun then
-        lxz(t.what,fun)
-            local rt =  fun(id, table.unpack(t.param))
-            if rt == 1 and t.cycle then
-                t.start = g_tm
-                t.over = t.over + t.cycle
-                t.tag = t.tag + 1
-                _sns[ id ] = t
-                t.delete = nil
-            end
-        end
-        self.mark(t)
-    end
-end
 return self
 
