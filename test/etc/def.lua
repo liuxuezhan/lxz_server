@@ -2,7 +2,7 @@
 
 require "mytool"
 json = require "json"
-save_t = require "my_save"
+require "base"
 msg_t = require "msg"
 require "timer"
 --------------------------------------------服务器配置--------------------------------------------------------------------------------

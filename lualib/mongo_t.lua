@@ -1,6 +1,7 @@
 local skynet = require "skynet"
 local mongo = require "mongo"
 local bson = require "bson"
+require "base"
 
 local server_name = ...
 _db = {}
@@ -116,7 +117,7 @@ skynet.start(function()
             end
         end
         --global_save(id,_db[id].list)
-        save_t.save_mongo(_db[id].list, _db[id].fd,id)
+        base.save_mongo(_db[id].list, _db[id].fd,id)
 
     end)
 end)

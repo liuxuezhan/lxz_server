@@ -70,11 +70,25 @@ local function accept(fd, addr)
     end
 end
 
+callback =  function(one)
+    if next(base.save) then
+        lxz(g_login.db,base.save)
+        skynet.send(g_game.db, "lua",g_game.db, msg_t.pack(base.save))--不需要返回
+        base.clear_save()
+    end
+    one.data.start = g_tm
+    one.data.start = g_tm + one.data.sec
+    one.data.tag = one.tag or 0 + 1
+    skynet.timeout(one.data.sec*100, function() callback(one) end)
+end
+
 skynet.start(function()
 --    local console = skynet.newservice("console")
  --   skynet.newservice("debug_console",80000)
-    skynet.newservice("lib/mongo_t",g_game.db)--数据库写中心
-    timer.news("save_db",3,g_game.db)
+    skynet.newservice("lualib/mongo_t",g_game.db)--数据库写中心
+    timer.set_call("save_db2",callback)
+    local one = timer.new("save_db2",10)
+
 	cluster.register(g_game.name, SERVERNAME)
 	cluster.open(g_game.name)
 
