@@ -169,7 +169,6 @@ private:
 				continue;
 			}
 
-
 			/*调用lua函数处理消息并返回*/
 			lua_getglobal(m_l, "robot_start");
 

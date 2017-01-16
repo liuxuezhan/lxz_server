@@ -3,6 +3,8 @@ local zset = require "frame/zset"
 
 distrib = distrib or {}
 boss = boss or {}
+boss_special = boss_special or {}
+super_boss = super_boss or 0
 scan_id = scan_id or 0
 openStage = openStage or {}
 topKillerByPid = topKillerByPid or {}
@@ -13,8 +15,8 @@ bossHurtRankByPropid = bossHurtRankByPropid  or {}
 
 can_atk_monster = {}
 
-initDbList = 
-{ 
+initDbList =
+{
   "bossKillTimes",
   "bossKillScore",
   "bossHurtRankByPropid",
@@ -25,6 +27,17 @@ initRedisList =
     "topKillerByPid",
     "topHurtByPid"
 }
+
+lv_1_boss =
+{
+   2019005,
+   2020005,
+   2021005,
+   2022005
+}
+
+lv_1_boss_num = 80
+lv_1_block_num = 3380
 
 npc_boss_rule =
 {
@@ -37,26 +50,17 @@ npc_boss_rule =
 
 _mt = {__index = monster}
 
-function try_update_top_hurt(key, hurt)
-    local pid = tostring(key)
-    local topHurt = topHurtByPid:score(pid) or 0
-    if topHurt < hurt then
-        topHurtByPid:add(hurt, pid)
-        gPendingSave.status[ "topHurtByPid" ][ pid ] = {[ "pid" ] = pid, ["hurt"] = hurt}
-    end
-end
-
-function update_top_killer(key)
+function update_top_killer(key, score)
     local org_score = rank_mng.get_score(11, key) or 0
-    score = 1 + org_score
+    --local org_score = 100
+    score = score + org_score
     rank_mng.add_data(11, key, {score})
 
 
-
-    local pid = tostring(key)
-    local topKiller = topKillerByPid:score(pid) or 0
-    topKillerByPid:add(topKiller + 1, pid)
-    gPendingSave.status[ "topKillerByPid" ][ pid ] = topKiller + 1
+    --local pid = tostring(key)
+    --local topKiller = topKillerByPid:score(pid) or 0
+    --topKillerByPid:add(topKiller + 1, pid)
+    --gPendingSave.status[ "topKillerByPid" ][ pid ] = topKiller + 1
 end
 
 function get_top_hurter_by_propid(propid)
@@ -74,6 +78,7 @@ function get_top_killer_rank(key)
     local myRank = topKillerByPid:rank(pid) or 0
     --print( topKillers, {myScore, myRank})
     return topKillers, myScore, myRank
+
 end
 
 function get_top_hurter_rank(key)
@@ -87,21 +92,6 @@ end
 
 function try_update_top_hurter_by_propid(propid, pid, hurt, name)
     local topHurter = bossHurtRankByPropid[ propid ] or {}
-    --if not topHurter.hurt then
-    --    bossHurtRankByPropid[ propid ] = { [ "pid" ] = pid, [ "hurt" ] = hurt, }
-    --    gPendingSave.status[ "bossHurtRankByPropid" ][ propid ] = {[ "pid" ] = pid, ["hurt"] = hurt}
-
-    --    bossHurtRankByPropid[ propid ] = { pid=pid, hurt=hurt, name=name }
-    --    gPendingSave.status.bossHurtRankByPropid[ propid ] = bossHurtRankByPropid[ propid ] 
-
-    --elseif topHurter.hurt < hurt then
-    --    bossHurtRankByPropid[ propid ] = { [ "pid" ] = pid, [ "hurt" ] = hurt, }
-    --    gPendingSave.status[ "bossHurtRankByPropid" ][ propid ] = {[ "pid" ] = pid, ["hurt"] = hurt}
-
-    --    bossHurtRankByPropid[ propid ] = { pid=pid, hurt=hurt, name=name }
-    --    gPendingSave.status.bossHurtRankByPropid[ propid ] = bossHurtRankByPropid[ propid ] 
-    --end
-
     if (not topHurter.hurt) or topHurter.hurt < hurt then
         local info = {pid=pid, hurt=hurt, name=name}
         bossHurtRankByPropid[ propid ] = info
@@ -112,7 +102,7 @@ end
 
 function check_stage_condition(stage)
     local cfg = resmng.prop_boss_unlock[stage]
-    local result = 1 
+    local result = 1
     --[[for k, v in pairs(cfg.Cond) do
         local killTimes = bossKillTimes[k] or 0
         if killTimes >= v then
@@ -165,11 +155,18 @@ end
 function get_boss_mod(date, civil, grade, lv)
     local index = 0
     local bossList = {}
-    local tip = tostring(civil) .. "_" .. tostring(lv)
-    bossList = resmng.prop_boss_mod_by_date[tonumber(date)][tip][grade]
-    if not bossList or bossList == {} then
+
+    if grade == BOSS_TYPE.SPECIAL then  -- 对特殊做处理
+        bossList = lv_1_boss
+    else
+        local tip = tostring(civil) .. "_" .. tostring(lv)
+        bossList = resmng.prop_boss_mod_by_date[tonumber(date)][tip][grade]
+    end
+
+    if (not bossList) or (not next(bossList)) then
         return
     end
+
     index=  math.random(#bossList)
     return bossList[index]
 end
@@ -194,42 +191,179 @@ function get_boss_pos_in_zone(tx, ty, prop, grade)
     local r = prop.Size or 1
     if grade == BOSS_TYPE.NORMAL then
         x, y = c_get_pos_in_zone(tx, ty, r, r)
+    elseif grade == BOSS_TYPE.SPECIAL then
+        x, y = c_get_pos_in_zone(tx, ty, r, r)
     elseif grade == BOSS_TYPE.ELITE then
         x, y = monster_city.get_pos_in_range(tx, ty, 1, 1, r)
     elseif grade == BOSS_TYPE.LEADER then
         x, y = monster_city.get_pos_in_range(tx, ty, 1, 1, r)
     elseif grade == BOSS_TYPE.SUPER then
-        x, y = monster_city.get_pos_in_range(tx, ty, 2, 2, r)
+        local pos_arr = {{650,650},{620,620},{650,620},{620,650}}
+        --x, y = monster_city.get_pos_in_range(tx, ty, 2, 2, r)
+        local index = math.random(#pos_arr)
+        local pos = pos_arr[index] or {}
+        x = pos[1] or 680
+        y = pos[2] or 680
+
     end
     return x, y
-
 end
 
-function respawn(tx, ty, grade)
+function force_born(tx, ty, clv)
+    local prop = resmng.prop_world_unit
+    if prop then
+        for k, v in pairs(prop) do
+            if v.Class == CLASS_UNIT.MONSTER and v.Mode < 100 and v.Clv == clv then
+                local pos_lv = get_pos_lv(v.Lv)
+                local tar_x, tar_y = tx, ty
+                if pos_lv then
+                    tar_x, tar_y = get_near_lv_pos(tx, ty, pos_lv)
+
+                    local idx = tar_y * 80 + tar_x
+                    local node = distrib[ idx ]
+                    if node then
+                        for _, n in pairs( node ) do
+                            local m = get_ety( n.eid )
+                            if m and is_monster( m ) then
+                                local conf = resmng.get_conf( "prop_world_unit", m.propid )
+                                if conf and conf.Clv == clv  then
+                                    return m.propid, m.x, m.y
+                                end
+                            end
+                        end
+                    end
+                    return gen_task_boss(tar_x, tar_y, v.ID)
+                end
+                return
+            end
+        end
+    end
+end
+
+function gen_task_boss(tx, ty, propid)
+    if tx <= 0 or tx > 80 then
+        tx = 1
+    end
+    if ty <=0 or ty > 80 then
+        ty =1
+    end
+
+    local prop = resmng.prop_world_unit[propid] 
+    if prop then
+        local x, y = get_boss_pos_in_zone(tx, ty, prop, BOSS_TYPE.NORMAL)
+        print("boss pos ", x, y)
+        if x then
+            local eid = get_eid_monster()
+            if eid then
+                local m = create_monster(prop)
+                --local tr= debug.traceback()
+                --LOG( "CREATE_MONSTER, eid=%d, x=%d, y=%d, propid=%d, grade= %d %d", eid, x, y, bossPropid, grade, ty * 80 + tx)
+
+                m._id = eid
+                m.eid = eid
+                m.x = x
+                m.y = y
+                m.zx = tx
+                m.zy = ty
+                m.born = gTime
+                if npc_id then
+                    m.npc_id = npc_id
+                end
+                m.grade = BOSS_TYPE.NORMAL
+                m.level = prop.Lv
+                m.size = prop.Size
+                setmetatable(m, _mt)
+                gEtys[ eid ] = m
+                etypipe.add(m)
+                return propid, x, y
+            end
+        end
+    end
+end
+
+function get_pos_lv(boss_lv)
+    local lv_range ={
+        {1, 5},
+        {6, 9},
+        {10, 12},
+        {13, 15},
+        {16, 25},
+    }
+    for k , v in pairs(lv_range) do
+        if boss_lv >= v[1] and boss_lv <= v[2] then
+            return k
+        end
+    end
+end
+
+function get_near_lv_pos(tx, ty, target_lv)
+    local cur_lv = c_get_zone_lv(tx, ty)
+    print(cur_lv, target_lv, tx, ty)
+
+    if cur_lv == target_lv then
+        return tx, ty
+    end
+
+    local tag = 1 
+    if cur_lv > target_lv then
+        tag = -1
+    end
+
+    local index = tag
+    local index1 = tag
+
+    local dis1 = 40 - tx
+    local dis2 = 40 - ty
+
+    if math.abs(dis1) > math.abs(dis2) then
+        if tx > 40 then index  = -tag end
+        return get_near_lv_pos(tx + index, ty, target_lv)
+    elseif math.abs(dis1) < math.abs(dis2) then
+        if ty > 40 then index  = -tag end
+        return get_near_lv_pos(tx , ty + index, target_lv)
+    else
+        if tx > 40 then index  = -tag end
+        if ty > 40 then index1  = -tag end
+        return get_near_lv_pos(tx + index, ty + index1, target_lv)
+    end
+end
+
+function respawn(tx, ty, grade, npc_id)
+    if tx <= 0 then
+        tx = 1 
+    end
+    if ty <= 0 then
+        ty = 1
+    end
     --local civil = c_get_civil_lv(tx, ty)
     local lv = c_get_zone_lv(tx, ty)
-    local date = os.date("%w")
+    local date = os.date("%w", gTime)
     if date == "0" then
         date = "7"
     end
 
-    --- test
-    local civil = 1
+    local civil = c_get_culture(tx * 16, ty * 16)
+
+    if civil == 0 or civil == -1 then
+        civil = 1
+    end
 
     local bossMod = 0
     local bossLv = 0
-    local eid = get_eid_monster()
+    --print("gen boss mod", tx, ty, date, civil, grade, lv)
     local bossPropid = get_boss_mod(date, civil, grade, lv)
     if not bossPropid then
-        return 
+        return
     end
     bossLv = get_boss_level(bossPropid)
 
-    local unlockBossCfg = resmng.prop_boss_unlock[openStage.num]
+    local unlockBossCfg = resmng.prop_boss_unlock[openStage.num or 1]
     --check can generate boss by grade and level
     if  unlockBossCfg then
-        if unlockBossCfg.OpenBossLevel[ grade ] < bossLv then
-            return
+        if grade ~= BOSS_TYPE.SPECIAL then
+            if unlockBossCfg.OpenBossLevel[ grade ] < bossLv then
+                return
+            end
         end
     else
         return
@@ -244,6 +378,8 @@ function respawn(tx, ty, grade)
             local eid = get_eid_monster()
             if eid then
                 local m = create_monster(prop)
+                --local tr= debug.traceback()
+                --LOG( "CREATE_MONSTER, eid=%d, x=%d, y=%d, propid=%d, grade= %d %d", eid, x, y, bossPropid, grade, ty * 80 + tx)
 
                 m._id = eid
                 m.eid = eid
@@ -252,51 +388,81 @@ function respawn(tx, ty, grade)
                 m.zx = tx
                 m.zy = ty
                 m.born = gTime
+                if npc_id then
+                    m.npc_id = npc_id
+                end
                 m.grade = grade
                 m.level = bossLv
                 m.size = prop.Size
                 setmetatable(m, _mt)
                 gEtys[ eid ] = m
                 etypipe.add(m)
-                if m.grade >= 2 and m.grade < 4 then
+                if m.grade >= BOSS_TYPE.ELITE and m.grade < BOSS_TYPE.SUPER then
                     boss[m.eid] = m.eid
+                    m:mark()
+                elseif m.grade == BOSS_TYPE.SPECIAL then
+                    local boss_list = boss_special[lv] or {}
+                    local idx = m.zy * 80 + m.zx
+                    if not boss_list[idx] then
+                        boss_list[idx] = m.eid
+                        boss_special[lv] = boss_list
+                    else
+                        rem_ety(m)
+                    end
+                    m:mark()
+                elseif m.grade == BOSS_TYPE.SUPER then
+                    super_boss = m.eid
+                    m:mark()
+                elseif m.grade == BOSS_TYPE.NORMAL then
+                    --m:mark()
                 end
+
+                boss_notify(m)
 
                 checkin(m)
             end
         else
-            return 
+            return
         end
     end
 end
 
 function boss_notify(monster)
-    if monster.lv > 2 then
+    local prop = resmng.prop_world_unit[monster.propid]
+    if not prop then return end
 
-        Rpc:tips({pid=-1,gid=_G.GateSid}, 2,resmng.NOTIFY_UNION_CREATE,{},{})
+    local npc_prop = resmng.prop_world_unit[monster.npc_id]
+    if not npc_prop then return end
 
-        Rpc:chat({pid=-1,gid=_G.GateSid}, 0, 0, 0, "system", string.format("super monster gen ,", conf.Chat))
+    local notify = resmng.prop_boss_notify[prop.Mode]
+    if not notify then return end
+
+    if notify.Notify then
+        Rpc:tips({pid=-1,gid=_G.GateSid}, 2, notify.Notify,{prop.Name, npc_prop.Name, monster.x, monster.y})
     end
 
+    if notify.Chat then
+        player_t.add_chat({pid=-1,gid=_G.GateSid}, 0, 0, {pid=0}, "", notify.Chat, {monster.x, monster.y, prop.Name, npc_prop.Name, monster.x, monster.y})
+    end
 end
 
 
 -- refrash elite boss at utc 0
 function reset_boss()
     --删除之前的boss
-    for k, v in pairs(boss) do
+    for k, v in pairs(boss or {}) do
         rem_ety(v)
     end
 
-    for k, v in pairs(resmng.prop_world_unit) do
+    for k, v in pairs(resmng.prop_world_unit or {}) do
         if v.Class == CLASS_UNIT.NPC_CITY then
             local lv = v.Lv
             --print("band npc ", v.ID)
             local refreshRule = npc_boss_rule[ lv ]
-            for k, num in pairs(refreshRule) do
+            for grade, num in pairs(refreshRule or {}) do
                 if num ~= 0 then
                     for i = 1, num  do
-                        respawn(math.floor(v.X/16), math.floor(v.Y/16), k)
+                        respawn(math.floor(v.X/16), math.floor(v.Y/16), grade, v.ID)
                     end
                 end
             end
@@ -310,11 +476,18 @@ function reset_leader_boss()
 end
 
 function reset_super_boss()
-    for k, v in pairs(resmng.prop_world_unit) do
+    rem_ety(super_boss)
+    super_boss = 0
+    for k, v in pairs(resmng.prop_world_unit or {}) do
         if v.Class == CLASS_UNIT.KING_CITY and v.Lv == CITY_TYPE.KING_CITY then
-            respawn(math.floor(v.X/16), math.floor(v.Y/16), BOSS_TYPE.SUPER)
+            respawn(math.floor(v.X/16), math.floor(v.Y/16), BOSS_TYPE.SUPER, v.ID)
         end
     end
+end
+
+function rem_super_boss()
+    rem_ety(super_boss)
+    super_boss = 0
 end
 
 
@@ -325,7 +498,7 @@ end
 
 
 function init_db_list()
-    for k, v in pairs(initDbList) do
+    for k, v in pairs(initDbList or {}) do
         monster[ v ] = init_db(v)
     end
 end
@@ -342,15 +515,15 @@ function init_db(key)
 end
 
 function init_redis_list()
-    for k, v in pairs(initRedisList) do
+    for k, v in pairs(initRedisList or {}) do
         local info = init_db(v)
-        monster[ v ] = init_redis(v, info) 
+        monster[ v ] = init_redis(v, info)
     end
 end
 
 function init_redis(key, info)
     local zset = zset.new()
-    for k, v in pairs(info) do
+    for k, v in pairs(info or {}) do
         if k ~= "_id" and v ~= {} then
             if key == "topKillerByPid" then
                 zset:add(v, tostring(k))
@@ -370,7 +543,7 @@ end
 
 function init_global()
     init_db_list()
-    init_redis_list()
+    --init_redis_list()
     check_init()
 end
 
@@ -381,27 +554,53 @@ function load_from_db()
     local have = {}
     while info:hasNext() do
         local m = info:next()
+        m.hp = m.hp or 0
         if m.hp > 0 then
             setmetatable(m, _mt)
             gEtys[ m.eid ] = m
-            mark_eid(m.eid)
-            if m.grade >= 2 and m.grade < 4 then
+            if m.grade >= BOSS_TYPE.ELITE and m.grade < BOSS_TYPE.SUPER then
                 boss[m.eid] = m.eid
+            elseif m.grade == BOSS_TYPE.SUPER then
+                super_boss = m.eid
+            elseif m.grade == BOSS_TYPE.SPECIAL then
+                local lv = c_get_zone_lv(m.zx, m.zy)
+                local boss_list = boss_special[lv] or {}
+                local idx = m.zy * 80 + m.zx
+                if not boss_list[idx] then
+                    boss_list[idx] = m.eid
+                    boss_special[lv] = boss_list
+                else
+                    rem_ety(m)
+                end
             end
             etypipe.add(m)
             checkin(m)
         else
-            gPendingDelete.monster[ m._id ] = 0 
+            gPendingDelete.monster[ m._id ] = 0
         end
     end
    init_global()
-   try_upgrade_stage() 
+   try_upgrade_stage()
+   --gen_all_boss()
 end
 
-function do_check(zx, zy)
+function gen_all_boss()
+    print("start gen all boss ", os.date())
+    for i = 1, 80, 1 do
+        for j = 1, 80, 1 do
+            do_check(i, j)
+        end
+    end
+    print("end gen all boss ", os.date())
+end
+
+function do_check(zx, zy, isloop)
     zx = math.floor(zx)
     zy = math.floor(zy)
     if zx >= 0 and zx < 80 and zy >= 0 and zy < 80 then
+
+        if ( zx == 39 or zx == 40 ) and ( zy == 39 or zy == 40 ) then return end -- skip the black land 
+
         local idx = zy * 80 + zx
         local node = distrib[ idx ]
         local normalNum = 0
@@ -421,11 +620,6 @@ function do_check(zx, zy)
                 else
                     table.insert(news, v)
                 end
-                --[[       if not is_focus(ety) and gTime - ety.born > 12 * 3600 then
-                rem_ety(ety)
-                else
-                    table.insert(news, v)
-                end--]]
             end
         end
 
@@ -434,13 +628,28 @@ function do_check(zx, zy)
         local num = #news
         local access = c_get_map_access(zx, zy)
         --test
-        if math.abs(gTime - access) >= 3600 then
+        --if math.abs(gTime - access) >= 3600 then
+        if access ~= 0 and math.abs(gTime - access) >= 3600 then
             if num == 0 then
                 distrib[ idx ] = nil
             end
         elseif normalNum < 2 then
-            for i = num+1, 2, 1 do
+            for i = normalNum+1, 2, 1 do
                 respawn(zx, zy, BOSS_TYPE.NORMAL)
+            end
+        end
+    end
+
+    local lv = c_get_zone_lv(zx, zy) --一级资源带 特殊boss
+    if lv == 1 then
+        local boss_list = boss_special[lv] or {}
+        if get_table_valid_count(boss_list) < lv_1_boss_num then
+            local index = math.random(lv_1_block_num)
+            if index <= lv_1_boss_num then
+                local idx = zy * 80 + zx
+                if not boss_list[idx] then
+                    respawn(zx, zy, BOSS_TYPE.SPECIAL)
+                end
             end
         end
     end
@@ -454,7 +663,7 @@ function loop()
             local zx = idx % 80
             local zy = math.floor(idx / 80)
             scan_id = idx
-            do_check(zx, zy)
+            do_check(zx, zy, true)
         end
         idx = idx + 1
     end
@@ -477,9 +686,14 @@ function gen_boss_reward(prop)
         extraAward = player_t.bonus_func[ prop.Extra_award[1] ](prop, prop.Extra_award[2])
     end
 
+    local extraAwardSingle = {}
+    if prop.Extra_award_single then
+        extraAwardSingle = player_t.bonus_func[ prop.Extra_award_single[1] ](prop, prop.Extra_award_single[2])
+    end
+
     local finalAward = {}
     if prop.Final_award then
-        for k, v in pairs(prop.Final_award) do
+        for k, v in pairs(prop.Final_award or {}) do
         local award = player_t.bonus_func[ v[1] ](prop, v[2])
         table.insert(finalAward, award)
         end
@@ -488,14 +702,21 @@ function gen_boss_reward(prop)
     end
 
     local unitAward = {}
+    if player_t.debug_tag then
+        award = {"mutex_award",{{"item",2010009,1,10000}}}
+        unitAward = award
+    end
+
     if prop.Unit_award then
-        unitAward = player_t.bonus_func[ prop.Unit_award[1] ](prop, prop.Unit_award[2])
+        unitAward =  prop.Unit_award
+        --unitAward = player_t.bonus_func[ prop.Unit_award[1] ](prop, prop.Unit_award[2])
     end
 
     return {
         fix = fixAward,
         base = baseAward,
         extra = extraAward,
+        extra_single = extraAwardSingle,
         final = finalAward,
         unit = unitAward,
     }
@@ -532,7 +753,7 @@ function create_monster(prop)
         {num=0, mode=4, objs={}}
     }
 
-    for _, v in ipairs(prop.Arms) do
+    for _, v in ipairs(prop.Arms or {}) do
         local id = v[1]
         local num = v[2]
         local p = resmng.prop_arm[ id ]
@@ -556,9 +777,9 @@ function create_monster(prop)
 
     local hp = 100
 
-    local rewards = gen_boss_reward(prop)
+    --local rewards = gen_boss_reward(prop)
 
-    return {propid=prop.ID, arms=arms, born=gTime, rewards = rewards, hp = hp}
+    return {propid=prop.ID, arms=arms, born=gTime, hp = hp}
 end
 
 function init_def_troop(m)
@@ -581,11 +802,11 @@ end
 function damage_hp(m, dt)
     local live = 0
     local dead = 0
-    for k, v in pairs(dt.arms ) do
-        for k, v in pairs(v.live_soldier) do
+    for k, v in pairs(dt.arms or {}) do
+        for k, v in pairs(v.live_soldier or {}) do
             live = live + v
         end
-        for k, v in pairs(v.dead_soldier) do
+        for k, v in pairs(v.dead_soldier or {}) do
             dead = dead + v
         end
     end
@@ -637,12 +858,12 @@ function troop_back(troop)
     local sy = troop.dy
     local troopId = troop._id
     troop_mng.delete_troop(troopId)
-    
-    for k, v in pairs(arms) do
+
+    for k, v in pairs(arms or {}) do
         if k ~= city.propid then
             local mine = getPlayer(k)
             if mine ~= nil then
-                mine:rm_busy_troop(troopId)
+                --mine:rem_busy_troop(troopId)
                 local dx, dy = get_ety_pos(mine)
                 local backTroop = troop_mng.create_troop(start_eid, mine.eid, TroopAction.Back, sx, sy, dx, dy)
                 backTroop.owner_pid = v.pid
@@ -658,7 +879,7 @@ function troop_back(troop)
 end
 
 function get_conf(mod, lv)
-    for k, v in pairs(resmng.prop_world_unit) do
+    for k, v in pairs(resmng.prop_world_unit or {}) do
         if v.Class == CLASS_UNIT.MONSTER and v.Mode == mod and v.Lv == lv then
             return v
         end
@@ -666,20 +887,21 @@ function get_conf(mod, lv)
     return nil
 end
 
-function do_time_boss(sn, zx, zy, grade)
-    respawn(zx, zy, grade)
+function do_time_boss(sn, zx, zy, grade, npc_id)
+    respawn(zx, zy, grade, npc_id)
 end
 
-function can_date(time)--是否跨天                      
-    if os.date("%d")~=os.date("%d",time) then
+function can_date(time)--是否跨天
+    if get_diff_days( gTime, time ) > 0 then
         return true
-    end 
+    end
     return false
 end
 
 function test_monster()
    on_day_pass()
    print("test_monster")
+    --- test
    print(openStage)
    respawn(1, 1, 1)
    do_check(1, 1)
@@ -720,7 +942,7 @@ end
 
 function get_my_troop(self)
     local tr = false
-    if self.my_troop_id then 
+    if self.my_troop_id then
         tr = troop_mng.get_troop(self.my_troop_id)
         if tr then return tr end
     end
@@ -730,12 +952,15 @@ function get_my_troop(self)
         local sx, sy = get_ety_pos(self)
         tr = troop_mng.create_troop(TroopAction.Monster, self, self)
         local arm = {}
-        for _, v in pairs(conf.Arms) do
-            arm[ v[1] ] = v[2]
+        for _, v in pairs(conf.Arms or {}) do
+            if v[1] ~= nil then
+                arm[ v[1] ] = v[2]
+            end
         end
         tr:add_arm(0, {live_soldier=arm, heros=conf.Heros or {0,0,0,0}})
+
     end
-    if tr then 
+    if tr then
         --self.my_troop_id = tr._id
         return tr
     end
@@ -744,77 +969,122 @@ end
 function calc_hp( self, troop )
     local cur = 0
     local max = 0
-    for _, arm in pairs(troop.arms) do
+    for _, arm in pairs(troop.arms or {}) do
         local live = arm.live_soldier or {}
         local dead = arm.dead_soldier or {}
 
-        for id, num in pairs(live) do
+        for id, num in pairs(live or {}) do
             local conf = resmng.get_conf("prop_arm", id)
             if conf then
                 cur = cur + conf.Pow * num
-                max = max + conf.Pow * (num + (dead[ id ] or 0)) 
+                max = max + conf.Pow * (num + (dead[ id ] or 0))
             end
         end
     end
 
-    local lost = math.floor((max-cur) * 100 / max + 0.1)
+    local lost = math.floor((max-cur) * 10000 / max + 0.1) / 100
     self.hp_before = self.hp
     if self.hp <= lost then
         lost = self.hp
         self.hp = 0
     else
         self.hp = self.hp - lost
-        self.hp = math.floor(self.hp)
     end
 end
 
 function make_reward_num(key, rewards, factor, pid, monster)
+    if factor == 0 then 
+        factor = 0.01
+    end
     local newFactor = 1
     if key == "base" then
         local ply = getPlayer(pid)
         local prop = resmng.prop_world_unit[monster.propid]
         if ply and prop then
-            newFactor = math.max(0.1, math.min(1, (ply.lv - prop.Lv)/prop.Attenuation))
+            newFactor = math.max(0.1, math.min(1, 1 - (ply:get_castle_lv() - prop.Lv)/prop.Attenuation))
         end
-        
+
     end
-    for k, v in pairs(rewards) do
+    for k, v in pairs(rewards or {}) do
         v[3] =  math.floor( v[3] * factor * newFactor)
     end
 end
 
-function get_jungle_reward(self, pid, mkdmg, totalDmg )
+function trans_num(reward, rate)
+    for k, v in pairs(reward or {}) do
+        v[3] =  math.ceil( v[3] * rate + 0.1)
+    end
+    return reward
+end
+
+function send_union_item(self, pid)
+    local prop = resmng.prop_world_unit[self.propid]
     local rewards = {}
-    for k, v in pairs(self.rewards) do
-        if k == "fix" then  -- fix award
-            rewards[ k ] = v
-        elseif k == "base" or k == "extra" then  -- base  extra award
-            make_reward_num(k, v, mkdmg / totalDmg, pid, self )
-            if totalDmg == 0 then
-                rewards[ k ] = v
-            else
-                rewards[ k ] = v
-            end
-        elseif k == "final" and self.hp <= 0 then
-            rewards[k] = {}
-            for key, award in pairs(v) do
-                table.insert(rewards[ k ], award[1])
-            end
-        elseif k == "unit" and self.hp <= 0 then
+    if prop then
+        rewards = gen_boss_reward(prop)
+    end
+    if rewards.unit and self.hp <= 0 then
+        if get_table_valid_count(rewards.unit) > 1 then
             local ply = getPlayer(pid)
             if ply then
                 local union = unionmng.get_union(ply.uid)
-                if union then
-                    for _, meb  in pairs(union._members ) do
-                        if meb:get_castle_lv() >= 6 and v then  --6级一下无礼包
+                if union and not check_union_cross(union) then  --跨服不加军团礼包
+                    local _members = union:get_members()
+                    for _, meb  in pairs(_members or {}) do
+                        if meb:get_castle_lv() >= 6  then  --6级一下无礼包
                             --print("monster.lua:793", v[1][2], ",", UNION_ITEM.BOSS, ",", self.propid, ",", pid)
-                            --union_item.add(meb, v[1][2], UNION_ITEM.BOSS, self.propid, pid)
-                            meb:add_bonus(v[1], v[2], VALUE_CHANGE_REASON.REASON_MONSTER)
+                            union_item.add(meb, rewards.unit, UNION_ITEM.BOSS, self.propid, pid)
+                            --meb:add_bonus(v[1], v[2], VALUE_CHANGE_REASON.REASON_MONSTER)
                         end
                     end
                 end
             end
-            -- final award to do
+        end
+    end
+end
+
+function get_jungle_reward(self, pid, mkdmg, totalDmg , hp_lost, is_mass)
+    local prop = resmng.prop_world_unit[self.propid]
+    local gen_award = {}
+    if prop then
+        gen_award = gen_boss_reward(prop)
+    end
+
+    if totalDmg == 0 then
+        totalDmg = 1
+    end
+    local rate = 1.5
+    if is_mass ~= 1 then
+        rate= 0.5
+    end
+    if not hp_lost then
+        hp_lost = 0
+    end
+    local rewards = {}
+    for k, v in pairs(gen_award or {}) do
+        local val = copyTab(v)
+        if k == "fix" then  -- fix award
+            rewards[ k ] = trans_num(val , rate)
+        elseif k == "base"  then  -- base  extra award
+            make_reward_num(k, val, mkdmg / totalDmg * hp_lost, pid, self )
+            if totalDmg == 0 then
+                rewards[ k ] = trans_num(val , rate)
+            else
+                rewards[ k ] = trans_num(val , rate)
+            end
+        elseif k == "extra" then
+            if is_mass == 1 then
+                rewards[ k ] = val
+            end
+        elseif k == "extra_single" then
+            if not is_mass  or is_mass == 0 then
+                rewards[ k ] = val
+            end
+        elseif k == "final" and self.hp <= 0 then
+            rewards[k] = {}
+            for key, award in pairs(val or {}) do
+                table.insert(rewards[ k ], award[1])
+            end
         end
     end
     return rewards
@@ -824,13 +1094,16 @@ end
 can_atk_monster[BOSS_TYPE.NORMAL] = function(ply)
     return true
 end
+can_atk_monster[BOSS_TYPE.SPECIAL] = function(ply)
+    return true
+end
 can_atk_monster[BOSS_TYPE.ELITE] = function(ply)
 
     local union = unionmng.get_union(ply.uid)
     if not union then
         return false
-    elseif union.new_union_sn then
---        return false
+    elseif union:is_new() then
+        return false
     end
 
     if npc_city.get_city_num(union.npc_citys, 4, OPT_TYPE.LT) < 1 then
@@ -843,7 +1116,7 @@ can_atk_monster[BOSS_TYPE.LEADER] = function(ply)
     local union = unionmng.get_union(ply.uid)
     if not union then
         return false
-    elseif union.new_union_sn then
+    elseif union:is_new() then
         return false
     end
 
@@ -856,7 +1129,7 @@ can_atk_monster[BOSS_TYPE.SUPER] = function(ply)
     local union = unionmng.get_union(ply.uid)
     if not union then
         return false
-    elseif union.new_union_sn then
+    elseif union:is_new() then
         return false
     end
 
@@ -874,7 +1147,7 @@ end
 function send_score_reward()
     local prop = resmng.prop_boss_rank_award
     if prop then
-        for k, v in pairs(prop) do
+        for k, v in pairs(prop or {}) do
             local plys = rank_mng.get_range(11, v.Rank[1], v.Rank[2])
             for idx, pid in pairs(plys or {}) do
                 local score = rank_mng.get_score(11, tonumber(pid)) or 0

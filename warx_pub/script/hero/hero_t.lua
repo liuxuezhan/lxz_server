@@ -8,13 +8,12 @@
 
 
 --------------------------------------------------------------------------------
-module("hero_t", package.seeall)
-_cache = _cache or {}
-
-_example = {
+--
+module( "hero_t", package.seeall )
+module_class("hero_t", 
+{
     _id          = 0,    -- 唯一ID
     pid          = 0,    -- 玩家ID
-    troop        = 0,
     propid       = 0,    -- 英雄ID，用于区分不同英雄
     name         = "",
     _type        = 0,    -- 类型：攻击、防御、血量、全能
@@ -34,6 +33,7 @@ _example = {
     status       = HERO_STATUS_TYPE.FREE,
     culture      = CULTURE_TYPE.EAST,
     build_idx    = 0,    -- 所派遣建筑的idx
+    build_last   = 0,    -- 上次所派遣建筑的idx
 
     tmSn         = 0,
     tmStart      = 0,
@@ -47,35 +47,9 @@ _example = {
     prisoner     = 0,    -- 俘虏
     troop        = 0,    -- 所属部队
 }
+)
 
-local hero_mt = {
-    __index = function (tab, key)
-        return tab._pro[key] or _example[key] or hero_t[key] or rawget(tab, key)
-    end,
-
-    __newindex = function (tab, key, val)
-        if _example[key] then
-            tab._pro[key] = val
-            local n = _cache[tab._id]
-            if not n then
-                n = {}
-                _cache[tab._id] = n
-            end
-            n[key] = val
-        else
-            rawset(tab, key, val)
-        end
-    end
-}
-
-
-function wrap(t)
-    local obj = {_pro = t}
-    return setmetatable(obj, hero_mt)
-end
-
-
-function new(idx, pid, propid)
+function create_hero(idx, pid, propid)
     if not idx or not pid or not propid then
         ERROR("new: idx= %d, pid = %d, propid = %d", idx or -1, pid or -1, propid or -1)
         return
@@ -115,13 +89,24 @@ function new(idx, pid, propid)
         prisoner     = 0,    -- 俘虏
     }
 
+    local skills = {}
     if #conf.BasicSkill > 0 then
         for _, skill_id in pairs(conf.BasicSkill) do
-            table.insert(t.basic_skill, {skill_id, 0})
+            table.insert(skills, {skill_id, 0})
         end
-    else
-        t.basic_skill = {{0,0}}
     end
+
+    local conf_start_up = resmng.get_conf( "prop_hero_star_up", t.star )
+    if conf_start_up then
+        local slot = conf_start_up.StarStatus[ 1 ]
+        local num = slot - #skills
+        if num > 0 then
+            for i = 1, num, 1 do
+                table.insert( skills, {0,0} )
+            end
+        end
+    end
+    t.basic_skill = skills
 
     t.personality = math.random(HERO_NATURE_TYPE.STRICT, HERO_NATURE_TYPE.BOLD)
 
@@ -129,11 +114,8 @@ function new(idx, pid, propid)
     up_attr(t)
     t.hp = t.max_hp
 
-    local hero = hero_t.wrap(t)
+    local hero = new(t)
     hero:calc_fight_power()
-
-    local db = dbmng:getOne()
-    db.hero:insert(t)
 
     local player = getPlayer(pid)
     if player then
@@ -142,7 +124,7 @@ function new(idx, pid, propid)
     heromng.add_hero(hero)
 
     LOG("new: succ.")
-    doDumpTab(hero)
+    dumpTab( hero, "new hero" )
 
     return hero
 end
@@ -166,22 +148,12 @@ end
 
 -- TODO: 出错处理、入库、出库处理
 -- key 以字符串方式存，捞取时tonumber
-function check_pending()
-    local pend = _cache
-    _cache = {}
-
-    for sn, chgs in pairs(pend) do
-        local db = dbmng:getOne()
-        dumpTab(chgs, string.format("update_hero[%s]", sn))
-        LOG("|")
-        db.hero:update({_id=sn}, {["$set"]=chgs})
-
-        local idx, pid = string.match(sn, "(%d+)_(%d+)")
-        local p = getPlayer(tonumber(pid))
-        if p then
-            chgs.idx = tonumber(idx)
-            Rpc:stateHero(p, chgs)
-        end
+function on_check_pending(db, sn, chgs)
+    local idx, pid = string.match(sn, "(%d+)_(%d+)")
+    local p = getPlayer(tonumber(pid))
+    if p then
+        chgs.idx = tonumber(idx)
+        Rpc:stateHero(p, chgs)
     end
 end
 
@@ -238,7 +210,30 @@ function get_ef(self)
         local skillid = skill[1] 
         if skillid ~= 0 then
             local conf = resmng.get_conf("prop_skill", skillid)
-            if conf and conf.Class ~= 20 then -- 20 is Talent Skill
+            if conf and conf.Type == SKILL_TYPE.BUILD then
+                for _, v in pairs(conf.Effect) do
+                    if v[1] == "AddBuf" and v[3] == 0 then
+                        local buf = resmng.get_conf("prop_buff", v[2])
+                        if buf then
+                            for key, val in pairs(buf.Value) do
+                                ef[ key ] = (ef[key] or 0) + val
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return ef
+end
+
+function get_ef_after_fight( self )
+    local ef = {}
+    for _, skill in pairs(self.basic_skill) do
+        local skillid = skill[1] 
+        if skillid ~= 0 then
+            local conf = resmng.get_conf("prop_skill", skillid)
+            if conf and conf.Type == SKILL_TYPE.FIGHT_AFTER_FIGHT then  -- skill after fight
                 for _, v in pairs(conf.Effect) do
                     if v[1] == "AddBuf" and v[3] == 0 then
                         local buf = resmng.get_conf("prop_buff", v[2])
@@ -284,12 +279,7 @@ end
 -- Others   : 调用接口前需要做道具验证和扣除
 --------------------------------------------------------------------------------
 function gain_exp(self, exp_num)
-    if not self:is_valid() then
-        ERROR("gain_exp: hero_id(%s) isn't valid.", self._id)
-        return false
-    end
-
-    if not self or not exp_num or exp_num <= 0 then
+    if not self or not exp_num or exp_num < 0 then
         ERROR("gain_exp: exp_num = %d", exp_num or -1)
         return false
     end
@@ -312,9 +302,9 @@ function gain_exp(self, exp_num)
             if total < need then break end
 
             if lv >= maxlv then
-                if total > need then 
-                    total = need 
-                end
+                --if total > need then 
+                --    total = need 
+                --end
                 break
             else
                 lv = lv + 1
@@ -386,8 +376,6 @@ function gain_skill_exp(self, skill_idx, exp_num)
     end
 
     self.basic_skill = self.basic_skill
-
-
 end
 
 --function gain_skill_exp(self, skill_idx, exp_num, count)
@@ -514,9 +502,14 @@ end
 -- Others   : 满级或者达到城主等级不能继续升级
 --------------------------------------------------------------------------------
 function can_lv_up(self)
-    if not self:is_valid() then
-        ERROR("can_lv_up: hero_id(%s) isn't valid.", self._id)
-        return
+    --if not self:is_valid() and self.status ~= HERO_STATUS_TYPE.BEING_CURED  then
+    --    WARN("can_lv_up: hero_id(%s) isn't valid.", self._id)
+    --    return
+    --end
+
+    if not self:is_valid() then 
+        WARN("can_lv_up: hero_id(%s) isn't valid.", self._id)
+        return 
     end
 
     -- 满级
@@ -530,11 +523,11 @@ function can_lv_up(self)
     -- 等级不能超过城主
     local player = getPlayer(self.pid)
     if not player then
-        ERROR("can_lv_up: getPlayer() failed. pid = %d", self.pid)
+        WARN("can_lv_up: getPlayer() failed. pid = %d", self.pid)
         return
     else
         if self.lv > player.lv then 
-            ERROR("can_lv_up: hero[%s], hero.lv = %d >= player.lv = %d", self._id, self.lv, player.lv)
+            WARN("can_lv_up: hero[%s], hero.lv = %d >= player.lv = %d", self._id, self.lv, player.lv)
             player:add_debug("can not lv up")
             return false 
         end
@@ -663,16 +656,14 @@ function star_up(self)
     -- 能否升星
     if not self:can_star_up() then
         local hero_basic_conf = resmng.get_conf("prop_hero_basic", self.propid)
-        ERROR("star_up: can't star up. hero._id = %s, star = %d, max_star = %d", self._id, self.star, hero_basic_conf.MaxStar)
+        WARN("star_up: can't star up. hero._id = %s, star = %d, max_star = %d", self._id, self.star, hero_basic_conf.MaxStar)
         return
     end
 
     -- { ID = xx, StarStatus = {xx,xx}, StarUpPrice = xx, GrowRate = {{1,1,1},{1,1,1},{1,1,1},{1,1,1}} }
     local star_up_conf    = resmng.get_conf("prop_hero_star_up", self.star + 1)
     local hero_basic_conf = resmng.get_conf("prop_hero_basic", self.propid)
-    if not star_up_conf or not hero_basic_conf then
-        return
-    end
+    if not star_up_conf or not hero_basic_conf then return end
 
     -- 校验碎片
     local player = getPlayer(self.pid)
@@ -696,6 +687,9 @@ function star_up(self)
     -- 升星，修改属性
     self.star = self.star + 1
     self:up_attr()
+
+    --任务
+    task_logic_t.process_task(player, TASK_ACTION.HAS_HERO_NUM)
 
     -- 大升星
     local old_talent_skill = self.talent_skill
@@ -1004,18 +998,26 @@ end
 -- Others   : 英雄处于被俘虏或者监禁状态时, 城主不能对其进行操作
 --------------------------------------------------------------------------------
 function is_valid(self)
-    local invalid_status = {
-        [HERO_STATUS_TYPE.BEING_CURED]      = true,
-        [HERO_STATUS_TYPE.BEING_CAPTURED]   = true,
-        [HERO_STATUS_TYPE.BEING_IMPRISONED] = true,
-        [HERO_STATUS_TYPE.BEING_EXECUTED]   = true,
-        [HERO_STATUS_TYPE.DEAD]             = true,
-    }
-    if invalid_status[self.status] then
-        return false
-    else
-        return true
-    end
+    if self.status == HERO_STATUS_TYPE.FREE then return true end
+    WARN( "hero_is_not_valid, pid = %d, _id = %s, name = %s, status = %d", self.pid, self._id, self.name, self.status )
+
+    return false
+
+
+    --local invalid_status = {
+    --    [HERO_STATUS_TYPE.BUILDING]      = true,
+    --    [HERO_STATUS_TYPE.MOVING]      = true,
+    --    [HERO_STATUS_TYPE.BEING_CURED]      = true,
+    --    [HERO_STATUS_TYPE.BEING_CAPTURED]   = true,
+    --    [HERO_STATUS_TYPE.BEING_IMPRISONED] = true,
+    --    [HERO_STATUS_TYPE.BEING_EXECUTED]   = true,
+    --    [HERO_STATUS_TYPE.DEAD]             = true,
+    --}
+    --if invalid_status[self.status] then
+    --    return false
+    --else
+    --    return true
+    --end
 end
 
 

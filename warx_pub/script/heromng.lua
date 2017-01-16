@@ -65,14 +65,10 @@ function destroy_hero(hero_id)
     _heros[ hero._id ] = nil
 
     -- 清理缓存信息
-    hero_t._cache[ hero._id ] = nil
-
-    -- 删除数据库信息
-    local db = dbmng:getOne()
-    db.hero:delete({_id = hero._id})
+    gPendingDelete.hero_t[ hero._id ] = 1
 
     LOG("destroy_hero: succ.")
-    doDumpTab(hero)
+    dumpTab(hero)
 
     return true
 end
@@ -198,7 +194,7 @@ function get_fight_attr(hero_id)
 
     local hero = get_hero_by_uniq_id(hero_id)
     if not hero then
-        ERROR("get_fight_attr: get_hero_by_uniq_id(hero_id = %d) failed.", hero_id or -1)
+        ERROR("get_fight_attr: get_hero_by_uniq_id(hero_id = %s) failed.", hero_id or -1)
         return
     else
         local ret = {
@@ -218,10 +214,12 @@ function get_fight_attr(hero_id)
             }
         }
 
+        if hero:is_best_personality() then ret.fit_per = 1 end
+
         for _, skill in pairs(hero.basic_skill) do
             if skill[1] ~= 0 then
                 local conf = resmng.get_conf("prop_skill", skill[1])
-                if conf and conf.Type == SKILL_TYPE.FIGHT then
+                if conf and conf.Type == SKILL_TYPE.FIGHT_BASIC then
                     table.insert(ret.skills, skill[1])
                 end
             end

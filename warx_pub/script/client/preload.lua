@@ -63,10 +63,40 @@ function local_to_str(tab)--转换lua变量为字符串，便于用loadstring函
 end
 
 function lxz(tab)--打印lua变量数据到日志文件
-    local str=""
-    --str = to_str(tab,str,"").."\n------\n"..debug.traceback()
+    local info = debug.getinfo(2)                                                                                                                              
+    local str = "["..(info.short_src or "FILE")..":"..(info.name or "")..":"..(info.currentline or 0).."]"
     str = to_str(tab,str,"").."\n"
+    str = "["..os.date().."]: "..str
     print(str)
-    --save_file( "a","debug".."_"..os.date("%Y").."_"..os.date("%m").."_"..os.date("%d")..".log",str)
 end
 
+setfenv = setfenv or function(f, t)
+    f = (type(f) == 'function' and f or debug.getinfo(f + 1, 'f').func)
+    local name
+    local up = 0
+    repeat
+        up = up + 1
+        name = debug.getupvalue(f, up)
+    until name == '_ENV' or name == nil
+    if name then
+        debug.upvaluejoin(f, up, function() return name end, 1) -- use unique upvalue
+        debug.setupvalue(f, up, t)
+    end
+end
+
+getfenv = getfenv or function(f)
+    f = (type(f) == 'function' and f or debug.getinfo(f + 1, 'f').func)
+    local name, val
+    local up = 0
+    repeat
+        up = up + 1
+        name, val = debug.getupvalue(f, up)
+    until name == '_ENV' or name == nil
+    return val
+end
+
+module = module or function(mname)
+    _ENV[mname] = _ENV[mname] or {}
+    setmetatable(_ENV[mname], {__index = _ENV})
+    setfenv(2, _ENV[mname])
+end

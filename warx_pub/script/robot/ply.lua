@@ -1,91 +1,173 @@
 module("Ply", package.seeall)
-dofile("robot/preload.lua")
 
 local _mt = {__index = Ply}
 
 function new(acc)
-    --local t = {acc=acc, action={{"login"}}}
-    local t = {acc=acc, action={{"login"}}}
+    local pid = -1
+    for k, v in pairs( gNames[acc] or {} ) do
+        if v.smap and v.smap == config.Map then--源服务器
+            pid =  tonumber(k)
+            break
+        end
+    end
+
+    local t = {acc=acc, pid=pid,action={{"login"}}}
     return setmetatable(t, _mt)
 end
 
-local gLogin = 0
-
 function handle_network(self, sid, pktype)
     if pktype == 10 then -- connect complete
-        gLogin = gLogin + 1
-        print( gLogin )
+        _G.gLogin = _G.gLogin + 1
         self.gid = sid
-        Rpc:firstPacket(self, gMap, self.acc, "1")
+        local token = "c67sahejr578aqo3l8912oic9"
+        local msg = c_md5(c_md5(gTime..self.acc..token)..APP_SECRET)
+        lxz(self.pid)
+        Rpc:firstPacket(self,config.Map,  config.get_cival(self) or 1, self.pid, msg, gTime, self.acc,token)
     elseif pktype == 11 then -- connect fail
-        
+
     elseif pktype == 6 then -- close
 
     end
 end
 
+function robot_first(self)
+    handle_network(self, self.fd, 10)
+end
+
+gActionIndex = 0
+
 function pending( self )
-    if self.active then gSkiplist:delete( self.active, tostring(self.gid) ) end
+    if self.gid then skiplist.delete( gRid, tostring(self.gid) ) end
     self.active = gTime
-    gSkiplist:insert( self.active, tostring( self.gid ) )
+    gActionIndex = gActionIndex + 1
+    skiplist.insert( gRid, tostring( self.gid ), gActionIndex )
+end
+
+function OnError( self,id,code)
+    for _, v in pairs( Rpc.localF ) do
+        if v.id == id  then
+            lxz(v)
+        end
+    end
 end
 
 function onLogin(self, pid, name )
+    --print("login:",self.acc)
+    g_login = (g_login  or 0) + 1
     self.pid = pid
     self.name = name
     self.tmLogin = gTime
 
+    if not _ply then
+        _ply={}
+    end
+    _ply[name] = self
     funcAction.login( self )
 end
 
-function loadData(self, data)
-    print( "load data" )
-    if data.key == "pro" then
-        for k, v in pairs(data.val) do self[k] = v end
-    else
-        self[ "_" .. data.key ] = data.val
-    end
+function notify_server(self, str )
+    --print(str)
+end
 
-    if data.key == "pro" then
+function response_empty_pos(self,x,y,pack)
+    if pack.key == TASK_ACTION.ATTACK_SPECIAL_MONSTER then
+        local eid = get_npc_eid()
+        if not eid then
+            lxz(npc)
+            return
+        end
+        local  arm = {[1010]=1000,[2010]=1000,[3010]=1000,[4010]=1000,}
+        Rpc:siege_task_npc(self, pack.task_id, eid, x, y, {live_soldier=arm} )
+    elseif pack.key == "move" then
+        Rpc:migrate(self,x,y)
+    elseif pack.key == "build" then
+        Rpc:union_build_setup(self,pack.idx,pack.propid,x,y,pack.name)
+    end
+end
+
+function get_eye_info(self,eid,pack)
+    if is_union_building(eid) then
+        if pack.res then 
+            for _, v in pairs( pack.res ) do
+                if self.pid == v.pid  then
+                    self.restore = v.res
+                end
+            end
+        end
+    end
+end
+
+function loadData(self, data)
+    --lxz( "load data:"..data.key)
+    if data.key == "task" then
+        if not self._task then
+            self._task = {}
+        end
+        for _, v in pairs( data.val ) do
+            self._task[v.task_id] = v
+        end
+        --lxz(self._task)
+    elseif data.key == "ef" then
+        self._ef = data.val
+    elseif data.key == "hero" then
+        self._hero = {}
+        for k, v in pairs(data.val) do self._hero[v.idx] = v end
+    elseif data.key == "pro" then
+        for k, v in pairs(data.val) do self[k] = v end
+        self.pro = data.val
         local x = data.val.x
         local y = data.val.y
-        for zx = x - 32, x + 32, 16 do
-            for zy = y - 32, y + 32, 16 do
+        local move = 32
+        for zx = x - move, x + move, 10 do
+            for zy = y - move, y + move, 10 do
                 if zx > 0 and zx < 1280 then
                     if zy > 0 and zy < 1280 then
-                        Rpc:movEye( self, gMap, zx, zy )
+                        Rpc:movEye( self, config.Map, zx, zy )
                     end
                 end
             end
         end
+        Rpc:movEye( self, config.Map, 640, 640 )
+        Rpc:movEye( self, config.Map, 640, 610 )
+        Rpc:movEye( self, config.Map, 610, 640 )
+        Rpc:movEye( self, config.Map, 640, 670 )
+        Rpc:movEye( self, config.Map, 670, 640 )
 
+--[[
         if string.byte( data.val.name, 1, 1 ) == 75 then
             Rpc:change_name( self, name.make_name() )
         end
-    end
+        --]]
 
-    if data.key == "build" then
-        local bs = {}
-        for k, v in pairs( self._build ) do
-            bs[ v.idx ] = v
+    elseif data.key == "build" then
+        self._build = {}
+        for _, v in pairs( data.val ) do
+            self._build[ v.idx ] = v
         end
-        self._build = bs
-    end
-
-    if data.key == "troop" then
+    elseif data.key == "troop" then
         local bs = {}
-        for k, v in pairs( self._troop ) do
+        for k, v in pairs( data.val ) do
             bs[ v._id ] = v
+            Rpc:troop_acc(self,v._id,0)
+            Rpc:troop_acc(self,v._id,0)
+            Rpc:troop_acc(self,v._id,0)
+            Rpc:troop_acc(self,v._id,0)
+            Rpc:troop_acc(self,v._id,0)
+            Rpc:troop_acc(self,v._id,0)
+            Rpc:troop_acc(self,v._id,0)
+            Rpc:troop_acc(self,v._id,0)
         end
         self._troop = bs
+
+    elseif data.key == "done" then
+        --self.load_done = true
+        --plan_build( self )
+        --plan_troop( self )
+        pending( self )
+    else
+        self[ "_" .. data.key ] = data.val
     end
 
-    if data.key == "done" then
-        self.load_done = true
-        plan_build( self )
-        plan_troop( self )
-        pending( self )
-    end
 end
 
 
@@ -99,25 +181,18 @@ function stateTroop(self,data)
 end
 
 function upd_arm( self, info )
+    --lxz(info)
+    if config.g_check then
+        for k, v in pairs(info) do 
+            local check = config.g_check.arm 
+            if check and  v < check.num then
+                Rpc:chat(self, 0, "@addarm="..k.."="..check.num, 0 )
+            end
+        end
+    end
     self._arm = info
 end
 
-local _union_list_all = 0
-local _cur_union_num = 0
-
-function union_list(self, pack)
-
-    _union_list_all = {}
-    for k, v in pairs(pack) do
-        _union_list_all[#_union_list_all+1] = v.uid
-    end
-    _cur_union_num = #_union_list_all
-end
-
-function union_on_create(self, pack)
-    self.union.id = pack.uid
-    _union_list_all[#_union_list_all+1]  = pack.uid
-end
 
 function union_reply(self, id,stat)
 end
@@ -126,35 +201,6 @@ function union_add_member(self, pack)
     Rpc:union_add_member(self,pack.pid)
 end
 
-function union_load(self, pack)
-
-    if pack.key == "info" then--军团基本信息
-       if not self.union then self.union = {} end
-       self.union.id = pack.val.uid or 0
-       self.union.leader = pack.val.leader or 0
-    elseif pack.key =="apply" then--军团成员加入同意
-        self._union_apply = pack.val
-        for k, v in pairs(pack.val) do
-            Rpc:union_add_member(self,v.pid)
-        end
-    elseif pack.key =="build" then--军团建筑
-        if not self.union.build then self.union.build = {} end
-        for k, v in pairs(pack.val) do
-            self.union.build[v.idx]=v
-        end
-    elseif pack.key =="buildlv" then--军团建筑捐献
-        if not self.union.buildlv then self.union.buildlv = {} end
-        for k, v in pairs(pack.val) do
-            self.union.buildlv[v.class]=v
-        end
-    elseif pack.key =="fight" then--军队集结
-    lxz(pack)
-        if not self.union.mass then self.union.mass = {} end
-        for k, v in pairs(pack.val) do
-            self.union.mass[v.class]=v
-        end
-    end
-end
 
 function union_build_donate(self,info) 
     if not self.union.buildlv then self.union.buildlv = {} end
@@ -177,13 +223,16 @@ function union_broadcast(self,what,mode,info)
 end
 
 function addEty( self, info )
+
     local pack = etypipe.parse(info)
     if pack.propid == 11001001 then return end
 
-    print( "addEty", pack.eid, pack.x, pack.y, pack.propid )
 
     local zx = math.floor( pack.x / 16 )
     local zy = math.floor( pack.y / 16 )
+
+    --print( "addety",pack.x, pack.y, zx,zy, pack.level)
+
 
     local node = gZones[ zx ]
     if not node then 
@@ -199,6 +248,26 @@ function addEty( self, info )
     zone[ pack.eid ] = pack
 
     gEtys[ pack.eid ] = pack
+
+    if not kings then kings = {} end
+
+    if pack.propid ==4001001  then
+        kings[1]=pack
+    elseif pack.propid ==4001003  then
+        kings[2]=pack
+    elseif pack.propid ==4002003  then
+        kings[3]=pack
+    elseif pack.propid ==4003003  then
+        kings[4]=pack
+    elseif pack.propid ==4004003  then
+        kings[5]=pack
+    end
+
+    if not npc then npc = {} end
+
+    if pack.propid >1000  and pack.propid <4031  then
+        table.insert(npc,pack)
+    end
 end
 
 
@@ -209,6 +278,7 @@ function addEtys(self, infos)
 end
 
 function remEty( self, eid )
+    --print("移除：",eid)
     local ety = gEtys[ eid ]
     if ety then
         local zx = math.floor( ety.x / 16 )
@@ -220,23 +290,25 @@ end
 
 function stateBuild(self, vs)
     local idx = vs.idx
+    if vs.tmSn then
+        Rpc:union_help_add(self,vs.tmSn)
+        Rpc:acc_build(self, idx, ACC_TYPE.GOLD)
+    end
     local b = self:get_build(idx)
     if b then
         for k, v in pairs(vs) do b[k] = v end
     else
+        if not self._build then self._build = {} end
         self._build[ idx ] = vs
     end
 end
 
-function statePro(self, vs)
-    --dumpTab(vs, "statePro")
-    for k, v in pairs(vs) do self[k] = v end
-end
 
 
 
 function get_build(self, idx)
     if not idx then return self._build end
+    if not self._build then return self._build end
     if not self._build[idx] then 
         return nil
     end
@@ -264,15 +336,19 @@ function getRes(self, mode)
     end
 end
 
+function getTime( self,tag,tm,sm)
+    self.stm = tm
+end
+
 function doCondCheck(self, class, mode, lv, ...)
-    if class == "or" then
+    if class == "OR" then
         local f,c,m,l 
         for _, v in pairs({mode, lv, ...}) do
             if self:doCondCheck(unpack(v)) then return true end
         end
         return false
 
-    elseif class == "and" then 
+    elseif class == "AND" then 
         for _, v in pairs({mode, lv, ...}) do
             if not self:doCondCheck(unpack(v)) then return false, class, mode, lv end
         end
@@ -287,39 +363,170 @@ function doCondCheck(self, class, mode, lv, ...)
     elseif class == resmng.CLASS_BUILD then
         local t = resmng.prop_build[ mode ]
         if t then
-            local c = t.Class
-            local m = t.Mode
-            local l = t.Lv
             for _, v in pairs(self:get_build()) do
                 local n = resmng.prop_build[ v.propid ]
-                if n and n.Class == c and n.Mode == m and n.Lv >= l then return true end
+                if n and n.Class == t.Class and n.Mode == t.Mode then 
+                    if n.Lv >= t.Lv then 
+                        return true 
+                    else
+                        self:build_up(t.Class,t.Mode,n.Lv+1,1)
+                        return 
+                    end
+                end
             end
+            self:build_up(t.Class,t.Mode,1,1)
         end
     elseif class == resmng.CLASS_GENIUS then
-        local t = Data.propGenius[ mode ]
+        local t = resmng.prop_genius[ mode ]
         if t then
-            local c = t.class
-            local m = t.mode
-            local l = t.lv
             for _, v in pairs(self.genius) do
-                local n = Data.propGenius[ v ]
-                if n and n.class == c and n.mode == m and n.lv >= l then return true end
+                local n = resmng.prop_genius[ v ]
+                if n and n.Class == t.Class and n.Mode == t.Mode and n.Lv >= t.Lv then return true end
             end
         end
-    elseif class == remsng.CLASS_TECH then
-        local t = Data.propTech[ mode ]
+    elseif class == resmng.CLASS_TECH then
+        local t = resmng.prop_tech[ mode ]
         if t then
-            local c = t.class
-            local m = t.mode
-            local l = t.lv
-            for _, v in pairs(self.tech) do
-                local n = Data.propTech[ v ]
-                if n and n.class == c and n.mode == m and n.lv >= l then return true end
+            for _, v in pairs(self._tech or {} ) do
+                local n = resmng.prop_tech[ v ]
+                if n and n.Class == t.Class and n.Mode == t.Mode then 
+                    if n.Lv >= t.Lv then 
+                        return true 
+                    end
+                    tech(self, mode,n.Lv+1)
+                    return
+                end
             end
+            tech(self, mode,1)
         end
     end
     -- default return false
     return false, class, mode, lv
+end
+
+function stateItem(self,pack)
+   --lxz(pack)
+   if not self._item then self._item = {} end
+   for _, v in pairs(pack) do self._item[v[1]] = v end
+end
+
+function statePro(self,pack)
+    --lxz(pack)
+    if pack.tech then
+        self._tech = pack.tech
+    else
+        for k, v in pairs(pack) do self[k] = v end
+    end
+    if config.g_check then
+        local check = config.g_check.gold
+        if pack.gold and check and pack.gold < check.num then
+            Rpc:chat(self, 0, "@addgold="..check.num, 0 )
+            self.gold = check.num
+        end
+        if pack.sinew and config.g_check.sinew then 
+            print("体力",pack.sinew)
+            if pack.sinew < 100 then Rpc:buy_item(self,43, 2, 1) end
+        end
+    end
+
+    if pack.uid then 
+        self.uid = pack.uid
+    end
+end
+
+function tech(self, id,lv,quick)
+    quick = quick or 1
+    --print("tech",id,lv)
+    local c = resmng.prop_tech[id]
+    for _, v in pairs(self._tech) do
+        local n = resmng.prop_tech[ v ]
+        if n and n.Class == c.Class and n.Mode == c.Mode then 
+            if n.Lv >= lv then return true end
+
+            id = c.Class*1000*1000 + c.Mode*1000 
+            for i=n.Lv+1,lv do
+                c = resmng.prop_tech[id+i]
+                local f = self:condCheck(c.Cond)
+                if not  f then return end
+                Rpc:learn_tech(self,1001,c.ID,quick)
+            end
+            return true
+        end
+    end
+
+    for i=1,lv do
+        id = c.Class*1000*1000 + c.Mode*1000 
+        c = resmng.prop_tech[id+i]
+        local f = self:condCheck(c.Cond)
+        if not f then return end
+        Rpc:learn_tech(self,1001,c.ID,quick)
+    end
+    return true  
+end
+
+function build_up(self,class, mode,lv,num,quick)
+    print("build",class,mode,lv)
+
+    local cur = self:getBuildNum(class, mode)
+    if cur < num then 
+        local f = funcAction.construct 
+        f(self,class,mode,(num-cur))
+        return false 
+    else
+        return true 
+    end
+
+    for _, b in pairs(self:get_build()) do
+        local n = resmng.prop_build[ b.propid ]
+        if n and n.Class == class and n.Mode == mode then 
+            local i = 1
+            local c = resmng.prop_build[b.propid+i]
+            if  c  then
+                while lv >= c.Lv do
+                    local f = self:condCheck(c.Cond)
+                    if not f  then
+                        return false
+                    end
+                    if not quick then
+                        Rpc:one_key_upgrade_build(self,b.idx)
+                    else
+                        Rpc:upgrade(self,b.idx)
+                    end
+                    i = i + 1
+                    c = resmng.prop_build[b.propid+i]
+                    if  not c then
+                        break
+                    end
+                end
+            end
+        end
+    end
+
+end
+
+function genius_up(self,id)
+
+    local n = resmng.prop_build[ id ]
+    if n then 
+        local i = 1
+        local c = resmng.prop_genius[id]
+        if  c  then
+            local f = self:condCheck(C.cond)
+            if not f  then
+                return false
+            end
+            if c.Lv > 1 then
+                local old_id = id - 1
+                local old_conf = resmng.prop_genius[old_id]
+                if not old_conf then
+                    genius_up(self,old_id)
+                    return
+                end
+            end
+            Rpc:do_genius(self,id)
+        end
+    end
+
 end
 
 function condCheck(self, tab)
@@ -335,33 +542,51 @@ function condCheck(self, tab)
 end
 
 
-function doAction(self)
-    Rpc:p2p( self, self.pid, {cur=gMsec} )
-    Rpc:chat( self, 0, "hello", 0)
-    if true then return end
+function king(self)
 
-    makePlan(self)
-    pending( self )
-    if true then return end
+    if not self._build then return end
+    if not self._build[1] then return end
 
-    local as = self.action
-    if #as > 0 then
-        while #as > 0 do
-            local a = as[1]
-            if funcAction[ a[1] ] then
-                local rt = funcAction[a[1]](self, unpack(a[2] or {}))
-                if rt then
-                    table.remove(as, 1)
-                else
-                    return
-                end
-            else
-                print("not found action", a[1])
-               -- return
+    if self._build[1].propid< 15 then
+        self:build_up(0,0,15,1)
+        return 
+    end
+
+    if self.uid < 10000 then
+        union_add(self)
+    else
+    --[[
+        Rpc:chat(self, 0, "@startkw", 0 )
+        Rpc:chat(self, 0, "@peacekw", 0 )
+        Rpc:chat(self, 0, "@fightkw", 0 )
+        --]]
+        local r = math.random(5)
+        if  kings[r].uid ~= self.uid then
+            local  arm = {[1010]=1000,[2010]=1000,[3010]=1000,[4010]=1000,}
+            Rpc:siege( self, kings[r].eid, { live_soldier = arm } )
+        end
+    end
+end
+
+function doAction(self,ps)
+    --Rpc:p2p( self, self.pid, {cur=gMsec} )
+    --Rpc:chat( self, 0, "hello", 0)
+    --self:addAction("idle")
+    for k, v in pairs(ps) do
+       -- lxz(k)
+        if k == "task" then
+            self:main_task()
+        elseif k == "king" then
+            king(self)
+        elseif k == "union" then
+            union_plan(self,v)
+        elseif k == "build" then
+            if self._build and self._build[1] and self._build[1].propid< v.lv then
+                self:build_up(0,0,v.lv,1)
             end
         end
-        --return
     end
+    pending( self )
 end
 
 function addAction(self, act, ...)
@@ -374,7 +599,7 @@ function addAction(self, act, ...)
 
     table.insert(self.action, 1, {act, {...}})
     gActive[ self.gid ] = self
-    --self:doAction()
+    self:doAction()
 end
 
 function p2p( self, from, info)
@@ -436,22 +661,22 @@ function get_val( what, ef )
     return base * ( 1 + mul * 0.0001 ) + add
 end
 
-function get_target( self, func )
-    local zx = math.floor( self.x / 16 )
-    local zy = math.floor( self.y / 16 )
-    local its = {}
+function get_target( self, func,lv )
 
-    for x = zx - 2, zx + 2 do
+    local its = {}
+    lv = lv or 0
+    for x = 1, 80 do
         if x >= 0 and x < 80 then
             local node = gZones[ x ]
             if node then
-                for y = zy - 2, zy + 2 do
+                for y = 1, 80 do
                     if y >= 0 and y < 80 then
                         local tnode = node[ y ]
                         if tnode then
                             for k, v in pairs( tnode ) do
-                                if func( v ) then 
-                                    table.insert( its, v )
+                                if func( v ) and v.level>lv then 
+                                    tnode[k]=nil
+                                    return {v}
                                 end
                             end
                         end
@@ -460,7 +685,6 @@ function get_target( self, func )
             end
         end
     end
-    return its
 end
 
 
@@ -562,46 +786,6 @@ function plan_troop( self )
 end
 
 
-function makePlan(self)
-    --self:addAction("idle")
-
-    plan_build( self )
-    plan_troop( self )
-    if true then return end
-
-    math.randomseed(os.clock()*123456789)
-    local r = math.random(9,10) 
-    if r == 1 then
-    elseif r == 2 then
-        self:addAction("construct", 1, 1, self:getBuildNum(1, 1) + 1)
-    elseif r == 3 then
-        self:addAction("construct", 1, 2, self:getBuildNum(1, 2)+1)
-    elseif r == 4 then
-        self:addAction("construct", 0, 18, self:getBuildNum(0, 18)+1)
-    elseif r == 5 then
-        self:build_up(1, 1)
-    elseif r == 6 then
-        self:build_up(1, 2)
-    elseif r == 7 then
-        self:build_up(0, 18)
-    elseif r == 8 then
-        for _, yv in pairs(self._eye) do
-            for k, v in pairs(yv) do
-                local type = math.floor(v.eid/65536) 
-                if type == 3 and not v.on then
-                    self:fight("union_mass_create",v.eid,{{1001,1},} )
-                    return
-                end
-            end
-        end
-    elseif r == 9 then
-        self:union_build_up_pre(1,1)
-    elseif r == 10 then
-        self:union_build_up_pre(3,4)
-    end
-
-  --  lxz(self.pid,self.action)
-end
 
 function union_build_up_pre(self,class,mode)
 
@@ -704,150 +888,77 @@ end
 function getBuildNum(self, class, mode)
     local num = 0
     local new = 0
-    for k, v in pairs(self:get_build()) do
-        local p = resmng.prop_build[ v.propid ]
-        if p then 
-            if p.class == class and p.mode == mode then
-                num = num + 1
-                if v.state and v.state > 0 then
-                    new = new + 1
-                end
+    local x = 100
+    local idx = class * 10000 +  mode * 100 + 0
+    for k, v in pairs(self:get_build() or {} ) do
+        if k > idx  and k < idx + 100 then
+            num = num + 1
+            if v.state and v.state > 0 then
+                new = new + 1
             end
         end
     end
-    return num, new
+
+    return num, x,new
 end
+
 
 funcAction = {}
 funcAction.login = function(self)
-
     self._build = {}
     self._troop = {}
     self._arm = {}
     self._ef = {}
 
+    Rpc:getTime(self,1)
     Rpc:loadData( self, "pro" )
     Rpc:loadData( self, "build" )
-    Rpc:loadData( self, "troop" )
-    Rpc:loadData( self, "arm" )
     Rpc:loadData( self, "ef" )
-    Rpc:loadData( self, "done" )
+    Rpc:loadData( self, "ef_eid" )
+    Rpc:loadData( self, "item" )
+    Rpc:loadData( self, "hero" )
+    Rpc:loadData( self, "troop" )
+    Rpc:loadData( self, "equip" )
+    Rpc:loadData( self, "arm" )
+    Rpc:loadData( self, "task" )
+    Rpc:get_gs_buf( self )
+    Rpc:loadData( self, "watch_tower" )
+    Rpc:chat_account_info_req( self )
 
-    Rpc:chat(self, 0, "@buildall", 0 )
-    Rpc:chat(self, 0, "@buildfarm", 0 )
-    Rpc:chat(self, 0, "@addarm=1001=10000", 0 )
-    Rpc:chat(self, 0, "@addarm=2001=10000", 0 )
-    Rpc:chat(self, 0, "@addarm=3001=10000", 0 )
-    Rpc:chat(self, 0, "@addarm=4001=10000", 0 )
-    Rpc:chat(self, 0, "@addgold=1000000", 0 )
-    Rpc:chat(self, 0, "@addres=1=10000000", 0 )
-    Rpc:chat(self, 0, "@addres=2=10000000", 0 )
-    Rpc:chat(self, 0, "@addres=3=10000000", 0 )
-    Rpc:chat(self, 0, "@addres=4=10000000", 0 )
+    Rpc:union_load( self, "info" )
+    Rpc:union_load( self, "member" )
+    Rpc:union_help_get( self )
+    Rpc:union_load( self, "relation" )
+    Rpc:chat(self,1,"我是机器人",0)
+    Rpc:change_language(self,40)
+    Rpc:union_load( self, "tech" )
+    Rpc:union_load( self, "mars" )
+    Rpc:union_load( self, "buf" )
+    Rpc:union_load( self, "union_donate" )
+    Rpc:union_load( self, "donate" )
+    Rpc:mail_load( self, 0 )
+    Rpc:report_load( self, 1 )
+    Rpc:report_load( self, 2 )
+    Rpc:report_load( self, 3 )
+    Rpc:syn_back_code( self, 1 )
 
-    return true
 
-    --if not self._eye then return Rpc:addEye(self ) end
-    --if not self._item then return Rpc:loadData(self, "item") end
-    --if not self._eye then return Rpc:addEye(self ) end
-    --if not self._ef then return Rpc:loadData(self, "ef") end
-    --local exp = math.random( 5000, 50000 )
-    --Rpc:chat(self, 0, string.format("@addexp=%d", exp), 0 )
-    --Rpc:chat(self, 0, "@all", 0 )
-    --print( "chat" )
-
-    --if not self.union then return Rpc:union_load(self,"info") end
-    --if not self._union_apply then return Rpc:union_load(self,"apply") end
-    --if not self.union.build then return Rpc:union_load(self,"build") end
-    --if not self.union.buildlv then return Rpc:union_load(self,"buildlv") end
-    --if not self.union.mass then return Rpc:union_load(self,"fight") end
-    --self.union.mass_num = 0 
-    --if _union_list_all  == 0 then 
-    --    return Rpc:union_list(self) 
-    --end
-    --if not self._troop then return Rpc:loadData(self, "troop") end
-
-    --if self._troop then 
-    --    self.troop_num = #self._troop 
-    --    return true 
-    --end
-end
-
-local _UNION_NUM=200
-funcAction.union_add = function(self)
-    if self.union.id == 0 then
-        if _cur_union_num < _UNION_NUM then 
-            Rpc:union_create(self,self.name,self.name,10,1)
-            self.union.id = 1 
-            _cur_union_num = 1 + _cur_union_num 
-        else 
-            local id = _union_list_all[self.pid%_UNION_NUM+1]  
-            if  id  then 
-                Rpc:union_apply(self,id)
-                self.union.id = id  
-            end
-        end
+    for _, v in pairs(config.gm or {} ) do
+        Rpc:chat(self, 0, v, 0 )
     end
 
+    Rpc:loadData( self, "tech" )
+    Rpc:loadData( self, "done" )
     return true
+
 end
+
 
 funcAction.union_build_setup = function(self,id,x,y)
     Rpc:union_build_setup(self,id,x,y)
     return true
 end
 
-function build_up(self, class, mode,lv)
-    for k, v in pairs(self:get_build()) do
-        local p = resmng.prop_build[ v.propid ]
-        if p then 
-            local l = lv or p.lv+1
-            if l < 31 then
-                if p.class == class and p.mode == mode then
-                    self:upgrade( v, l)
-                    return 
-                end
-            end
-        end
-    end
-    self:addAction("construct", class, mode,  1)
-end
-
-function upgrade (self, b, tolv)
-    if b.state ~= resmng.DEF_STATE_IDLE then return end
-    local prop = resmng.prop_build[ b.propid ]
-    if prop.lv >= tolv then return true end
-    local nprop = resmng.prop_build[ math.floor(prop.class * 1000000 + prop.mode * 1000 + prop.lv + 1) ]
-    if nprop then
-        if nprop.cond then
-            local flag, class, mode, lv = self:condCheck(nprop.cond)
-            if not flag then
-                if class == resmng.CLASS_RES then
-                    self:addAction("get", class, mode, lv)
-                    return
-                elseif class == resmng.CLASS_BUILD then
-                    local t = resmng.prop_build[ mode ]
-                    self:build_up( t.class,t.mode,t.lv)
-                    return
-                end
-            end
-        end
-
-        if nprop.cons then
-            local flag, class, mode, lv = self:condCheck(nprop.cons)
-            if not flag then
-                self:addAction("get", class, mode, lv)
-                return
-            end
-        end
-        self:addAction("upgrade", b.idx) 
-    end
-end
-
-funcAction.upgrade = function(self, idx)
-    Rpc:upgrade(self, idx)
-    return true
-end
 
 function build_train(self, class, mode,a_lv)
 
@@ -863,8 +974,223 @@ function build_train(self, class, mode,a_lv)
         end
     end
 
-    self:build_up(class,mode)
+    self:build_up(class,mode,lv)
     return 0
+end
+
+
+function do_gacha_resp(self, pack)
+    if pack.result~=0 then return end 
+    if not self.gacha then self.gacha = {} end 
+    if not self.gacha[pack.type] then self.gacha[pack.type] = {} end 
+    for _, vs in pairs(pack.award) do
+        local v = vs[1]
+        if not self.gacha[pack.type][v[1]] then self.gacha[pack.type][v[1]] = {} end 
+        self.gacha[pack.type][v[1]][v[2]] = (self.gacha[pack.type][v[1]][v[2]] or  0) + v[3]  
+    end
+end
+
+function gacha_test(name,type)
+    local self = g_name[name]
+    if self and self.active and gTime - self.active  > 1 then
+        Rpc:do_gacha(self,type) 
+    end    
+end
+
+function item_test(name,item_id,check) --参数：机器人名称，道具id，检查项目
+    local self = g_name[name]
+    if self and self.active and gTime - self.active  > 1 then
+        if 0 == check_on(self,name,check) then 
+            for idx, v in pairs(self._item) do
+                if v[2] == item_id then
+                    WARN("使用道具:"..item_id)
+                    Rpc:use_item(self,idx,1) 
+                    _check[name].ret = _check[name].ret + 1  
+                    return
+                end
+            end
+        end
+        check_ret(name) 
+    end    
+end
+
+function techup(robot,name,id,lv,check) --参数：机器人名称，道具id，检查项目
+    local self = g_name[robot]
+    local f = 1
+    if self and self.active and gTime - self.active  > 1 then
+        if 0 == check_on(self,name,check,f) then 
+            while true do
+                if tech(self,id,lv,1) then break end
+            end
+            _check[name].ret = 1
+        end
+        check_ret(name,f) 
+
+        if gTime > (tm_check or 0)  + 2 then
+            tm_check = gTime
+            WARN("check:"..name..":".._check[name].ret)
+            os.execute("echo "..gTime..","..name..",".._check[name].ret.." >> /tmp/check.csv")
+
+            if _check[name].ret == math.huge then return true
+            else lxz(name,_check[name].data)  return end
+        end
+    end    
+
+end
+
+function get_buff(self, what,val)
+    --lxz(what,val)
+    if not self.buff then self.buff= {} end
+    self.buff[what]= val
+end
+
+function get_res(self, k,v)
+    if k=="item" then
+        local t = {} 
+        for _, obj in pairs(self._item) do
+            for id, _ in pairs(v) do
+                if obj[2]==id then
+                    t[obj[2]]= obj[3]
+                    break
+                end
+            end
+        end
+        return t 
+    elseif k=="donate" then
+        Rpc:union_load( self, "union_donate" )
+        Rpc:union_load( self, "donate" )
+        local u = get_union(self,pack.uid)
+        return { my = self.donate,u=u.donate}  
+    elseif k=="hero" then
+        return self._hero  
+    elseif k=="arm" then
+        return self._arm  
+    elseif k=="buff" then
+        for  what,_ in pairs(v) do
+            --lxz(what)
+            Rpc:get_buff( self, what )
+        end
+
+        if self.buff then
+            local t = {}
+            for  what,_ in pairs(v) do
+                t[what] = self.buff[what] 
+            end
+            return  t 
+        end
+
+    elseif k=="god" then
+    else
+        return self[k]
+    end
+end
+
+_check  = {} 
+function check_up(self, name,check)
+    _check[name].ret = 0 
+    for k, v in pairs(check) do
+        if k == "buff" then
+            for what, _ in pairs(v) do
+                if (not _check[name].data[k].start) or (not _check[name].data[k].start[what]) then 
+                    local d  = self:get_res(k,v) 
+                    if not d then _check[name].ret = -1  return end
+                    if not next(d) then _check[name].ret = -1  return end
+                    _check[name].data[k].start[what] =  d 
+                end
+                if (not _check[name].data[k].start[what]) then _check[name].ret = -1 end
+            end
+        else
+            if not _check[name].data[k].start then 
+                local d  = self:get_res(k,v) 
+                if not d then _check[name].ret = -1 return end
+                if not next(d) then _check[name].ret = -1 return end
+                _check[name].data[k].start = d 
+            end
+        end
+    end
+end
+
+--  -1:创建， 0:初始化，math.huge:成功
+function check_on(self, name,check,f)
+    if not _check[name] then 
+        local d = {ply=self,ret=-1,data = {}}
+        for k, v in pairs(check) do
+            d.data[k] = {dst = v, start = self:get_res(k,v) }
+        end
+        _check[name] = d  
+    end
+
+    if f then _check[name].ret = 0 
+    else self:check_up(name,check,f) end
+
+    return _check[name].ret 
+
+end
+
+function check_off(name)
+    local d = _check[name] 
+    for k, v in pairs(d.data) do
+        v.over = d.ply:get_res(k,v.dst) 
+    end
+end
+
+function check_ret(name,fl)
+
+    if _check[name].ret < 1 then return _check[name].ret  
+    elseif _check[name].ret > 0 then Ply.check_off(name) end
+
+    for k, v in pairs(_check[name].data) do
+        if v.over then
+            if k == "buff" or k=="item" then
+                for what, _ in pairs(v.dst) do
+                    if  fl then
+                        if v.dst[what] ~= v.over[what] then 
+                            return _check[name].ret  
+                        end
+                    else
+                        if  not v.start then return _check[name].ret end 
+                        if (v.start[what] or 0) + v.dst[what]~= (v.over[what] or 0)   then 
+                            return _check[name].ret  
+                        end
+                    end
+                end
+            elseif k == "res" then
+                for what, nums in pairs(v.dst) do
+                    if fl then
+                        if v.dst[what][1]~= (v.over[what][1] or 0)   then 
+                            return _check[name].ret  
+                        end
+                        if v.dst[what][2]~= (v.over[what][2] or 0)   then 
+                            return _check[name].ret  
+                        end
+                    else
+                        if  not v.start then return _check[name].ret end 
+                        if (v.start[what][1] or 0) + v.dst[what][1]~= (v.over[what][1] or 0)   then 
+                            return _check[name].ret  
+                        end
+                        if (v.start[what][2] or 0) + v.dst[what][2]~= (v.over[what][2] or 0)   then 
+                            return _check[name].ret  
+                        end
+                    end
+                end
+            else
+                if fl then
+                    if v.dst ~= v.over then 
+                        return _check[name].ret  
+                    end
+                else
+                    if  not v.start then return _check[name].ret end 
+                    if v.start + v.dst ~= v.over then 
+                        return _check[name].ret  
+                    end
+                end
+            end
+        else
+            return _check[name].ret  
+        end
+    end
+    _check[name].ret =  math.huge  
+    return _check[name].ret  
 end
 
 function fight(self, cmd, eid,arms)
@@ -923,45 +1249,29 @@ end
 
 function train(self,a_mode,a_lv,num )
     local id = math.floor(a_mode * 1000 + a_lv)
-
-    local prop = resmng.prop_arm[ id ]
-    if prop.cons then
-        local flag, class, mode, lv = self:condCheck(prop.cons)
-        if not flag then
-            if class == resmng.CLASS_RES then
-                self:addAction("get", class, mode, lv)
-                return
-            end
-        end
-    end
-
-    if self:build_train( 2,a_mode,a_lv) == 1 then --前提建筑
-        local n = self:getBuildNum(0, 18)
-        if n==0 then
-            self:addAction("construct", 0, 18,  1)
-            return 
-        end
-
-        self:addAction("train",id,num )--造兵 
-        return
+    local idx = 2 * 10000 +  a_mode * 100 + 1
+    local num = math.ceil(num/10)
+    for i = 1,num do
+        Rpc:train(self,idx,id, 10,1) 
     end
 end
 
 
 funcAction.train = function(self, id,num)
     local cur_num = num
-    for k, v in pairs(self:get_build()) do
+    local bs = self:get_build()
+    for k, v in pairs(bs) do
         local p = resmng.prop_build[ v.propid ]
         if p then 
             if p.class == 0 and p.mode == 18  and cur_num > 0 then
-                    if cur_num < p.effect.TrainCount then
-                        Rpc:train(self,v.idx,id, cur_num) 
-                        cur_num = 0
-                        break
-                    else
-                        Rpc:train(self,v.idx,id, p.effect.TrainCount)
-                        cur_num = cur_num - p.effect.TrainCount
-                    end
+                if cur_num < p.effect.TrainCount then
+                    Rpc:train(self,v.idx,id, cur_num) 
+                    cur_num = 0
+                    break
+                else
+                    Rpc:train(self,v.idx,id, p.effect.TrainCount)
+                    cur_num = cur_num - p.effect.TrainCount
+                end
             end
         end
     end
@@ -970,39 +1280,43 @@ funcAction.train = function(self, id,num)
 end
 
 funcAction.construct = function(self, class, mode, num)
-    num = num or 1
 
-    local cur = self:getBuildNum(class, mode)
-    print(string.format("pid=%d, class=%d, mode=%d, cur=%d", self.pid, class, mode, cur))
-    if cur >= num then return true end
-
-    for k, v in pairs(self:get_build()) do
-        if v.state == 0 or v.state == 3 then return end
-    end
-
-    local propid = math.floor(class * 1000000 + mode * 1000 + 1)
+    local propid = math.floor(class * 1000*1000 + mode*1000 + 1)
+    --[[
     local prop = resmng.prop_build[ propid ]
-    if prop.cond then
-        local flag, class, mode, lv = self:condCheck(prop.cond)
+    if prop.Cond then
+        local flag, class, mode, lv = self:condCheck(prop.Cond)
         if not flag then
             self:addAction("get", class, mode, lv)
             return
         end
     end
 
-    if prop.cons then
-        local flag, class, mode, lv = self:condCheck(prop.cons)
+    if prop.Cons then
+        local flag, class, mode, lv = self:condCheck(prop.Cons)
         if not flag then
             self:addAction("get", class, mode, lv)
             return
         end
     end
+    --]]
 
-    for x = 100, 150, 1 do
-        if not self:get_build_x( x ) then
-            Rpc:construct(self, x, 0, propid)
-            return 
+    x =100
+    local bs = {}
+    for k, v in pairs(self:get_build() or {} ) do
+        bs[v.x] = 1
+    end
+
+    for i=1,num do 
+        while true do
+            if not bs[x] then 
+                bs[x] = 1
+                break 
+            end
+            x = x + 1
         end
+
+        Rpc:construct(self, x, 0, propid)
     end
     return true
 end
@@ -1071,5 +1385,4 @@ funcAction.idle = function(self)
     --Rpc:chat(self, 0, "hello", 0)
     --Rpc:chat(self, 0, "@all", 0)
 end
-
 

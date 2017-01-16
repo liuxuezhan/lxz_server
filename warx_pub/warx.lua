@@ -1,7 +1,6 @@
 package.path = package.path..";./?.lua"
 local skynet = require "skynet"
 local socket = require "socket"
-local save = require "my_save"	
 local assert = assert
 
 local socket_id	-- listen socket
@@ -48,7 +47,6 @@ end
 function CMD.login(data)
     data = json.decode(data) 
     ply._d[data.name]=data
-    save.data.ply[data._id]=data
 end
 
 -- call by agent
@@ -69,14 +67,14 @@ local function accept(fd, addr)
         local ret = read(fd)
         if ret then
             local d = json.decode(copyTab(ret))
-        --        lxz(d)
             if d then
+                lxz(d.f)
                 if d.f == "firstPacket2" then
                     d.args[1]=fd
                     local p = player_t[d.f](_G.gAgent, unpack(d.args)  ) 
                     if p  then plys[fd] = p end
-                else
-                    if plys[fd] and player_t[d.f] then
+                elseif player_t[d.f] then 
+                    if plys[fd] then
                         player_t[d.f](plys[fd], unpack(d.args)  ) 
                     end
                 end
@@ -107,7 +105,7 @@ skynet.start(function()
  --   skynet.newservice("debug_console",80000)
  
     require "debugger"
-    skynet.newservice("lib/mongo_t",g_warx_t.db_name)--数据库写中心
+    skynet.newservice("lualib/mongo_t",g_warx_t.db_name)--数据库写中心
     socket_id = socket.listen(g_warx_t.host or g_host, g_warx_t.port)
     save_db()
     require "warx_pub/frame"

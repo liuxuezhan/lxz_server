@@ -8,6 +8,7 @@ gsBuffs = gsBuffs or {}
 gsEf = gsEf or{}
 shelf = shelf or {}
 itemPool = itemPool or {}
+kw_point = kw_point or 0
 
 
 initDbList = 
@@ -53,7 +54,7 @@ function init_db(key)
         info = {_id = key}
         db.status:insert(info)
     end
-    return info
+    return info[key] or {}
 end
 
 function add_buf(bufid, count)
@@ -85,7 +86,7 @@ function add_buf(bufid, count)
 
         if #dels > 0 then
             for i = #dels, 1, -1 do
-                table.remove(bufs, dels[ i ]) 
+                table.remove(gsBuffs, dels[ i ]) 
             end
         end
 
@@ -93,9 +94,10 @@ function add_buf(bufid, count)
         local tmOver = gTime + count
         local buf = {bufid, gTime, tmOver}
         table.insert(gsBuffs, buf)
-        gPendingSave.status["globalBuf"].gsBuffs = gsBuffs
+        gPendingSave.status["gsBuffs"].gsBuffs = gsBuffs
+        Rpc:gs_buf_ntf({pid = -1, gid = _G.GateSid}, gsBuffs)
         timer.new("globuf", count, bufid, tmOver)
-        print(string.format("add_buf, pid=%d, bufid=%d, tmStart=%d, count=%d", self.pid, bufid, gTime, count))
+        print(string.format("add_buf, bufid=%d, tmStart=%d, count=%d", bufid, gTime, count))
         return buf
     end
 end
@@ -108,12 +110,26 @@ function rem_buf(bufid, tmOver)
                 table.remove(gsBuffs, k)
                 local node = resmng.prop_buff[ bufid ]
                 if node and node.Value then ef_rem(node.Value) end
-                print(string.format("rem_buf, pid=%d, bufid=%d, tmOver=%d, now=%d", self.pid, bufid, tmOver, gTime))
+                print(string.format("rem_buf,  bufid=%d, tmOver=%d, now=%d", bufid, tmOver or -1, gTime))
                 return v[3]
             end
         end
     end
-    gPendingSave.status["globalBuf"].gsBuffs = gsBuffs
+    Rpc:gs_buf_ntf({pid = -1, gid = _G.GateSid}, gsBuffs)
+    gPendingSave.status["gsBuffs"].gsBuffs = gsBuffs
+end
+
+function rem_all_buf()
+    for k, v in pairs(gsBuffs or {}) do
+        if k ~= "_id" then
+            table.remove(gsBuffs, k)
+            local node = resmng.prop_buff[ v[1] ]
+            if node and node.Value then ef_rem(node.Value) end
+            print(string.format("rem_buf, bufid=%d, now=%d", k,  gTime))
+        end
+    end
+    Rpc:gs_buf_ntf({pid = -1, gid = _G.GateSid}, gsBuffs or {})
+    gPendingSave.status["gsBuffs"].gsBuffs = gsBuffs
 end
 
 function get_buf(bufid )
@@ -147,13 +163,16 @@ function ef_add(eff, init)
     if not eff then return end
     local res = {}
     for k, v in pairs(eff) do
-        if type(v) == "table" then pause() end
-        gsEf[k] = (gsEf[k] or 0) + v
-        res[ k ] = gsEf[k]
-        if math.abs(gsEf[k]) <= 0.00001 then gsEf[k] = nil end
-        if not init then LOG("ef_add, what=%s, num=%d",  k, v) end
+        if type(v) == "table" then 
+            ERROR( "ef_add, type error" )
+        else
+            gsEf[k] = (gsEf[k] or 0) + v
+            res[ k ] = gsEf[k]
+            if math.abs(gsEf[k]) <= 0.00001 then gsEf[k] = nil end
+            if not init then LOG("ef_add, what=%s, num=%d",  k, v) end
+        end
     end
-    gPendingSave.status["globalBuf"].gsEf = gsEf
+    gPendingSave.status["gsEf"].gsEf = gsEf
     --if not init then Rpc:stateEf(self, res) end
 end
 
@@ -167,7 +186,7 @@ function ef_rem(eff)
         if math.abs(t[k]) <= 0.00001 then t[k] = nil end
         LOG("ef_rem, what=%s, num=%d",  k, v)
     end
-    gPendingSave.status["globalBuf"].gsEf = gsEf
+    gPendingSave.status["gsEf"].gsEf = gsEf
 end
 
 function get_num(what, ...) -- VALUE DIRECTLY
@@ -236,6 +255,20 @@ function init_shelf()
     gPendingSave.status["kwState"].shelf = shelf
 end
 
+function add_kw_point(point)
+    kw_point = kw_point + point
+    gPendingSave.status["kwState"].kw_point = kw_point
+end
+
+function do_consume(point)
+    kw_point = kw_point - point
+    gPendingSave.status["kwState"].kw_point = kw_point
+end
+
+function get_kw_point()
+    return kw_point or 0
+end
+
 function load_kw_shelf()
     local db = dbmng:getOne()
     local info = db.status:findOne({_id = "kwState"})
@@ -244,6 +277,8 @@ function load_kw_shelf()
         db.status:insert(info)
     end
     shelf = info.shelf or {}
+    refresh_time = info.refresh_time or 0
+    kw_point = info.kw_point or 0
 end
 
 function mark(m)
@@ -262,6 +297,7 @@ function refresh_kw_mall()
     init_pool()
     init_shelf()
     refresh_time = get_next_time()
+    gPendingSave.status["kwState"].refresh_time = refresh_time
 end
 
 function buy(ply, index)
@@ -273,12 +309,20 @@ function buy(ply, index)
     if conf then
         if ply:condCheck(conf.Pay) then
             ply:consume(conf.Pay, 1, VALUE_CHANGE_REASON.KW_MALL_BUY)
-            ply:add_bonus("mutex_award", conf.Buy, VALUE_CHANGE_REASON.KW_MALL_BUY, 1, false)
+            for k, item in pairs(conf.Buy or {}) do
+                local itemp = resmng.prop_item[item[2]] or {}
+                local num = item[3]
+                if itemp.Open == 1 then
+                    player_t.use_item_logic[itemp.Action](ply,itemp.ID, num, itemp)
+                else
+                    ply:add_bonus("mutex_award", conf.Buy, VALUE_CHANGE_REASON.KW_MALL_BUY, 1, true)
+                end
+            end
         end
     end
-    table.insert(gsBuffs, good.itemId)
-    gPendingSave.status["kwState"].gsBuffs = gsBuffs
-    gPendingSave.status["globalBuf"].gsBuffs = gsBuffs
+    --table.insert(gsBuffs, good.itemId)
+    --gPendingSave.status["kwState"].gsBuffs = gsBuffs
+    gPendingSave.status["gsBuffs"].gsBuffs = gsBuffs
     gPendingSave.status["kwState"].shelf = shelf
     --mark(good)
 end

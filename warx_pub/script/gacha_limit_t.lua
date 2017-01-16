@@ -46,8 +46,6 @@ end
 
 function gacha_limit_on_day_pass()
 	gacha_world_limit = {}
-    gPendingSave.status.gacha_limit = {}
-	local db = dbmng:getOne()
-    db.status:delete({_id="gacha_limit"})
+    gPendingDelete.status.gache_limit = 1
 end
 

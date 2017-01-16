@@ -1,3 +1,5 @@
+
+module( "build_t", package.seeall )
 module_class("build_t", {
     _id = "0_0",
     idx = 0,
@@ -12,6 +14,7 @@ module_class("build_t", {
     extra = {},
     bufs = {},
     hero_idx = 0,
+    module_name = "build_t"
 })
 
 function create(idx, pid, propid, x, y, state, tmStart, tmOver)
@@ -25,7 +28,6 @@ function getData(self)
 end
 
 function on_check_pending(db, _id, chgs)
-    db.build:update( {_id=_id}, { ["$set"] = chgs }, true )
     local idx, pid = string.match(_id, "(%d+)_(%d+)")
     local p = getPlayer(tonumber(pid))
     if p then
@@ -66,7 +68,7 @@ end
 --------------------------------------------------------------------------------
 function acceleration(self, secs)
     if not secs or secs <= 0 then
-        ERROR("acceleration: secs = %d.", secs or -1)
+        INFO("acceleration: secs = %d.", secs or -1)
         return
     end
 
@@ -74,24 +76,21 @@ function acceleration(self, secs)
         ERROR("acceleration: build._id = %s, build.state = BUILD_STATE.WAIT.", self._id)
         return
 
-    else
-        if self:is_hospital() and self.state == BUILD_STATE.WORK then
-            local start = self.tmStart
-            local over = self.tmOver - secs
-            local owner = getPlayer( self.pid )
-            if owner then 
-                player_t.cure_on( owner, start, over) 
-                owner.cure_start = start
-                owner.cure_over = over
-                if owner.tm_cure > 0 then timer.acc( owner.tm_cure, secs ) end
-            end
+    elseif self.tmOver > gTime then 
+        if self:is_building() then
+            self.tmStart = self.tmStart - secs 
+            self.tmOver = self.tmOver - secs 
+            timer.adjust( self.tmSn, self.tmOver )
 
-        else
-            if self.tmOver > gTime then 
-                self.tmStart = self.tmStart - secs 
-                self.tmOver = self.tmOver - secs 
+        elseif self:is_working() then
+            local count = self:get_extra( "count" )
+            if count and count > 0 then
+                self.tmStart = self.tmStart - secs
+                local speed = self:get_extra( "speed" )
+                count = count - secs * speed
+                self:set_extra( "count", count )
+                self:recalc()
             end
-            if self.tmSn > 0 then timer.acc(self.tmSn, secs) end
         end
     end
 end
@@ -325,6 +324,7 @@ end
 function do_add_buf(self, bufid, dura)
     if not dura or dura == 0 then
         table.insert(self.bufs, {bufid,0})
+        self.bufs = self.bufs
     else
         local tmOver = gTime + dura
         table.insert(self.bufs, {bufid, tmOver})
@@ -382,6 +382,31 @@ function get_ef(self)
     return ef
 end
 
+function do_recalc( self, new_speed )
+    local speed = self:get_extra("speed") or 0
+
+    local cache = self:get_extra("cache") or 0
+    local start = self:get_extra("start") or gTime
+
+    local make = ( gTime - start ) * speed
+    cache = cache + make
+
+    speed = new_speed 
+    self:set_extra("speed", speed)
+    self:set_extra("cache", cache)
+    self:set_extra("start", gTime)
+
+    local count = self:get_extra("count")
+    local need = count - cache 
+    if need < 0 then need = 0 end
+    need = math.ceil(need / speed)
+
+    if self.tmOver ~= gTime + need then
+        self.tmOver = gTime + need
+        self:recalc_timer()
+    end
+end
+
 function recalc(self)
     if self.state ~= BUILD_STATE.WORK then return end
 
@@ -393,55 +418,47 @@ function recalc(self)
 
     if class == BUILD_CLASS.RESOURCE then
         local speed = self:get_extra("speed") or 0
+        
         local new_speed = math.floor( prop.Speed * ( 1 + ( role:get_num("SpeedRes_R", ef) + role:get_num(string.format("SpeedRes%d_R", prop.Mode), ef) ) * 0.0001 ) )
         if speed == new_speed then return end
 
         local cache = self:get_extra("cache") or 0
         local start = self:get_extra("start") or gTime
         local count = self:get_extra("count") or 0
+        if count == 0 then count = math.ceil( speed * 10 ) end
 
-        cache = math.floor(cache + speed * (gTime - start) / 3600)
-        if cache > count then cache = count end
+        local new_cache 
+        if cache > count then
+            new_cache = cache
+        else
+            new_cache = math.floor(cache + speed * (gTime - start) / 3600)
+            if new_cache > count then new_cache = count end
+        end
 
-        speed = new_speed
-        count = math.ceil( speed * 10 )
-
-        self:set_extra("speed", speed)
-        self:set_extra("cache", cache)
         self:set_extra("start", gTime)
-        self:set_extra("count", count)
+        self:set_extra("speed", new_speed)
+        self:set_extra("cache", new_cache)
+        self:set_extra("count", math.ceil( new_speed * 10 ) )
         self:set_extra("speedb", prop.Speed)
         self:set_extra("countb", prop.Count)
-        print("recalc, speed, cache, start, count = ", speed, cache, start, count)
 
     elseif class == BUILD_CLASS.ARMY then
-        local speed = self:get_extra("speed") or 0
         local speedb, speedm, speeda = get_nums_by("SpeedTrain", role._ef, ef)
         local new_speed = 1 * (1 + speedm * 0.0001) + speeda
-        if math.floor( speed * 100 ) == math.floor( new_speed * 100 ) then return end
+        self:do_recalc( new_speed )
+        
+    elseif class == BUILD_CLASS.FUNCTION then
+        if mode == BUILD_FUNCTION_MODE.ACADEMY then
+            local new_speed = 1 + role:get_num( "SpeedTech_R", ef ) * 0.0001
+            self:do_recalc( new_speed )
+            
+        elseif mode == BUILD_FUNCTION_MODE.FORGE then
+            local new_speed = 1 + role:get_num( "SpeedForge_R", ef ) * 0.0001
+            self:do_recalc( new_speed )
 
-        local cache = self:get_extra("cache") or 0
-        local start = self:get_extra("start") or gTime
-        print("train1,", speed, cache, start, gTime )
-
-        local make = (gTime - start) * speed
-        cache = cache + make
-
-        speed = new_speed 
-        self:set_extra("speed", speed)
-        self:set_extra("cache", cache)
-        self:set_extra("start", gTime)
-
-        print("train2,", speed, cache, start, gTime )
-
-        local count = self:get_extra("count")
-        local need = count - cache 
-        need = math.ceil(need / speed)
-
-        print("train,", count, need, speed )
-        print("build_arm, recalc, old, new, speed = ", self.tmOver - gTime, need, speed)
-
-        self.tmOver = gTime + need
+        end
+    else
+        return
     end
 end
 
@@ -500,5 +517,26 @@ function get_param(self, key)
         self.prop = conf
         return conf.Param[ key ]
     end
+end
+
+function is_working( self )
+    return self.state == BUILD_STATE.WORK 
+end
+
+function is_building( self )
+    local state = self.state
+    if state ~= BUILD_STATE.WAIT and state ~= BUILD_STATE.WORK then return true end
+end
+
+function recalc_timer( self )
+    local tsn = self.tmSn
+    if tsn and tsn > 0 then
+        local tm = timer.get( tsn )
+        if tm and tm.over ~= self.tmOver then
+            timer.adjust( tsn, self.tmOver )
+            return
+        end
+    end
+    self.tmSn = timer.new("build", self.tmOver - gTime, self.pid, self.idx)
 end
 

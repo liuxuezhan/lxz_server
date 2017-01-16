@@ -1,4 +1,34 @@
 
+if not gCoroMark then
+    gCoroMark = {}
+    setmetatable( gCoroMark, { __mode="k" } )
+end
+
+function coro_mark_create( co, name )
+    local node = gCoroMark[ co ]
+    if not node then
+        node = {}
+        gCoroMark[ co ] = node
+        node.action = "create"
+    end
+    node.tick = gTime
+    node.name = name
+end
+
+
+function coro_mark( co, action )
+    local node = gCoroMark[ co ]
+    if not node then
+        node = {}
+        gCoroMark[ co ] = node
+        node.name = "unknown"
+        node.action = "unknown"
+    end
+    node.tick = gTime
+    node.action = action
+end
+
+
 function thanks()
     local t = {}
     table.insert(t, [[                   _ooOoo_]])
@@ -22,7 +52,7 @@ function thanks()
     table.insert(t, [[^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^]])
 
     for k, v in ipairs(t) do
-        print(v)
+        WARN( v )
     end
     INFO("[GameStart], map=%d", _G.gMapID)
 end
@@ -46,13 +76,15 @@ gNetPt = {
     NET_SEND_MUL = 15,
 }
 
-gDbNum = 16
+gDbNum = 1
 
 function loadMod()
     require("frame/tools")
-    require("frame/debugger")
 
-    dofile("../etc/config.lua")
+    dofile( c_get_conf() )
+
+    if not config.Release then require("frame/debugger") end
+
     require("frame/socket")
 
     if config.NO_DB then
@@ -82,6 +114,9 @@ function loadMod()
     doLoadMod("Rpc", "frame/rpc/rpc")
 
     require("frame/player_t")
+    require("frame/perfmon")
+    require("frame/snapshot")
+    require("frame/snapshot_diff")
 end
 
 function handle_dbg(sid)
@@ -141,6 +176,7 @@ function do_threadAction()
         if gCoroBad[ co ] then
             gCoroBad[ co ] = nil
             LOG("Coro, threadAction, i should go away, %s", co)
+            print("Coro, threadAction, i should go away", co)
             return
         end
         putCoroPool("action")
@@ -167,37 +203,38 @@ function do_threadTimer()
         if gCoroBad[ co ] then
             gCoroBad[ co ] = nil
             LOG("Coro, threadTimer, i should go away, %s", co)
+            print("Coro, threadTimer, i should go away", co)
             return
         end
-
     end
 end
 
 function do_threadRoi()
     local co = coroutine.running()
 
-    local msg
+    local msgid, d0, d1, d2, d3, eids
     while true do
-        msg = false
         while true do
-            msg, d0, d1, d2, d3, d4, d5, d6, d7 = c_pull_msg_roi()
-            if not msg then
+            msgid, d0, d1, d2, d3, eids = c_pull_msg_roi()
+            if not msgid then
                 putCoroPool("roi")
             else
                 --LOG("threadTimer, sn=%d", sn)
                 break
             end
         end
-        if do_roi_msg then do_roi_msg(msg, d0, d1, d2, d3, d4, d5, d6, d7) end
+        if do_roi_msg then
+            do_roi_msg(msgid, d0, d1, d2, d3, eids)
+        end
 
         if gCoroBad[ co ] then
             gCoroBad[ co ] = nil
             LOG("Coro, threadRoi, i should go away, %s", co)
+            print("Coro, threadRoi, i should go away", co)
             return
         end
     end
 end
-
 
 gActionQue = {}
 gActionCur = {}
@@ -211,29 +248,31 @@ function do_threadPK()
             if gateid then
                 break
             else
-                local dels = {}
-                for pid, as in pairs(gActionQue) do
+                local nframe = gFrame
+                local pid = nil
+                local as = nil
+                while true do
+                    pid, as = next( gActionQue, pid )
+                    if not pid then break end
+
                     local tmMark = gActionCur[ pid ]
                     if not tmMark or gTime - tmMark > 2 then -- maybe something wrong, so leave the gActionCur unclear
                         if #as == 0 then
-                            table.insert(dels, pid)
+                            gActionQue[ pid ] = nil
                         else
                             while #as > 0 do
                                 local v = table.remove(as, 1)
                                 gActionCur[ pid ] = gTime
-                                LOG("%d, RpcR, pid=%d, func=%s, delay do", gFrame, pid, v[1])
                                 LOG("RpcR, pid=%d, func=%s", pid, v[1])
                                 local p = getPlayer(pid)
                                 if p then player_t[ v[1] ](p, unpack(v[2]) ) end
                                 gActionCur[ pid ] = nil
                             end
-                            table.insert(dels, pid)
+                            if gFrame ~= nframe then pid = nil end
                         end
                     end
                 end
-                for k, v in pairs(dels) do
-                    gActionQue[ v ] = nil
-                end
+
                 putCoroPool("pk")
             end
         end
@@ -245,6 +284,7 @@ function do_threadPK()
         else
             local pid = pullInt()
             local pktype = pullInt()
+            --print(Rpc.localF[pktype].name)
             local fname, args = Rpc:parseRpc(packet, pktype)
             if fname then
                 if pid == 0 then
@@ -252,6 +292,7 @@ function do_threadPK()
                     player_t[ fname ](_G.gAgent, unpack(args) )
 
                 elseif pid < 10000 then
+                    LOG("RpcAR, pid:%s, func=%s", pid, fname)
                     agent_t[ fname ]( {pid=pid}, unpack( args ) )
 
                 else
@@ -271,6 +312,12 @@ function do_threadPK()
                             gActionCur[ pid ] = nil
                         end
                     else
+                        if pid >= 10000 then
+                            if Protocol.CrossQuery[ fname ] then
+                                player_t[ fname ]( {pid=pid, uid=0, gid=_G.GateSid}, unpack( args ) )
+                                print( "cross_server, call", pid, fname )
+                            end
+                        end
                         LOG("RpcR, pid=%d, func=%s, no player", pid, Rpc.localF[pktype].name)
                     end
                 end
@@ -279,19 +326,30 @@ function do_threadPK()
 
         if gCoroBad[ co ] then
             gCoroBad[ co ] = nil
-            LOG("Coro, threadPk, i should go away, %s", co)
+            --LOG("Coro, threadPk, i should go away, %s", co)
+            print("Coro, threadPk, i should go away", co)
             return
         end
     end
 end
 
+function remote_func(map_id, func, param)
+    local id = getSn("qryCross")
+    local co = coroutine.running()
+    print("debug remote call", map_id, func, param)
+    Rpc:callAgent(map_id, "agent_syn_call", id, func, param)
+    return putCoroPend("syncall", id)
+end
+
+function remote_cast(map_id, func, param)
+    local id = 0 --getSn("qryCross")
+    print("debug remote call", map_id, func, param)
+    Rpc:callAgent(map_id, "agent_syn_call", id, func, param)
+end
 
 function threadAction()
     if _ENV then
-        xpcall(do_threadAction, function(e)
-            WARN("[ERROR]%s", e)
-            print(c_get_top())
-        end)
+        xpcall(do_threadAction, STACK )
     else
         do_threadAction()
     end
@@ -299,7 +357,7 @@ end
 
 function threadTimer()
     if _ENV then
-        xpcall(do_threadTimer, function(e) WARN("[ERROR]%s", e) end)
+        xpcall(do_threadTimer, STACK )
     else
         do_threadTimer()
     end
@@ -307,17 +365,15 @@ end
 
 function threadRoi()
     if _ENV then
-        xpcall(do_threadRoi, function(e) WARN("[ERROR]%s", e) end)
+        xpcall(do_threadRoi, STACK )
     else
         do_threadRoi()
     end
 end
 
-
-
 function threadPk()
     if _ENV then
-        xpcall(do_threadPK, function(e) WARN("[ERROR]%s", e) end)
+        xpcall(do_threadPK, STACK )
     else
         do_threadPK()
     end
@@ -340,30 +396,91 @@ end
 
 function frame_init()
     wait_db_connect()
-    INFO("$$$ done wait_db_connect")
-    load_sys_config()
+
     INFO("$$$ done load_sys_config")
     load_uniq()
+
+    load_sys_config()
+
     INFO("$$$ done load_uniq")
+
     gInit = "InitFrameDone"
     begJob()
 
     c_tlog_start( "../etc/tlog.xml" )
+
 end
 
-function main_loop(sec, msec, fpk, ftimer, froi, deb)
+function clean_replay()
+    local db = dbmng:getOne()
+    local time = gTime - (86400 * 3)
+    db.replay:delete({["1"] = {["$lt"] = time}})
+end
+
+local SignalDefine = {
+	SIGHUP		= 1	, --/* Hangup (POSIX).  */
+	SIGINT		= 2	, --/* Interrupt (ANSI).  */
+	SIGQUIT		= 3	, --/* Quit (POSIX).  */
+	SIGILL		= 4	, --/* Illegal instruction (ANSI).  */
+	SIGTRAP		= 5	, --/* Trace trap (POSIX).  */
+	SIGABRT		= 6	, --/* Abort (ANSI).  */
+	SIGIOT		= 6	, --/* IOT trap (4.2 BSD).  */
+	SIGBUS		= 7	, --/* BUS error (4.2 BSD).  */
+	SIGFPE		= 8	, --/* Floating-point exception (ANSI).  */
+	SIGKILL		= 9	, --/* Kill, unblockable (POSIX).  */
+	SIGUSR1		= 10, --/* User-defined signal 1 (POSIX).  */
+	SIGSEGV		= 11, --/* Segmentation violation (ANSI).  */
+	SIGUSR2		= 12, --/* User-defined signal 2 (POSIX).  */
+	SIGPIPE		= 13, --/* Broken pipe (POSIX).  */
+	SIGALRM		= 14, --/* Alarm clock (POSIX).  */
+	SIGTERM		= 15, --/* Termination (ANSI).  */
+	SIGSTKFLT	= 16, --/* Stack fault.  */
+	SIGCHLD		= 17, --/* Child status has changed (POSIX).  */
+	SIGCONT		= 18, --/* Continue (POSIX).  */
+	SIGSTOP		= 19, --/* Stop, unblockable (POSIX).  */
+	SIGTSTP		= 20, --/* Keyboard stop (POSIX).  */
+	SIGTTIN		= 21, --/* Background read from tty (POSIX).  */
+	SIGTTOU		= 22, --/* Background write to tty (POSIX).  */
+	SIGURG		= 23, --/* Urgent condition on socket (4.2 BSD).  */
+	SIGXCPU		= 24, --/* CPU limit exceeded (4.2 BSD).  */
+	SIGXFSZ		= 25, --/* File size limit exceeded (4.2 BSD).  */
+	SIGVTALRM	= 26, --/* Virtual alarm clock (4.2 BSD).  */
+	SIGPROF		= 27, --/* Profiling alarm clock (4.2 BSD).  */
+	SIGWINCH	= 28, --/* Window size change (4.3 BSD, Sun).  */
+	SIGIO		= 29, --/* I/O now possible (4.2 BSD).  */
+	SIGPWR		= 30, --/* Power failure restart (System V).  */
+    SIGSYS		= 31, --/* Bad system call.  */
+    SIGUNUSED	= 31
+}
+
+gTimeDebugOffset = 0
+
+function main_loop(sec, msec, fpk, ftimer, froi, signal)
     gFrame = gFrame + 1
     --LOG("gFrame = %d, fpk=%d, ftimer=%d, froi=%d, deb=%d, gInit=%s", gFrame, fpk, ftimer, froi, deb, gInit or "unknown")
 
-    if deb > 0 then
-        if pause then
-            pause("debug in main_loop")
-        else
-            os.exit(-1)
+    local t1 = c_msec()
+
+    if signal > 0 then
+        if signal == SignalDefine.SIGINT then
+            if pause then
+                pause( "debug in main_loop" )
+            else
+
+            end
+        elseif signal == SignalDefine.SIGQUIT then
+            WARN( "shutdown" )
+            gInit = "Shutdown"
+
+        elseif signal == SignalDefine.SIGUSR1 then
+            if reload then reload() end
+
+        elseif signal == SignalDefine.SIGUSR2 then
+
         end
     end
 
-    gTime = sec
+    gTime = sec + gTimeDebugOffset
     gMsec = msec
 
     if gInit then
@@ -372,30 +489,44 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
 
         if gInit == "StateBeginInit" then
             gInit = "InitFrameAction"
+            lxz(gInit)
             action(frame_init)
 
         elseif gInit == "InitFrameDone" then
             gInit = "InitGameAction"
+            lxz(gInit)
+            perfmon.init()
             action(restore_game_data)
 
         elseif gInit == "InitCompensate" then
             local real = os.time()
             if gCompensation < real then
+                local offset = real - gCompensation
+                if offset % 3600 == 0 then
+                    print( "Compensate, offset =", offset )
+                end
                 gCompensation = gCompensation + 1
                 c_time_step(gCompensation)
                 --WARN("Compensation, real=%d, now=%d, diff=%d", real, gCompensation, real - gCompensation)
             else
+                set_sys_status( "tick", real )
                 gCompensation = nil
                 c_time_release()
                 WARN("Compensation, real=%d, finish", real)
                 gInit = "InitGameDone"
+                print( "Compensate Done" )
             end
 
         elseif gInit == "InitGameDone" then
+            gInit = "InitCronBoot"
+            action( crontab.initBoot )
+
+        elseif gInit == "InitCronBootDone" then
+            lxz(gInit)
+            WARN( "connecting to Gate, %s:%d", config.GateHost, config.GatePort )
             conn.toGate(config.GateHost, config.GatePort)
             crontab.initBoot()
-
-            if config.GatePort == 8002 then _G.g_warx = true end
+            clean_replay() --清理战斗录像
 
             local hit = false
             for k, v in pairs(timer._sns) do
@@ -408,6 +539,7 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
             if not hit then
                 local nextCron = 60 - (gTime % 60) + 30
                 timer.new("cron", nextCron)
+                timer.new("monitor", 1, 1)
             end
 
             if init_game_data then init_game_data() end
@@ -416,11 +548,30 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
 
         elseif gInit == "InitConnectGate" then
             if GateSid then
+                lxz(gInit)
                 thanks()
                 gInit = nil
             end
-        end
 
+        elseif gInit == "Shutdown" then
+            set_sys_status( "tick", gTime )
+            if on_shutdown then
+                action( on_shutdown )
+                gInit = "GameSaving"
+            else
+                gInit = "SystemSaving"
+            end
+
+        elseif gInit == "SystemSaving" then
+            WARN( "shutdown, frame = %d", gFrame )
+            if not check_pending_before_shutdown or not check_pending_before_shutdown() then
+                local have = is_remain_db_action()
+                if not have then
+                    WARN( "save done" )
+                    os.exit( 0 )
+                end
+            end
+        end
         begJob()
     end
 
@@ -461,90 +612,260 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
     end
 
     if #gActions > 0 then
-        local co = getCoroPool("action")
-        local flag = coroutine.resume(co)
+        while true do
+            local co = getCoroPool("action")
+            local flag, what = coroutine.resume(co)
+            if flag then
+                if what == "ok" then break end
+            else
+                LOG("ERROR %s", what)
+            end
+        end
     end
 
     while #gCoroWait > 0 do
         local t = gCoroWait[1]
         if t[2] > gFrame then break end
-        LOG("dowait, %d, %d", t[2], gFrame)
+        --LOG("dowait, %d, %d", t[2], gFrame)
         table.remove(gCoroWait,1)
         coroutine.resume(t[1])
     end
 
+    -- zhoujy 20161117 在主协程中reload
+    if gInit == nil and type(gReloadFunc) == "function" then
+        gReloadFunc()
+        gReloadFunc = false
+    end
+
+    local t2 = c_msec()
+
     if gCompensation then
-        if ftimer == 1 or froi == 1 or ftimer == 1 then
+        if ftimer == 1 or froi == 1 then
             local real = os.time()
             print(string.format("Compensation, %s, -> %s, diff=%d", os.date("%c",gTime), os.date("%c"), real-gTime))
             check_pending()
             global_save()
+            check_tool_ack()
         end
     else
         check_pending()
         global_save()
+        check_tool_ack()
     end
+
+    local t3 = c_msec()
+    if t3 - t1 > 20 then
+        --print( t3-t1, t3-t2, ( t3-t2 )*100/( t3-t1 ) )
+    end
+end
+
+
+function is_remain_db_action()
+    local have = false
+    for tab, doc in pairs( gPendingSave ) do
+        local cache = doc.__cache
+        for id, chgs in pairs( doc ) do
+            if chgs == cache then
+                for k, v in pairs( cache ) do
+                    have =true
+                    INFO( "shutdown, save %s : %s, n = %d", tab, k, v._n_ or 0 )
+                end
+            else
+                have = true
+                INFO( "shutdown, save %s : %s", tab, id )
+            end
+        end
+    end
+    return have
+end
+
+
+function set_sys_status(_type, tms)
+end
+
+
+
+function check_tool_ack()
+    local dels = {}
+    for k, v in pairs(gPendingToolAck) do
+        if gTime - v._t_ >= 100 then
+            dels[k] = v
+        end
+    end
+
+    for k, v in pairs(dels) do
+        gPendingToolAck[k] = nil
+        resend_to_tool(k, v.info)
+    end
+
+end
+
+function resend_to_tool(sn, params)
+    LOG("Resend to tool sn= %d ", sn)
+    print("Resend to tool sn=  ", sn)
+    to_tool(sn, params)
 end
 
 
 --so when you want to save data, just write down like
 --gPendingSave.mail[ "1_270130" ].tm_lock = gTime
-function global_save()
+gUpdateCallBack = {}
+function global_save( )
     local db = dbmng:tryOne(1)
-    if db then
-        local update = false
-        for tab, doc in pairs(gPendingSave) do
-            local cache = doc.__cache
-            for id, chgs in pairs(doc) do
-                if chgs ~= cache then
-                    if not chgs._a_ then
-                        local oid = chgs._id
-                        chgs._id = id
-                        db[ tab ]:update({_id=id}, {["$set"] = chgs }, true)
-                        chgs._id = oid
+    if not db then
+        WARN( "no db" )
+        return
+    end
+
+    local cbs = gUpdateCallBack
+    local update = false
+    local cur = gFrame
+    --为了避免在遍历gPendingSave的途中去调用on_check_pending接口，防止开发者错误的在on_check_pending中去进行了数据库操作
+    local cb_map = {}       --key为函数，value为table(key为id, value为chgs)
+    for tab, doc in pairs(gPendingSave) do
+        local cache = doc.__cache
+        local cb = nil
+        for id, chgs in pairs(doc) do
+            if chgs ~= cache then
+
+                doc[ id ] = nil
+                update = true
+                if not chgs._a_ then
+                    local oid = chgs._id
+                    chgs._id = id
+                    db[ tab ]:update({_id=id}, {["$set"] = chgs }, true)
+                    chgs._id = oid
+                    if tab ~= "todo" then
+                        LOG( "[DB], update, %s, %s", tab, tostring(id) )
+                    end
+
+                else
+                    if chgs._a_ == 0 then
+                        db[ tab ]:delete({_id=id})
+                        if tab ~= "todo" then
+                            LOG( "[DB], delete, %s, %s", tab, tostring(id) )
+                        end
                     else
-                        if chgs._a_ == 0 then
-                            db[ tab ]:delete({_id=id})
-                        else
-                            local oid = chgs._id
-                            chgs._id = id
-                            db[ tab ]:update({_id=id}, chgs, true)
-                            chgs._id = oid
+                        local oid = chgs._id
+                        rawset( chgs, "_a_", nil )
+                        rawset( chgs, "_id", id )
+                        db[ tab ]:update({_id=id}, chgs, true)
+                        rawset( chgs, "_a_", 1)
+                        rawset( chgs, "_id", oid )
+
+                        if tab ~= "todo" then
+                            LOG( "[DB], create, %s, %s", tab, tostring(id) )
                         end
                     end
-                    update = true
-                    chgs._n_ = gFrame
-                    doc[ id ] = nil
-                    cache[ id ] = chgs
+                end
+                rawset( chgs, "_n_", cur )
+                cache[ id ] = chgs
+
+                if cb == nil then
+                    cb = cbs[ tab ]
+                    if cb == nil then
+                        if _G[ tab ] and type( _G[ tab ] ) == "table" then
+                            if _G[ tab ].on_check_pending then
+                                cb = _G[ tab ].on_check_pending
+                                if cb == nil then cb = false end
+                            end
+                        end
+                        cbs[ tab ] = cb
+                    end
+                end
+
+                if cb then
+                    cb_map[cb] = cb_map[cb] or {}
+                    cb_map[cb][id] = chgs
                 end
             end
         end
-        if update then check_save(db, gFrame)() end
+    end
+
+    -- on_check_pending统一在外部调用
+    for cb, params in pairs(cb_map) do
+        for id, chgs in pairs(params) do
+            cb(db, id, chgs)
+        end
+    end
+
+    if update then gen_global_checker( db, cur ) end
+end
+
+function cache_check(cache, table_name, check_table, check_fails)
+    -- 校验了不同的key指向了同一个cache的错误，出现此问题肯定是逻辑上写错了
+    -- 20161208 在act项目中，出现了2张不同的表里面的相同的id指向了同一个cache的错误
+    -- 如果在同一帧存储，也会导致_n_为nil的情况，所以增加了check的范围
+    for id, chgs in pairs(cache) do
+        if check_table[chgs] ~= nil then
+            local first_table_name = check_table[chgs][1]
+            local first_id = check_table[chgs][2]
+            WARN("zhoujy_warning: cache_check failed tab_1=%s, id_1=%s, tab_2=%s, id_2=%s",
+                first_table_name, first_id, table_name, id)
+
+            if not check_fails[chgs] then
+                check_fails[chgs] = {}
+                local cache_key = string.format("%s@%s", first_table_name, first_id)
+                check_fails[chgs][cache_key] = true
+            end
+            local cache_key = string.format("%s@%s", table_name, id)
+            check_fails[chgs][cache_key] = true
+        else
+            check_table[chgs] = {table_name, id}
+        end
     end
 end
 
+gGlobalChecker = {}
+function global_save_checker()
+    while true do
+        local db, frame = coroutine.yield()
 
-function check_save(db, frame)
-    local f = function()
         local info = db:runCommand("getLastError")
         if info.ok then
+            INFO( "global_save_checker, checked frame %d, now=%d, diff=%d", frame, gFrame, gFrame - frame )
             local code = info.code
+            local check_table = {}
+            local check_fails = {}
+            local need_reset_n = false
             for tab, doc in pairs(gPendingSave) do
                 local cache = doc.__cache
+                cache_check(cache, tab, check_table, check_fails)
+                local adds = {}
                 local dels = {}
                 for id, chgs in pairs(cache) do
+                    need_reset_n = false
                     if chgs._n_ == frame then
+                        need_reset_n = true
                         table.insert(dels, id)
                         if code then
-                            local tips = string.format("error: upd_tab %s:", tab)
-                            dumpTab(chgs, tips..id)
+                            local tips = string.format("error: upd_tab %s: %s", tab, id)
+                            WARN( "mongo_error, %s", tips)
+                            dumpTab(chgs, tips)
                         end
-                    elseif chgs._n_ < frame - 10 then
-                        chgs._n_ = nil
-                        doc[ id ] = chgs
-                        WARN("mongo retry, %s, %s, %s", id, frame, gFrame)
+                    elseif chgs._n_ < frame - 100 then
+                        need_reset_n = true
+                        WARN("mongo_error, %s:%s, %s, %s, %s", tab, id, chgs._n_, frame, gFrame)
+                        dumpTab( chgs, "mongo_error" )
+                        adds[id] = chgs
                         table.insert(dels, id)
                     end
+
+                    if need_reset_n and check_fails[chgs] then
+                        local cache_key = string.format("%s@%s", tab, id)
+                        check_fails[chgs][cache_key] = nil
+                        if next(check_fails[chgs]) then
+                            -- 说明还有未check的重复条目，虽然chgs是一致的，但是希望下一个重复的条目走del流程和日志输出流程
+                            need_reset_n = false
+                        end
+                    end
+
+                    if need_reset_n then
+                        rawset( chgs, "_n_", nil )
+                    end
+                end
+                for id, chgs in pairs(adds) do
+                    doc[id] = chgs
                 end
                 if #dels > 0 then
                     for _, v in pairs(dels) do
@@ -554,11 +875,43 @@ function check_save(db, frame)
             end
 
             if info.code then
+                WARN( "mongo_error, frame=%d, gFrame=%d", frame, gFrame )
                 dumpTab(info, "check_save")
             end
         end
+
+        local co = coroutine.running()
+        if #gGlobalChecker < 20 then
+            coro_mark( co, "inpool" )
+            table.insert( gGlobalChecker, co )
+        else
+            gCoroBad[ co ] = nil
+            return
+        end
     end
-    return coroutine.wrap(f)
+end
+
+function thread_global_save_checker()
+    if _ENV then
+        xpcall(global_save_checker, STACK )
+    else
+        global_save_checker()
+    end
+end
+
+function gen_global_checker( db, frame )
+    local co
+    if #gGlobalChecker > 0 then
+        co = table.remove( gGlobalChecker )
+        coro_mark( co, "outpool" )
+        coroutine.resume( co, db, frame )
+    else
+        co = coroutine.create( thread_global_save_checker)
+        coro_mark_create( co, "global_checker" )
+        coro_mark( co, "outpool" )
+        coroutine.resume( co )
+        coroutine.resume( co, db, frame )
+    end
 end
 
 
@@ -634,7 +987,63 @@ function init_pending()
         end
     }
     setmetatable(gPendingInsert, __mt_new_tab)
+end
 
+function init_global_database_pending()
+    __g_mt_rec = {
+        __index = function (self, recid)
+            local t = self.__cache[ recid ]
+            if t then
+                self.__cache[ recid ] = nil
+                t._n_ = nil
+            else
+                t = {}
+            end
+            self[ recid ] = t
+            return t
+        end
+    }
+    __g_mt_tab = {
+        __index = function (self, tab)
+            local t = { __cache={} }
+            setmetatable(t, __g_mt_rec)
+            self[ tab ] = t
+            return t
+        end
+    }
+    setmetatable(gPendingGlobalSave, __g_mt_tab)
+
+
+    __g_mt_del_rec = {
+        __newindex = function (t, k, v)
+            gPendingGlobalSave[ t.tab_name ][ k ]._a_ = 0
+        end
+    }
+    __g_mt_del_tab = {
+        __index = function (self, tab)
+            local t = {tab_name=tab}
+            setmetatable(t, __g_mt_del_rec)
+            self[ tab ] = t
+            return t
+        end
+    }
+    setmetatable(gPendingGlobalDelete, __g_mt_del_tab)
+
+    __g_mt_new_rec = {
+        __newindex = function (t, k, v)
+            gPendingGlobalSave[ t.tab_name ][ k ] = v
+            v._a_ = 1
+        end
+    }
+    __g_mt_new_tab = {
+        __index = function (self, tab)
+            local t = {tab_name=tab}
+            setmetatable(t, __g_mt_new_rec)
+            self[ tab ] = t
+            return t
+        end
+    }
+    setmetatable(gPendingGlobalInsert, __g_mt_new_tab)
 end
 
 
@@ -647,7 +1056,7 @@ function init(sec, msec)
     math.randomseed(sec)
 
     gCoroPool = { ["pk"] = {}, ["timer"] = {}, ["action"] = {}, ["roi"] = {} }
-    gCoroPend = { ["db"] = {}, ["rpc"] = {}, ["roi"] = {} }
+    gCoroPend = { ["db"] = {}, ["rpc"] = {}, ["roi"] = {}, ["syncall"] = {} }
     gCoroWait = {}
 
     gActions = {}
@@ -657,36 +1066,31 @@ function init(sec, msec)
     gPlys = {}
     gAccs = {}
     gAccounts = {}
+
+    gEids = {}
     gEtys = {}
+
+    setmetatable( gEids, { __mode="v" } )
+    setmetatable( gEtys,
+        { __newindex=function( tab, eid, obj)
+                rawset(tab, eid, obj)
+                local idx = math.floor( eid / 4096 )
+                gEids[ idx ] = obj
+            end
+        }
+    )
 
     gPendingSave = {}
     gPendingDelete = {}
     gPendingInsert = {}
     init_pending()
 
-    --__mt_rec = {
-    --    __index = function (self, recid)
-    --        local t = self.__cache[ recid ]
-    --        if t then
-    --            self.__cache[ recid ] = nil
-    --            t._n_ = nil
-    --        else
-    --            t = {}
-    --        end
-    --        self[ recid ] = t
-    --        return t
-    --    end
-    --}
-    --__mt_tab = {
-    --    __index = function (self, tab)
-    --        local t = { __cache={} }
-    --        setmetatable(t, __mt_rec)
-    --        self[ tab ] = t
-    --        return t
-    --    end
-    --}
-    --setmetatable(gPendingSave, __mt_tab)
+    gPendingGlobalSave = {}
+    gPendingGlobalDelete = {}
+    gPendingGlobalInsert = {}
+    init_global_database_pending()
 
+    gPendingToolAck = {}
 
     gInit = "StateBeginInit"
     loadMod()
@@ -738,16 +1142,20 @@ end
 function getCoroPool(what)
     if #gCoroPool[ what ] > 0 then
         local co = table.remove(gCoroPool[ what ])
+        coro_mark(co, "outpool")
         return co
     else
         local co = createCoro(what)
+        coro_mark_create( co, what )
+        coro_mark(co, "outpool")
         return co
     end
 end
 
 function putCoroPool(what)
     local co = coroutine.running()
-    local pool = gCoroPool
+    coro_mark( co, "pool" )
+    local pool = gCoroPool[ what ]
     if #pool < 10 then table.insert(gCoroPool[ what ], co) end
     coroutine.yield("ok")
 end
@@ -756,14 +1164,19 @@ function getCoroPend(what, id)
     local co = gCoroPend[ what ][ id ]
     if co then
         gCoroPend[ what ][ id ] = nil
-        if type(co) == "table" then return unpack(co)
-        else return co end
+        if type(co) == "table" then
+            coro_mark( co[1], "outpend" )
+            return unpack(co)
+        else
+            coro_mark( co, "outpend" )
+            return co
+        end
     end
 end
 
-
 function putCoroPend(what, id, extra)
     local co = coroutine.running()
+    coro_mark( co, what.."_pend" )
     if extra then gCoroPend[ what ][ id ] = { co, extra }
     else gCoroPend[ what ][ id ] = co end
     return coroutine.yield(what)
@@ -841,7 +1254,7 @@ function getId(what)
         local idx = getAutoInc(what)
         t.at=idx
         t.wait = 0
-        db = dbmng:getOne()
+        local db = dbmng:getOne()
         db.uniq:insert(t)
     end
 
@@ -863,10 +1276,6 @@ function getId(what)
     local id = t.at * 10000 + t.sn
     t.sn = t.sn + 1
 
-    --addPendSave("uniq", what, "sn", t.sn)
-    --addPendSave("uniq", what, "at", t.at)
-    --addPendSave("uniq", what, "state", t.state)
-
     local n = gPendingSave.uniq[ what ]
     n.sn = t.sn
     n.at = t.at
@@ -886,7 +1295,82 @@ function getAutoInc(what)
 end
 
 
+
 -- change to new gate
 -- 1. rpc, send_mul
 -- 2. first packet
 --
+
+gCheckers = {}
+function save_checker()
+    while true do
+        local db, frame, cache, name = coroutine.yield()
+        local info = db:runCommand("getPrevError")
+        if info.ok then
+            local dels = {}
+            local check_table = {}
+            local check_fails = {}
+            cache_check(cache, name, check_table, check_fails)
+            for k, v in pairs(cache) do
+                local n = v._n_
+                if n then
+                    if n == frame then
+                        table.insert(dels, k)
+                    elseif n < frame - 100 then
+                        WARN("mongo_error in save_checker, %s:%s, %s, %s, %s", name, k, n, frame, gFrame)
+                        dumpTab( v, "mongo_error" )
+                        v._n_ = nil
+                    end
+                end
+            end
+            if #dels > 0 then
+                for _, v in pairs(dels) do
+                    cache[v] = nil
+                end
+            end
+        end
+        local co = coroutine.running()
+        if #gCheckers < 20 then
+            coro_mark( co, "pool" )
+            table.insert( gCheckers, co )
+        else
+            gCoroBad[ co ] = nil
+            return
+        end
+    end
+end
+
+function thread_save_checker()
+    if _ENV then
+        xpcall(save_checker, STACK )
+    else
+        save_checker()
+    end
+end
+
+function gen_checker( db, frame, cache, name )
+    local co
+    if #gCheckers > 0 then
+        co = table.remove(gCheckers)
+        coro_mark( co, "check" )
+        coroutine.resume( co, db, frame, cache, name )
+    else
+        co = coroutine.create( thread_save_checker )
+        coro_mark_create( co, "checker" )
+        coro_mark( co, "check" )
+        coroutine.resume( co )
+        coroutine.resume( co, db, frame, cache, name )
+    end
+end
+
+function coro_info()
+    collectgarbage()
+    for k, v in pairs( gCoroMark ) do
+        --local status = "none"
+        --if v.co then status = coroutine.status( v.co ) end
+        local status = coroutine.status( k )
+        print( string.format( "Coro, name=%s, action=%s, tick=%s, last=%d, status=%s", v.name, v.action, v.tick, gTime-v.tick, status ) )
+        if status == "dead" then print( "coro dead", k ) end
+    end
+end
+

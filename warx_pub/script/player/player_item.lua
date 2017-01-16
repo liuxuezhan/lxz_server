@@ -24,6 +24,8 @@ end
 
 -- one item = {idx, id, num, extra ...}
 function inc_item(self, id, num, reason)
+    num = math.floor( num )
+    --print( "inc_item", id, num, reason )
     local its = self:get_item()
     local hit = false
     local idx = 0
@@ -47,11 +49,16 @@ function inc_item(self, id, num, reason)
     end
 
     self:add_item_pend(idx)
+    --任务
+    task_logic_t.process_task(self, TASK_ACTION.GET_ITEM, id, num)
 
+    self:pre_tlog("ItemFlow",0,0,id,num,its[idx][3],reason,0,2,0)
     reason = reason or VALUE_CHANGE_REASON.DEFAULT
     if reason == VALUE_CHANGE_REASON.DEFAULT then
         ERROR("inc_item: pid = %d, don't use the default reason.", self.pid)
     end
+    -- dumpTab( its, "inc_item" )
+    -- print("[ITEM] inc_item: pid = %d, idx = %d, item_id = %d, num = %d, total = %d, reason = %d.", self.pid, idx, id, num, its[idx][3], reason)
     LOG("[ITEM] inc_item: pid = %d, idx = %d, item_id = %d, num = %d, total = %d, reason = %d.", self.pid, idx, id, num, its[idx][3], reason)
 end
 
@@ -79,6 +86,7 @@ function dec_item(self, idx, num, reason)
         ERROR("dec_item: pid = %d, idx = %d, num = %d", self and self.pid or -1, idx or -1, num or -1)
         return false
     end
+    num = math.floor( num )
 
     local item = self:get_item(idx)
     local propid = item[2]
@@ -93,6 +101,7 @@ function dec_item(self, idx, num, reason)
         LOG("[ITEM] dec_item: pid = %d, idx = %d, item_id = %d, num = %d, total = %d, reason = %d.", self.pid, idx, item[2], num, item[3], reason)
         --任务
         task_logic_t.process_task(self, TASK_ACTION.USE_ITEM, propid, num)
+        self:pre_tlog("ItemFlow",0,0,propid,num,item[3],reason,0,2,1)
         return true
     else
         LOG("[ITEM] dec_item: pid = %d, idx = %d, item_id = %d, num = %d > have = %d", self.pid, idx, item[2], num, item and item[3] or -1)
@@ -147,10 +156,9 @@ function dec_item_by_item_id(self, item_id, num, reason)
 end
 
 
-function addItem(self, id, num)
-    self:inc_item(id, num, VALUE_CHANGE_REASON.DEBUG)
-    --任务
-    task_logic_t.process_task(self, TASK_ACTION.GET_ITEM, id, num)
+function addItem(self, id, num, reason)
+    num = math.floor( num )
+    if num > 0 then self:inc_item(id, num, reason or VALUE_CHANGE_REASON.DEBUG) end
 end
 
 
@@ -275,7 +283,7 @@ function calc_cons_value(cons_list)
     --end
 
     --return gold_num
-    
+
     local gold_num = 0
     for _, v in pairs(cons_list) do
        if v[1] == resmng.CLASS_RES then
@@ -373,30 +381,59 @@ function inc_cons(self, cons_list, reason)
     end
 end
 
-function material_compose(self, id)
+function material_compose(self, id, count)
+    if count < 1 then return end
     local node = resmng.get_conf("prop_item", id)
     if not node then return ack(self, "material_compose", resmng.E_FAIL) end
     if node.Class ~= ITEM_CLASS.MATERIAL then return ack(self, "material_compose", resmng.E_FAIL) end
     local prenode = resmng.get_conf("prop_item", id-1)
     if not prenode then return ack(self, "material_compose", resmng.E_FAIL) end
-    if not self:dec_item_by_item_id(prenode.ID, resmng.MATERIAL_COMPOSE_COUNT, VALUE_CHANGE_REASON.COMPOSE) then return ack(self, "material_compose", resmng.E_FAIL) end
-    self:inc_item(id, 1, VALUE_CHANGE_REASON.COMPOSE)
+    if not self:dec_item_by_item_id(prenode.ID, count * resmng.MATERIAL_COMPOSE_COUNT, VALUE_CHANGE_REASON.COMPOSE) then return ack(self, "material_compose", resmng.E_FAIL) end
+    self:inc_item(id, count, VALUE_CHANGE_REASON.COMPOSE)
     self:reply_ok("material_compose", id)
     --任务
     task_logic_t.process_task(self, TASK_ACTION.SYN_MATERIAL, id, 1)
 end
 
 
-function material_decompose(self, id)
+function material_decompose(self, id, count)
+    if count < 1 then return end
     local node = resmng.get_conf("prop_item", id)
     if not node then return ack(self, "material_decompose", resmng.E_FAIL) end
     if node.Class ~= ITEM_CLASS.MATERIAL then return ack(self, "material_decompose", resmng.E_FAIL) end
     local prenode = resmng.get_conf("prop_item", id-1)
     if not prenode then return ack(self, "material_decompose", resmng.E_FAIL) end
-    if not self:dec_item_by_item_id(node.ID, 1, VALUE_CHANGE_REASON.DECOMPOSE) then return ack(self, "material_decompose", resmng.E_FAIL) end
-    self:inc_item(prenode.ID, resmng.MATERIAL_COMPOSE_COUNT, VALUE_CHANGE_REASON.DECOMPOSE)
+    if not self:dec_item_by_item_id(node.ID, count, VALUE_CHANGE_REASON.DECOMPOSE) then return ack(self, "material_decompose", resmng.E_FAIL) end
+    self:inc_item(prenode.ID, count * resmng.MATERIAL_COMPOSE_COUNT, VALUE_CHANGE_REASON.DECOMPOSE)
     self:reply_ok("material_decompose", id)
 end
+
+function material_compose2( self, id, count )
+    if count < 1 then return end
+    local node = resmng.get_conf("prop_item", id)
+    if not node then return ack(self, "material_compose", resmng.E_FAIL) end
+    if node.Class ~= ITEM_CLASS.MATERIAL then return ack(self, "material_compose", resmng.E_FAIL) end
+
+    local cons = node.Param
+    if not cons then return end
+    cons = cons.Cons
+    if not cons then return end
+
+    for k, v in pairs( cons ) do
+        if self:get_item_num( v[1] ) < v[2] * count then return end
+    end
+
+    for k, v in pairs( cons ) do
+        if self:get_item_num( v[1] ) < v[2] * count then return end
+        self:dec_item_by_item_id( v[1], v[2] * count, VALUE_CHANGE_REASON.COMPOSE )
+    end
+
+    self:inc_item(id, count, VALUE_CHANGE_REASON.COMPOSE)
+    self:reply_ok("material_compose", id)
+    --任务
+    task_logic_t.process_task(self, TASK_ACTION.SYN_MATERIAL, id, 1)
+end
+
 
 function buy_item(self, id, num, use)
     if num < 0 then return end
@@ -405,6 +442,7 @@ function buy_item(self, id, num, use)
         local cost = math.ceil(conf.NewPrice * num)
         if self:doCondCheck(resmng.CLASS_RES, resmng.DEF_RES_GOLD, cost) then
             self:doConsume(resmng.CLASS_RES, resmng.DEF_RES_GOLD, cost, VALUE_CHANGE_REASON.MALL_PAY)
+            INFO( "buy_item, pid=%d, id=%d, num=%d, use=%d", self.pid, id, num, use )
             if use == 1 then
                 for k, v in pairs( conf.Item ) do
                     local flag = false
@@ -414,9 +452,10 @@ function buy_item(self, id, num, use)
                         local itemp = resmng.get_conf( "prop_item", itemid )
                         if itemp then
                             if itemp.Action then
-                        --        item_func[ itemp.Action ]( self, itemnum * num, unpack(itemp.Param or {} ) )
-                                player_t.use_item_logic[itemp.Action](self,itemp.ID, num, itemp)
-                                flag = true
+                                if self:do_item_check( itemp ) then
+                                    player_t.use_item_logic[itemp.Action](self,itemp.ID, num, itemp)
+                                    flag = true
+                                end
                             end
                         end
                     end
@@ -427,6 +466,7 @@ function buy_item(self, id, num, use)
             else
                 self:add_bonus("mutex_award", conf.Item,  VALUE_CHANGE_REASON.MALL_BUY, num)
             end
+            self:pre_tlog("StoreBuy",0,id,num,conf.Class,2,cost)
         end
     end
 end

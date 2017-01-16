@@ -13,10 +13,20 @@ function refresh_res_market(self)
     }
     local market = self:get_resource_market()
     if not market then return end
+
+    local t = {
+        200, 0,    -- count total, count free,
+        {
+            {1,0,0,0}, -- resource id,  count fresh, count buy, combo
+            {2,0,0,0}, -- resource id,  count fresh, count buy, combo
+            {3,0,0,0}, -- resource id,  count fresh, count buy, combo
+            {4,0,0,0}, -- resource id,  count fresh, count buy, combo
+            {8,0,0,0}, -- resource id,  count fresh, count buy, combo
+        }
+    }
+
     local info = market.extra
     if info[2] and type(info[2]) == "number" then t[2] = info[2] end -- count free
-    --todo just for test
-    --t[2] = 5
     market.extra = t
 end
 

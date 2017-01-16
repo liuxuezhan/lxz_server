@@ -1,4 +1,4 @@
-module("task_logic_t")
+module("task_logic_t", package.seeall)
 
 --[[
 local task_info = {}
@@ -36,9 +36,11 @@ function process_task(player, task_action, ...)
     player:do_save_task()
 end
 
+
+
 function distribute_operation(player, task_data, func, ...)
     local key = g_task_func_relation[func]
-    if do_task[key] ~= nil then 
+    if do_task[key] ~= nil then
         return do_task[key](player, task_data, ...)
     end
 end
@@ -47,7 +49,7 @@ function add_task_process(player, task_data, con_num, num)
     task_data.task_current_num = task_data.task_current_num + num
     if task_data.task_current_num >= con_num then
         --如果是日常任务判断不一样
-        if task_data.task_type == TASK_TYPE.TASK_TYPE_DAILY then            
+        if task_data.task_type == TASK_TYPE.TASK_TYPE_DAILY then
             local limit = resmng.prop_task_daily[task_data.task_id].FinishNum
             for i = task_data.task_daily_num, limit, 1 do
                 if task_data.task_current_num >= con_num then
@@ -70,16 +72,20 @@ function add_task_process(player, task_data, con_num, num)
 end
 
 function update_task_process(task_data, con_num, num)
+    if task_data.task_current_num > num then
+        return false
+    end
     if task_data.task_current_num < num then
         task_data.task_current_num = num
     end
     if task_data.task_current_num >= con_num then
         task_data.task_status = TASK_STATUS.TASK_STATUS_CAN_FINISH
     end
+    return true
 end
 
 function task_warning(func_name)
-    if func_name == nil then 
+    if func_name == nil then
         return true
     else
         WARN("task:%s logic is null", func_name)
@@ -99,7 +105,7 @@ do_task[TASK_ACTION.ATTACK_SPECIAL_MONSTER] = function(player, task_data, con_mi
         return false
     end
 
-    if con_mid ~= real_mid then 
+    if con_mid ~= real_mid then
         return false
     end
     task_data.monster_eid = real_eid
@@ -114,6 +120,20 @@ end
 
 --攻击等级怪物
 do_task[TASK_ACTION.ATTACK_LEVEL_MONSTER] = function(player, task_data, con_type, con_level, con_num, real_mid, real_num)
+    local function get_type(mode)
+        if mode <= 30 then --普通
+            return 1
+        elseif mode > 30 and mode <= 40 then --精英
+            return 2
+        elseif mode > 40 and mode <= 50 then --首领
+            return 3
+        elseif mode > 50 and mode <= 100 then --超级首领
+            return 4
+        else -- 任务
+            return 5
+        end
+    end
+
     if real_mid == nil or real_num == nil then
         return false
     end
@@ -122,8 +142,8 @@ do_task[TASK_ACTION.ATTACK_LEVEL_MONSTER] = function(player, task_data, con_type
     if monster_info == nil then
         return false
     end
-    local real_type = monster_info.Mode 
-    local real_level = monster_info.Lv
+    local real_type = get_type(monster_info.Mode)
+    local real_level = monster_info.Clv
     if con_type ~= 0 and con_type ~= real_type then
         return false
     end
@@ -161,8 +181,7 @@ end
 do_task[TASK_ACTION.SPY_PLAYER_CITY] = function(player, task_data, con_num, con_acc, real_num)
     if con_acc == 1 then
         local cur = player:get_count(resmng.ACH_TASK_SPY_PLAYER)
-        update_task_process(task_data, con_num, cur)
-        return true
+        return update_task_process(task_data, con_num, cur)
     end
     if real_num == nil or real_num == 0 then
         return false
@@ -199,8 +218,7 @@ do_task[TASK_ACTION.ATTACK_PLAYER_CITY] = function(player, task_data, con_num, c
             cur = player:get_count(resmng.ACH_TASK_ATK_PLAYER_WIN)
         end
 
-        update_task_process(task_data, con_num, cur)
-        return true
+        return update_task_process(task_data, con_num, cur)
     end
 
     if real_num == nil or real_win == nil then
@@ -220,8 +238,7 @@ do_task[TASK_ACTION.LOOT_RES] = function(player, task_data, con_type, con_num, c
     if con_acc == 1 then
         local ach_index = "ACH_TASK_ATK_RES"..con_type
         local cur = player:get_count(resmng[ach_index])
-        update_task_process(task_data, con_num, cur)
-        return true
+        return update_task_process(task_data, con_num, cur)
     end
 
     if real_type == nil or real_num == nil then
@@ -242,7 +259,7 @@ do_task[TASK_ACTION.SPY_NPC_CITY] = function(player, task_data, con_type, real_t
         return false
     end
 
-    if con_type ~= real_type then
+    if con_type ~= 0 and con_type ~= real_type then
         return false
     end
     add_task_process(player, task_data, 1, 1)
@@ -252,16 +269,21 @@ end
 --攻击系统城市
 do_task[TASK_ACTION.ATTACK_NPC_CITY] = function(player, task_data, con_type, con_num, con_acc, real_type, real_num)
     if con_acc == 1 then
-        local ach_index = "ACH_TASK_ATK_NPC"..con_type
-        local cur = player:get_count(resmng[ach_index])
-        update_task_process(task_data, con_num, cur)
-        return true
+        local cur = 0
+        if con_type == 0 then
+            for i = 1, 5, 1 do
+                cur = cur + player:get_count(resmng["ACH_TASK_ATK_NPC"..i])
+            end
+        else
+            cur = player:get_count(resmng["ACH_TASK_ATK_NPC"..con_type])
+        end
+        return update_task_process(task_data, con_num, cur)
     end
     if real_type == nil or real_num == nil then
         return false
     end
 
-    if con_type ~= real_type then
+    if con_type ~= 0 and con_type ~= real_type then
         return false
     end
     add_task_process(player, task_data, con_num, real_num)
@@ -270,26 +292,68 @@ end
 
 --占领系统城市
 do_task[TASK_ACTION.OCC_NPC_CITY] = function(player, task_data, con_type, real_type)
-    if real_type == nil then
+    local union = unionmng.get_union(player:get_uid())
+    if union == nil then
         return false
+    end
+    local valid = false
+    local city_type = nil
+    for k, v in pairs(union.npc_citys) do
+        local city = get_ety(v)
+        if city then
+            local prop_build = resmng.get_conf("prop_world_unit", city.propid)
+            if prop_build ~= nil and prop_build.Class == 3 then
+                city_type = prop_build.Lv
+            elseif prop_build ~= nil and prop_build.Class == 4 and prop_build.Mode == 1 and prop_build.Lv == 1 then
+                city_type = 5
+            end
+            if con_type == city_type then
+                valid = true
+            end
+        end
     end
 
-    if con_type ~= real_type then
+    local king = king_city.get_king()
+    if king and king.uid == union.uid then
+        city_type = 5
+        if con_type == city_type then
+            valid = true
+        end
+    end
+
+    if valid == true then
+        add_task_process(player, task_data, 1, 1)
+        return true
+    else
         return false
     end
-    add_task_process(player, task_data, 1, 1)
-    return true
 end
 
 --持有英雄数量
 do_task[TASK_ACTION.HAS_HERO_NUM] = function(player, task_data, con_quality, con_star, con_num)
+
+    player:try_add_tit_point(resmng.ACH_NUM_HERO)
+    player:try_add_tit_point(resmng.ACH_HERO_QUALITY_1)
+    player:try_add_tit_point(resmng.ACH_HERO_QUALITY_2)
+    player:try_add_tit_point(resmng.ACH_HERO_QUALITY_3)
+    player:try_add_tit_point(resmng.ACH_HERO_QUALITY_4)
+    player:try_add_tit_point(resmng.ACH_HERO_QUALITY_5)
+    player:try_add_tit_point(resmng.ACH_HERO_QUALITY_6)
+    player:try_add_tit_point(resmng.ACH_HERO_STAR_1)
+    player:try_add_tit_point(resmng.ACH_HERO_STAR_2)
+    player:try_add_tit_point(resmng.ACH_HERO_STAR_3)
+    player:try_add_tit_point(resmng.ACH_HERO_STAR_4)
+    player:try_add_tit_point(resmng.ACH_HERO_STAR_5)
+    player:try_add_tit_point(resmng.ACH_HERO_STAR_6)
+
     local real_num = 0
     local hero_list = player:get_hero()
     for k, v in pairs(hero_list) do
         if con_quality == 0 and con_star == 0 then
             real_num = real_num + 1
         elseif con_quality == 0 and con_star ~= 0 then
-            if con_star <= v.star then
+            local prop_star = resmng.get_conf("prop_hero_star_up", v.star)
+            if con_star <= prop_star.StarStatus[1] then
                 real_num = real_num + 1
             end
         elseif con_quality ~= 0 and con_star == 0 then
@@ -304,8 +368,7 @@ do_task[TASK_ACTION.HAS_HERO_NUM] = function(player, task_data, con_quality, con
     end
 
     if real_num > 0 then
-        update_task_process(task_data, con_num, real_num)
-        return true
+        return update_task_process(task_data, con_num, real_num)
     else
         return false
     end
@@ -313,6 +376,13 @@ end
 
 --提升英雄等级
 do_task[TASK_ACTION.HERO_LEVEL_UP] = function(player, task_data, con_level)
+
+    player:try_add_tit_point(resmng.ACH_HERO_LEVEL_1)
+    player:try_add_tit_point(resmng.ACH_HERO_LEVEL_2)
+    player:try_add_tit_point(resmng.ACH_HERO_LEVEL_3)
+    player:try_add_tit_point(resmng.ACH_HERO_LEVEL_4)
+    player:try_add_tit_point(resmng.ACH_HERO_LEVEL_5)
+
     local highest = 0
     local hero_list = player:get_hero()
     for k, v in pairs(hero_list) do
@@ -324,20 +394,26 @@ do_task[TASK_ACTION.HERO_LEVEL_UP] = function(player, task_data, con_level)
         highest = con_level
     end
     if highest > 0 then
-        update_task_process(task_data, con_level, highest)
-        return true
+        return update_task_process(task_data, con_level, highest)
     end
     return false
 end
 
 --学习英雄技能
 do_task[TASK_ACTION.LEARN_HERO_SKILL] = function(player, task_data, con_pos)
+
+    player:try_add_tit_point(resmng.ACH_HERO_SKILL_1)
+    player:try_add_tit_point(resmng.ACH_HERO_SKILL_2)
+    player:try_add_tit_point(resmng.ACH_HERO_SKILL_3)
+    player:try_add_tit_point(resmng.ACH_HERO_SKILL_4)
+    player:try_add_tit_point(resmng.ACH_HERO_SKILL_5)
+    player:try_add_tit_point(resmng.ACH_HERO_SKILL_6)
+
     local hero_list = player:get_hero()
     for k, v in pairs(hero_list) do
         local skill = v.basic_skill[con_pos]
         if skill ~= nil and skill[1] > 0 then
-            update_task_process(task_data, 1, 1)
-            return true
+            return update_task_process(task_data, 1, 1)
         end
     end
     return false
@@ -358,8 +434,7 @@ do_task[TASK_ACTION.SUPREME_HERO_LEVEL] = function(player, task_data, con_level)
         end
     end
     if highest > 0 then
-        update_task_process(task_data, con_level, highest)
-        return true
+        return update_task_process(task_data, con_level, highest)
     end
     return false
 end
@@ -367,12 +442,11 @@ end
 --加入玩家军团
 do_task[TASK_ACTION.JOIN_PLAYER_UNION] = function(player, task_data)
     local union = unionmng.get_union(player:get_uid())
-    if union == nil or union.new_union_sn ~= nil then
+    if union == nil or union:is_new() then
         return false
     end
 
-    update_task_process(task_data, 1, 1)
-    return true
+    return update_task_process(task_data, 1, 1)
 end
 
 --参与军团集结
@@ -386,30 +460,28 @@ do_task[TASK_ACTION.JOIN_MASS] = function(player, task_data, con_type, con_num, 
     end
 
     add_task_process(player, task_data, con_num, real_num)
-    return true   
+    return true
 end
 
 --军团科技捐献
 do_task[TASK_ACTION.UNION_TECH_DONATE] = function(player, task_data, con_num, con_acc, real_num)
     if con_acc == 1 then
         local cur = player:get_count(resmng.ACH_TASK_TECH_DONATE)
-        update_task_process(task_data, con_num, cur)
-        return true
+        return update_task_process(task_data, con_num, cur)
     end
 
     if real_num == nil then
         return false
     end
     add_task_process(player, task_data, con_num, real_num)
-    return true   
+    return true
 end
 
 --军团设施捐献
 do_task[TASK_ACTION.UNION_SHESHI_DONATE] = function(player, task_data, con_num, con_acc, real_num)
-    if con_acc == 0 then
+    if con_acc == 1 then
         local cur = player:get_count(resmng.ACH_TASK_SHESHI_DONATE)
-        update_task_process(task_data, con_num, cur)
-        return true
+        return update_task_process(task_data, con_num, cur)
     end
     if real_num == nil then
         return false
@@ -426,7 +498,7 @@ do_task[TASK_ACTION.UNION_HELP_NUM] = function(player, task_data, con_num, real_
     end
 
     add_task_process(player, task_data, con_num, real_num)
-    return true   
+    return true
 end
 
 --军团援助
@@ -439,7 +511,7 @@ do_task[TASK_ACTION.UNION_AID] = function(player, task_data, con_type, real_type
         return false
     end
     add_task_process(player, task_data, con_num, real_num)
-    return true   
+    return true
 end
 
 --采集资源
@@ -450,8 +522,7 @@ do_task[TASK_ACTION.GATHER] = function(player, task_data, con_type, con_num, con
             ach_index = "ACH_COUNT_GATHER"
         end
         local cur = player:get_count(resmng[ach_index])
-        update_task_process(task_data, con_num, cur)
-        return true
+        return update_task_process(task_data, con_num, cur)
     end
     if real_type == nil or real_num == nil then
         return false
@@ -466,26 +537,26 @@ do_task[TASK_ACTION.GATHER] = function(player, task_data, con_type, con_num, con
 end
 
 --收集物品
-do_task[TASK_ACTION.GET_ITEM] = function(player, task_data, con_id, con_num, con_deduct, real_id, real_num)
-    if real_id == nil or real_num == nil then
-        local items = player:get_item()
-        for k, v in pairs(items) do
-            if con_id == v[2] then
-                update_task_process(task_data, con_num, v[3])
-                return true
-            end
+do_task[TASK_ACTION.GET_ITEM] = function(player, task_data, con_id, con_num, real_id, real_num)
+    local items = player:get_item()
+    for k, v in pairs(items) do
+        if con_id == v[2] then
+            return update_task_process(task_data, con_num, v[3])
         end
-    else
-        if real_id ~= con_id then
-            return false
-        end
-        add_task_process(player, task_data, con_num, real_num)
     end
-    return true   
+    return false
 end
 
 --收集品质装备
 do_task[TASK_ACTION.GET_EQUIP] = function(player, task_data, con_grade, con_num, equip_id, real_num)
+
+    player:try_add_tit_point(resmng.ACH_EQUIP_QUALITY_1)
+    player:try_add_tit_point(resmng.ACH_EQUIP_QUALITY_2)
+    player:try_add_tit_point(resmng.ACH_EQUIP_QUALITY_3)
+    player:try_add_tit_point(resmng.ACH_EQUIP_QUALITY_4)
+    player:try_add_tit_point(resmng.ACH_EQUIP_QUALITY_5)
+    player:try_add_tit_point(resmng.ACH_EQUIP_QUALITY_6)
+
     local num = 0
     if equip_id == nil or real_num == nil then
         --遍历找一下满足条件的装备
@@ -511,7 +582,7 @@ do_task[TASK_ACTION.GET_EQUIP] = function(player, task_data, con_grade, con_num,
     end
 
     add_task_process(player, task_data, con_num, num)
-    return true   
+    return true
 end
 
 --使用道具
@@ -523,16 +594,26 @@ do_task[TASK_ACTION.USE_ITEM] = function(player, task_data, con_class, con_mode,
     if con_id == 0 then
         --比较类别
         local prop_tab = resmng.get_conf("prop_item", real_id)
-        if prop_tab ~= nil and prop_tab.Class == con_class and prop_tab.Mode == con_mode then
-            add_task_process(player, task_data, con_num, real_num)
+        if prop_tab == nil then
+            return false
         end
+        if con_mode == 0 then
+            if prop_tab.Class == con_class then
+                add_task_process(player, task_data, con_num, real_num)
+            end
+        else
+            if prop_tab.Class == con_class and con_mode == prop_tab.Mode then
+                add_task_process(player, task_data, con_num, real_num)
+            end
+        end
+
     else
         --比较ID
         if con_id == real_id then
             add_task_process(player, task_data, con_num, real_num)
         end
     end
-    
+
     return true
 end
 
@@ -549,33 +630,40 @@ do_task[TASK_ACTION.MARKET_BUY_NUM] = function(player, task_data, con_type, con_
     return true
 end
 
---升级城建的逻辑
-function do_build_level_Up(build, con_type, con_level)
-    if con_type ~= build.Specific then
-        return false
-    end
-    if con_level > build.Lv then
-        return false
-    end
-
-    return true
-end
 --升级城建
 do_task[TASK_ACTION.CITY_BUILD_LEVEL_UP] = function(player, task_data, con_type, con_num, con_level)
     local builds = player:get_build()
     local cur_num = 0
+    local cur_level = 0
     for k, v in pairs(builds) do
-        local b = resmng.prop_build[v.propid]
-        if b == nil then
+        local prop_build = resmng.prop_build[v.propid]
+        if prop_build == nil then
             return false
         end
-        if do_build_level_Up(b, con_type, con_level) == true then
-            cur_num = cur_num + 1
+
+        local cur_type = con_type
+        if con_type == 15 or con_type == 20 then -- 箭塔有两个
+            if prop_build.Specific == 15 or prop_build.Specific == 20 then
+                cur_type = prop_build.Specific
+            end
+        end
+
+        if cur_type == prop_build.Specific then
+            if prop_build.Lv > cur_level then
+                cur_level = prop_build.Lv
+            end
+            if prop_build.Lv >= con_level then
+                cur_num = cur_num + 1
+            end
         end
 
     end
-    update_task_process(task_data, con_num, cur_num)
-    return true
+
+    if con_num > 1 then
+        return update_task_process(task_data, con_num, cur_num)
+    else
+        return update_task_process(task_data, con_level, cur_level)
+    end
 end
 
 --开启野地
@@ -599,8 +687,7 @@ do_task[TASK_ACTION.RES_OUTPUT] = function(player, task_data, con_type, con_num)
         end
     end
     if real_num > 0 then
-        update_task_process(task_data, con_num, real_num)
-        return true
+        return update_task_process(task_data, con_num, real_num)
     end
     return false
 end
@@ -612,8 +699,8 @@ do_task[TASK_ACTION.STUDY_TECH] = function(player, task_data, con_id, con_level)
         return false
     end
     local con_class = con_prop.Class
-    local con_mode = con_prop.Mode 
-    local real_lv = 0 
+    local con_mode = con_prop.Mode
+    local real_lv = 0
     for k, v in pairs(player.tech) do
         local real_prop = resmng.prop_tech[v]
         if real_prop ~= nil then
@@ -628,8 +715,7 @@ do_task[TASK_ACTION.STUDY_TECH] = function(player, task_data, con_id, con_level)
     end
 
     if real_lv > 0 then
-        update_task_process(task_data, con_level, real_lv)
-        return true
+        return update_task_process(task_data, con_level, real_lv)
     end
     return false
 end
@@ -637,6 +723,7 @@ end
 --招募士兵
 do_task[TASK_ACTION.RECRUIT_SOLDIER] = function(player, task_data, con_type, con_level, con_num, con_acc, real_type, real_level, real_num)
     if con_acc == 1 then
+        local ach_index = ""
         if con_type == 0 then
             ach_index = "ACH_COUNT_TRAIN"
         elseif con_level == 0 then
@@ -645,17 +732,15 @@ do_task[TASK_ACTION.RECRUIT_SOLDIER] = function(player, task_data, con_type, con
                 local id = con_type * 1000 + i
                 total = total + player:get_count(resmng["ACH_TASK_RECRUIT_SOLDIER"..id])
             end
-                    
-            update_task_process(task_data, con_num, total)
-            return true
+
+            return update_task_process(task_data, con_num, total)
         else
             local id = con_type * 1000 + con_level
-            local ach_index = "ACH_TASK_RECRUIT_SOLDIER"..id
+            ach_index = "ACH_TASK_RECRUIT_SOLDIER"..id
         end
 
         local cur = player:get_count(resmng[ach_index])
-        update_task_process(task_data, con_num, cur)
-        return true
+        return update_task_process(task_data, con_num, cur)
     end
     if real_type == nil or real_level == nil or real_num == nil then
         return false
@@ -784,8 +869,7 @@ end
 
 --提升领主等级
 do_task[TASK_ACTION.ROLE_LEVEL_UP] = function(player, task_data, con_level)
-    update_task_process(task_data, con_level, player.lv)
-    return true
+    return update_task_process(task_data, con_level, player.lv)
 end
 
 --抽卡次数
@@ -851,9 +935,17 @@ do_task[TASK_ACTION.CITY_BUILD_MUB] = function(player, task_data, con_num, real_
 end
 
 --击杀士兵数量
-do_task[TASK_ACTION.KILL_SOLDIER] = function(player, task_data, con_level, con_num, real_level, real_num)
-    if real_level == nil or real_num == nil then
-        return false
+do_task[TASK_ACTION.KILL_SOLDIER] = function(player, task_data, con_level, con_num, con_acc, real_level, real_num)
+    if con_acc == 1 then
+        local total = 0
+        if con_level == 0 then
+            for i = 1, 10, 1 do
+                total = total + player:get_count(resmng["ACH_TASK_KILL_SOLDIER"..i])
+            end
+        else
+            total = player:get_count(resmng["ACH_TASK_KILL_SOLDIER"..con_level])
+        end
+        return update_task_process(task_data, con_num, total)
     end
 
     if con_level ~= 0 and con_level ~= real_level then
@@ -906,3 +998,66 @@ do_task[TASK_ACTION.HERO_STATION] = function(player, task_data, real_num)
     return true
 end
 
+
+
+
+
+
+
+--世界频道说话
+do_task[TASK_ACTION.WORLD_CHAT] = function(player, task_data, con_num, real_num)
+    if real_num == nil then
+        return false
+    end
+
+    add_task_process(player, task_data, con_num, real_num)
+    return true
+end
+
+--完成日常任务
+do_task[TASK_ACTION.FINISH_DAILY_TASK] = function(player, task_data, con_activity)
+    return update_task_process(task_data, con_activity, player.activity)
+end
+
+--完成军团任务
+do_task[TASK_ACTION.FINISH_UNION_TASK] = function(player, task_data, con_score, real_score)
+    if real_score == nil then
+        return false
+    end
+    return update_task_process(task_data, con_score, real_score)
+end
+
+--迁城到资源带
+do_task[TASK_ACTION.MOVE_TO_ZONE] = function(player, task_data, con_lv, real_lv)
+    if real_lv == nil then
+        return false
+    end
+
+    if con_lv ~= real_lv then
+        return false
+    end
+
+    add_task_process(player, task_data, 1, 1)
+    return true
+end
+
+--叛军突袭活动获得积分
+do_task[TASK_ACTION.PANJUN_SCORE] = function(player, task_data, con_score, real_score)
+    if real_score == nil then
+        return false
+    end
+    return update_task_process(task_data, con_score, real_score)
+end
+
+--遗迹塔获得贤者之石
+do_task[TASK_ACTION.LOSTTEMPLE_SCORE] = function(player, task_data, con_score, real_score)
+    if real_score == nil then
+        return false
+    end
+    return update_task_process(task_data, con_score, real_score)
+end
+
+--向王城行军
+do_task[TASK_ACTION.TROOP_TO_KING_CITY] = function(player, task_data, con_num)
+    return update_task_process(task_data, con_num, 1)
+end

@@ -6,7 +6,7 @@
 -- --'-----------------------------------------------------------------------'--
 
 module("mulzset")
-attach_wrap_()
+attach_wrap_(_ENV)
 
 function new(...)
     local self = deliver()

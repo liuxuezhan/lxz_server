@@ -107,7 +107,7 @@ function respawn(tx, ty)
     end
 end
 
-function do_check(zx, zy)
+function do_check(zx, zy, isloop)
     if zx >= 0 and zx < 80 and zy >= 0 and zy < 80 then
         local idx = zy * 80 + zx
         local node = distrib[ idx ]
@@ -116,8 +116,8 @@ function do_check(zx, zy)
         for k, eid in pairs(node or {})  do
             local ety = get_ety(eid)
             if ety then
-                if ety.pid == 0 and ety.born < gTime - 12 * 3600 then
-                    rem_ety(ety)
+                if isloop and ety.pid == 0 and ety.born < gTime - 12 * 3600 then
+                    rem_ety(eid)
                 else
                     table.insert(news, eid)
                 end
@@ -147,14 +147,12 @@ function loop()
             local zx = idx % 80
             local zy = math.floor(idx / 64)
             scan_id = idx
-            do_check(zx, zy)
+            do_check(zx, zy, true)
         end
         idx = idx + 1
     end
 end
 
-function add_ety()
-end
 
 function test()
     print("test farm")
@@ -172,7 +170,7 @@ end
 
 function load_from_db()
     local db = dbmng:getOne()
-    db.farm:delete( { pid = 0 } )
+    --db.farm:delete( { pid = 0 } )
 
     local info = db.farm:find({})
     while info:hasNext() do

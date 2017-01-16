@@ -225,7 +225,7 @@ function do_threadPK()
                             while #as > 0 do
                                 local v = table.remove(as, 1)
                                 gActionCur[ pid ] = gTime
-                                LOG("RpcR, pid=%d, func=%s", pid, v[1])
+                                lxz("RpcR, pid=%d, func=%s", pid, v[1])
                                 local p = getPlayer(pid)
                                 if p then player_t[ v[1] ](p, unpack(v[2]) ) end
                                 gActionCur[ pid ] = nil

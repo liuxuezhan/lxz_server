@@ -85,7 +85,26 @@ do_load(BasePath .. "define_mc_person_rank_award")
 do_load(BasePath .. "define_mc_rank_award")
 do_load(BasePath .. "define_boss_rank_award")
 do_load(BasePath .. "define_tw_union_consume")
+do_load(BasePath .. "define_boss_notify")
+do_load(BasePath .. "define_tw_notify")
+do_load(BasePath .. "define_tw_declare_notify")
+do_load(BasePath .. "define_kw_buff")
+do_load(BasePath .. "define_kw_debuff")
+do_load(BasePath .. "define_act_notify")
+do_load(BasePath .. "define_damage_rate")
+do_load(BasePath .. "define_flag")
+do_load(BasePath .. "define_cross_act_notify")
+do_load(BasePath .. "define_cross_act_stage")
+do_load(BasePath .. "define_weekly_award")
+do_load(BasePath .. "define_buy")
+do_load(BasePath .. "define_troop_action")
+do_load(BasePath .. "define_task_init")
+do_load(BasePath .. "define_buy_group")
 
+do_load(BasePath .. "prop_buy_group")
+do_load(BasePath .. "prop_buy")
+do_load(BasePath .. "prop_cross_act_notify")
+do_load(BasePath .. "prop_cross_act_stage")
 do_load(BasePath .. "prop_language_cfg")
 do_load(BasePath .. "prop_arm")
 do_load(BasePath .. "prop_build")
@@ -142,6 +161,13 @@ do_load(BasePath .. "prop_mc_person_rank_award")
 do_load(BasePath .. "prop_mc_rank_award")
 do_load(BasePath .. "prop_boss_rank_award")
 do_load(BasePath .. "prop_tw_union_consume")
+do_load(BasePath .. "prop_boss_notify")
+do_load(BasePath .. "prop_tw_notify")
+do_load(BasePath .. "prop_tw_declare_notify")
+do_load(BasePath .. "prop_kw_buff")
+do_load(BasePath .. "prop_kw_debuff")
+do_load(BasePath .. "prop_act_notify")
+do_load(BasePath .. "prop_damage_rate")
 
 do_load(BasePath .. "prop_black_market")
 do_load(BasePath .. "prop_black_market_hot")
@@ -170,6 +196,10 @@ do_load(BasePath .. "prop_title")
 do_load(BasePath .. "prop_sacrifice_hero")
 do_load(BasePath .. "prop_kw_notify")
 do_load(BasePath .. "prop_boss_hero")
+do_load(BasePath .. "prop_flag")
+do_load(BasePath .. "prop_weekly_award")
+do_load(BasePath .. "prop_troop_action")
+do_load(BasePath .. "prop_task_init")
 
 do_check("prop_arm")
 do_check("prop_build")
@@ -217,7 +247,7 @@ function get_conf(prop_name, index)
 
     local conf = resmng[prop_name] and resmng[prop_name][index]
     if not conf then
-        ERROR("get_conf: lost config. prop_name = %s, index = %s", prop_name or "nil", index or -1 .. "")
+        LOG("get_conf: lost config. prop_name = %s, index = %s", prop_name or "nil", index or -1 .. "")
         return
     else
         return conf
@@ -261,7 +291,7 @@ function init_prop_monster()
             local quality_rate = quality_conf.GrowRate and quality_conf.GrowRate[basic_conf.Type]
             local star_up_rate = star_up_conf.GrowRate and star_up_conf.GrowRate[basic_conf.Type]
             if basic_delta and quality_rate and star_up_rate then
-                local hero = { id=basic_conf.ID, num=1, hero=k, skill=v.Skill, skills=skills, cul=basic_conf.Culture, per=basic_conf.Nature, ef=v.Effect }
+                local hero = { id=basic_conf.ID, num=1, hero=k, skill=v.Skill, skills=skills, cul=basic_conf.Culture, per=basic_conf.Nature, ef=v.Effect, fit_per=1 }
                 local info = {}
                 info.Lv = v.Lv
                 info.Atk =      math.ceil((basic_conf.Atk + basic_delta[1] * (info.Lv - 1)) * quality_rate[1] * star_up_rate[1])

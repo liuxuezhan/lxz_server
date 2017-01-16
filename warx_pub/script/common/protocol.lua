@@ -1,12 +1,18 @@
 module("Protocol")
 Server = {
-    firstPacket = "int uid, string name, string pasw",
-    firstPacket2 = "int sockid, int source_map, string account, string pasw",
+    firstPacket = "int uid, int cival, int pid, string signature, int time, string open_id, string token",
+    --firstPacket2 = "int sockid, int source_map, string account, string pasw",
+    firstPacket2 = "int sockid, int source_map, int cival, int pid, string signature, int time, string open_id, string token",
+    --string mac, string idfa,string gaid,string android_id,string udid,string openudid,string imei,string ver, string pack_name, string channel, 
+    --string hardware, string software, string telecomoper, string network, string width, string hight, string mem",
     login = "int pid",
     onBreak = "",
     create_character = "pack info",
     change_name = "string name",
     change_language = "int language",
+    sync = "int sn",
+
+    get_lv_6_gift = "",
 
     union_help_add = "int tmSn",--请求军团帮助
     union_help_get = "",--获取军团帮助
@@ -14,7 +20,7 @@ Server = {
     --just for test
     build_all = "",
 
-    getTime = "",
+    getTime = "int tag",
     reCalcFood = "",
 
     debugInput = "string str",
@@ -26,11 +32,17 @@ Server = {
     say = "string say, int nouse",
     say1 = "string say, int nouse",
 
-    use_item = "int id, int num",
-    buy_item = "int id, int num, int use",
+    use_item = "int idx, int num",
+    use_items = "pack infos",
 
-    material_compose = "int id",
-    material_decompose = "int id",
+    buy_item = "int id, int num, int use",
+    gold_to_res = "int resid, int resnum",
+
+    search_entity = "int sn, int propid",
+
+    material_compose = "int id, int count",
+    material_compose2 = "int id, int count",
+    material_decompose = "int id, int count",
 
     equip_forge = "int propid",
     equip_split = "int sn",
@@ -39,7 +51,8 @@ Server = {
 
     --  聊天
     chat = "int chanelid, string word, int chatid",      --chanelId: enum in common/define/ChatChanelEnum;   word:the word you say;     chatid:聊天流水号，服务器会在onError方法中返回
-    chat_with_audio = "int chanelid, byte[] stream",      --TODO
+    fetch_chat = "int channel,int sn,int count",
+    --chat_with_audio = "int chanelid, byte[] stream",      --TODO
     get_user_simple_info = "int pid",   --获取用户简单信息
 
     get_user_info = "int pid, string what", --查看别的玩家的信息
@@ -47,6 +60,7 @@ Server = {
     testPack = "int i, pack p, string s",
     qryInfo = "int pid",
     loadData = "string what",
+    get_buff = "string what",
     qryAround = "",
 
 	--troop
@@ -81,14 +95,13 @@ Server = {
     union_save_res = "int dest_eid, pack res",  --联盟仓库存资源
     union_get_res = "int dest_eid, pack res",  --联盟仓库取资源
     union_build = "int dest_eid, pack arm",  --联盟建造建筑
-    union_build_leave = "int troopid",  --撤离联盟建造建筑
 
     buy_specialty = "int dest_eid, pack item",  --买特产
     confirm_specialty = "int dest_eid, pack item",  --上架特产
     cancle_specialty = "int dest_eid, pack item",  --下架特产
     troop_recall = "int dest_troop_id",  --撤回部队
+    troop_cancel_mass = "int troop_id",
     -----------------------------------------------------------
-  
 
     ---战争大厅
     union_battle_room_list = "",
@@ -102,6 +115,7 @@ Server = {
     draft = "int idx",
 
     migrate = "int x, int y",
+    migrate_random = "",
 
     --------------------------------------------------------------------------------
     -- build begin
@@ -139,7 +153,11 @@ Server = {
     mail_lock_by_sn = "pack sns",
     mail_unlock_by_sn= "pack sns",
     mail_send_player = "int to_player_id, string title, string content",
-    mail_send_union = "pack plys, string title, string content",--发送军团邮件
+    mail_send_union = "string title, string content",--发送军团邮件
+
+    mail_read_by_class = "int class, int mode, int lv",
+    mail_drop_by_class = "int class, int mode, int lv",
+
     -- todo, just for test
     test_mail_all = "int class, string title, string content, pack its",
 
@@ -149,6 +167,28 @@ Server = {
     movEye = "int map, int x, int y",
     agent_move_eye = "int pid, int x, int y",
     agent_remove_eye = "int pid",
+    ack_tool = "int sn, pack info",
+    gm_cmd = "string callback_pid, string gm_type, pack content",
+    -- cross gs
+    agent_migrate = "int map, int x, int y, pack data, pack task, pack timers, pack union_pro, pack troop",
+    agent_migrate_ack = "int map, int pid, int param",
+    agent_migrate_back = "int map, int x, int y, pack data, pack task, pack timers, pack union_pro, pack troop",
+    agent_migrate_back_ack = "int map, int pid, int param",
+    agent_syn_call = "int id, string func, pack arg",
+    agent_syn_call_ack = "int id, pack ret",
+    agent_login = "int pid",
+    cross_act_ntf = "int ntf_id, pack param1, pack param2",
+    --upload_gs_info = "pack union_info",
+    cross_npc_info_req = "int pid",  -- gs to cross mng
+    cross_act_st_cast = "pack info",
+    --cross act
+    upload_gs_info = "pack info",
+    cross_gm = "pack info",
+    refugee_occu_change = "int pid, int mode, pack info",
+    post_cross_score = "pack info",
+    cross_act_st_req = "",
+    upload_act_score = "int action, int val, pack info",
+    send_cross_award = "int mode, int reward_mode, int id, pack award ",
 
     -- allience
     -- tech = {info={{idx,id,exp,tmOver},{...}},mark={idx,idx}}
@@ -173,9 +213,14 @@ Server = {
     union_list = "string name",         --获取军团列表
     union_apply = "int uid",            --申请加入
     union_reject = "int pid",            --拒绝申请
+
+    union_invite_migrate = "pack info",--邀请迁城 
+
     union_invite = "int pid",           --邀请加入
-    union_set_note_in = "string what",  --设置军团对内公告
     union_accept_invite = "int unionId", --同意邀请
+    union_reject_invite = "int uid",     --拒绝邀请
+
+    union_set_note_in = "string what",  --设置军团对内公告
 
     union_troop_buf = "",              -- 激活军团总动员
     union_tech_info = "int idx",            --科技详细信息
@@ -194,17 +239,18 @@ Server = {
     union_member_rank = "int pid, int r",   --设置军阶
     union_member_title = "int pid, string t",   --设置头衔
     union_leader_update="int pid",--移交军团长
+
     union_build_setup = "int idx, int propid, int x, int y,string name",--放置军团建筑
     union_build_remove = "int eid", --拆除大地图建筑
     union_build_up = "int idx,int state",     --扩建军团建筑
-    union_task_add = "int type,int eid,string hero_id,int task_num,int mode,int res,int res_num",--发布悬赏任务
-    union_task_get = "",     --获取军团悬赏任务列表
+    union_task_add = "int type,int eid,string hero_id,int task_num,int mode,int res,int res_num, int x, int y",--发布悬赏任务
+    union_task_get = "",     --获取军团悬赏任务
     union_mission_get = "",     --获取军团定时任务
     union_mission_update = "",     --刷新军团定时任务
     union_mission_set = "",     --领取军团定时任务
     union_mission_chat = "",     --刷新邀请时间
     union_mission_log = "string type,int id",     --获取军团定时任务日志
-    union_word_add = "int uid,string title,string word",--军团留言
+    union_word_add = "int uid,string title,string word int flag",--军团留言
     union_word_update = "int wid,string title,string word",--军团内部留言修改
     union_word_top = "int wid,int flag",--军团内部留言置顶 1:置顶 0：取消
     union_word_del = "int wid",--军团内部留言删除
@@ -256,10 +302,14 @@ Server = {
     cancel_cure_hero = "int hero_idx",
     cure = "pack arm, int quick",
     cure_acc = "int mode",
+    cure_acc_item = "int item_idx, int num",
+    cure_cancel = "",
+
+    dismiss = "int id, int num, int ishurt",
 
     hero_cure = "int hero_idx, int tohp",
     hero_cure_cancel = "int hero_idx",
-    hero_cure_quick = "int hero_idx",
+    hero_cure_quick = "int hero_idx, int tohp",
     hero_cure_acc_item = "int hero_idx, int item_idx, int item_num",
     hero_cure_acc_gold = "int hero_idx, int acc_type",
 
@@ -274,7 +324,7 @@ Server = {
     kill_hero = "string hero_id, int buff_idx",
 
     -- 复活英雄
-    relive_hero = "int hero_idx",
+    relive_hero = "int hero_idx, int is_quick",
 
     -- Hero End.
     --------------------------------------------------------------------------------
@@ -306,24 +356,34 @@ Server = {
     --require_month_award_com = "", --月登陆补签领奖
     month_award_get_award = "",
     month_award_get_extra = "",
+    -- pay cash
+    get_can_buy_list_req = "",
+
+    -----act info
+    act_info_tag_req = "int act_type",
 
     ---- boss
     boss_rank_req = "",
+    act_info_req = "",
     ---- npc city tw
     get_random_award_req = "int eid",  -- 获取随机奖励
     declare_tw_req = "int eid", --- 宣战
+    declare_tw_status_req = "int eid", --- 宣战
     get_can_atk_citys_req = "", --- 可攻击城市列表
     get_npc_map_req = "",       --- npc大地图信息
     tag_npc_req = "int act, int eid",  --大地图标记城市 act = 1 -- 标记攻击act = 2 -- 标记防守
-    abd_npc_req = "int eid",  -- 弃城
     untag_npc_req = "int eid", -- 取消标记
     get_union_npc_rank_req = "", --- 军团排名
     npc_info_req = "int eid",
     get_union_npc_req = "", --  取得本军团占领的npc
     npc_act_info_req =  "", -- npc 活动页面
     abandon_npc = "int eid", -- 弃城
+    abd_npc_cond_req = "int eid", -- 弃城条件
+    post_npc_change = "int npc_propid, int occu_gs_id, int tag", --post npc change to cross mng center
+    get_city_for_robot_req = "int mode, int lv", -- robot get a npc eid
     ---- king city 
     officers_info_req = "",  --任命官员大厅
+    king_info_req = "", -- king info
     select_officer_req = "int pid, int index", --任命官员
     rem_officer_req = "int index", --卸任
     acc_tower_recover_req = "int eid",
@@ -335,6 +395,7 @@ Server = {
     refresh_mall_req = "int mode", -- 刷新商城
     find_player_by_name_req = "string name", -- 搜索玩家
     kw_info_req = "", -- 王城战活动页面
+    get_gs_buf = "",
     --monster city
     mc_info_req = "", -- 怪物攻城活动页面
     set_mc_start_time_req = "int time", -- 怪物攻城活动开启时间
@@ -344,6 +405,7 @@ Server = {
     lt_info_req = "", --遗迹塔活动页面
     lt_citys_info_req = "int index", -- 分页请求遗迹塔活动数据
     get_lt_award = "int index", --lt 个人奖励
+
 
 
     black_market_buy = "int idx",
@@ -362,6 +424,7 @@ Server = {
     siege_task_npc = "int task_id, int dest_eid, int x, int y, pack arm",
 
     -- chat admin
+    chat_account_info_req = "", -- 请求玩家聊天账户信息
     create_chat_account = "int result",
     create_room = "int result",
     send_invite = "string room, pack pids",
@@ -383,6 +446,7 @@ Server = {
     load_rank = "int idx, int version",
 
     set_client_parm = "string key, string data",
+    set_show_equip = "int flag",
 
     -- achievement
     ache_info_req = "", --成就
@@ -395,26 +459,41 @@ Server = {
     p2p = "int to_pid, pack info",
 
     reset_skill = "int hero_idx, int skill_idx",
-    request_empty_pos = "int x, int y, int size",
+
+    request_empty_pos = "int x, int y, int size, pack info",
+    request_fight_replay = "string replay_id",
+
+    role_info = "int pid",
+
+    choose_head_icon = "int id",
+    get_uname_by_propid = "int propid",
+    world_chat_task = "",
+    packet_target_task = "",
+    qiri_get_award = "",
+
 }
 
 
 Client = {
-    getTime = "int gTime",
+    getTime = "int gTime, int gMsec, int tag",
 
     ply_list = "string proc, string account, pack pids, pack characters",
-
 
     onQryCross = "int toPid, int sn, int smap, int spid, string cmd, pack arg",
     onAckCross = "int smap, int sn, int code, pack arg",
 
     hello = "int pid1, int pid2, string text",
     onLogin = "int pid, string name",
+
+    first_packet_ack = "int error_code", -- 登录验证信息
     say = "string say, int nouse",
     say1 = "string say, int nouse",
 
     -- 聊天
-    chat = "int chanelID, int pid, int photo, string name, string word",    --chanelId: enum in common/define/ChatChanelEnum;   pid==-1 means system;   word:the word somebody say
+   --chat = "int chanelID, pack speaker, string word, int language, pack args",    --chanelId: enum in common/define/ChatChanelEnum;   pid==-1 means system;   word:the word somebody say
+    chat = "int chanelID,int sn, pack speaker, string word, int language, pack args",
+    --{sn,gTime,speaker,word,lang,args}
+    fetch_chat="int chanel,pack infos",
     --chatWithAudio         --TODO
     --获取用户简单信息回应，这次通讯主要是用来获取玩家的聊天基本信息，获取详细信息可以采用另外的接口,remoteAvatarId为空时代表没有自定义头像
     on_get_user_simple_info = "int pid, int vipLevel, string userName, int defaultAvatarId, string remoteAvatarId",
@@ -426,22 +505,24 @@ Client = {
 
     qryInfo = "pack info",
     loadData = "pack info",
+    get_buff = "string what, int val",
     qryAround = "int x, int y, pack objs",
     upd_arm = "pack arminfo",
 
+    found_entity = "int sn, int propid, int x, int y",
+
     --type= 1-飘字通用提示 2-跑马灯公告 3-只有确定按钮的对话框
     --lanid --客户端多语言字段的id
-    --info --对应填入多语言的参数列表
-    --proppack  --对应填入{x}位置的多语言id的配置表
-    tips = "int type,int lanid,pack info,pack proppack",
+    --info --对应填入多语言的参数列表    
+    tips = "int type,int lanid,pack info",
 
-    add_troop = "pack troop",
+    --add_troop = "pack troop",
 
     equip_add = "pack e",
     equip_rem = "int sn",
 
     -- mail
-    -- mail_new = "pack mail",
+    mail_new = "pack mail",
     --mail_unread = "pack mail_class",  -- {[class_id]=unread_count,....}
     --mail_unread_inc = "int class, int inc",
 
@@ -454,6 +535,21 @@ Client = {
     addEty = "pack obj",
     addEtys = "pack objs",
     remEty = "int eid",
+
+    add_troop      = "int eid, int action, int sx, int sy, int dx, int dy, int tm, int cx, int cy, pack info ",
+    troop_set_move = "int eid, int action, int sx, int sy, int dx, int dy, int tm, int cx, int cy",
+
+    rem_troop = "int eid",
+
+    --crose gs
+
+    agent_migrate = "int map, int x, int y, pack data, pack task, pack timers, pack union_pro",
+    agent_migrate_ack = "int map, int pid, int param",
+    agent_syn_call = "int map, int id, string func, pack arg",
+    agent_syn_call_ack = "int id, pack ret",
+    cross_npc_info_ack = "pack info",  -- cross mng  to client
+    --cross act
+    cross_act_st_ack = "pack info",
 
     -- state change
     stateBuild = "pack build",
@@ -487,8 +583,10 @@ Client = {
 
     union_destory = "",                      --- 军团解散
     union_list = "pack info",                ---读取军团列表
+    union_task_add = "pack info",     --获取军团悬赏任务列表
     union_task_get = "pack info",     --获取军团悬赏任务列表
     union_mission_get = "pack info",     --获取军团定时任务
+    union_mission_set = "",     --领取军团定时任务
     union_mission_log = "pack info",     --获取军团定时任务日志
 
     union_reject = "int pid",                --广播申请拒绝消息
@@ -509,7 +607,7 @@ Client = {
     --  D={{pid,name,lv,photo,troop={state,tmStart,tmOver,arms={...}}},{...}}
     --}
     --union_mass_enemy_info = "pack info",    --敌方集结信息
-    union_state_aid = "pack info",
+    --union_state_aid = "pack info",
     union_tech_update = "pack info",    --广播科技变化{idx,.id,xx,.tmOver}
     union_tech_mark = "pack info",      --广播新的标记
     union_tech_info = "pack info",      --科技详细信息{idx,id,exp,tmOver,donate={2,0,0}}
@@ -518,7 +616,6 @@ Client = {
     union_donate_rank = "pack info",  --捐献排名
     union_member_mark = "int pid, string mark", --联盟标记
     union_buildlv_donate = "pack info",       --更新建筑捐献
-    union_buildlv_cons = "pack info ",       --获取建筑捐献条件
     union_mall_buy = "int propid,int num",     --军团成员买道具
     union_mall_log = "pack info",              --获取军团商店的日志
     union_help_get = "pack info",--获取军团帮助
@@ -620,14 +717,21 @@ Client = {
     --瞭望塔
     add_compensation_info = "pack info",
     rm_compensation_info = "int id",
+    update_compensation_info = "int id, int tm_over",
 
     -----------------------------------------------------
     --通知显示奖励
     notify_bonus = "pack info",
     -----------------------------------------------------
+    -- pay cash
+    get_can_buy_list_ack = "pack info",
+    
+    --act info
+    act_info_tag_ack = "int tag",
     --boss
     boss_rank_ack = "pack info",
 
+    act_info_ack = "pack info",
     -- npc city
     get_can_atk_citys_ack = "pack info", -- 军团可以攻击的npc城市
     get_npc_map_ack = "pack info",
@@ -636,6 +740,10 @@ Client = {
     npc_info_ack = "pack info",
     get_union_npc_ack = "pack info",
     npc_act_info_ack =  "pack info",
+    declare_tw_ack = "int eid, int ret", --- 宣战 
+    declare_tw_status_ack = "int eid, pack info", --- 宣战 
+    abd_npc_cond_ack = "pack info", -- 弃城条件
+    get_city_for_robot_ack = "int mode, int eid", -- robot get a npc eid
 
     --kingcity war
     officers_info_ack = "pack info",
@@ -643,7 +751,9 @@ Client = {
     kw_mall_info_ack = "pack info",
     find_player_by_name_ack = "pack info", 
     kw_info_ack = "pack info",
+    king_info_ack = "pack info",
     mark_king_ack = "int score",
+    gs_buf_ntf = "pack info",
     --monster city
     mc_info_ack = "pack info", -- 怪物攻城页面
     set_mc_start_time_ack = "pack info", -- 怪物攻城活动开启时间
@@ -651,7 +761,8 @@ Client = {
 
     --lost temple
     lt_info_ack = "pack info",
-    lt_citys_info_ack = "pack", -- 分页请求遗迹塔活动数据
+    lt_citys_info_ack = "pack info", -- 分页请求遗迹塔活动数据
+
 
 
 
@@ -668,8 +779,10 @@ Client = {
     get_gacha_box_resp = "int result",
 
     -- chat admin
+    chat_account_info_ack = "int jid, int pwd", -- 请求玩家聊天账户信息
     create_chat_account = "string pid, string host, string psw ",
     create_room = "string uid, string host, string admin",
+    c_create_room = "", --客户端创建聊天室
     send_invite = "string room, pack pids",
 
     rm_npc_monster = "int eid",
@@ -696,6 +809,37 @@ Client = {
     -- title
     title_info_ack = "pack info",
     p2p = "int from_pid, pack info",
-    response_empty_pos = "int x, int y",
+
+    response_empty_pos = "int x, int y, pack info",
+    response_fight_replay = "int result",
+
+    send_army_state = "int code, int max, int total",
+    --
+    role_info = "pack info",
+
+    be_attacked = "",
+
+    choose_head_icon_resp = "int res",
+
+    --rpc dostring
+    do_string = "string trunk",
+    get_uname_by_propid_resp = "pack info",
+
+    target_task_list_resp = "",
+
+    notify_buf = "int bufid, int start, int over",
+
+    support_notify = "pack infos",
+    sync = "int sn",
+    qiri_get_award_resp = "int res",
 }
+
+CrossQuery = {
+    get_union_npc_rank_req = 1,
+    get_npc_map_req = 1,
+    act_info_req = 1,
+    king_info_req = 1,
+
+}
+
 

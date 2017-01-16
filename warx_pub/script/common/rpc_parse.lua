@@ -1,7 +1,11 @@
 module("rpchelper",package.seeall)
 
 RpcConfig = {}
-RpcConfig.unionmember = {"pid","name","lv","language","rank","title","photo","eid","x","y","pow","online","tm_logout"}
+RpcConfig.unionmember = {"pid","name","lv","language","rank","title","photo","eid","x","y","pow","tm_login","tm_logout","buildlv","propid"}
+RpcConfig.union = {
+                    "uid","new_union_sn","name","alias","mars_propid","membercount","memberlimit","language","flag","","note_in","leader","pow","tm_buf_over",
+                    {"enlist","text","lv","pow","check",},"state","range"
+                }
 
 local function get_table_cfg(tab)
 	local temp_cfg = {}
@@ -11,31 +15,35 @@ local function get_table_cfg(tab)
 	return temp_cfg
 end
 
-function parse_rpc(src_tab,key)		
+local function parse_by_table(src_tab,cfg_tab)	
 	local des_tab = {}
-    local cfg_tab = RpcConfig[key] 
+	if not cfg_tab then return des_tab end
 	for i=1,#cfg_tab do	
 		local arg = cfg_tab[i]	
 		if type(arg) == "table" then
 			local temp_cfg = get_table_cfg(arg)			
-			des_tab[i] = parse_rpc(src_tab[arg[1]],temp_cfg)
+			des_tab[i] = parse_by_table(src_tab[arg[1]],temp_cfg)
 		else
 			des_tab[i] = src_tab[arg]
 		end
 	end
-	return des_tab
+	return des_tab	
 end
 
-function decode_rpc(src_tab,key)
+function parse_rpc(src_tab,key)
+    return parse_by_table(src_tab, RpcConfig[key])
+end
+
+local function decode_by_table( src_tab,cfg_tab )
 	local des_tab = {}
-    local cfg_tab = RpcConfig[key] 
+	if not cfg_tab then return des_tab end
 	for i = 1,#cfg_tab do
 		local arg = cfg_tab[i]
 		if type(arg) == "table" then
 			local temp_cfg = get_table_cfg(arg)			
 			local temp_key = arg[1]
 			if src_tab[i] then
-				des_tab[temp_key]  = decode_rpc(src_tab[i],temp_cfg)
+				des_tab[temp_key]  = decode_by_table(src_tab[i],temp_cfg)
 			end
 		else
 			des_tab[arg] = src_tab[i]
@@ -44,8 +52,6 @@ function decode_rpc(src_tab,key)
 	return des_tab
 end
 
--- local src_tab = {name = "张三",eid = 5015222,pid = 5245888,x=312,y=353,power = 434343,photo=1,donate = {donate_cd = 350}}
--- local tab = parse_rpc(src_tab,"unionmember")
--- print_table(tab)
--- local next_tab = decode_rpc(tab,"unionmember")
--- print_table(next_tab)
+function decode_rpc(src_tab,key)
+	return decode_by_table(src_tab,RpcConfig[key])	
+end

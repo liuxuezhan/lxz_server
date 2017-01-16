@@ -1,3 +1,6 @@
+
+local lpack = require "lpack"
+
 local hashString = pack.hashStr
 local packet = packet
 
@@ -42,19 +45,46 @@ local function isTypeOf(i,s,v)
 end
 
 local function parseRpc(rpc, body)
-    local rfid = pack.pullNext(body)
+
+    local len, rfid = lpack.unpack(body,">i")
+    body = string.sub(body, len, #body)
+
 	local rf = rpc.localF[rfid]
 
 	if not rf then
-		error(string.format("rfid(%d) not found in LocalF", rfid))
+		print(string.format("rfid(%d) not found in LocalF wo", rfid))
+        return nil, nil
 	end
 
 	local args={}
+    --[[
 	for i,v in ipairs(rf.args) do
 		local tm = RpcType[v.t]
-		--args[i] = tm._read( packet )
 		args[i] = tm._read( packet )
 	end
+    --]]
+    for i, v in ipairs(rf.args) do
+        local t = rf.args[i].t
+		if t=="int" then
+                len,args[i] = lpack.unpack(body,">i")    
+                body = string.sub(body, len, #body)
+        elseif t=="string"  then
+                len,args[i] = lpack.unpack(body,">h") 
+                body = string.sub(body, len, #body)
+                len,args[i] = lpack.unpack(body,"A"..args[i]) 
+                body = string.sub(body, len, #body)
+        elseif t=="pack"  then
+                len,args[i] = lpack.unpack(body,">i") 
+                body = string.sub(body, len, #body)
+                len,args[i] = lpack.unpack(body,"A"..args[i]) 
+                body = string.sub(body, len, #body)
+                args[i]  =  MsgPack.unpack(args[i]) 
+        elseif t=="uint"  then
+                len,args[i] = lpack.unpack(body,">I") 
+        elseif t=="float"  then
+                len,args[i] = lpack.unpack(body,">f") 
+		end
+    end
     return rf.name, args
 end
 
@@ -140,23 +170,59 @@ local function callRpc( rpc, name, ... )
 		error(string.format("can't find remote function named %s",key))
 		return nil
 	end
+
 	local arg={...}
 	if #arg ~= #rf.args then
 		for i,v in ipairs(arg) do print(i,v) end
 		lxz(string.format("expected %d arguments, but passed in %d",#rf.args,#arg))
 	end
 
-    pack.pushHead(rf.id)
+    local data = nil
     for i, v in ipairs(arg) do
         local t = rf.args[i].t
-		if t and isTypeOf(i,t,v) then
-			RpcType[t]._write( packet, v )
-		else
-			lxz(string.format("bad argument %d, expected %s, but a %s",i,t,type(v)))
+		if t=="int" then
+            if data then 
+                data = data..lpack.pack(">i",arg[i])    
+            else
+                data = lpack.pack(">i",arg[i])    
+            end
+        elseif t=="string"  then
+            if data then 
+                data = data..lpack.pack(">h",#arg[i])..lpack.pack("A",arg[i]) 
+            else
+                data = lpack.pack(">h",#arg[i])..lpack.pack("A",arg[i]) 
+            end
+        elseif t=="pack"  then
+            local tab =  MsgPack.pack(arg[i]) 
+            if data then 
+                data = data..lpack.pack(">i",#tab)..lpack.pack("A",tab) 
+            else
+                data = lpack.pack(">i",#tab)..lpack.pack("A",tab) 
+            end
+        elseif t=="uint"  then
+            if data then 
+                data = data..lpack.pack(">I",arg[i]) 
+            else
+                data = lpack.pack(">I",arg[i]) 
+            end
+        elseif t=="float"  then
+            if data then 
+                data = data..lpack.pack(">f",arg[i]) 
+            else
+                data = lpack.pack(">f",arg[i]) 
+            end
 		end
     end
 
-    return pack.pushOver()
+    if data then
+        data = lpack.pack(">i",rf.id)..data 
+    else
+        data = lpack.pack(">i",rf.id) 
+    end
+
+    data = lpack.pack(">i",#data)..data 
+
+    return data
 end
 
 

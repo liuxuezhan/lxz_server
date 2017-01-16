@@ -10,6 +10,7 @@ local assert = assert
 local bson_encode = bson.encode
 local bson_encode_order = bson.encode_order
 local bson_decode = bson.decode
+local bson_id = bson.objectid
 local empty_bson = bson_encode {}
 
 local mongo = {}
@@ -202,7 +203,7 @@ mongo_collection.getCollection = mongo_db.getCollection
 
 function mongo_collection:insert(doc)
     if not doc then
-        pause()
+        return
     end
 	if doc._id == nil then
 		doc._id = bson.objectid()
@@ -215,7 +216,7 @@ end
 
 function mongo_collection:insert_sync(doc)
     if not doc then
-        pause()
+        return
     end
 	if doc._id == nil then
 		doc._id = bson.objectid()

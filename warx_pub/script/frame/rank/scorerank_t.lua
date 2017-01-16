@@ -10,7 +10,7 @@ _example = {
     param = 0,
     tbl = {},
 }
-attach_wrap_()
+attach_wrap_(_ENV)
 
 INFO_HACK = 0   --c zset数据 = {rank = tostring(member)}
 INFO_ORIGIN = 1 --原始数据 = {rank = what you add(t)}
@@ -19,7 +19,7 @@ INFO_AMPLE = 2  --通过ample_function丰富过的数据 = {rank = ample_functio
 function new(...)
     local self = deliver()
     self:ctor(...)
-    gPendingSave.rank[self._id] = self._pro
+    gPendingSave.rank[self._id] = tool.table.shallow_copy(self._pro)
     --nextframe()
     dbmng:getOne():runCommand("getLastError")
     return self
@@ -141,4 +141,9 @@ end
 
 function get_ample_list(self, index)
     return self:range(index, index + 20, INFO_AMPLE)
+end
+
+function get_ample_list_range(self, st, ed)
+    if st > ed then st, ed = ed, st end
+    return self:range(st, ed, INFO_AMPLE)
 end

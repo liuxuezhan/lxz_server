@@ -28,4 +28,6 @@ prop_vipshow = {
 	[VipShow_18] = { ID = VipShow_18,},
 	[VipShow_19] = { ID = VipShow_19,},
 	[VipShow_20] = { ID = VipShow_20,},
+	[VipShow_Time] = { ID = VipShow_Time,},
+	[VipShow_10] = { ID = VipShow_10,},
 }

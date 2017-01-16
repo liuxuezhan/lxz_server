@@ -2,30 +2,64 @@
 --------------- 军团建筑模块 -----------------------------------------------------------
 
 module(..., package.seeall)
- _sn = 0--建造时间顺序
-
+_sn = 0--建造时间顺序
+local min_hp = 1
 function load()
     local db = dbmng:getOne()
     local info = db.union_build:find({})
     while info:hasNext() do
         local data = info:next()
+        if _sn < (data.sn or 0 ) then _sn = data.sn end
         local u = unionmng.get_union(data.uid)
-        if u  and data.state ~= BUILD_STATE.DESTROY then
+        if u  then
             u.build[data.idx] = data
-            gEtys[ data.eid ] = data
-            data.name = ""
-
-            print("union_build,", data.eid)
-            mark_eid(data.eid)
-            data.culture = data.culture or 1
-            etypipe.add(data)
-            if _sn < (data.sn or 0 ) then
-                _sn = data.sn
+            if data.state ~= BUILD_STATE.DESTROY then
+                gEtys[ data.eid ] = data
+                data.holding = is_hold(data)
+                data.culture = data.culture or 1
+                etypipe.add(data)
             end
         end
     end
 end
 
+function is_hold(e)
+    local u = unionmng.get_union(e.uid)
+    if is_union_restore(e.propid) then --仓库
+        if not u:is_restore_empty() then return 1 end
+        
+    elseif is_union_miracal(e.propid)  then -- 驻守
+        local tr = troop_mng.get_troop(e.my_troop_id)
+        local ssum =0
+        if  tr then
+            for pid, arm in pairs(tr.arms) do
+                local sum = 0
+                for id, num in pairs(arm.live_soldier or {}) do
+                    sum = sum + num
+                end
+                if sum == 0  then
+                    local one  = tr:split_pid(pid)
+                    if one then one:back() end
+                end
+                ssum = ssum + sum
+            end
+        end
+        if ssum == 0  then
+            e.my_troop_id = nil
+        else 
+            return 1 
+        end
+    elseif is_union_superres(e.propid)  then -- 采集
+        if e.tmStart_g~=0  then return 1 end
+
+    else
+        local tr = troop_mng.get_troop(e.my_troop_id)
+        if tr then return 1 end
+        e.my_troop_id = nil 
+
+    end
+    return 0
+end
 
 function create(uid,idx, propid, x, y,name)
 
@@ -34,12 +68,11 @@ function create(uid,idx, propid, x, y,name)
     if not u then return end
 
     local cc = resmng.get_conf("prop_world_unit",propid)
-    if not cc and cc.Class ~= BUILD_CLASS.UNION then return end
-    --TODO: 地图空位检测
-    if c_map_test_pos(x, y, cc.Size) ~= 0 then return end
+    if (not cc) or cc.Class ~= BUILD_CLASS.UNION then return end
+    if c_map_test_pos_for_ply(x, y, cc.Size) ~= 0 then LOG("军团建筑不在空地") return end
 
     if not u:can_build(propid,x,y) then return end
-    local e 
+    local e
     if idx == 0 then
         idx = #u.build+1
         local _id = string.format("%s_%s", idx, uid)
@@ -47,82 +80,85 @@ function create(uid,idx, propid, x, y,name)
         e = {
             _id = _id,
             eid = get_eid_uion_building(),
+            sn = _sn,
             idx = idx,
             uid = uid,
             alias = u.alias,
-            hp = 0,
             x = x,
             y = y,
             size = cc.Size,
             propid = propid,
             range = 0,
-            state = BUILD_STATE.CREATE,
-            sn = _sn,
-            val = cc.Count or 0,
-            speed = 0,
-            tmStart = 0,
             name = name,
-            fire_tmStart = 0,
-            fire_tmOver = 0,
-            fire_speed = 0,
-            fire_tmSn = 0,
-            tmSn = 0,
+            holding = 0,
+
+            state = BUILD_STATE.CREATE,
+            hp = min_hp,
+            val = cc.Count or 0,
+
+            tmStart_g = 0,
+            tmOver_g = 0,
+            tmSn_g = 0,
+            speed_g = 0,
+            
+            tmStart_b = 0,
+            tmOver_b = 0,
+            tmSn_b = 0,
+            speed_b = 0,
+
+            speed_f = 0,
+            tmStart_f = 0,
+            tmOver_f = 0,
+            tmSn_f = 0,
+
         }
         if u.god then
             local c = resmng.get_conf("prop_union_god",u.god.propid)
-            if c then
-                e.culture =  c.Mode
-            end
+            if c then e.culture =  c.Mode end
         end
-        save_ety(e)
+
+        save(e)
     else
         e = u.build[idx]
         if not e then return end
         e.eid = get_eid_uion_building()
         _sn = _sn + 1
         e.sn = _sn
-        e.hp = 0
+
+        if cc.Hp == e.hp then e.state = BUILD_STATE.WAIT
+        else e.state = BUILD_STATE.CREATE end
+
+        if e.hp == 0  or (cc.BuildMode == UNION_CONSTRUCT_TYPE.SUPERRES) then e.hp = min_hp end
+
         e.x = x
         e.y = y
-        e.speed = 0
-        e.tmStart = 0
         e.name = name
-        e.fire_tmStart = 0
-        e.fire_tmOver = 0
-        e.fire_speed = 0
-        e.fire_tmSn = 0
-        e.tmSn = 0
+        e.holding = 0
+        e.my_troop_id = nil
         e.val = cc.Count or 0
-        e.state = BUILD_STATE.CREATE
-        save_ety(e)
+
+        e.speed_b = 0
+        e.tmStart_b = 0
+        e.tmOver_b = 0
+        e.tmSn_b = 0
+
+        e.speed_g = 0
+        e.tmStart_g = 0
+        e.tmOver_g = 0
+        e.tmSn_g = 0
+
+        e.speed_f = 0
+        e.tmStart_f = 0
+        e.tmOver_f = 0
+        e.tmSn_f = 0
+
+        save(e)
+        if cc.Hp == e.hp then union_build_t.buf_open(e) end
     end
     u:add_log(resmng.UNION_EVENT.BUILD_SET, resmng.UNION_MODE.ADD,{propid=e.propid,name=e.name})
 end
 
 function remove(e)
-    if not e then return end
-    local u = unionmng.get_union(e.uid)
-    if not u then return end
-
-    local bcc = resmng.get_conf("prop_world_unit",e.propid)
-    if not bcc then return false end
-
-    local ret = union_build_t.remove_build(e)
-
---拆除奇迹相关建筑
-    if bcc.Mode == resmng.CLASS_UNION_BUILD_CASTLE or bcc.Mode == resmng.CLASS_UNION_BUILD_MINI_CASTLE then
-        for k, v in pairs(u.build) do
-            local cc = resmng.get_conf("prop_world_unit",v.propid)
-            if cc.Mode ~= resmng.CLASS_UNION_BUILD_CASTLE and cc.Mode ~= resmng.CLASS_UNION_BUILD_MINI_CASTLE then
-                if not u:can_castle(v.x,v.y,cc.Size/2) then
-                    remove_build(v)
-                end
-            end
-        end
-    end
-end
-
-function remove_build(e)
     local u = unionmng.get_union(e.uid)
     if not u then return end
 
@@ -131,267 +167,100 @@ function remove_build(e)
 
     if e.state == BUILD_STATE.CREATE then
         local tr = troop_mng.get_troop(e.my_troop_id)
-        if tr then
-            for _, v in pairs(tr.arms) do
-                local one = tr:split_pid(v.pid)
-                local ply = getPlayer(v.pid)
-                ply:troop_recall(one._id)
-            end
-        end
+        if tr then tr:back() end
         del(e)
         return
     end
 
-    if bcc.Mode == resmng.CLASS_UNION_BUILD_CASTLE or bcc.Mode ==resmng.CLASS_UNION_BUILD_MINI_CASTLE then   --驻守返回
+    if is_union_miracal(e.propid) then
+        union_build_t.buf_close( e )
         local tr = troop_mng.get_troop(e.my_troop_id)
-        if tr then
-            for _, v in pairs(tr.arms) do
-                local one = tr:split_pid(v.pid)
-                local ply = getPlayer(v.pid)
-                ply:troop_recall(one._id)
-            end
-        end
+        if tr then tr:back() end
         del(e)
 
-    elseif bcc.Mode == resmng.CLASS_UNION_BUILD_FARM
-        or bcc.Mode ==resmng.CLASS_UNION_BUILD_LOGGINGCAMP
-        or bcc.Mode ==resmng.CLASS_UNION_BUILD_MINE
-        or bcc.Mode ==resmng.CLASS_UNION_BUILD_QUARRY  then     --采集返回
+        local dels = {}
+        for k, v in pairs(u.build) do
+            local cc = resmng.get_conf("prop_world_unit",v.propid)
+            if cc and (not is_union_miracal(v.propid)) then
+                if not u:can_castle(v.x,v.y,cc.Size/2) then 
+                    table.insert( dels, v )
+                end
+            end
+        end
+        if #dels > 0 then
+            for _, v in pairs( dels ) do
+                remove( v )
+            end
+        end
 
+    elseif is_union_superres(e.propid) then
         if type(e.my_troop_id)=="table" then
-            for k, v in pairs(e.my_troop_id or {} ) do
-                local one = troop_mng.get_troop(v)
-                local ply = getPlayer(one.owner_pid)
-                ply:troop_recall(one._id)
-            end
-        end
-        del(e)
-    elseif bcc.Mode == resmng.CLASS_UNION_BUILD_RESTORE then--仓库
-        for _, v in pairs(u.build ) do
-            local c = resmng.get_conf("prop_world_unit",v.propid)
-            if c.Mode == resmng.CLASS_UNION_BUILD_RESTORE and v.state~= BUILD_STATE.DESTORY then--仓库
-                f = 1
-                break
-            end
-        end
-        if f== 0 then
-            restore_del_res(e.uid)--取出资源
-        end
-        del(e)
-    elseif bcc.Mode == resmng.CLASS_UNION_BUILD_MARKET then        --市场
-        local f =0
-        for _, v in pairs(u.build ) do
-            local c = resmng.get_conf("prop_world_unit",v.propid)
-            if c.Mode == resmng.CLASS_UNION_BUILD_MARKET and v.state~= BUILD_STATE.DESTORY then--仓库
-                f = 1
-                break
-            end
-        end
-        if f== 0 then
-            market_del(e)--取出
-        end
-        del(e)
-    end
-end
-
-function restore_del_res(uid,pid,e,res )--取出资源
-    local u = unionmng.get_union(uid)
-    if not u  then
-        WARN("not union")
-        return false
-    end
-
-    if not e then
-        for _, v in pairs(u.build ) do
-            local c = resmng.get_conf("prop_world_unit",v.propid)
-            if c.Mode == resmng.CLASS_UNION_BUILD_RESTORE then--仓库
-                e = v
-                break
-            end
-        end
-    end
-
-    if not e  then
-        return false
-    end
-
-    if not u.restore then return false  end
-    for _, v in pairs(u.restore.sum or {}) do
-        if not pid  then--全取时需要创建行军队列
-            if not res then res = v.res  end
-            v.res = 0
-            local p = getPlayer(v.pid)
-            local troop = troop_mng.create_troop(TroopAction.GetRes, p, e)
-            troop:set_extra("union_expect_res", res) 
-            troop_mng.trigger_event(troop)
-        elseif v.pid == pid then
-            if not res then 
-                res = v.res  
-                local p = getPlayer(v.pid)
-                local troop = troop_mng.create_troop(TroopAction.GetRes, p, e)
-                troop:set_extra("union_expect_res", res) 
-                troop_mng.trigger_event(troop)
-                gPendingSave.union[u._id].restore = u.restore
-                return true
-            else
-                if not can_res(u,v.pid,res) then
-                    return false
-                end
-                for i = 1, #res do
-                    v.res[i] = v.res[i] - res[i]
-                end
-                gPendingSave.union[u._id].restore = u.restore
-                return true
-            end
-        end
-
-    end
-    gPendingSave.union[u._id].restore = u.restore
-    return true
-end
-
-function market_del( e,pid,res )--下架特产
-    if not pid then pid = 0  end
-    if not res then res = {}  end
-    local u = unionmng.get_union(e.uid)
-    if not u.restore then return false  end
-    for _, v in pairs(u.market or {}) do
-        local p = getPlayer(v.pid)
-        if pid == 0 then--拆除建筑需要创建行军队列返回
-                res = v.res
-                v.res = 0
-                local t = troop_mng.create_troop(e.eid,p.eid,TroopAction.Back,e.x,e.y,p.x,p.y)
-                t.owner_pid= p.pid
-                t.speed = t:calc_troop_speed()
-                troop_mng.mount_bonus(t,res)
-                t:start_march()
-        elseif v.pid == pid then
-            if not can_market(u,v.pid,res) then
-                return false
-            end
-            for i = 1, #res do
-                v.res[i] = v.res[i] - res[i]
-            end
-        end
-
-    end
-	gPendingSave.union[u._id].market = u.market
-    return true
-end
-
-function market_add(e, pid,res )--上架特产
-
-    local u = unionmng.get_union(e.uid)
-    if not u.market then u.market={ } end
-    local f = 0
-    for _, v in pairs(u.market  ) do
-        if v.pid == pid then
-
-        for k, vv in pairs(res) do
-            v.res[k] = (v.res[k] or 0 ) + vv
-        end
-        f =1
-		break
-		end
-    end
-
-    if f ==0 then
-        table.insert(u.market,{pid=pid,res=res})
-    end
-	gPendingSave.union[u._id].market = u.market
-end
-
-function restore_add_res(e, pid,res )--存储资源
-
-    local u = unionmng.get_union(e.uid)
-    if not u.restore then u.restore={ sum={},day={}} end
-    local f = 0
-    for _, v in pairs(u.restore.sum  ) do
-        if v.pid == pid then
-            for k, vv in pairs(res) do
-                v.res[k] = (v.res[k] or 0 ) + vv
-            end
-            f =1
-            break
-        end
-    end
-    if f ==0 then
-        table.insert(u.restore.sum,{pid=pid,res=res})
-    end
-
-    f=0
-    for _, v in pairs(u.restore.day ) do
-        if v.pid == pid then
-            if can_date(v.time) then
-                v.num = 0
-            end
-            for k, num in pairs(res ) do
-				v.num = v.num + calc_res(k,num)
-			end
-            v.time = gTime
-            f=1
-            break
-        end
-    end
-
-    if f==0 then
-        local num = 0
-		for k, v in pairs(res ) do
-			num = num + calc_res(k,v)
-		end
-        table.insert(u.restore.day,{pid=pid,num=num,time=gTime})
-    end
-
-	gPendingSave.union[u._id].restore = u.restore
-end
-
-function get_res_day(u, pid )--计算当天已存储量
-    if not u.restore then return 0  end
-    for _, v in pairs(u.restore.day or {}) do
-        if v.pid == pid then
-            return v.num
-        end
-    end
-    return 0
-end
-
-function get_res_count(u, pid )--计算总存储量
-    if not u then return 0  end
-    if not u.restore then return 0  end
-    for _, v in pairs(u.restore.sum or {}) do
-        if (pid and v.pid == pid ) or (not pid) then
-			local sum = 0
-			for k, num in pairs(v.res or {}) do
-				sum = sum + calc_res(k,num)
-			end
-            return sum
-        end
-    end
-    return 0
-end
-
-function can_res(u,pid,r)--能否取出资源
-    if not u.restore then return false  end
-    for _, v in pairs(u.restore.sum or {}) do
-        if v.pid == pid then
-            for i = 1, #r do
-                if (not v.res[i]) or (r[i] > v.res[i]) then
-                    return false
+            local count = #( e.my_troop_id or {} )
+            if count > 0 then
+                for i = count, 1, -1 do
+                    local tid = e.my_troop_id[ i ]
+                    local troop = troop_mng.get_troop( tid )
+                    if troop then
+                        troop:gather_gain()
+                        troop:back()
+                    end
                 end
             end
         end
+        del(e)
+
+    elseif is_union_restore(e.propid) then
+        e.state = BUILD_STATE.DESTROY
+        local f = false
+        for _, v in pairs(u.build ) do
+            if is_union_restore(v.propid) and v.state == BUILD_STATE.WAIT then
+                f = true 
+                break
+            end
+        end
+
+        if not f then
+            local mems = u:get_members()
+            for _, ply in pairs( mems or {} ) do
+                local node = ply._union and ply._union.restore_sum
+                if node then
+                    local total = 0
+                    local gains = {}
+                    for mode, num in pairs( node ) do
+                        if num > 0 then
+                            table.insert( gains, { "res", mode, num } )
+                            total = total + num
+                        end
+                    end
+
+                    if total > 0 then
+                        ply._union.restore_sum = {0,0,0,0}
+                        gPendingSave.union_member[ ply.pid ].restore_sum = {0,0,0,0}
+
+                        local troop = troop_mng.create_troop(TroopAction.GetRes, ply, e)
+                        troop:settle()
+                        troop.curx, troop.cury = get_ety_pos( e )
+                        troop:add_goods( gains, VALUE_CHANGE_REASON.REASON_UNION_GET_RESTORE )
+                        troop:back()
+                    end
+                end
+            end
+        end
+        del(e)
+        u:ef_init()
+
+    else
+        del(e)
     end
-    return true
 end
+
 
 function can_market(u,pid,r)--能否取出
     for _, v in pairs(u.market or {}) do
         if v.pid == pid then
             for _, vv in pairs(r or {}) do
                 for i = 1, #r do
-                    if r.propid and (not vv.res[i]) and (r[i] > vv.res[i]) then
-                        return false
-                    end
+                    if r.propid and (not vv.res[i]) and (r[i] > vv.res[i]) then return false end
                 end
             end
         end
@@ -400,365 +269,605 @@ function can_market(u,pid,r)--能否取出
 end
 
 
-function get_restore_limit(p)--计算军团仓库上限
-    local pack = {
-        sum = {},day={}
-    }
-    --todo, what?
+function get_restore_limit(p,dp)--计算军团仓库上限
+    local pack = { sum = {},day={} }
 
     local u = unionmng.get_union(p.uid)
-    if not u then
-        ack(p, "get_eye_info", resmng.E_NO_UNION) return
-    end
+    if not u then ack(p, "get_eye_info", resmng.E_NO_UNION) return end
 
-    pack.day.limit = u:get_day_store(p)
-    pack.sum.limit = u:get_sum_store(p)
-    pack.day.num   = get_res_day(u,p.pid)
-    pack.sum.num   = get_res_count(u,p.pid)
+    pack.day.limit = p:get_val("CountDailyStore")
+    pack.sum.limit = p:get_val("CountUnionStore")
+    pack.day.num   = p:get_res_day()
+    pack.sum.num   = p:get_res_count()
 
     return pack
 end
 
-
-function arms(obj)
-    if not is_union_building(obj) then return false end
-
-    local cc = resmng.get_conf("prop_world_unit",obj.propid) or {}
-    if not cc then return false end
-
-    local arms  
-    if cc.Mode == resmng.CLASS_UNION_BUILD_MINE
-        or cc.Mode == resmng.CLASS_UNION_BUILD_FARM
-        or cc.Mode == resmng.CLASS_UNION_BUILD_LOGGINGCAMP
-        or cc.Mode == resmng.CLASS_UNION_BUILD_QUARRY then
-        for _, v in pairs(obj.my_troop_id or {} ) do
-                if not arms then
-                    arms = Copytab(v)
-                else
-                    troop_t.add_to( v, arms )
-                end
-        end
-    else
-       arms = troop_mng.get_troop(obj.my_troop_id)
-    end
-    return arms
-end
-
 function can_troop(action, p, eid, res)--行军队列发出前判断
     local dp = get_ety(eid)
-    if not dp then 
-        WARN()
-        return false 
-    end
-    if not is_union_building(dp) then 
-        WARN()
-        return false 
-    end
+    if not dp then return false end
+    if not is_union_building(dp) then return false end
 
     local cc = resmng.get_conf("prop_world_unit",dp.propid) or {}
-    if not cc then 
-        WARN()
-        return false 
+    if not cc then return false end
+
+    if action == TroopAction.SiegeUnion then
+        if p.uid ~= dp.uid then
+            if is_union_miracal(dp.propid) then return true end
+        end
+        return false
     end
 
-    if action ~= TroopAction.UnionBuild and action ~= TroopAction.SiegeUnion then
-        if dp.state ~= BUILD_STATE.WAIT then
-            WARN("建筑没准备好")
-            return false
+    if dp.uid ~= p.uid then return false end
+
+    if action == TroopAction.UnionBuild or action == TroopAction.UnionFixBuild or action == TroopAction.UnionUpgradeBuild then
+        local total = 0
+        for _, v in pairs(res.live_soldier or {}) do
+            total = total + v
         end
+        local sum,max = p:get_hold_limit(dp)
+        if sum <= max then
+            if max - sum < total then
+                Rpc:tips(p,1,resmng.UNION_HOLD_OVER,{ total-max + sum})
+            else 
+                return true 
+            end
+        else 
+            Rpc:tips(p,1,resmng.UNION_HOLD_MAX,{}) 
+        end
+        return false
     end
+
+    if dp.state ~= BUILD_STATE.WAIT then return false end
 
     if action == TroopAction.HoldDefense then
-        if dp.uid == p.uid then
-            local t = troop_mng.get_troop(dp.my_troop_id)
-            if t then
-                for pid, _ in pairs(t.arms or {} ) do
-                    if pid == p.pid then
-                        WARN()
-                        return false
-                    end
-                end
-            end
-
-            if cc.Mode == resmng.CLASS_UNION_BUILD_CASTLE or cc.Mode == resmng.CLASS_UNION_BUILD_MINI_CASTLE then
-                local sum,max = p:get_hold_limit(dp)
-                if sum <= max then
-                    return true
-                end
+        if not is_union_miracal( dp.propid ) then return false end
+        local t = troop_mng.get_troop(dp.my_troop_id)
+        if t then
+            for pid, _ in pairs(t.arms or {} ) do
+                if pid == p.pid then WARN("") return false end
             end
         end
-    elseif action == TroopAction.SiegeUnion then
-        if p.uid ~= dp.uid then
-            if cc.Mode == resmng.CLASS_UNION_BUILD_CASTLE or cc.Mode == resmng.CLASS_UNION_BUILD_MINI_CASTLE then
-                return true
+
+        local total = 0
+        for k, v in pairs(res.live_soldier or {}) do
+            total = total + v
+        end
+        local sum,max = p:get_hold_limit(dp)
+
+        if sum <= max then
+            if max - sum < total then
+                Rpc:tips(p,1,resmng.UNION_HOLD_OVER,{ total-max + sum})
+            else 
+                return true 
             end
+        else
+            Rpc:tips(p,1,resmng.UNION_HOLD_MAX,{})
         end
 
     elseif action == TroopAction.Gather then
-        if dp.uid == p.uid then
-            local t = troop_mng.get_troop(dp.my_troop_id)
-            if t then
-                for pid, _ in pairs(t.arms or {} ) do
-                    if pid == p.pid then
-                        WARN()
-                        return false
-                    end
-                end
-            end
-        --todo
-            if cc.Mode == resmng.CLASS_UNION_BUILD_MINE
-			or cc.Mode == resmng.CLASS_UNION_BUILD_FARM
-			or cc.Mode == resmng.CLASS_UNION_BUILD_LOGGINGCAMP
-			or cc.Mode == resmng.CLASS_UNION_BUILD_QUARRY then
-                return true
-            end
+        if not is_union_superres(dp.propid) then return false end
+        for _, id in pairs(p.busy_troop_ids or {} ) do
+            local t = troop_mng.get_troop(id)
+            local e = get_ety(t.target_eid)
+            if is_union_superres(e.propid) and t:get_base_action() == action then return false end
         end
-
-    elseif action == TroopAction.UnionBuild or action == TroopAction.UnionFixBuild or action == UnionUpgradeBuild then
-
-        local sum,max = p:get_hold_limit(dp)
-        if sum <= max then
-            return true
-        end
-        WARN("到达驻守上限:"..sum..":"..max)
-
+        return true
+    
     elseif action == resmng.TroopAction.SaveRes then
-        if dp.uid == p.uid then
-            if cc.Mode == resmng.CLASS_UNION_BUILD_RESTORE then
-                for mode, num in pairs(res or {} ) do
-                    if num > p:get_res_num_normal(mode) then
-                        return false
-                    end
-                end
+        if not is_union_restore(dp.propid) then return false end
 
-                --仓库上限
-                local d = get_restore_limit(p)
-                local sum = 0
-				for k, num in pairs( res ) do
-					sum = sum + calc_res(k,num)
-				end
-                if sum + d.sum.num > d.sum.limit then
-                    WARN("到达上限:"..(sum+d.sum.num)..":"..d.sum.limit)
-                    return false
-                end
-
-                if sum + d.day.num > d.day.limit then
-                    WARN("到达上限:"..(sum)..":"..d.day.limit)
-                    return false
-                end
-                return true
-            end
+        for mode, num in pairs(res or {} ) do
+            if num > p:get_res_num_normal(mode) then return false end
         end
+
+        --仓库上限
+        local d = get_restore_limit(p,dp)
+        local sum = 0
+        for k, num in pairs( res ) do
+            sum = sum + calc_res(k,num)
+        end
+        if sum + d.sum.num > d.sum.limit then
+            INFO( "SaveRes, pid=%d, sum = %d, d.sum.num = %d, d.sum.limit = %d", p.pid, sum, d.sum.num, d.sum.limit )
+            return false
+        end
+
+        if sum + d.day.num > d.day.limit then
+            INFO( "SaveRes, pid=%d, sum = %d, d.day.num = %d, d.day.limit = %d", p.pid, sum, d.day.num, d.day.limit )
+            return false
+        end
+        return true
+
     elseif action == TroopAction.GetRes then
-        local u = unionmng.get_union(dp.uid)
-        if dp.uid == p.uid then
-            if cc.Mode == resmng.CLASS_UNION_BUILD_RESTORE then
-                if can_res(u,p.pid,res) then
-                    return true
-                end
+        if not is_union_restore(dp.propid) then return false end
+
+        local node = p._union and p._union.restore_sum
+        if not node then return false end
+        for mode, num in pairs( res ) do
+            if num > 0 then
+                if not node[ mode ] then return false end
+                if node[ mode ] < num then return false end
             end
         end
+        return true
+
     end
     return false
 end
 
-function can_ef(build,ply)
-    local c = resmng.get_conf("prop_world_unit", ply.propid) or {}
-    local cc = resmng.get_conf("prop_world_unit", build.propid) or {}
-
-    local x,y = ply.x, ply.y
-    if x>=build.x-cc.Range and x<=build.x+cc.Size+cc.Range and y>=build.y-cc.Range and y<=build.y+cc.Size+cc.Range then
-        return true
+function can_ef(build,ply) --奇迹内
+    if build.uid == ply.uid then
+        local c = resmng.get_conf("prop_world_unit", ply.propid) or {}
+        local cc = resmng.get_conf("prop_world_unit", build.propid) or {}
+        
+        local offx = math.abs( ( ply.x + c.Size * 0.5 ) - ( build.x + cc.Size * 0.5 ) )
+        local offy = math.abs( ( ply.y + c.Size * 0.5 ) - ( build.y + cc.Size * 0.5 ) )
+        return math.max( offx, offy ) < ( ( c.Size + cc.Size ) * 0.5 + cc.Range )
     end
-
-    x,y= ply.x+c.Size, ply.y
-    if x>=build.x-cc.Range and x<=build.x+cc.Size+cc.Range and y>=build.y-cc.Range and y<=build.y+cc.Size+cc.Range then
-        return true
-    end
-
-    x,y = ply.x,ply.y + c.Size
-    if x>=build.x-cc.Range and x<=build.x+cc.Size+cc.Range and y>=build.y-cc.Range and y<=build.y+cc.Size+cc.Range then
-        return true
-    end
-
-    x,y = ply.x + c.Size, ply.y + c.Size
-    if x>=build.x-cc.Range and x<=build.x+cc.Size+cc.Range and y>=build.y-cc.Range and y<=build.y+cc.Size+cc.Range then
-        return true
-    end
-
-    return false
 end
 
-function save(e)
-    if is_union_building(e) then
-        gEtys[e.eid] = e
-        etypipe.add(e)
-        gPendingSave.union_build[e._id] = e
-        local u = unionmng.get_union(e.uid)
+function save(obj)
+    if is_union_building(obj) then
+        obj.holding = is_hold(obj)
+        gEtys[obj.eid] = obj
+        etypipe.add(obj)
+        gPendingSave.union_build[obj._id] = obj
+
+        dumpTab( obj, "recalc_build" )
+
+        local u = unionmng.get_union(obj.uid)
         if u then
-            u.build[e.idx] = e
-            u:notifyall("build", resmng.OPERATOR.UPDATE, e)
+            u.build[obj.idx] = obj
+            u:notifyall("build", resmng.OPERATOR.UPDATE, obj)
         end
     end
 end
 
 function del(e)
     if is_union_building(e) then
-        e.state = BUILD_STATE.DESTROY
         local u = unionmng.get_union(e.uid)
-        if u then
+        if not u then return end
+        if is_union_superres(e.propid) then
+            u.build[e.idx] = nil
+            gPendingDelete.union_build[e._id] = 0
+        else
+            e.state = BUILD_STATE.DESTROY
             u.build[e.idx] = e
-            u:notifyall("build", resmng.OPERATOR.DELETE, e)
+            gPendingSave.union_build[e._id] = e
         end
-        gPendingSave.union_build[e._id] = e
-        c_rem_ety(e.eid)
-        gEtys[e.eid] = nil
+        rem_ety( e.eid )
     end
 end
 
+function buf_open(e)--奇迹生成
+    local c = resmng.get_conf("prop_world_unit", e.propid)
+    if is_union_miracal(e.propid) then
+        local es = get_around_eids( e.eid, c.Range )
+        if not es then return end
+        for _, eid in pairs( es ) do
+            local ply = get_ety( eid )
+            if ply and is_ply( ply ) then
+                if union_build_t.can_ef(e,ply) then
+                    print( "buf_open", ply.pid )
+                    local tmp = get_ety( ply.ef_eid )
+                    if tmp and tmp.sn < e.sn then
 
-function troop_update(self, what)
-    if what == "gather" then
-        local remain = self.val - self.speed * (gTime - self.tmStart)
-        if remain < 0 then remain = 0 end
-
-        local speed = 0
-        local ids = self.my_troop_id
-        if ids then
-            if type(ids) == "number" then
-                ids = {ids}
-                self.my_troop_id = ids
-            end
-
-            for _, tid in pairs(ids) do
-                local tr = troop_mng.get_troop(tid)
-                if tr then speed = speed + (tr:get_extra("speed") or 0)  end
-            end
-        end
-        if speed < 0 then speed = 0 end
-
-        self.val = remain
-        self.speed = speed
-        self.tmStart = gTime
-
-        if remain > 0 and speed > 0 then
-            local tm_need = math.ceil(remain / speed)
-            self.tmSn = timer.new("union_gather_empty", tm_need, self.eid)
-            self.tmOver = gTime + tm_need
-        else
-            timer.del(self.tmSn)
-            self.tmSn = nil
-            self.tmOver = 0
-        end
-
-        local tmOver = self.tmOver
-        for _, tid in pairs(ids or {}) do
-            local tr = troop_mng.get_troop(tid)
-            if tr then
-                if tr.tmOver > tmOver then
-                    tr.tmOver = tmOver
-                    tr.tmSn = timer.new("troop", tmOver - gTime, tr.owner_pid, tr._id)
-                    local pl = getPlayer(tr.owner_pid)
-                    if pl and pl:is_online() then
-                        Rpc:stateTroop(pl, tr)
+                    else
+                        ply.ef_eid = e.eid
                     end
                 end
             end
         end
-        save_ety(self)
-        return
+    end
+    local u = unionmng.get_union(e.uid)
+    if u then u:ef_init() end
+end
+
+function buf_close(e)--奇迹移除
+    local c = resmng.get_conf("prop_world_unit", e.propid)
+    if is_union_miracal(e.propid) then
+        local es = get_around_eids( e.eid, c.Range )
+        if not es then return end
+        for _, eid in pairs( es ) do
+            local ply = get_ety( eid )
+            if ply and is_ply( ply ) then
+                if ply.ef_eid == e.eid then
+                    ply_move( ply, e.eid )
+                end
+            end
+        end
+    end
+end
+
+function ply_move(ply, ignore)--迁城变奇迹影响
+    ply.ef_eid = 0
+    local builds = get_around_eids( ply.eid, 25 )
+    if not builds then return end
+
+    local sn  = math.huge
+    for _, eid in pairs( builds ) do
+        if is_union_building(eid) then
+            if not ignore or eid ~= ignore then
+                local e = get_ety(eid)
+                if is_union_miracal(e.propid) then
+                    local state = e.state
+                    if state == BUILD_STATE.UPGRADE or state == BUILD_STATE.FIX or state == BUILD_STATE.WAIT then
+                        if union_build_t.can_ef(e,ply) then
+                            if e.sn < sn then
+                                ply.ef_eid = e.eid
+                                sn = e.sn
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+
+function get_max_hp( obj )
+    local obj_id = obj.propid
+    if obj.state == BUILD_STATE.UPGRADE then
+        local c = resmng.get_conf("prop_world_unit",obj.propid)
+        if c then
+            local id  = union_buildlv.get_buildlv(obj.uid, c.BuildMode).id
+            if id then
+                local cc = resmng.get_conf("prop_union_buildlv",id)
+                if cc then
+                    if c.Lv < cc.Lv then obj_id = obj.propid - c.Lv + cc.Lv  end
+                end
+            end
+        end
+    end
+    local maxhp = resmng.get_conf("prop_world_unit", obj_id).Hp
+    return maxhp, obj_id
+end
+
+
+function fire( obj, s )
+    --local secs = 1800
+    local secs = 600
+    if is_timer_valid( obj, obj.fire_tmSn ) then
+        obj.tmOver_f = obj.tmOver_f + secs
+        timer.adjust( obj.tmSn_f, obj.tmOver_f )
+    else
+        obj.tmStart_f = gTime
+        obj.tmOver_f = gTime + secs
+        obj.tmSn_f = timer.new( "union_build_fire", secs, obj.eid )
+    end
+    recalc_build( obj )
+end
+
+
+function build_complete( obj )
+    local propid = obj.propid
+    if obj.state == BUILD_STATE.UPGRADE then 
+        propid = obj.toid 
+        obj.toid = nil
     end
 
-    if what == "build" then
-        local maxhp = resmng.get_conf("prop_world_unit", self.propid).Hp
-        
-        if self.tmStart ~= 0 then
-            self.hp = self.hp + self.speed *(gTime - self.tmStart)
-        end
-        self.tmStart = gTime
+    local conf = resmng.get_conf( "prop_world_unit", propid )
+    if conf then
+        obj.propid = conf.ID
+        obj.hp = conf.Hp
+        if is_timer_valid( obj, obj.tmSn_b ) then timer.del( obj.tmSn_b ) end
+        obj.tmSn_b = 0
+        obj.tmStart_b = 0
+        obj.tmOver_b = 0
+        obj.speed_b = 0
+        obj.state = BUILD_STATE.WAIT
 
-        if self.fire_tmStart ~= 0 then
-            self.hp = self.hp + self.fire_speed *(gTime - self.fire_tmStart)
-            if self.fire_tmSn == 0 then
-                self.fire_tmStart = 0
-                self.fire_speed = 0
-                self.fire_tmOver = 0
+        local troop = get_home_troop( obj )
+        if troop then
+            if is_union_miracal( propid ) then
+                troop.action = TroopAction.HoldDefense + 200
+                troop.tmStart = 0
+                troop.tmOver = 0
+
+                local chg = gPendingSave.troop[ troop._id ]
+                chg.action = troop.action
+                chg.tmStart = troop.tmStart
+                chg.tmOver = troop.tmOver
+                troop:do_notify_owner( chg )
+                buf_open( obj )
             else
-                self.fire_tmStart = gTime
+                troop:back()
+                obj.my_troop_id = 0
             end
         end
 
-        if self.hp < 0  then
-            timer.del(self.tmSn)
-            timer.del(self.fire_tmSn)
-            rem_ety(self.eid)
-            return
+        if is_union_superres( obj.propid ) then
+            obj.my_troop_id = {}
+            local conf = resmng.get_conf( "prop_world_unit", obj.propid )
+            if conf then
+                obj.val = conf.Count
+            end
         end
 
-        if self.hp >=  maxhp then
-            self.hp = maxhp 
-            self.tmStart = 0
-            self.tmOver = 0
-            self.tmSn = 0
-            self.speed = 0
-            self.state = BUILD_STATE.WAIT
-            save_ety(self)
-            troop_mng.work(self)
-            return
-        end
-
-        local tr = troop_mng.get_troop(self.my_troop_id)
-        if not tr then
-            timer.del(self.tmSn)
-            self.tmStart = 0
-            self.tmOver = 0
-            self.speed = 0
-            save_ety(self)
-            return
-        end
-
-        local remain = maxhp - self.hp
-        speed = tr:get_extra("speed")  
-        if speed < 0 then speed = 0 end
-
-        self.speed = speed
-
-        if speed > 0 then
-            local tm_need = math.ceil(remain/speed)
-            self.tmSn = timer.new("union_build_complete", tm_need, self.eid)
-            self.tmOver = gTime + tm_need
+        if is_firing( obj ) then
+            recalc_build( obj ) -- be careful not to loop recursion
         else
-            timer.del(self.tmSn)
-            self.tmStart = 0
-            self.tmOver = 0
-            self.tmSn = 0
+            save( obj )
+        end
+    end
+end
+
+function is_building( obj )
+    local state = obj.state
+    local conf = BUILD_STATE
+    return state == conf.CREATE or state == conf.UPGRADE or state == conf.FIX
+end
+
+function is_firing( obj )
+    return obj.tmOver_f > gTime
+end
+
+function calc_speed_build( obj )
+    local speed = 0
+    local troop = get_home_troop( obj )
+    if troop then
+        local pow = 0
+        local prop_arm = resmng.prop_arm
+        for pid, arm in pairs( troop.arms or {} ) do
+            local sum = 0
+            for id, num in pairs( arm.live_soldier or {} ) do
+                if num > 0 then
+                    sum = sum + num
+                    local conf = prop_arm[ id ]
+                    if conf then
+                        pow = pow + conf.Pow * num 
+                    end
+                end
+            end
         end
 
-        tr.tmStart = gTime
-        tr.tmOver = 0
-        tr.tmSn = 0
-        tr.tmOver = self.tmOver
-        save_ety(tr)
-        save_ety(self)
+        if pow > 0 then
+            local conf = resmng.get_conf( "prop_world_unit", obj.propid )
+            if conf then
+                speed = pow * ( conf.Speed or 0 ) / ( 1000 * 10000 )
+            end
+        end
+    end
+    return speed
+end
+
+function calc_speed_gather( obj )
+    local speed = 0
+    local ids = obj.my_troop_id
+    if ids then
+        if type( ids ) == "number" then
+            ids = { ids }
+            obj.my_troop_id = ids
+        end
+
+        for _, tid in pairs( ids ) do
+            local troop = troop_mng.get_troop( tid )
+            if troop then
+                speed = speed + troop:get_extra( "speed" ) or 0
+            end
+        end
+    end
+    return speed
+end
+
+
+function is_timer_valid( obj, tsn )
+    if tsn and tsn > 0 then
+        local node = timer.get( tsn )
+        if node and node.param[ 1 ] == obj.eid then return true end
+    end
+end
+
+function is_hp_full( obj )
+    if is_building( obj  ) then
+        return false
+
+    elseif is_firing( obj ) then
+        return false
+
+    else
+        local maxhp = get_max_hp( obj )
+        return obj.hp >= maxhp
+    end
+end
+
+
+function calc_dura( count, speed )
+    if count < 0 then count = count * (-1) end
+    if speed < 0 then speed = speed * (-1) end
+
+    local dura 
+    if speed > 0 then
+        dura = count / speed
+    else
+        dura = SECS_TWO_WEEK
+    end
+    if dura > SECS_TWO_WEEK then return SECS_TWO_WEEK end
+    if dura < 1 then return 1 end
+    return math.ceil( dura )
+end
+
+
+function recalc_gather( obj )
+    if obj.state ~= BUILD_STATE.WAIT then return end
+    if not is_union_superres( obj.propid ) then return end
+
+    local speed_g = calc_speed_gather( obj )
+    
+    if obj.speed_g == 0 then
+        obj.speed_g = speed_g
+        obj.tmStart_g = gTime
+    end
+
+    local delta = 0
+    if obj.speed_g > 0 then
+        delta = obj.speed_g * ( gTime - obj.tmStart_g )
+        obj.tmStart_g = gTime
+    end
+
+    local val = obj.val - delta
+    if val < 0 then val = 0 end
+    obj.val = val
+    obj.speed_g = speed_g
+
+    if val == 0 then
+        remove( obj )
         return
     end
-end
 
-function fire(self,s)
-    
-    local tm = s or 60
-    self.fire_speed = -1
-
-    self.fire_tmStart = gTime
-    if self.fire_tmSn~= 0  then
-        self.fire_tmOver = self.fire_tmOver + tm
+    local dura = 0
+    if speed_g > 0 then
+        dura = math.ceil( obj.val / speed_g )
+        obj.tmStart_g = gTime
+        obj.tmOver_g = gTime + dura
+        if is_timer_valid( obj, obj.tmSn_g ) then
+            timer.adjust( obj.tmSn_g, obj.tmOver_g )
+        else
+            obj.tmSn_g = timer.new( "union_build_gather", dura, obj.eid )
+        end
     else
-        self.fire_tmOver = self.fire_tmStart + tm
+        obj.tmStart_g = 0
+        obj.tmOver_g = 0
+        if is_timer_valid( obj, obj.tmSn_g ) then timer.del( obj.tmSn_g ) end
+        obj.tmSn_g = 0
     end
-    local need = self.fire_tmOver - self.fire_tmStart  
-    self.fire_tmSn = timer.new("union_build_fire", need, self.eid)
-    save_ety(self)
 
+    save( obj )
 end
 
+
+function recalc_build( obj )
+    --if not is_building( obj) and not is_firing( obj ) then return end
+    
+    local speed_f = 0
+    if is_firing( obj ) then speed_f = 0.5 end
+
+    local speed_b = 0
+    if is_building( obj ) then speed_b = calc_speed_build( obj ) end
+    speed_b = speed_b * 10
+
+    if obj.speed_b == 0 and obj.speed_f == 0 then
+        if speed_f > 0 then
+            obj.speed_f = speed_f
+            obj.tmStart_f = gTime
+        end
+
+        if speed_b > 0 then
+            obj.speed_b = speed_b
+            obj.tmStart_b = gTime
+        end
+        
+        if obj.state == BUILD_STATE.UPGRADE then
+            obj.tohp, obj.toid = get_max_hp( obj )
+        else
+            local conf = resmng.get_conf( "prop_world_unit", obj.propid )
+            obj.tohp, obj.toid = conf.Hp, nil
+        end
+    end
+
+    local delta = 0
+    if obj.speed_b > 0 then 
+        delta = obj.speed_b * ( gTime - obj.tmStart_b ) 
+        obj.tmStart_b = gTime
+    end
+
+    if obj.speed_f > 0 then 
+        delta = delta - obj.speed_f * ( gTime - obj.tmStart_f )
+        obj.tmStart_f = gTime
+    end
+
+    local hp = obj.hp + delta
+    if hp > obj.tohp then hp = obj.tohp end
+    if hp < 0 then hp = 0 end
+
+    obj.hp = hp
+    obj.speed_b = speed_b
+    obj.speed_f = speed_f
+
+    if hp == 0 then
+        remove( obj )
+        return
+    elseif hp >= obj.tohp then
+        if is_building( obj ) then 
+            build_complete( obj ) 
+            return
+        end
+    end
+
+    local speed = speed_b - speed_f
+    local dura = 0
+    if speed > 0 then
+        dura = math.ceil( ( obj.tohp - obj.hp ) / speed )
+
+    elseif speed < 0 then
+        dura = math.ceil( obj.hp / (-1 * speed ) )
+
+    else
+        dura = SECS_TWO_WEEK
+
+    end
+        
+    if speed_b > 0 then
+        obj.tmStart_b = gTime
+        obj.tmOver_b = gTime + dura
+    else
+        obj.tmStart_b = 0
+        obj.tmOver_b = 0
+    end
+
+    if speed_f > 0 then
+        obj.tmStart_f = gTime
+    else
+        obj.tmStart_f = 0
+        obj.tmOver_f  = 0
+    end
+
+    if is_timer_valid( obj, obj.tmSn_b ) then
+        if speed ~= 0 then
+            timer.adjust( obj.tmSn_b, obj.tmOver_b )
+        else
+            timer.del( obj.tmSn_b )
+            obj.tmSn_b = 0
+        end
+    else
+        if speed ~= 0 then
+            obj.tmSn_b = timer.new( "union_build_construct", dura, obj.eid )
+        end
+    end
+
+    if is_building( obj ) then
+        local troop = get_home_troop( obj )
+        if troop then
+            troop.tmOver = obj.tmOver_b
+            local chg = gPendingSave.troop[ troop._id ]
+            chg.tmOver = troop.tmOver
+            troop:do_notify_owner( {tmOver=troop.tmOver} )
+        end
+    end
+    save( obj )
+end
+
+
+function try_hold_troop( obj, troop )
+    local num ,limit=0,0
+    local u = unionmng.get_union(obj.uid)
+    if not u then return end
+
+    local conf = resmng.get_conf("prop_world_unit",obj.propid)
+    local limit = get_val_by( "CountGarrison", u:get_ef(), conf and conf.Buff )
+
+    local tr = troop_mng.get_troop(obj.my_troop_id)
+    if tr then num = tr:get_troop_total_soldier() end
+
+    if num + troop:get_troop_total_soldier() > limit then return false end
+
+    if tr then
+        troop:merge( tr )
+    else
+        obj.my_troop_id = troop._id
+        save( obj )
+    end
+    return true
+end
 

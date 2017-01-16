@@ -4,7 +4,7 @@ module(..., package.seeall)
 function add(ply,propid,num)
     local u = unionmng.get_union(ply:get_uid())
     if not u then 
-        WARN("无军团")
+        LOG("无军团")
         return false 
     end
     if not u.mall then
@@ -12,7 +12,7 @@ function add(ply,propid,num)
     end
     local c = resmng.get_conf("prop_union_mall",propid)
     if u.donate < c.Donate*num then
-        WARN("积分不够")
+        LOG("积分不够")
         return
     end
     u.donate = u.donate - c.Donate*num
@@ -74,27 +74,17 @@ end
 
 function buy(ply,propid,num)
     local u = unionmng.get_union(ply:get_uid())
-    if not u then 
-        WARN("无军团")
-        return false 
-    end
+    if not u then LOG("无军团") return false end
 
-    if not u.mall then 
-        WARN("无商品")
-        return false 
-    end
+    if not u.mall then LOG("无商品") return false end
 
     for _, v in pairs(u.mall.item or {}) do
         if v.propid == propid then
-            if  v.num < num then
-                Rpc:tips(ply,1,UNION_MALL_NUM_ERR,{})
-                return 
-            end
+            if  v.num < num then Rpc:tips(ply,1,UNION_MALL_NUM_ERR,{}) return end
 
             local c = resmng.get_conf("prop_union_mall",propid)
-            if ply._union.donate < c.Val*num then
-                return
-            end
+            if ply._union.donate < c.Val*num then return end
+
             ply._union.donate = ply._union.donate - c.Val*num
             gPendingSave.union_member[ply.pid] = ply._union
 
@@ -113,16 +103,16 @@ function get_log(u,type)
         if type == 1 then
             for k, v in pairs(u.mall.add or {}) do
                 if gTime - v.tm >= 60*60*24 *7 then
-                    v.buy[k]=nil
-                    gPendingSave.union_mall[u.uid] = u.mall
+                    u.mall.add[k]=nil
+                    gPendingSave.union_mall[u.uid].add = u.mall.add
                 end
             end
             return (u.mall.add or {})
         else
             for k, v in pairs(u.mall.buy or {}) do
                 if gTime - v.tm >= 60*60*24 *7 then
-                    v.buy[k]=nil
-                    gPendingSave.union_mall[u.uid] = u.mall
+                    u.mall.buy[k]=nil
+                    gPendingSave.union_mall[u.uid].buy = u.mall.buy
                 end
             end
             return (u.mall.buy or {})

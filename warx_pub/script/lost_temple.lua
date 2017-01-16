@@ -1,3 +1,4 @@
+module( "lost_temple", package.seeall )
 module_class("lost_temple",
 {
     _id = 0,
@@ -8,6 +9,7 @@ module_class("lost_temple",
     state = 0,
     defender = 0,
     uid = 0,
+    pid = 0,
     startTime = 0,
     endTime = 0,
     my_troop_id = 0,
@@ -24,30 +26,20 @@ module_class("lost_temple",
 local zset = require "frame/zset"
 
 start_time = start_time or 0  --本期活动开始世界
+end_time = end_time or 0  --本期活动开始世界
 
-unionLtRank = unionLtRank or {}
 actTimer = actTimer or 0
 actState = actState or 0
 cityPool = cityPool or {}
 citys = citys or {}
 seq_citys = seq_citys or {}
-initRedisList = {
-    "unionLtRank"
-}
 
-
-
+--每个npccity 的 lv  等于 poolRule k 的
 poolRule = {
-    {2, 4},
-    {2, 4},
     {1, 4},
-    {1, 2},
-}
-
-
-initedisList =
-{
-    "unionLtRank",
+    {2, 10},
+    {1, 10},
+    {1, 10},
 }
 
 function mark(m)
@@ -63,7 +55,7 @@ end
 
 --初始化随机池用于选择lt 出生点
 function init_pool()
-    for k, v in pairs(resmng.prop_world_unit) do
+    for k, v in pairs(resmng.prop_world_unit or {}) do
         local pool = cityPool[v.Lv] or {}
         if v.Class == CLASS_UNIT.NPC_CITY then
             for i = 1, poolRule[v.Lv][1] do
@@ -73,7 +65,7 @@ function init_pool()
         end
     end
     if citys then
-        for k, v in pairs(citys) do
+        for k, v in pairs(citys or {}) do
             local lt = get_ety(k)
             if lt then
                 if lt.band_id ~= 0 then
@@ -87,7 +79,7 @@ end
 function remove_pool(id)
     local prop = resmng.prop_world_unit[id]
     if prop then
-        for k, v in pairs(cityPool[prop.Lv]) do
+        for k, v in pairs(cityPool[prop.Lv] or {}) do
             if v == id then
                 table.remove(cityPool[prop.Lv], k)
             end
@@ -118,9 +110,8 @@ function load_lost_temple()
     local db = dbmng:getOne()
     local info = db.lost_temple:find({})
     while info:hasNext() do
-        local m = lost_temple.new(info:next())
+        local m = lost_temple.wrap(info:next())
         gEtys[m.eid] = m
-        mark_eid(m.eid)
         citys[m.eid] = m.eid
         add_seq_citys(m)
         local tr = troop_mng:get_troop(m.my_troop_id)
@@ -128,7 +119,7 @@ function load_lost_temple()
             local owner = get_ety(tr.owner_eid)
             if owner and is_ply(owner) then
                 local lt_citys = owner.lt_citys or {}
-                lt_citys[self.eid] = nil
+                lt_citys[m.eid] = nil
                 owner.lt_citys = lt_citys
             end
         end
@@ -136,11 +127,21 @@ function load_lost_temple()
     end
 
     --init_activity()
-    init_redis_list()
+    --init_redis_list()
     init_pool()
-    start_time = gPendingSave.status["lostTemple"].start_time 
+    load_lt_state()
+end
 
-    --test()
+function load_lt_state()
+    local db = dbmng:getOne()
+    local info = db.status:findOne({_id = "lostTemple"})
+    if not info then
+        info = {_id = "lostTemple"}
+        db.status:insert(info)
+    end
+    start_time = info.start_time or 0
+    end_time = info.end_time or 0
+    actState = info.actState or 0
 end
 
 function add_seq_citys(city)
@@ -153,7 +154,7 @@ function add_seq_citys(city)
 end
 
 function clear_citys_timer()
-    for k, v in pairs(citys) do 
+    for k, v in pairs(citys or {}) do 
         local city = get_ety(k)
         if city then
             clear_timer(city)
@@ -165,64 +166,75 @@ function clean_timer()
     timer.del(timerId)
 end
 
-function init_db(key)
-    local db = dbmng:getOne()
-    local info = db.status:findOne({_id = key})
-    --dumpTap(info, Key)
-    if not info then
-        info = {_id = key}
-        db.status:insert(info)
-    end
-    return info
-end
-
-function init_redis_list()
-    for k, v in pairs(initRedisList) do
-        local info = init_db(v)
-        lost_temple[ v ] = init_redis(v, info) 
-    end
-end
-
-function init_redis(key, info)
-    local zset = zset.new()
-    for k, v in pairs(info) do
-        if k ~= "_id" and v ~= {} then
-            zset:add(v, tostring(k))
-        end
-    end
-    return zset
-end
-
 function update_ply_score(key, score)
     local org_score = rank_mng.get_score(10, key) or 0
     score = score + org_score
     rank_mng.add_data(10, key, {score})
+    --任务
+    local ply = getPlayer(key)
+    task_logic_t.process_task(ply, TASK_ACTION.LOSTTEMPLE_SCORE, score)
 end
 
 function update_union_score(key, score)
     local org_score = rank_mng.get_score(9, key) or 0
     score = score + org_score
     rank_mng.add_data(9, key, {score})
-
-
-    local unionId = tostring(key)
-    local unionScore = unionLtRank:score(unionId) or 0
-    unionLtRank:add(unionScore + score, unionId)
-    gPendingSave.status[ "unionLtRank" ][ unionId ] = score + unionScore
 end
 
-function get_union_rank(key)
-    local unionId = tostring(key)
-    local top = unionLtRank:range(1, 200) or {}
-    local myScore = unionLtRank:score(unionId) or 0
-    local myRank = unionLtRank:rank(unionId) or 0
-    --print( topKillers, {myScore, myRank})
-    return top, myScore, myRank
+function try_start_lt()
+    local id = actState
+    local prop = resmng.prop_lt_stage[id]
+    if prop then
+        local prepare_time =  1800
+        if not  player_t.debug_tag then
+            if actState == LT_STATE.LOCK then
+                if ( gTime + prepare_time - _G.gSysStatus.start or 0) >= prop.Spantime  then
+                    timer.new("start_lt", prepare_time)
+                    lt_ntf(resmng.LT_OPEN)
+                end
+            end
+
+            if actState == LT_STATE.DOWN then
+                if ( gTime + prepare_time - end_time) >= prop.Spantime  then
+                    timer.new("start_lt", prepare_time)
+                    lt_ntf(resmng.LT_OPEN)
+                end
+            end
+        else
+            prepare_time = 10
+            timer.new("start_lt", prepare_time)
+            lt_ntf(resmng.LT_OPEN)
+        end
+    end
+end
+
+function lt_ntf(notify_id)
+    local prop = resmng.get_conf("prop_act_notify", notify_id)
+    if prop then
+        if prop.Notify then
+            Rpc:tips({pid=-1,gid=_G.GateSid}, 2, prop.Notify,{})
+        end
+
+        if prop.Chat1 then 
+            player_t.add_chat({pid=-1,gid=_G.GateSid}, 0, 0, {pid=0}, "", prop.Chat1, {})
+        end
+
+    end
+
 end
 
 function start_lt()
-    Rpc:chat({pid=-1,gid=_G.GateSid}, 0, 0, 0, "system", "lost temple begin")
+    lt_ntf(resmng.LT_START)
+    gPendingSave.status["lostTemple"].start_time  = gTime
     actState = LT_STATE.ACTIVE
+    gPendingSave.status["lostTemple"].actState  = actState
+
+    local prop = resmng.prop_lt_stage[actState]
+    if prop then
+        end_time = gTime + prop.Spantime
+        gPendingSave.status["lostTemple"].end_time = end_time
+    end
+
     init_pool()
     gen_lost_temples()
 
@@ -232,7 +244,7 @@ function start_lt()
 
     clear_timer()
     -- debug
-    set_timer(2)
+    set_timer(LT_STATE.DOWN)
 end
 
 function gen_lost_temples()
@@ -249,10 +261,14 @@ function gen_temple_by_propid(propid)
 
     local lv = prop.Lv
     local bandId = get_band_city(lv)
-    local prop = resmng.prop_world_unit[bandId]
+    local lt_prop = resmng.prop_world_unit[bandId]
     local grade = 1
     if lv <= 3 then grade = 2 else grade = 3 end
-    respawn(math.floor(prop.X/16), math.floor(prop.Y/16), grade, bandId)
+    if lt_prop then
+        respawn(math.floor(lt_prop.X/16), math.floor(lt_prop.Y/16), grade, bandId)
+    else
+         WARN("lost temple not find band npc prop %d", bandId)
+    end
 
 end
 
@@ -267,7 +283,7 @@ function gen_normal_temples()
 end
 
 function gen_elite_temples()
-    for k, v in pairs(poolRule) do
+    for k, v in pairs(poolRule or {}) do
         for i = 1, v[2] do
             -- debug
             local bandId = get_band_city(k)
@@ -277,7 +293,7 @@ function gen_elite_temples()
             print("gen lt ", k, i, v[2], grade)
             if prop then
                 print("npc city band pos ", prop.X, prop.Y, prop.ID)
-                respawn(math.floor(prop.X/16), math.floor(prop.Y/16), grade, bandId)
+                respawn(math.floor(prop.X/16), math.floor(prop.Y/16), grade, bandId, false)
             end
         end
     end
@@ -292,7 +308,7 @@ function get_band_city(lv)
 end
 
 function get_prop(grade)
-    for k, v in pairs(resmng.prop_world_unit) do
+    for k, v in pairs(resmng.prop_world_unit or {}) do
         if v.Class == CLASS_UNIT.LOST_TEMPLE and v.Mode == grade  then
             return v
         end
@@ -301,14 +317,14 @@ end
 
 function get_pos_by_grade(tx, ty, prop,  grade)
     local x, y
-    local r = math.floor(math.sqrt(prop.Size)) or 1
+    local r = prop.Size or 1
     x, y = monster_city.get_pos_in_range(tx, ty, 3, 3, r)
 
     return x, y
 
 end
 
-function respawn(tx, ty, grade, bandId)
+function respawn(tx, ty, grade, bandId, ntf_tag)
     local prop = get_prop(grade)
     if not prop then
         return 
@@ -344,13 +360,46 @@ function respawn(tx, ty, grade, bandId)
             if union then
                 m.uname = union.alias
             end
+
+            if ntf_tag == nil or ntf_tag == true then
+                new_lt_notify(m)
+            end
+
             etypipe.add(m)
         end
     end
 end
 
+function new_lt_notify(self)
+    local notify_id = 0
+    if self.grade == 2 then
+        notify_id = resmng.MIDDLE_LT_REFRESH
+    end
+
+    if self.grade == 3 then
+        notify_id = resmng.BIG_LT_REFRESH
+    end
+
+    if notify_id == 0 then
+        return
+    end
+
+    local prop = resmng.get_conf("prop_act_notify", notify_id)
+    if prop then
+        if prop.Notify then
+            Rpc:tips({pid=-1,gid=_G.GateSid}, 2, prop.Notify,{self.x, self.y})
+        end
+
+        if prop.Chat1 then 
+            player_t.add_chat({pid=-1,gid=_G.GateSid}, 0, 0, {pid=0}, "", prop.Chat1, {self.x, self.y, self.x, self.y})
+        end
+
+    end
+end
+
 function reset_lt(city)
     city.uid = 0
+    --city.pid = 0
     city.uname = ""
     city.startTime = 0
     city.endTime = 0
@@ -368,18 +417,22 @@ function reset_lt(city)
 end
 
 function end_lt()
-    for k, v in pairs(citys) do
+    lt_ntf(resmng.LT_END)
+    for k, v in pairs(citys or {}) do
         local city = get_ety(v)
         if city then
             close_temple(city)
         end
     end
     seq_citys = {}
-    actState = LT_STATE.ACTIVE
+    actState = LT_STATE.DOWN
+    gPendingSave.status["lostTemple"].actState  = actState
+    end_time = gTime
+    gPendingSave.status["lostTemple"].end_time = end_time
     clear_timer()
     send_score_reward()
     -- debug
-    --set_timer(1)
+    --set_timer(LT_STATE.ACTIVE)
 end
 
 function close_temple(city)
@@ -394,13 +447,13 @@ function close_temple(city)
 end
 
 function after_fight(ackTroop, defenseTroop)
-    --deal_dead_troop(ackTroop)
-    --deal_dead_troop(defenseTroop)
+
     local city = get_ety(ackTroop.target_eid) 
 
-
-    if check_atk_win(ackTroop, defenseTroop) then
+    if check_atk_win(defenseTroop) then
         city.uid = ackTroop.owner_uid
+        --city.pid = ackTroop.owner_pid
+        city.my_troop_id = nil
         local union = unionmng.get_union(city.uid)
         if union then
             city.uname = union.alias
@@ -420,21 +473,63 @@ function after_fight(ackTroop, defenseTroop)
             defer.lt_citys = lt_citys
         end
 
-        npc_city.try_hold_troop(city, ackTroop)
+        --npc_city.try_hold_troop(city, ackTroop)
 
-        new_defender_state(city)
+        new_defender_state(city, ackTroop)
+        union_hall_t.battle_room_update_ety(OPERATOR.UPDATE, city)
         etypipe.add(city)
     end
     --mark(npcCity)
 end
 
-function check_atk_win(ackTroop, defenseTroop)
-    return (ackTroop.win or 0) == 1
+function deal_cross(self)
+    clear_timer(self)
+    set_timer(2, self)
+    rem_ety(self.eid)
+end
+
+function deal_troop(atkTroop, defenseTroop)
+    if check_atk_win(defenseTroop) then
+        local city = get_ety(atkTroop.target_eid) 
+        if is_ply(defenseTroop.owner_eid) then 
+            --troop_t.dead_to_live_and_hurt( defenseTroop, 0.95 )
+            defenseTroop:back()
+        else
+            troop_mng.delete_troop(defenseTroop._id)
+        end
+
+        if city.uid ~= atkTroop.owner_uid then
+            --troop_t.dead_to_live_and_hurt( atkTroop, 0.95 )
+            atkTroop:back()
+        else
+            --atkTroop:home_hurt_tr()
+            local union = unionmng.get_union(atkTroop.owner_uid)
+            if check_union_cross(union) then
+                atkTroop:back()
+                city:deal_cross()
+            else
+                npc_city.try_hold_troop(city, atkTroop)
+            end
+        end
+    else
+        if is_ply(atkTroop.owner_eid) then
+            --troop_t.dead_to_live_and_hurt( atkTroop, 0.95 )
+            atkTroop:back()
+        else
+            troop_mng.delete_troop(atkTroop._id)
+        end
+
+        --defenseTroop:home_hurt_tr()
+    end
+end
+
+function check_atk_win(troop)
+    return troop:is_no_live_arm()
 end
 
 function deal_dead_troop(troop)
-    for pid, arm in pairs(troop.arms) do
-        for k, v  in pairs(arm.dead_soldier) do
+    for pid, arm in pairs(troop.arms or {}) do
+        for k, v  in pairs(arm.dead_soldier or {}) do
             arm.live_soldier[k] = (arm.live_soldier[k] or 0 ) + math.floor(v * 0.95)
             arm.hurt_soldier[k] = (arm.hurt_soldier[k] or 0 ) + math.floor(v * 0.05)
         end
@@ -449,12 +544,30 @@ function finish_grap_state(self)
         update_union_score(union.uid, res)
     end
 
+   -- local content={x = self.x, y = self.y, carry ={{"res", 20, math.ceil(res)}}, buildid=self.propid}
+   -- local members = union:get_members()
+   -- if members then
+   --     for pid, ply in pairs(members) do
+   --         ply:report_new( MAIL_REPORT_MODE.GATHER, content )
+   --     end
+   -- end
+
     local tr = self:get_my_troop()
     if tr then
         local all_pow = tr:get_tr_pow()
+
+        if  all_pow == 0 then
+            all_pow  = 1
+        end
+
         for k, v in pairs(tr.arms or {}) do
             local pow = tr:calc_pow(k)
             local score = res * pow / all_pow
+            local ply = getPlayer(k)
+            if ply then
+                local content={x = self.x, y = self.y, carry ={{"res", 20, math.ceil(score)}}, buildid=self.propid}
+                ply:report_new( MAIL_REPORT_MODE.GATHER, content )
+            end
             update_ply_score(k, score)
         end
     end
@@ -470,26 +583,36 @@ function finish_grap_state(self)
         end
         tr:back()
     end
+
+
     rem_ety(self.eid)
     citys[self.eid] = nil
     add_pool(self.band_id)
+    update_act_tag() 
+
 end
 
-function new_defender_state(self)
-    self.startTime = gTime
-    local time = resmng.prop_world_unit[self.propid].Spantime
-    -- to do
-    self.endTime = gTime + time 
+function new_defender_state(self, troop)
     clear_timer(self)
     set_timer(1, self)
+    self.startTime = gTime
+    local time = resmng.prop_world_unit[self.propid].Spantime
+    self.endTime = gTime + time 
+
+    troop.tmStart = gTime
+    troop.tmOver = self.endTime
+    troop:do_notify_owner({tmStart = troop.tmStart, tmOver = troop.tmOver})
+    player_t.update_watchtower_speed(troop)
+
 end
 
 function clear_timer(self)
     if self then
         timer.del(self.timers)
+        self.timers = nil
     else
         timer.del(actTimer)
-        gPendingSave.status["lostTemple"].timer = nil
+        gPendingSave.status["lostTemple"].timer = 0
     end
 end
 
@@ -504,7 +627,7 @@ function set_timer(state, self)
             time = resmng.prop_world_unit[self.propid].Spantime
         end
     else
-        time = resmng.prop_lt_stage[state].Spantime
+        time = resmng.prop_lt_stage[actState].Spantime
     end
     if self then
         local timerId = 0
@@ -534,10 +657,10 @@ function get_my_troop(self)
         local  conf = resmng.get_conf("prop_world_unit", self.propid)
         if conf then
             local sx, sy = get_ety_pos(self)
-            tr = troop_mng.create_troop(TroopAction.SiegeNpc, self, self)
+            tr = troop_mng.create_troop(TroopAction.HoldDefenseLT, self, self)
             if conf.Arms then
                 local arm = {}
-                for _, v in pairs(conf.Arms) do
+                for _, v in pairs(conf.Arms or {}) do
                     arm[ v[1] ] = v[ 2 ]
                 end
                 --tr:add_arm(self.propid, {live_soldier = arm})
@@ -546,7 +669,7 @@ function get_my_troop(self)
         end
         self.my_troop_id = tr._id
     else
-        tr = troop_mng.create_troop(TroopAction.SiegeNpc, self, self,{live_soldier = {[3002] = 0}, heros = {0,0,0,0}})
+        tr = troop_mng.create_troop(TroopAction.HoldDefenseiLT, self, self)
     end
 
     if tr then
@@ -567,14 +690,16 @@ end
 function send_score_reward()
     local prop = resmng.prop_lt_rank_award
     if prop then
-        for k, v in pairs(prop) do
+        local num = 1
+        for k, v in pairs(prop or {}) do
             local plys = rank_mng.get_range(10, v.Rank[1], v.Rank[2])
             for idx, pid in pairs(plys or {}) do
                 local score = rank_mng.get_score(10, tonumber(pid)) or 0
                 if score > v.Cond then
                     local ply = getPlayer(tonumber(pid))
                     if ply then
-                        ply:send_system_notice(10011, {idx}, v.Award)
+                        ply:send_system_notice(10011, {}, {num}, v.Award)
+                        num = num + 1
                     end
                 end
             end
@@ -583,21 +708,23 @@ function send_score_reward()
 
     local u_award = resmng.prop_lt_union_award
     if not u_award then return end
-    local node = rank_mng.get_node(9)
-    if node then
-        for uid, data in pairs(node.alls) do
+
+    local _, tops = rank_mng.load_rank( 9 )
+    if tops then
+        for uid, data in pairs(tops or {}) do
             local score = data[2] or 0
-            for k, conf in pairs(u_award) do
+            for k, conf in pairs(u_award or {}) do
                 if score > conf.Cond[1] and score < conf.Cond[2] then
                     local union = unionmng.get_union(uid)
                     if union then
-                        for pid, ply in pairs(union._members or {}) do
+                        local _members = union:get_members()
+                        for pid, ply in pairs(_members or {}) do
                             if (rank_mng.get_score(10, pid) or 0) > conf.Cond[3] then
-                                ply:send_system_notice(10007, {}, conf.Award)
+                                ply:send_system_notice(10007, {}, {}, conf.Award)
                             end
                         end
                     end
-                break
+                    break
                 end
             end
         end
@@ -611,11 +738,7 @@ function eye_info(self, pack)
     end
 end
 
-
-function get_lt_award(self, idx)
-    local lv = self:get_castle_lv() or 0
-    local prop = resmng.prop_lt_reward[lv]
-    if prop then
-
-    end
+function update_act_tag()
+    act_tag = gTime
 end
+

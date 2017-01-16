@@ -95,9 +95,16 @@ int pullBuf(lua_State *L, int op)
     } else if (op == OP_PACK) {
         len = ntohl(*(int*)cur);
         cur += 4;
-        lua_pushlstring(L, cur, len);
-        cur += len;
-        return 1;
+        if (cur+len <= end) {
+           // dump(cur,len,"pack");
+            lua_pushlstring(L, cur, len);
+            cur += len;
+            return 1;
+        }else{
+            cur = end;
+            lua_pushstring(L, "");
+            return 1;
+        }
 
     } else if (op == OP_I4) {
         if (cur && cur <= end-4) {
@@ -144,6 +151,7 @@ int pullBuf(lua_State *L, int op)
             i2 = ntohs(*(unsigned short*)cur);
             cur += 2;
             if (cur + i2 <= end) {
+                dump(cur,i2,"op_s");
                 lua_pushlstring(L, cur, i2);
                 cur += i2;
                 return 1;
@@ -366,8 +374,34 @@ static int
 lrecv(lua_State *L) {
 	int fd = luaL_checkinteger(L,1);
 
-	char buffer[CACHE_SIZE];
-	int r = recv(fd, buffer, CACHE_SIZE, 0);
+	static char buffer[CACHE_SIZE];
+    static char *cur = buffer;
+    static char *end = &buffer[CACHE_SIZE];
+    int len;
+
+    if (cur > buffer) {
+        if (cur - buffer > 4) {
+            int len = ntohl(*(int*)buffer);
+            if (cur >= buffer + 4 + len) {
+
+                lua_pushlstring(L, buffer+4, len);
+                int remain = cur - (buffer + 4 + len);
+                if (remain > 0) {
+                    memmove(buffer, cur, remain);
+                    cur = buffer + remain;
+                } else {
+                    cur = buffer;
+                }
+                return 1;
+            }
+        }
+    }
+
+
+
+	//int r = recv(fd, buffer, CACHE_SIZE, 0);
+	int r = recv(fd, cur, end-cur, 0);
+
 	if (r == 0) {
 		lua_pushliteral(L, "");
 		// close
@@ -380,7 +414,24 @@ lrecv(lua_State *L) {
 		luaL_error(L, "socket error: %s", strerror(errno));
 	}
 
-	lua_pushlstring(L, buffer+4, r-4);
+    cur += r;
+
+    len = ntohl(*(int*)buffer);
+    if (cur < buffer + 4 + len) {
+    
+    } else {
+	    lua_pushlstring(L, buffer+4, len);
+        int remain = cur - (buffer + 4 + len);
+        if (remain > 0) {
+            memmove(buffer, cur, remain);
+            cur = buffer + remain;
+        } else {
+            cur = buffer;
+        }
+    }
+
+
+	//lua_pushlstring(L, buffer+4, r-4);
 	return 1;
 }
 
@@ -499,8 +550,7 @@ luaopen_pack(lua_State *L) {
 				{ NULL, NULL },
 	 };
 
-     luaL_register(L, "pack",l);
-
+     luaL_newlib(L,l);
      return 1;
 }
 

@@ -26,3 +26,5 @@ VipShow_17 = 18
 VipShow_18 = 19
 VipShow_19 = 20
 VipShow_20 = 21
+VipShow_Time = 22
+VipShow_10 = 23

@@ -1,13 +1,17 @@
+
 function load_game_module()
     gMapID = getMap()
     gMapNew = 1
-    c_map_init()
     c_roi_init()
     c_roi_set_block("common/map_block.bytes")
     gSysMailSn = 0
     gSysMail = {}
     gSysStatus = {}
+    gDelayAction = {}
+    white_list = {}
+
     do_reload()
+
 end
 
 gTimeReload = gTimeReload or 0
@@ -24,6 +28,7 @@ end
 function do_reload()
     do_load("resmng")
     do_load("game")
+    do_load("mem_monitor")
     do_load("common/define")
     do_load("common/tools")
     do_load("common/protocol")
@@ -44,9 +49,9 @@ function do_reload()
     do_load("player/player_gacha")
     do_load("player/player_ache")
     do_load("player/player_title")
+    do_load("player/player_pay_mall")
     do_load("agent_t")
     do_load("build_t")
-    do_load("arm_t")
     do_load("player/player_troop")
     do_load("troop_t")
     do_load("troop_mng")
@@ -54,8 +59,10 @@ function do_reload()
     do_load("hero/hero_t")
     do_load("fight")
     do_load("farm")
+    do_load("restore_handler")
     do_load("unionmng")
     do_load("union_t")
+    do_load("union2_t")
     do_load("union_member_t")
     do_load("union_tech_t")
     do_load("union_build_t")
@@ -84,8 +91,17 @@ function do_reload()
     do_load("kw_mall")
     do_load("use_item_logic")
     do_load("rank_mng")
+    do_load("cross/gs_t")
+    do_load("cross/cross_mng_c")
+    do_load("cross/cross_refugee_c")
+    do_load("cross/cross_rank_c")
+    do_load("cross/cross_act")
+    do_load("cross/cross_score")
+    do_load("refugee")
     do_load("gmmng")
-    do_load("restore_handler")
+    do_load("gmcmd")
+    do_load("wander")
+    do_load("pay_mall")
 
     --gTimeReload = c_get_time()
 end
@@ -94,33 +110,55 @@ function reload()
     do_reload()
 end
 
+function tool_test()
+    for i=1 , 500 , 1 do
+        --to_tool(0, {type = "login_server", cmd = "upload_ply_info", appid = APP_ID, open_id = tostring(i), pid = tostring(i), logic = tostring(gMapID), level = tostring(1), name = "tool_test", custom = "1", token = 1, signature=1})
+        to_tool(0, {url = "http://192.168.100.12:18083/", method = "post", appid = APP_ID, open_id = tostring(i), pid = tostring(i), logic = tostring(gMapID), level = tostring(i), name = tostring(i), custom = tostring(i), token = i, signature=i})
+    end
+    print("do tool test ")
+    timer.new("tool_test", 1)
+end
+
+function chat_test()
+    for i=10001 , 20000 , 1 do
+        to_tool(0, {type = "chat", cmd = "create_chat", user = "b"..tostring(i), host = CHAT_HOST, password = "b"..tostring(i)})
+    end
+end
+
 function restore_game_data()
     local rt = restore_handler.action()
     if rt == "Compensation" then
-        gInit = "InitCompensate"
+        _G.gInit = "InitCompensate"
     else
-        gInit = "InitGameDone"
+        _G.gInit = "InitGameDone"
     end
 end
 
 
-function do_roi_msg(msg, d0, d1, d2, d3, d4, d5, d6, d7)
+function do_roi_msg(msg, d0, d1, d2, d3, eids )
+    --print( "do_roi_msg", msg )
     if msg == ROI_MSG.NTY_NO_RES then
         farm.do_check(d0, d1)
         monster.do_check(d0, d1)
+        refugee.do_check(d0, d1)
 
     elseif msg == ROI_MSG.TRIGGERS_ARRIVE then
         -- x, y, eid , eid is actor
-        triggers_t.arrived_target(d0, d1, d2, d3, d4, d5, d6, d7)
+        triggers_t.arrived_target(d0, d1, d2, d3)
 
     elseif msg == ROI_MSG.TRIGGERS_ENTER then
         -- x, y, eidA, eidB , eidA is actor, eidB is scanner
-        triggers_t.enter_range(d0, d1, d2, d3, d4, d5, d6, d7)
+        triggers_t.enter_range(d0, d1, d2, d3)
+
     elseif msg == ROI_MSG.TRIGGERS_LEAVE then
         -- x, y, eidA, eidB , eidA is actor, eidB is scanner
-        triggers_t.leave_range(d0, d1, d2, d3, d4, d5, d6, d7)
+        triggers_t.leave_range(d0, d1, d2, d3 )
+
+    elseif msg == ROI_MSG.GET_AROUND then
+        local co = getCoroPend( "roi", d0 )
+        if co then coroutine.resume(co, eids ) end
     else
-        LOG("[CPU_FRAME, what")
+        LOG("[ROI_MSG], what %s", msg)
     end
 end
 
@@ -130,15 +168,14 @@ end
 --
 
 g_eid_max = 0
-function get_eid()
-    local eid_max = g_eid_max
-    --524288 = math.pow(2,19)
-    for i = 1, 524288, 1 do 
-        eid_max = eid_max + 1
-        if eid_max > 524288 then eid_max = 1 end
-        local eid = eid_max * 4096 + (gMapID or 1)
 
-        if not gEtys[ eid ] then 
+function get_eid(mode)
+    local eid_max = g_eid_max
+    for i = 1, 65536, 1 do
+        eid_max = eid_max + 1
+        if eid_max > 65535 then eid_max = 1 end
+        local eid = eid_max * 4096 + gMapID
+        if not gEtys[ eid ] then
             g_eid_max = eid_max
             return eid
         end
@@ -169,6 +206,10 @@ end
 
 function get_eid_res()
     return get_eid(EidType.Res)
+end
+
+function get_eid_refugee()
+    return get_eid(EidType.Refugee)
 end
 
 function get_eid_troop()
@@ -203,6 +244,18 @@ function get_eid_camp()
     return get_eid(EidType.Camp)
 end
 
+function get_home_troop( e )
+    if e.get_my_troop then return e:get_my_troop() end
+    local tr = troop_mng.get_troop( e.my_troop_id )
+    if tr then return tr end
+
+    if is_union_superres( e.propid ) and e.state == BUILD_STATE.WAIT then 
+        e.my_troop_id = {}
+    else
+        e.my_troop_id = 0
+    end
+end
+
 function get_mode_by_eid(eid)
     if eid == -1 then return -1 end
     local e = get_ety( eid )
@@ -212,7 +265,10 @@ function get_mode_by_eid(eid)
 end
 
 function get_ety(eid)
-    return gEtys[ eid ]
+    if not eid then return end
+    if eid == 0 then return end
+    local e =  gEtys[ eid ]
+    return e
 end
 
 
@@ -222,7 +278,7 @@ function get_ety_arms(e)
            return union_build_t.arms(e)
         else
 	        return e:get_my_troop()
-        end 
+        end
     end
 end
 
@@ -230,47 +286,95 @@ function save_ety(e)
     if e then
         if is_union_building(e) then
            union_build_t.save(e)
-        elseif e.action then--行军队列  
+        elseif is_troop( e ) then
             e:save()
             e:notify_owner()
-        elseif is_ply(e) then
+        elseif is_wander( e ) then
+            e:save()
         else
-            assert()
+            WARN( "no save_ety, propid=%s", e.propid or "none" )
         end
     end
 end
 
-function rem_ety(eid)
+
+gRemEty = gRemEty or {}
+function rem_ety( eid )
+    local ety = gEtys[ eid ]
+    if ety then
+        gRemEty[ eid ] = 1
+        if ety.rooms then
+            for _, rid in pairs( ety.rooms ) do
+                local troop = troop_mng.get_troop( rid )
+                if troop then
+                    union_hall_t.battle_room_remove( troop )
+                    if troop:is_go() or troop:is_ready() then
+                        if troop.owner_pid >= 10000 then
+                            local owner = getPlayer( troop.owner_pid )
+                            if owner then
+                                owner:troop_recall( troop._id, true )
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+function do_rem_ety(eid)
     local e = gEtys[ eid ]
     if e then
+        --todo
+        --if is_union_building(e) then
+        --    if (not player_t.debug_tag) and e.fire_speed ~= 0 then
+        --        WARN("燃烧不能回收")
+        --        return
+        --    end
+        --    action( union_build_t.remove, e )
+        --    --union_build_t.remove(e)
+        --else
+
+        gEtys[ eid ] = nil
+        c_rem_ety(eid)
         if is_res(e) then
-            gEtys[ eid ] = nil
-            c_rem_ety(eid)
             if e.marktm then gPendingDelete.farm[ eid ] = 0 end
 
         elseif is_monster(e) then
-            gEtys[ eid ] = nil
-            c_rem_ety(eid)
-            e:checkout()
-            if e.marktm then gPendingDelete.monster[ eid ] = 0 end
+            if e.grade >= BOSS_TYPE.ELITE and e.grade < BOSS_TYPE.SUPER then
+                if monster.boss[e.eid] then
+                    monster.boss[e.eid] = nil
+                end
+            elseif e.grade == BOSS_TYPE.SPECIAL then
+                local lv =  c_get_zone_lv(e.zx, e.zy)
+                local boss_list = monster.boss_special[lv] or {}
+                local idx = e.zy * 80 + e.zx
+                if boss_list[idx] then
+                    boss_list[idx] = nil
+                    monster.boss_special[lv] = boss_list
+                end
+            elseif e.grade == BOSS_TYPE.SUPER then
+                super_boss = 0
+            end
+            --if e.marktm then gPendingDelete.monster[ eid ] = 0 end
+            gPendingDelete.monster[ eid ] = 0
 
         elseif is_monster_city(e) then
-            gEtys[ eid ] = nil
-            c_rem_ety(eid)
-            if e.marktm then gPendingDelete.monster_city[ eid ] = 0 end
+            gPendingDelete.monster_city[ eid ] = 0
 
         elseif is_lost_temple(e) then
-            gEtys[ eid ] = nil
-            c_rem_ety(eid)
-            if e.marktm then gPendingDelete.monster[ eid ] = 0 end
+            gPendingDelete.lost_temple[ eid ] = 0
 
-        elseif is_union_building(e) then
-           union_build_t.remove(e)
+        elseif is_king_city(e) then
+            gPendingDelete.king_city[ eid ] = 0
+
+        elseif is_npc_city(e) then
+            gPendingDelete.npc_city[ eid ] = 0
+
+        elseif is_troop( e ) then
 
         else
             gPendingDelete.unit[ eid ] = 0
-            gEtys[ eid ] = nil
-            c_rem_ety(eid)
         end
     end
 end
@@ -311,7 +415,7 @@ function create_room()
     local ply = getPlayer(650000)
     local pid = ply.pid
     ply.gid = 1179672
-    Rpc:create_room(ply, "650000", "conference."..CHAT_HOST, ply.chat_account)
+    Rpc:create_room(ply, "650000", "conference."..CHAT_HOST, ply.chat_ccount)
 end
 
 function send_invite()
@@ -326,173 +430,202 @@ function send_invite()
 
 end
 
+
 function test()
+    local data = getPlayer( 4250021 )._union
+    local count = 100000
 
-    --gPendingSave.test[ 2 ] = { {1,2,3}, {4,5,6,} }
-    --gPendingSave.test[ 2 ] = { _id=2, {1,2,3}, {4,5,6,} }
-    --gPendingSave.test[ 3 ] = { data={{1,2,3},{4,5,6,}} }
+    local a = c_msec()
+    for i = 1, count, 1 do
+        bson.encode( data )
+    end
+    print( "bson", c_msec() - a )
 
-    --local hero = heromng.get_hero_by_uniq_id( "5_1550001" )
-    --local tab = heromng.get_fight_attr( "5_1550001" )
-    --dumpTab( tab, "hero_fight" )
+    local a = c_msec()
+    for i = 1, count, 1 do
+        cmsgpack.pack( data )
+    end
+    print( "msgpack", c_msec() - a )
 
-    --timer.new( "check_frame", 0, 0)
 
-    local pl = getPlayer( 1880006 )
-    pl:initEffect()
-    --pl:add_debug( "hello, %d", pl.pid )
+    --local c = 0
+    --local a = c_msec()
+    --for k, v in pairs( gPlys ) do
+    --    c = c + 1
+    --    bson.encode( v._build )
+    --    --dumpTab( v._build )
+    --end
+    --local b = c_msec()
+    --print( c, b-a, ( b-a ) / c )
+    --for k, v in pairs( gPlys ) do
+    --    dumpTab( v )
+    --    break
+    --end
 
-    --pl:ef_add( {SpeedConsume_R=1000} )
-    --pl:ef_add( {SpeedGather1_R=50000} )
+    --local a = c_msec()
+    --for i = 1, 10000, 1 do
+    --    llog( "Rpc:send_invite(ply, 650005@conference.war_x.org users" )
+    --end
+    --local b = c_msec()
+    --print( b-a )
+
+    --local a = c_msec()
+    --for i = 1, 10000, 1 do
+    --    linfo( "Rpc:send_invite(ply, 650005@conference.war_x.org users" )
+    --end
+    --local b = c_msec()
+    --print( b-a )
+
+    --local a = c_msec()
+    --for i = 1, 10000, 1 do
+    --    lwarn( "Rpc:send_invite(ply, 650005@conference.war_x.org users" )
+    --end
+    --local b = c_msec()
+    --print( b-a )
+
+
+    --local obj = get_ety( 4624387 )
+    --obj.state = BUILD_STATE.FIX
+    --etypipe.add( obj )
+
+    --rank_insert 3, 4490035, 1547784, 0
     
+    --skiplist.info(3)
 
-    --pl.month_award_count = 3
-    --pl.month_award_1st = gTime - 3600 * 240
+    --local notice = "%d %s"
+    --WARN( "notice %s", notice )
 
-    --print( pl.month_award_1st)
-    --print( pl.month_award_cur)
-    --print( pl.month_award_mark)
-    --print( pl.month_award_count)
+    --insert_global( "test", "hello", { test=gTime } )
 
-    --local idx = pl:month_award_get_award()
+    --local defer = getPlayer( 4250051 )
+    --Rpc:be_attacked( defer )
 
-    --print( pl.month_award_1st)
-    --print( pl.month_award_cur)
-    --print( pl.month_award_mark)
-    --print( pl.month_award_count)
-
-    --dumpTab( rank_mng.load_rank(1), "rank1") 
-    --dumpTab( rank_mng.load_rank(2), "rank2") 
-    --dumpTab( rank_mng.load_rank(5), "rank3") 
-
-    --c_tlog( "hello" )
-
-    --rank_mng.clear(6)
-
-    --local pl = getPlayer( 1180000 )
-    --print( pl:get_ache( 1001 ) )
-    --pl:set_ache( 1001 )
-
-    --print( pl:get_count( 1001 ) )
-    --pl:add_count( 1001, 1 )
-
-    ----
-    --rank_mng.add_member( 1, 1180011, {2, gTime, "hello"} )
-
-    --local res = rank_mng.load_rank( 1 )
-    --for k, v in pairs( res ) do
-    --    print( v[1], v[2], v[3], v[4] )
-    --end
-
-    --print(rank_mng.get_rank( 1, 1180014 ))
-
-    --print( "rank", rank_mng.get_rank(1, 10010 ) )
-
-    --local t = {}
-    --t.heloo = 5
-    --t[1] = 100
-    --t[2] = 100
-    --t[3] = 100
-
-    --gPendingSave.test[ "hello" ] = t
-
-    --local sl = skiplist()
-    --sl:insert(1, "hello")
-    --sl:insert(3, "world")
-    --sl:insert(5, "foo")
-    --sl:insert(5, "aaa")
-    --sl:insert(7, "bar")
-    --print( sl:get_count() )
-    --sl:dump()
-    --print( sl:get_rank( 5, "foo" ) )
-    --local t = sl:get_rank_range(1, 3)
-    --for k, v in pairs( t ) do
-    --    print( k, v)
-    --end
-
-
-    --local p = getPlayer(1120501)
-    --p:add_report( 2, {foo="bar"})
     --local db = dbmng:getOne()
-    --db.farm:delete( { pid = 0 } )
+    --db.test:update( {_id=1}, {c =2 }, true )
+    --local info = db:runCommand("getLastError")
+    --dumpTab( info, "test" )
 
-    --to_tool(0, {type="chat", cmd="create_chat", user="liuxiang", host= CHAT_HOST, password = "liuxiang"})
-    --to_tool(0, {type = "chat", cmd = "create_room", name = "666", server="conference."..CHAT_HOST, host = CHAT_HOST })
-    --to_tool(0, {type = "chat", cmd = "send_invite", name = "666", service="conference."..CHAT_HOST, users = {"650000@war_x.org"} })
-    --local t = {a="hel", b={[-1]="hello"}}
-    --gPendingInsert.test[2] = t
-    --gPendingInsert.test[3] = {a=1}
-    --local ply = getPlayer(590000)
-    --ply:on_day_pass()
 
---    local db = dbmng:getOne()
---    local info = db.troop:findOne({_id=49})
---    for k, v in pairs(info.arms) do
---        print("type, val=", type(k), k)
---        print("type, val=", type(v), v)
---    end
---
+    --print( c_map_test_pos_for_ply( 1109, 817, 4 ) )
 
-    --local t = {_id=1, foo="bar"}
-    --gPendingInsert.test[1] = t
-    --gPendingSave.test[1].hello = "world"
-    ----gPendingDelete.test[1] = 0
-    ----
-    --t = {_id=1, hello="world"}
-    --gPendingInsert.test[1] = t
+    --local pid = 3750050
+    --local p = getPlayer( pid )
+    --if p then
+    --    p:migrate_random()
+    --    --p:get_lv_6_gift()
+    --    --p:mail_load( 0 )
+    --    --p:mail_drop_by_class( 4, 2, -1 )
+    --end
     --
-    --Rpc:testCross({ pid=9, gid=_G.GateSid }, 1, "hello" )
+    --local id = bson.objectid()
+    --print( "id", tostring(id) )
+       
+    --local p = getPlayer( 4250018 )
+    --local ef = p:get_union_ef()
+    --dumpTab( ef, "union_ef" )
 
-    --local armA = { }
-    --local armB = { live_soldier = {[1001]=100, [2001]=100}, dead_soldier={[2001]=49, [4001]=1}, heros={0,0,0,0}, B="B"}
-    --troop_t.do_add_arm_to(armA, armB)
-    --dumpTab(armB, "merge")
+    --gPendingInsert.hello[ "hello" ] = { _id = "hello", foo = "bar" }
+    --gPendingInsert.hello[ "hello" ] = { _id = "hello", hello = "wrold" }
 
-    --local p = getPlayer(590000)
-    --local code, result = p:qryCross(270000, "test_command", {a=1, foo="bar"})
-    --print("qryCross", code)
-    --dumpTab(result, "qryCross")
+    --split( as, 10, "kill", 33, "mkdmg" )
+    --dumpTab( as )
+
+    --for i = 1, 20, 1 do
+    --    do_reload()
+    --end
+
+    --local p = getPlayer( 3750014 )
+    --p:refresh_food()
+    --dumpTab( p.res, "refresh_food" )
+
+    --local db = dbmng:getOne()
+    --local info = db.count:findOne( {_id={["$in"] = {3610031, 361}}} )
+    --dumpTab( info, "findOne" )
+
+    --db.test:update( {_id=1}, {[ "$set"] = { a = true} }, true )
+
+    --local info = db.test:findOne( {_id=1} )
+    --dumpTab( info, "test") 
+
+    --print( c_get_zone_lv( math.floor( 1055/16 ), math.floor( 224 / 16 ) ) )
+
+    --c_roi_chk_troop()
+    --local db = dbmng:getOne()
+    ----local info = db:runCommand( "isMaster" )
+    ----dumpTab( info, "test info" )
+
+    --local id = 6
+    --local val = {foo="bar"}
+    --db.test:update( {_id=id}, { ["$push"]={ vs={["$each"]={val, val}, ["$slice"]=-4 }} }, true )
+
+    --c_tick(0)
+    --for i = 1, 10000, 1 do
+    --    local a = string.dump( function () return resmng.prop_item end, true )
+    --end
+    --print( c_tick( 1 ) )
+
+    --c_tick(0)
+    --for i = 1, 10000, 1 do
+    --    local a = cmsgpack.pack( resmng.prop_item )
+    --end
+    --print( c_tick( 1 ) )
+
+    --db.report1:update( {_id=id}, { ["$push"]={ vs=val, ["$clice"]=-5 }}, true )
+    --local info = db:runCommand("getLastError")
+    --dumpTab( info, "test")
 end
 
 function test4()
     dumpTab(union_hall_t.union_battle_room)
 end
 
-function addsoldier(eid)
-    local ap = get_ety(eid)
-    ap.my_troop_id = 0
-    if ap.my_troop_id == 0 then
-        local troop = troop_mng.create_troop(eid, 0, TroopAction.DefultFollow, 0, 0, 0, 0)
-        troop.owner_pid = ap.pid
-        ap.my_troop_id = troop._id
-        ap.busy_troop_ids = {}
-        local arm = arm_t.new()
-        troop:add_arm(ap.pid, arm)
-    end
-    ap:inc_arm(1001, 100000)
-    ap:inc_arm(2001, 100000)
-    ap:inc_arm(3001, 100000)
-    ap:inc_arm(4001, 100000)
-
-end
-
 function check_pending()
+    for eid, _ in pairs( gRemEty ) do
+        do_rem_ety( eid )
+    end
+    gRemEty = {}
     player_t.check_pending()
-    build_t.check_pending()
-    hero_t.check_pending()
-    union_t.check_pending()
-    room.check_pending()
-    npc_city.check_pending()
-
-    --dirty_sync()
 end
+
+function on_shutdown()
+    for id, troop in pairs( troop_mng.troop_id_map or {} ) do
+        if troop:is_go() or troop:is_back() then
+            troop.curx, troop.cury = c_get_actor_pos( troop.eid )
+            troop.tmCur = gTime
+
+            local chg = gPendingSave.troop[ troop._id ]
+            chg.curx    = troop.curx
+            chg.cury    = troop.cury
+            chg.tmCur    = troop.tmCur
+
+            print( "save troop", troop._id, troop.curx or troop.sx, troop.cury or troop.sy, troop.tmCur )
+        end
+    end
+    _G.gInit = "SystemSaving"
+end
+
+function check_pending_before_shutdown()
+    if not gPendingModule then
+        --gPendingModule = { player_t, build_t, hero_t, union_t, npc_city, monster_city, king_city, lost_temple }
+        gPendingModule = { player_t }
+    end
+
+    local mods = gPendingModule
+    local update = false
+    for _, mod in pairs( mods ) do
+        for k, v in pairs( mod._cache ) do
+            INFO( "shutdown, save %s : %s, n = %d", mod._name, k, v._n_ or 0 )
+            update = true
+        end
+    end
+    return update
+end
+
 
 function mem_info()
-    local heap, mem, mlua, mbuf, mobj, nbuf, nply, nres, ntroop, nmonster, nothers, neye = c_get_engine_mem()
-    INFO("[MEM_INFO], heap=%d, mem=%d, lua=%d, mbuf=%d, mobj=%d", heap, mem, mlua, mbuf, mobj)
-    INFO("[MEM_DETAIL], mem=%d, lua=%d, mbuf=%d, mobj=%d, nbuf=%d, nply=%d, nres=%d, ntroop=%d, nmonster=%d, neye=%d", mem, mlua, mbuf, mobj ,nbuf, nply, nres, ntroop, nmonster, neye)
+    local heap, alloc, mlua, mbuf, mobj, nbuf = c_get_engine_mem()
+    INFO("[MEM_INFO], heap,%d, alloc,%d, lua,%d, mobj,%d, mbuf,%d, nbuf,%d", heap, alloc, mlua, mobj, mbuf, nbuf)
 end
-
 
 -- Hx@2015-12-03 :
 function ack(self, funcname, code, reason)
@@ -519,98 +652,170 @@ end
 -- 如果obj中不存在class则会去全局找module_class，因此找到本全局函数，造成错误
 -- 所以一定类成员不要和全局函数同名!!!!
 -- -----------------------------------------------------------------------------
-function module_class(name, example)
-    assert(example._id, "must have _id as pk")
-    module(name, package.seeall)
-    setfenv(2, getfenv(1))
-    _cache = _cache or {}
-    _example = example
+--function module_class(name, example)
+--    assert(example._id, "must have _id as pk")
+--    --module(name, package.seeall)
+--    --setfenv(2, getfenv(1))
+--    local mod = _G[ name ]
+--    _ENV = mod
+--
+--    local _cache = mod._cache or {}
+--    local _example = example
+--    local _name = name
+--
+--    local mt = {
+--        __index = function(t, k)
+--            if t._pro[k] ~= nil then return t._pro[k] end
+--            if _example[k] ~= nil then
+--                if type(_example[k]) == "table" then
+--                    t._pro[k] = copyTab(_example[k])
+--                    return t._pro[k]
+--                else
+--                    return _example[k]
+--                end
+--            end
+--            if _G[_name][k] ~= nil then return _G[_name][k] end
+--        end,
+--        __newindex = function(t, k, v)
+--            if _example[k] ~= nil then
+--                t._pro[k] = v
+--                local id = t._id
+--                local chgs = _cache[ id ]
+--                if not chgs then
+--                    chgs = {}
+--                    _cache[ id ] = chgs
+--                end
+--                chgs[ k ] = v
+--                chgs._n_ = nil
+--            else
+--                rawset(t, k, v)
+--            end
+--        end
+--    }
+--
+--    function wrap(t)
+--        return setmetatable({_pro=t}, mt)
+--    end
+--
+--    function new(t)
+--        if not t._id  then return MARK( "no _id") end
+--        _cache[t._id] = t
+--        local self = {_pro=t}
+--        t._a_ = 1
+--        setmetatable(self, mt)
+--        self:init()
+--
+--        -- in order to detect add event when check_pending()
+--        -- Hx@2016-01-07 : do it in init() by your self. some module did not want that
+--        --_cache[self._id] = self._pro
+--
+--        return self
+--    end
+--
+--    function clr(t)
+--        _cache[ t._id ] = {_a_=0}
+--    end
+--
+--    function init(self)
+--        --override
+--    end
+--
+--    function check_pending()
+--        local db = dbmng:tryOne(1)
+--        if not db then return end
+--
+--        local update = false
+--        local cur = gFrame
+--        for id, chgs in pairs(_cache) do
+--            if not chgs._n_ then
+--                if not chgs._a_ then
+--                    local oid = chgs._id
+--                    chgs._id = id
+--                    db[ _name ]:update({_id=id}, {["$set"] = chgs }, true)
+--                    chgs._id = oid
+--                    print( "[DB], update", _name, id )
+--                    dumpTab( chgs, _name )
+--                else
+--                    if chgs._a_ == 0 then
+--                        db[ _name ]:delete( { _id = id } )
+--                        print( "[DB], delete", _name, id )
+--                    else
+--                        local oid = chgs._id
+--                        rawset( chgs, "_a_", nil )
+--                        rawset( chgs, "_id", id )
+--                        db[ _name ]:update( {_id=id}, chgs, true )
+--                        rawset( chgs, "_a_", 1)
+--                        rawset( chgs, "_id", oid )
+--                        print( "[DB], create", _name, id )
+--                    end
+--                end
+--                update = true
+--                rawset( chgs, "_n_", cur )
+--                if mod.on_check_pending then mod.on_check_pending( db, id, chgs ) end
+--            end
+--        end
+--
+--        if update then gen_checker( db, gFrame, _cache, _name ) end
+--
+--        return update
+--    end
+--end
+
+
+function module_class( name, example ) 
+    local mod = _G[ name ]
+    _ENV = mod
+
+    local _example = example
+    local _name = name
+    mod._example = _example
+    mod._name = _name
+
     local mt = {
-        __index = function(t, k)
-            if t._pro[k] ~= nil then return t._pro[k] end
-            if _example[k] ~= nil then
-                if type(_example[k]) == "table" then
-                    t._pro[k] = copyTab(_example[k])
-                    return t._pro[k]
+        __index = function ( t, k )
+            if t._pro[ k ] then return t._pro[ k ] end
+            if _example[ k ] then
+                local v = _example[ k ]
+                if type( v ) == "table" then
+                    t._pro[ k ] = copyTab( v )
+                    return t._pro[ k ]
                 else
-                    return _example[k]
+                    return v
                 end
             end
-            if _G[name][k] ~= nil then return _G[name][k] end
+            if _G[ _name ][ k ] then return _G[ _name ][ k ] end
         end,
-        __newindex = function(t, k, v)
-            if _example[k] then
-                t._pro[k] = v
-                if not _cache[t._id] then _cache[t._id] = {} end
-                _cache[t._id][k] = v
-                _cache[t._id]._n_ = nil
+        
+        __newindex = function( t, k, v )
+            if _example[ k ] then
+                t._pro[ k ] = v
+                _G.gPendingSave[ _name ][ t._id ][ k ] = v
             else
-                rawset(t, k, v)
+                rawset( t, k, v )
             end
         end
     }
 
-    function new(t)
-        if not t._id then return MARK( "no _id") end
-        _cache[t._id] = t
-        local self = {_pro=t}
-        setmetatable(self, mt)
+
+    function wrap( t )
+        return setmetatable( { _pro = t }, mt )
+    end
+
+    function new( t )
+        if not t._id  then return MARK( "no _id") end
+        gPendingInsert[ _name ][ t._id ] = t
+        local self = { _pro = t }
+        setmetatable( self, mt )
         self:init()
-
-        --in order to detect add event when check_pending()
-        -- Hx@2016-01-07 : do it in init() by your self. some module did not want that
-        --_cache[self._id] = self._pro
-
         return self
     end
 
-    function init(self)
+    function clr( t )
+        gPendingDelete[ _name ][ t._id ] = 1
+    end
+
+    function init( self )
         --override
-    end
-
-    function check_pending()
-        local db = dbmng:tryOne(1)
-        if not db then return end
-        local hit = false
-        local cur = gFrame
-        for _id, chgs in pairs(_cache) do
-            if not chgs._n_ then
-                on_check_pending(db, _id, chgs)
-                chgs._n_ = cur
-                hit = true
-            end
-        end
-        if hit then get_db_checker(db, cur)() end
-    end
-
-    function on_check_pending(db, _id, chgs)
-        WARN("override this!!!")
-        --override
-    end
-
-    function get_db_checker(db, frame)
-        local f = function()
-            local info = db:runCommand("getPrevError")
-            if info.ok then
-                local dels = {}
-                for k, v in pairs(_cache) do
-                    local n = v._n_
-                    if n then
-                        if n == frame then
-                            table.insert(dels, k)
-                        elseif n < frame - 100 then
-                            v._n_ = nil
-                        end
-                    end
-                end
-                if #dels > 0 then
-                    for _, v in pairs(dels) do
-                        _cache[v] = nil
-                    end
-                end
-            end
-        end
-        return coroutine.wrap(f)
     end
 end
 
@@ -631,13 +836,10 @@ function get_material_group_by_rare(rare)
     return its
 end
 
-
 function Mark(fmt, ...)
-    if fmt then lwarn( string.format(fmt, ...).. " ".. debug.stack(1))
-    else lwarn(debug.stack(1)) end
+    if fmt then lwarn( string.format(fmt, ...).. " ".. debug.stack(1)) else lwarn(debug.stack(1)) end
     return false
 end
-
 
 function get_sys_status(key)
     return _G.gSysStatus[ key ]
@@ -646,6 +848,14 @@ end
 function set_sys_status(key, val)
     _G.gSysStatus[ key ] = val
     gPendingSave.status[ gMapID ][ key ] = val
+end
+function get_white_list(key)
+    return _G.white_list[ key ]
+end
+
+function set_white_list(key, val)
+    _G.white_list[ key ] = val
+    gPendingSave.status[ "white_list" ][ key ] = val
 end
 
 function init_game_data()
@@ -661,8 +871,157 @@ function remove_id(tab, id)
     end
 end
 
-
 function to_tool( sn, info )
---    Rpc:qry_tool( gAgent, sn ,info )
 end
---timer.new("tlog", 1)
+
+gReplayMax = 0
+function get_replay_id()
+    gReplayMax = gReplayMax + 1
+    if gReplayMax > 4096 then
+        gReplayMax = 0
+    end
+    return string.format("%d%d%d", gTime, gMapID, gReplayMax)
+end
+
+gQueryAroundSn = gQueryAroundSn or 0
+function get_around_eids( eid, r )
+    gQueryAroundSn = gQueryAroundSn + 1
+    c_get_around( gQueryAroundSn, eid, r )
+    local eids = putCoroPend( "roi", gQueryAroundSn )
+    return eids
+end
+
+function get_mall_item( itemid )
+    for _, conf in pairs( resmng.prop_mall ) do
+        if type(conf.Item) == "table" and #conf.Item == 1 then
+            local node = conf.Item[1]
+            if node[1] == "item" and node[2] == itemid then
+                return conf
+            end
+        end
+    end
+end
+
+function get_item_price( itemid )
+    for _, conf in pairs( resmng.prop_mall ) do
+        if type(conf.Item) == "table" and #conf.Item == 1 then
+            local node = conf.Item[1]
+            if node[1] == "item" and node[2] == itemid then
+                return conf.NewPrice
+            end
+        end
+    end
+    return math.huge
+end
+
+
+
+function get_pos_lv( x, y )
+    return c_get_zone_lv( math.floor( x/16 ), math.floor( y/16 ) )
+end
+
+function cal_gs_power()
+    local power = 0
+    for k, v in pairs(gPlys or {}) do
+        if v then
+            power = power + v.pow
+        end
+    end
+    return power
+end
+
+function get_top_plys(num)
+    return  rank_mng:get_range(3, 1, num)
+end
+
+function upload_act_score(mode, key, val)
+    local class = 1
+    local center_id = 999
+    Rpc:callAgent(center_id, "upload_act_score", class, mode, key, val)
+end
+
+function arm_id( culture, id )
+    return ( culture * 1000000 ) + ( id % 1000000 )
+end
+
+
+gGlobalPending = gGlobalPending or nil
+gGlobalWaiting = gGlobalWaiting or nil
+gGlobalSaveThread = gGlobalSaveThread or { nil, 1, 0 }
+
+function make_sure_save( )
+    local co = coroutine.running()
+    local node = gGlobalSaveThread
+    while true do
+        coroutine.yield()
+        node[2] = 1
+        node[3] = gTime
+        local db = dbmng:getGlobal()
+        if db then
+            local infos = gGlobalWaiting
+            if not infos then
+                infos = gGlobalPending
+                gGlobalWaiting = infos
+                gGlobalPending = nil
+            end
+
+            for tab, recs in pairs( infos ) do
+                for id, chgs in pairs( recs ) do
+                    if not chgs._a_ then
+                        db[ tab ]:update({_id=id}, {["$set"] = chgs }, true)
+                    elseif chgs._a_ == 0 then
+                        db[ tab ]:delete({_id=id})
+                    else 
+                        db[ tab ]:update( {_id=id}, chgs, true )
+                    end
+                end
+            end
+            local info = db:runCommand("getLastError")
+            local flag = false
+            if info and info.ok then
+                if node[1] == co then
+                    node[2] = 0
+                    gGlobalWaiting = nil 
+                    flag = true
+                end
+            end
+            if not flag then return end
+        end
+        if node[1] ~= co then return end
+        node[2] = 0
+    end
+end
+
+function warxG_check_save()
+    if gGlobalPending or gGlobalWaiting then
+        local node = gGlobalSaveThread
+        if node[2] == 1 then
+            if gTime - node[3] < 5 then return end
+            local co = coroutine.create( make_sure_save )
+            coroutine.resume( co )
+            node[1] = co
+            node[2] = 0
+            node[3] = 0
+        end
+        coroutine.resume( node[1] )
+    end
+end
+
+function update_global( tab, key, info )
+    if not gGlobalPending then gGlobalPending = {} end
+    local node = gGlobalPending[ tab ]
+    if not node then
+        node = {}
+        gGlobalPending[ tab ] = node
+    end
+    info._id = key
+    node[ key ] = info
+end
+
+function insert_global( tab, key, info )
+    info._a_ = 1
+    update_global( tab, key, info)
+end
+
+
+

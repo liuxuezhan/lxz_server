@@ -1,135 +1,28 @@
-module("rank_mng")
+module("rank_mng", package.seeall)
 
 gRanks = gRanks or {}
 
-function init() 
+-- tops, 前100， 排好序的数组
+-- ranks, 前100， 以pid做key, val 是排行
+-- alls, 前1000， 以pid做key
+
+function init()
     gRanks = {}
     local db = dbmng:getOne()
     for k, v in pairs( resmng.prop_rank ) do
-        local t = { 
-           -- sl=skiplist(), 
-            alls={}, ntop=v.Num, nall=v.Limit, top=0, all=0, num=0, skey=v.Skeys[1], skeys=v.Skeys, detail=rank_function[ v.IsPerson ] }
-            gRanks[ k ] = t
+        local sl = skiplist.new( k, table.unpack( v.Skeys ) )
 
-            local tab = string.format("rank%d", k )
-            local info = db[tab]:find( {} )
-            while info:hasNext() do
+        local t = { id=k, ntop=v.Num, nall=v.Limit, detail=rank_function[ v.IsPerson ], is_persion = v.IsPerson } -- infos, tops, ranks, time
+        gRanks[ k ] = t
+        local tab = string.format("rank%d", k )
+        local info = db[tab]:find( {} )
+        while info:hasNext() do
             local data = info:next()
-            local key = data._id
-            table.remove( data.v, 1 )
-            add_data( k, key, data.v )
+            skiplist.insert( k, data._id, table.unpack( data.v ) )
         end
         load_rank(k)
     end
     --fill()
-end
-
-function rem_data( idx, key )
-    local node = gRanks[ idx ]
-    if not node then return end
-
-    key = tonumber( key )
-    local n = node.alls[ key ]
-    if n then
-        local tab = string.format( "rank%d", idx )
-
-        local score = n[2] * node.skey
-        node.sl:delete( score, tostring( key ) )
-
-        node.alls[ key ] = nil
-        gPendingDelete[tab][ key ] = 1
-
-        if n.tops then
-            if n.ranks[ key ] then 
-                n.ranks[ key ] = nil 
-                node.tops = nil
-            end
-        end
-    end
-end
-
-function add_data( idx, key, data )
-    local node = gRanks[ idx ]
-    if not node then return end
-
-    key = tonumber( key )
-
-    local tab = string.format( "rank%d", idx )
-
-    local n = node.alls[ key ]
-    if n then
-        local old = n[2] * node.skey
-        local new = data[1] * node.skey
-        if old == new then
-            table.insert( data, 1, key )
-            node.alls[ key ] = data
-            gPendingSave[tab][ key ].v = data
-
-        else
-            local top = node.top
-            --node.sl:delete( old, tostring( key ) )
-            --node.sl:insert( new, tostring( key ) )
-            table.insert( data, 1, key )
-            node.alls[ key ] = data
-            gPendingSave[tab][ key ].v = data
-
-            if node.tops then
-                if top == 0 or old <= top or new <= top then 
-                    if node.ranks then
-                        local idx = node.ranks[ key ]
-                        if idx then
-                            local pre = node.tops[ idx - 1 ]
-                            local nxt = node.tops[ idx + 1 ]
-
-                            local nochg = false
-                            if idx == 1 and nxt and new <= nxt[2] * node.skey then
-                                nochg = true
-                            elseif pre and nxt and new >= pre[2] * node.skey and new <= nxt[2] * node.skey then
-                                nochg = true
-                            end
-                            if nochg then
-                                node.tops[ idx ] = node.detail( data )
-                                node.time = gTime
-                                return
-                            end
-                        end
-                    end
-                    node.tops = nil
-                end
-            end
-        end
-        return
-    end
-
-    if data[1] == 0 then return end
-    
-    local score = data[1] * node.skey
-    table.insert( data, 1, key )
-
-    if node.num <= node.nall then
-        node.tops = nil
-        --node.sl:insert( score, tostring(key) )
-        node.alls[ key ] = data
-        gPendingSave[tab][ key ].v = data
-        node.num = node.num + 1
-
-    else
-        if node.top == 0 or node.all == 0 then load_rank( idx ) end
-        if node.num > 2 * node.nall then load_rank( idx ) end
-
-        if score <= node.all then
-            if score <= node.top then node.tops = nil end
-            node.sl:insert( score, tostring(key) )
-            node.alls[ key ] = data
-            gPendingSave[tab][ key ].v = data
-            node.num = node.num + 1
-        end
-    end
-end
-
-function get_node(idx)
-    local node = gRanks[ idx ]
-    return node
 end
 
 function load_rank( which )
@@ -137,99 +30,129 @@ function load_rank( which )
     if not node then return gTime, {} end
 
     if node.tops then return node.time, node.tops end
+    local info = skiplist.get_range_with_score( which, 1, node.ntop )
+    if info then
+        local oinfos = node.infos or {}
+        local ninfos = {}
+        local tops = {}
+        local ranks = {}
 
-    print( "recalc rank", which )
+        local count = #info
+        for i = 1, count, 2 do
+            local id = info[ i ]
+            local score = info[ i + 1 ]
 
-    local sl = node.sl
-    if not sl then
-            return gTime,{}
-    end
-    local count = sl:get_count();
-    local infos = sl:get_rank_range( 1, node.nall )
-
-    local ntop = node.ntop
-    local nall = node.nall
-
-    node.all = 0
-    node.top = 0
-
-    local tops = {}
-    local alls = node.alls
-    local score = 0
-    local num = 0
-    for idx, v in ipairs( infos ) do
-        local key = tonumber( v )
-        local info = alls[ key ]
-        num = num + 1
-        if idx < ntop then
-            table.insert( tops, info )
-
-        elseif idx == ntop then
-            table.insert( tops, info )
-            score = info[2]
-            node.top = info[2] * node.skey
-
-        elseif idx < nall then
-            if info[ 2 ] == score then table.insert( tops, info ) end
-
-        elseif idx == nall then
-            node.all = info[2] * node.skey
-
-        else
-            break
+            local p = oinfos[ id ]
+            if not p then
+                p = node.detail( id, score )
+            end
+            ninfos[ id ] = p
+            table.insert( tops, p )
+            ranks[ id ] = #tops
         end
+        node.tops = tops        -- index to info
+        node.infos = ninfos     -- key to info
+        node.ranks = ranks      -- key to index
+        node.time = gTime
+
+        return node.time, node.tops
     end
-    node.num = num
-
-    local skeys = node.skeys 
-    local sfunc = function( A, B ) 
-        for k, v in ipairs( skeys ) do
-            local diff = A[ k+1 ] * skeys[ k ] - B[ k+1 ] * skeys[ k ]
-            if diff ~= 0 then return diff < 0 end
-        end
-        return A[1] < B[1]
-    end
-    table.sort(tops, sfunc )
-
-    local res = {}
-    for i = 1, node.ntop, 1 do
-        local t = tops[ i ]
-        if not t then break end
-        local n = node.detail( t )
-        table.insert( res, n)
-    end
-
-    local ranks = {}
-    for k, v in ipairs( tops ) do ranks[ v[1] ] = k end
-
-    node.tops = res
-    node.ranks = ranks
-
-    local tab = string.format( "rank%d", which )
-    local alls = node.alls
-    local func_cb = function ( key )
-        key = tonumber( key )
-        gPendingDelete[ tab ][ key ] = 1
-        alls[ key ] = nil
-    end
-    sl:delete_by_rank( num + 1, count + 1, func_cb )
-    node.time = gTime
-    return node.time, node.tops
+    return gTime, {}
 end
+
+function add_node( idx, key, val, info, init )
+
+end
+
+function add_data( idx, key, data, init )
+    local node = gRanks[ idx ]
+    if not node then return end
+
+    key = tonumber( key )
+
+    if node.is_persion == 0 then
+        local union = unionmng.get_union( key )
+        if not union then return end
+        if union:is_new() then return end
+    end
+
+    local rank = skiplist.insert( idx, key, table.unpack( data ) )
+
+    if not init then
+        local tab = string.format( "rank%d", idx )
+        gPendingSave[tab][ key ].v = data 
+    end
+
+    --if node.tops and node.infos[ key ] then
+    --    node.infos[ key ][ 2 ] = data[ 1 ]
+    --end
+
+    if node.infos and node.infos[ key ] then
+        node.infos[ key ] = nil
+    end
+
+    if rank then
+        if rank == 0 then
+            node.time = gTime
+        elseif rank <= node.ntop then
+            node.tops = nil
+        end
+    end
+end
+
+function rem_data( idx, key )
+    local node = gRanks[ idx ]
+    if not node then return end
+
+    key = tonumber( key )
+    local rank = skiplist.delete( idx, key )
+    local tab = string.format( "rank%d", idx )
+    gPendingDelete[tab][ key ] = 1
+
+    if rank then
+        if node.tops then
+            if node.infos and node.infos[ key ] then node.infos[ key ] = nil end
+            if rank > 0 and rank <= node.ntop then node.tops = nil end
+        end
+    end
+end
+
+
+function change_name( idx, key, name )
+    local node = gRanks[ idx ]
+    if node then
+        if node.tops then
+            local i = node.infos[ key ]
+            if i then
+                i[3] = name
+                node.time = gTime
+            end
+        end
+    end
+end
+
+function change_icon( idx, key, icon )
+    local node = gRanks[ idx ]
+    if node then
+        if node.tops then
+            local i = node.infos[ key ]
+            if i then
+                i[4] = icon
+                node.time = gTime
+            end
+        end
+    end
+end
+
+
 
 function get_rank( idx, key )
     local node = gRanks[ idx ]
     if node then
-        if node.tops then 
+        if node.tops then
             if node.ranks[ key ] then return node.ranks[ key ] end
         end
-
-        local n = node.alls[ key ]
-        if not n then return 0 end
-
-        local score = n[2] * node.skey 
-        local rank = node.sl:get_rank( score,  tostring(key) )
-        if rank and rank <= node.nall then return rank end
+        return skiplist.get_rank( idx, key ) or 0
     end
     return 0
 end
@@ -237,33 +160,16 @@ end
 function get_range(idx, start, tail)
     local node = gRanks[ idx ]
     if node then
-        local sl = node.sl
-        if sl then
-            local count = sl:get_count();
-            local infos = sl:get_rank_range( start, tail, node.nall )
-            return infos
-        end
-    end
-end
-
-function get_score(idx, key)
-    local node = gRanks[ idx ]
-    if node then
-        local n = node.alls[ key ]
-        if not n then return 0 end
-
-        return n[2]
+        return skiplist.get_range( idx, start, tail )
     end
 end
 
 
 rank_function = {}
-rank_function[1] = function( data )
-    local info = {}
-    info[1] = data[1] -- key, pid
-    info[2] = data[2] -- score, lv
-
-    local pid = data[1]
+rank_function[1] = function( id, score )
+    local info = { id, score }
+    local pid = id
+    if pid < 10000 then return end
     local ply = getPlayer( pid )
     if ply then
         table.insert( info, ply.name )
@@ -280,13 +186,9 @@ rank_function[1] = function( data )
     return info
 end
 
-rank_function[0] = function( data )
-    local info = {}
-    info[1] = data[1] -- pid
-    info[2] = data[2] -- lv
-    --info[3] = data[3] -- time
-
-    local uid = data[1]
+rank_function[0] = function( id, score )
+    local info = {id, score}
+    local uid = id
     local u = unionmng.get_union( uid )
     if u then
         table.insert( info, u.flag )
@@ -310,7 +212,7 @@ end
 
 function fill()
     print( "rank fill" )
-    restore_handler.load_count()
+    --restore_handler.load_count()
 
     for k, v in pairs( resmng.prop_rank ) do
         clear( k )
@@ -324,7 +226,7 @@ function fill()
     end
 
     for k, v in pairs( unionmng.get_all() ) do
-        if not v.new_union_sn then
+        if not v:is_new() then
             add_data( 5, k, { v:get_pow() } )
             add_data( 6, k, { v.kill } )
         end
@@ -333,6 +235,7 @@ function fill()
     for k, v in pairs( resmng.prop_rank ) do
         load_rank( k )
     end
+
     print( "rank fill done" )
 end
 
@@ -340,40 +243,22 @@ end
 function clear( idx )
     local node = gRanks[ idx ]
     if node then
-        node.sl = nil
-        node.sl = skiplist()
-        node.tops = {}
-        node.alls = {}
-        node.top = 0
-        node.all = 0
-        node.num = 0
-        node.time = gTime
-
+        node.id = idx
+        node.tops = nil
+        node.infos = nil
+        node.ranks = nil
+        node.time = 0
         local tab = string.format( "rank%d", idx )
         local db = dbmng:getOne()
         db[ tab ]:delete( {} )
         gPendingSave[ tab ] = nil
         local info = db:runCommand("getLastError")
+        skiplist.clear( idx )
     end
 end
 
-function change_name( idx, key, name )
-    local node = gRanks[ idx ]
-    if node then
-        if node.ranks and node.tops then
-            local i = node.ranks[ key ]
-            if i then
-                local t = node.tops[ i ]
-                if t then
-                    local conf = resmng.get_conf( "prop_rank", idx )
-                    local detail = conf.IsPerson
-                    if detail == 1 then
-                        t[3] = name
-                        node.time = gTime
-                    end
-                end
-            end
-        end
-    end
+-- todo
+function get_score( mode, key )
+    return skiplist.get_score( mode, key )
 end
 

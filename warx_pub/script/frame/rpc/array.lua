@@ -12,6 +12,7 @@ function Array.new( typename )
     local array = {}
     setmetatable( array, mt )
     array:init( typename )
+
     return array
 end
 
@@ -35,20 +36,20 @@ function Array.write( self, ar )
     local rpc = RpcType[self.type_]
     assert( rpc )
 
-    ar:writeString( self.type_ )
+    ar:WriteString( self.type_ )
     local size = #self.data_
-    ar:writeUshort( size )
+    ar:WriteUint( size )
     for k, v in ipairs(self.data_) do
-        rpc:_write(ar, v)
+        rpc._write(ar, v)
     end
 end
 
 function Array.read( self, ar )
-    self.type_ = ar:readString()
+    self.type_ = ar:ReadString()
     local rpc = RpcType[self.type_]
     assert( rpc )
 
-    local size = ar:readUshort()
+    local size = ar:ReadUint()
 
     local data = {}
     for i = 1, size do

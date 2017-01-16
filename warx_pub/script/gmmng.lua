@@ -1,6 +1,4 @@
 module("gmmng")
-
-
 function do_public_gm(self, tb)
     function get_parm(idx)
         if idx < 1 or tb[idx + 1] == nil then

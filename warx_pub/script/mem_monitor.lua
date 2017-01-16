@@ -127,32 +127,25 @@ monitor_func[MONITOR_TYPE.LUAOBJ] = function()
     --local mem = monitor_get_engine_mem()
     --monitor_debug("[MEM_LUAOBJ], mengine=%dMB, mlua=%dMB", math.ceil(mem.mengine/1024), math.ceil(mem.mlua/1024))
 
-    local total_ply = 0
-    local total_task = 0
-    local total_hero = get_table_valid_count(heromng._heros)
-    local total_build = 0
-    local total_ache = 0
-    local total_item = 0
-    for _, ply in pairs(gPlys) do
-        total_ply = total_ply + 1
-        total_task = total_task + get_table_valid_count(ply._daily_task_list) + get_table_valid_count(ply._life_task_list)
-        total_build = total_build + get_table_valid_count(ply._build)
-        total_ache = total_ache + get_table_valid_count(ply._ache)
-        total_item = total_item + get_table_valid_count(ply._item)
-    end
-    monitor_debug("[PLY_OBJ], nplynum=%d, ntask=%d, nhero=%d, nbuild=%d, nache=%d, nitem=%d",
-        total_ply, total_task, total_hero, total_build, total_ache, total_item)
+    -- local total_ply = 0
+    -- local total_task = 0
+    -- local total_hero = get_table_valid_count(heromng._heros)
+    -- local total_build = 0
+    -- local total_ache = 0
+    -- local total_item = 0
+    -- for _, ply in pairs(gPlys) do
+    --     total_ply = total_ply + 1
+    --     total_task = total_task + get_table_valid_count(ply._daily_task_list) + get_table_valid_count(ply._life_task_list)
+    --     total_build = total_build + get_table_valid_count(ply._build)
+    --     total_ache = total_ache + get_table_valid_count(ply._ache)
+    --     total_item = total_item + get_table_valid_count(ply._item)
+    -- end
+    -- monitor_debug("[PLY_OBJ], nplynum=%d, ntask=%d, nhero=%d, nbuild=%d, nache=%d, nitem=%d",
+    --     total_ply, total_task, total_hero, total_build, total_ache, total_item)
 
-    local cur_troop = get_table_valid_count(troop_mng.troop_id_map)
-    monitor_debug("[TROOP_OBJ], ncurnum=%d, npeaknum=%d", cur_troop, monitor_peak_troop)
+    -- local cur_troop = get_table_valid_count(troop_mng.troop_id_map)
+    -- monitor_debug("[TROOP_OBJ], ncurnum=%d, npeaknum=%d", cur_troop, monitor_peak_troop)
 
-    local total_union = get_table_valid_count(unionmng._us)
-    monitor_debug("[UNION_OBJ], nunionnum=%d", total_union)
+    -- local total_union = get_table_valid_count(unionmng._us)
+    -- monitor_debug("[UNION_OBJ], nunionnum=%d", total_union)
 end
-
-
-
-
-
-
-

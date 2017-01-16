@@ -2,13 +2,19 @@
 module("unionmng", package.seeall)
 
 _us = _us or {}
+_us2 = _us2 or {}
 
 function add_union(u)
     _us[u.uid] = u
 end
 
+function add_union2(u)
+    _us2[u.uid] = u
+end
+
 function get_union(uid)
-    return _us[uid]
+    local u = _us[uid]
+    return u  or _us2[uid]
 end
 
 function rm_union(u)
@@ -17,5 +23,12 @@ function rm_union(u)
 end
 
 function get_all()
-    return _us
+    local us = {}
+    for k, u in pairs(_us) do
+        us[k] = u
+    end
+    for k, u in pairs(_us2) do
+        us[k] = u
+    end
+    return us
 end

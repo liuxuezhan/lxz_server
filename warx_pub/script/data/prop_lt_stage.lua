@@ -7,6 +7,7 @@ svnnum("$Id$")
 
 prop_lt_stage = {
 
-	[LOST_STAGE_1] = { ID = LOST_STAGE_1, Start = {hour = 12, min = 0}, End = {hour = 16, min = 0}, Spantime = nil, NextStage = 2,},
-	[LOST_STAGE_2] = { ID = LOST_STAGE_2, Start = 0, End = 0, Spantime = 3 * 24 * 60, NextStage = 4,},
+	[LOST_STAGE_1] = { ID = LOST_STAGE_1, Start = nil, End = nil, Spantime = 257280, NextStage = 2,},
+	[LOST_STAGE_2] = { ID = LOST_STAGE_2, Start = nil, End = nil, Spantime = 86400, NextStage = 3,},
+	[LOST_STAGE_3] = { ID = LOST_STAGE_3, Start = 0, End = 0, Spantime = 257280, NextStage = 2,},
 }

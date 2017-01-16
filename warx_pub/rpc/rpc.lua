@@ -246,7 +246,7 @@ local function callAgent( rpc, map, name, ... )
     end
     pushOver()
 
-    LOG("RpcA, pid=%d, func=%s", map, name)
+    lxz("RpcA, pid=%d, func=%s", map, name)
 end
 
 local function callRpc( rpc, name, plA, ... )
@@ -260,7 +260,7 @@ local function callRpc( rpc, name, plA, ... )
 
     local socket = require "socket"
     local pack = {name=name,args={...}, }
-    lxz(pack)
+    --lxz(pack)
     pack = json.encode(pack)
     pack = string.pack(">s", pack)
     if plA.sockid then

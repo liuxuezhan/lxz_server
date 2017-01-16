@@ -1,5 +1,45 @@
 local RpcType = {}
 
+RpcType.byte = {
+    _write=function( packet, v )
+        packet:WriteChar(v)
+    end,
+    _read=function( packet )
+        return packet:ReadChar()
+    end
+}
+
+RpcType.bool = {
+    _write=function( packet, v )
+        if v then
+            packet:WriteChar(1)
+        else
+            packet:WriteChar(0)
+        end
+    end,
+    _read=function( packet )
+        local byte = packet:ReadChar()
+        return byte ~= 0
+    end
+}
+
+RpcType.short = {
+    _write=function( packet, v )
+        packet:WriteShort(v)
+    end,
+    _read=function( packet )
+        return packet:ReadShort()
+    end
+}
+
+RpcType.ushort = {
+    _write=function( packet, v )
+        packet:WriteUshort(v)
+    end,
+    _read=function( packet )
+        return packet:ReadUshort()
+    end
+}
 
 RpcType.int = {
     _write=function( packet, v )

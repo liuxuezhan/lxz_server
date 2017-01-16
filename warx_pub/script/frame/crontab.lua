@@ -60,6 +60,7 @@ function initBoot()
             end
         end
     end
+    _G.gInit = "InitCronBootDone"
 end
 
 function loop()
@@ -73,7 +74,7 @@ function loop()
                     local fun = crontab[ v.action ]
                     if fun then
                         INFO("[CRONTAB]:%s", v.action)
-                        fun(unpack(v.arg or {}))
+                        action(fun, unpack(v.arg or {}))
                     end
                 end
             end
@@ -100,34 +101,6 @@ function setDayStart()
     if flag then tick = tick - 24 * 3600 end
     _G.gDayStart = tick
 end
-
-function on_day_pass()
-    local last_tick = _G.gSysStatus.pass_day_tick or 0
-
-    if get_diff_days(gTime, last_tick) > 0 then
-        player_t.refresh_global_black_market()
-
-        --玩家跨天
-        --[[for k, v in pairs(gPlys) do
-            if v:is_online() == true then
-                if get_diff_days(gTime, v.cross_time) > 0 then
-                    v:on_day_pass()
-                end
-            end
-        end
-        --boss reset at AM 0
-        monster.on_day_pass()
-        --]]
-        --抽卡限制重置
-        gacha_limit_t.gacha_limit_on_day_pass()
-
-
-        _G.gSysStatus.pass_day_tick = gTime
-        set_sys_status("pass_day_tick", gTime)
-    end
-
-end
-
 
 
 

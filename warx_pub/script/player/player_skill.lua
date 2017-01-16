@@ -40,6 +40,7 @@ function do_skill(self, skill)
 end
 
 function do_skill_effect(self, func, ...)
+    print( "do_skill_effect", func, ... )
     local f = g_skill_effect[ func ]
     if f then f(self, ...) end
 end
@@ -52,15 +53,39 @@ g_skill_effect.AddBuf = function (self, bufid, count)
     end
 end
 
-
 g_skill_effect.CallBackTroop = function (self, sec)
+    if sec < 1 then sec = 1 end
+
+    self:add_state( CastleState.RecallTroop )
+    timer.new( "remove_state", sec, self.pid, CastleState.RecallTroop )
+
+    local dx, dy = get_ety_pos( self )
     for k, v in pairs(self.busy_troop_ids) do
         local troop  = troop_mng.get_troop(v)
         if troop then
+            local curx, cury = troop:get_pos()
+            self:troop_recall( troop._id, true )
+
+            troop.curx = curx
+            troop.cury = cury
+            troop.tmCur = gTime
+            local dist = c_calc_distance( curx, cury, dx, dy )
+            local use_time = sec
+            troop.use_time = use_time
+            troop.tmOver = math.ceil( gTime + use_time )
+            troop.speed = dist / use_time
+
+            local speed = troop:calc_troop_speed()
+            if speed > troop.speed then troop.speed = speed end
+
+            c_troop_set_speed( troop.eid, troop.speed, troop.use_time )
+            troop:notify_owner()
+            troop:save()
 
         end
     end
 end
+
 
 
 function get_cd(self, what, id)
@@ -68,11 +93,35 @@ function get_cd(self, what, id)
     for k, v in pairs(cds) do
         --v = {"skill", 10001, tmStart, tmOver}
         if v[1] == what and v[2] == id then
-            return v[4]
+            if v[4] > gTime then
+                return v[4]
+            else
+                table.remove( cds, k )
+                self.cds = cds
+                return 0
+            end
         end
     end
     return 0
 end
+
+function get_cd_info( self, what, id )
+    local cds = self.cds 
+    for k, v in pairs(cds) do
+        --v = {"genius", 10001, tmStart, tmOver}
+        if v[1] == what and v[2] == id then
+            if v[4] > gTime then
+                return v
+            else
+                table.remove( cds, k )
+                self.cds = cds
+                return
+            end
+        end
+    end
+end
+
+
 
 function set_cd(self, what, id, dura)
     if not dura then return end
@@ -103,4 +152,16 @@ function set_cd(self, what, id, dura)
 
     self.cds = self.cds
 end
+
+function del_cd( self, what, id )
+    local cds = self.cds
+    for k, v in pairs( cds ) do
+        if v[1] == what and v[2] == id then
+            table.remove( cds, k )
+            self.cds = cds
+            return true
+        end
+    end
+end
+
 

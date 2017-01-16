@@ -9,15 +9,20 @@ all :
 	@echo Please do \'make PLATFORM\' where PLATFORM is one of these:
 	@echo win linux
 
-linux: robot.so robot
+linux: socket.so pack.so lpack.so robot
 
-robot.so : robot.c
+socket.so : socket.c
 	gcc --shared -Wall -fPIC -O3 $^ -o $@ -llua -lpthread
+
+pack.so : pack.c
+	gcc --shared -Wall -fPIC -O3 $^ -o $@ -llua 
+
+lpack.so : lpack.c
+	gcc --shared -Wall -fPIC -O3 $^ -o $@ -llua 
 
 robot : main.cpp
 	g++  $(CFLAGS)  $^ -o $@  $(LUALIB)
 clean:
-	rm -f robot.so server
-
+	rm -f *.so robot
 
 

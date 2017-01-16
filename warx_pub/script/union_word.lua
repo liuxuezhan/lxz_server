@@ -56,9 +56,10 @@ function list(pid,u)
         local p = getPlayer(v.pid)
         d.word = nil
         d.name = p.name
+        local _members = u:get_members() or {}
         if v.type ==0 then
             table.insert(list,d)
-        elseif u._members[pid] then
+        elseif _members[pid] then
             table.insert(list,d)
         end
     end
@@ -67,11 +68,12 @@ end
 
 function get(p,u,wid)
     if not u.word then return end
+    local _members = u:get_members() or {}
     for k, v in pairs(u.word.log or {}) do
         if v.wid == wid then
             if v.type ==0 then
                 return  v
-            elseif u._members[p.pid] then
+            elseif _members[p.pid] then
                 return  v
             end
         end
@@ -84,15 +86,16 @@ function add(p,uid,title,word)
         if not union_t.is_legal(p, "Writeinwords") then return resmng.E_DISALLOWED end
     end
     local u = unionmng.get_union(uid)
+    if not u then return end
+
     if not u.word then
         u.word={_id=uid,log={}}
     end
     if not check(u) then return  0 end
     u.wid = (u.wid or 0) + 1
     local type = 0
-    if u._members[p.pid] then
-        type = 1
-    end
+    local _members = u:get_members() or {}
+    if _members[p.pid] then type = 1 end
     table.insert(u.word.log,{wid=u.wid,pid=p.pid,title=title,word=word,tm=gTime,type=type})
     gPendingSave.union_word[uid] = u.word
     return {wid=u.wid,pid=p.pid,name=p.name,title=title,word=word,tm=gTime,type=type}
@@ -147,7 +150,7 @@ function top(p,wid,flag)
                 u.word.log[k].tm_top = nil
             end
             gPendingSave.union_word[u.uid] = u.word
-            return
+            return v
         end
     end
 end

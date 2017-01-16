@@ -1,5 +1,6 @@
 module("player_t", package.seeall)
 _cache = _cache or {}
+_name = "player_t"
 _example = { account="Unknown", pid=-2 }
 
 local player_mt = {
@@ -13,14 +14,13 @@ local player_mt = {
                 return _example[k]
             end
         end
-        --return player_t[ k ]
         return rawget(player_t, k)
     end,
 
     __newindex = function(t, k, v)
         if _example[k] ~= nil then
+            if type( v ) == "number" and v == t._pro[k] then return end
             t._pro[k] = v
-            --gPendingSave.player[ t._id ][ k ] = v
             if not _cache[t._id] then _cache[t._id] = {} end
             _cache[t._id][k] = v
             _cache[t._id]._n_ = nil
@@ -37,13 +37,15 @@ function new(t)
 
     local acc = gAccounts[ t.account ]
     if not acc then
-        acc = { [ t.pid ] = { map=gMapID, smap=t.smap or gMapID } } 
+        acc = {}
         gAccounts[ t.account ] =  acc
     end
+    acc[ t.pid ] = { map=gMapID, smap=t.smap or gMapID }
 
     setmetatable(obj, player_mt)
-    if player_t.initObj then
-        player_t.initObj(obj)
+    _cache[ t.pid ] = t
+    if initObj then
+        initObj(obj)
     end
     return obj
 end
@@ -54,6 +56,7 @@ end
 function check_pending()
     local db = dbmng:tryOne(1)
     if not db then return end
+
     local hit = false
     local cur = gFrame
     for pid, chgs in pairs(_cache) do
@@ -66,7 +69,10 @@ function check_pending()
             hit =true
         end
     end
-    if hit then get_db_checker(db, gFrame)() end
+    --if hit then get_db_checker(db, gFrame)() end
+    if hit then 
+        gen_checker(db, cur, _cache, "player") 
+    end
 end
 
 function get_db_checker(db, frame)

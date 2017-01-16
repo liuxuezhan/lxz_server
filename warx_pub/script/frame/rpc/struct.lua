@@ -2,7 +2,14 @@ local Struct = {}
 mkcall(Struct)
 
 local mt = {
-    __index = Struct,
+    __index = function(table, key)
+        if Struct[key] then 
+            return Struct[key]
+        else
+            return table.data_[key]
+        end
+
+    end,
     __call = function(self,...)
         return self:getData()
     end,
@@ -35,12 +42,12 @@ function Struct.write( self, ar )
     local rpc = RpcType[self.type_]
     assert( rpc )
 
-    ar:writeString( self.type_ )
-    rpc:_write(ar, self.data_)
+    ar:WriteString( self.type_ )
+    rpc._write(ar, self.data_)
 end
 
 function Struct.read( self, ar )
-    self.type_ = ar:readString()
+    self.type_ = ar:ReadString()
     local rpc = RpcType[self.type_]
     assert( rpc )
 
