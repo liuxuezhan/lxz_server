@@ -3,8 +3,10 @@ local msg = {}
 
 msg.cs_login = {"name","pwd","sid","pid"} 
 msg.sc_login = {"nid","pid","host","port"} 
-
 msg.cs_msg = {"pid","id","msg"} 
+msg.test1 = {"pid","id","msg",{name="table",v="cs_msg",k="pids" },} 
+msg.test2 = {"pid","id","msg",{name="array_table",v="cs_msg",k="pids" },} 
+msg.test2 = {"pid","id","msg",{name="array",k="pids" },} 
 
 local function zip(tab,...) --压缩key
     local obj = {}
@@ -20,15 +22,43 @@ local function zip(tab,...) --压缩key
     return obj
 end
 
-local function zips(tab,src) --表中表
+local function zip2(tab,...) 
     local obj = {}
+    local src = {...}
     for i=1,#tab do
         local key = tab[i]
         if type(key) == "table" then
-            local temp_tab = msg.get(key)
-            obj[i] = zip(temp_tab,src[key[1]])
+            if key.name == "table" then--套单表项
+                for j=1,#src do
+                    if type(src[j])=="table" then
+                        obj[i] = zip2(msg[key.v],src[j][key.k])
+                    end
+                end
+            elseif key.name == "array_table" then--套多表项
+                for j=1,#src do
+                    if type(src[j])=="table" and type(src[j][key.k])=="table" then
+                        obj[i] = {} 
+                        for _,v in pairs(src[j][key.k]) do
+                            table.insert(obj[i],zip2(msg[key.v],v))
+                        end
+                    end
+                end
+            elseif key.name == "array" then--套稀疏数组
+                for j=1,#src do
+                    if type(src[j])=="table" and type(src[j][key.k])=="table" then
+                        obj[i] = {} 
+                        for k,v in pairs(src[j][key.k]) do
+                            table.insert(obj[i],{k,v})
+                        end
+                    end
+                end
+            end
         else
-            obj[i] = src[key]
+            for j=1,#src do
+                if type(src[j])=="table" then
+                    obj[i] = src[j][key]
+                end
+            end
         end
     end
     return obj
