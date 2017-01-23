@@ -18,7 +18,7 @@ def get_ip(ifname):
 
 if __name__ == "__main__":
    #ip = socket.gethostbyname(socket.gethostname())
-    ip = get_ip("eth0")
+    ip = get_ip("wlan0")
     #ip = sys.argv[2]
    #print ip
     if len(sys.argv) < 2:
@@ -28,7 +28,12 @@ if __name__ == "__main__":
     (name,ext) = os.path.splitext(name)
     print ip
     print path
+    print name
     lua_path = "skynet/?.lua;skynet/lualib/?.lua;lualib/?.lua;lib/rpc/?.lua;?.lua;%s/?.lua"%(path)
+
+    if name == "php":
+        os.system("php -S %s:80 -t rockmongo/"%(ip))
+        exit() 
 
     if name == "warx":
         lua_path = lua_path + ";%s/script/?.lua"%(path)
