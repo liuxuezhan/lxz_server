@@ -17,6 +17,7 @@ module_class("lost_temple",
     size = 0,
     band_id = 0,
     uname = "",
+    ualias = "",
     born = 0,
     --atk_troops= {},    --攻击该城市的部队
     --leave_troops = {},  --从该城市出发的部队
@@ -358,7 +359,8 @@ function respawn(tx, ty, grade, bandId, ntf_tag)
             mark(m)
             local union = unionmng.get_union(m.uid)
             if union then
-                m.uname = union.alias
+                m.uname = union.name
+                m.ualias = union.alias
             end
 
             if ntf_tag == nil or ntf_tag == true then
@@ -401,6 +403,7 @@ function reset_lt(city)
     city.uid = 0
     --city.pid = 0
     city.uname = ""
+    city.ualias = ""
     city.startTime = 0
     city.endTime = 0
     clear_timer(city)
@@ -456,7 +459,8 @@ function after_fight(ackTroop, defenseTroop)
         city.my_troop_id = nil
         local union = unionmng.get_union(city.uid)
         if union then
-            city.uname = union.alias
+            city.uname = union.name
+            city.ualias = union.alias
         end
 
         local owner = get_ety(ackTroop.owner_eid)
@@ -518,7 +522,6 @@ function deal_troop(atkTroop, defenseTroop)
         else
             troop_mng.delete_troop(atkTroop._id)
         end
-
         --defenseTroop:home_hurt_tr()
     end
 end
@@ -540,6 +543,9 @@ function finish_grap_state(self)
     local union = unionmng.get_union(self.uid)
     local res = resmng.prop_world_unit[self.propid].Fix_award
 
+    --世界事件
+    world_event.process_world_event(WORLD_EVENT_ACTION.GATHER_NUM, resmng.DEF_RES_SNAMAN_STONE, res)
+    
     if union then
         update_union_score(union.uid, res)
     end
@@ -670,6 +676,7 @@ function get_my_troop(self)
         self.my_troop_id = tr._id
     else
         tr = troop_mng.create_troop(TroopAction.HoldDefenseiLT, self, self)
+        troop_mng.delete_troop(tr)
     end
 
     if tr then
@@ -712,7 +719,7 @@ function send_score_reward()
     local _, tops = rank_mng.load_rank( 9 )
     if tops then
         for uid, data in pairs(tops or {}) do
-            local score = data[2] or 0
+            local score = data[3] or 0
             for k, conf in pairs(u_award or {}) do
                 if score > conf.Cond[1] and score < conf.Cond[2] then
                     local union = unionmng.get_union(uid)

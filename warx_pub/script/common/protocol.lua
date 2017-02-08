@@ -1,5 +1,10 @@
 module("Protocol")
 Server = {
+
+    --agent_test_struct = "int id, Array Struct UnionMember mems, string name",
+    agent_test_struct = "int id, Array Struct UnionMember mems, string name",
+    agent_test = "pack info, pack info1",
+
     firstPacket = "int uid, int cival, int pid, string signature, int time, string open_id, string token",
     --firstPacket2 = "int sockid, int source_map, string account, string pasw",
     firstPacket2 = "int sockid, int source_map, int cival, int pid, string signature, int time, string open_id, string token",
@@ -250,7 +255,7 @@ Server = {
     union_mission_set = "",     --领取军团定时任务
     union_mission_chat = "",     --刷新邀请时间
     union_mission_log = "string type,int id",     --获取军团定时任务日志
-    union_word_add = "int uid,string title,string word int flag",--军团留言
+    union_word_add = "int uid,string title,string word, int flag",--军团留言
     union_word_update = "int wid,string title,string word",--军团内部留言修改
     union_word_top = "int wid,int flag",--军团内部留言置顶 1:置顶 0：取消
     union_word_del = "int wid",--军团内部留言删除
@@ -288,6 +293,7 @@ Server = {
     call_hero_by_piece = "int hero_propid",
     hero_star_up = "int hero_idx",
     hero_lv_up = "int hero_idx, int item_idx, int num",
+    hero_skill_up = "int hero_idx, int skill_idx, int item_idx, int num",
 
     use_hero_skill_item = "int hero_idx, int skill_idx, int item_idx, int num",
 
@@ -459,6 +465,8 @@ Server = {
     p2p = "int to_pid, pack info",
 
     reset_skill = "int hero_idx, int skill_idx",
+    reset_skill_senior = "int hero_idx, int skill_idx",
+    reset_skill_primary = "int hero_idx, int skill_idx",
 
     request_empty_pos = "int x, int y, int size, pack info",
     request_fight_replay = "string replay_id",
@@ -470,6 +478,10 @@ Server = {
     world_chat_task = "",
     packet_target_task = "",
     qiri_get_award = "",
+    get_yueka_award = "",
+
+    get_world_event_award = "int event_id",
+    get_world_event_process = "",
 
 }
 
@@ -576,13 +588,13 @@ Client = {
     union_load = "pack info",
     union_get = "pack info",
     union_on_create = "pack info",
-    union_search = "pack info ",     --搜索玩家
-    --unionRmMemberNotice = "int unionId",
+    union_search = "string key,Array Struct PlayerInfo infos",     --搜索玩家
+    union_member_get = "int uid,Array Struct UnionMember datas",
     union_on_rm_member = "int pid",            --broadcast
     union_add_member = "pack info",           --broadcast
 
     union_destory = "",                      --- 军团解散
-    union_list = "pack info",                ---读取军团列表
+    union_list = "string key,Array Struct UnionInfo infos",                ---读取军团列表
     union_task_add = "pack info",     --获取军团悬赏任务列表
     union_task_get = "pack info",     --获取军团悬赏任务列表
     union_mission_get = "pack info",     --获取军团定时任务
@@ -594,20 +606,7 @@ Client = {
     union_invite = "int unionId",            ---主动邀请玩家加入军团
     union_mass_on_create = "int mid",   --回复集结创建成功
     union_state_mass = "pack info",     --集结变化(新的集结，完成集结) --broadcast
-    --union_state_member = "pack info",   --军团成员变化(战争状态，在线状态，军团属性) --broadcast
-    --集结详细(根据敌我方区别显示)
-    --atk={id,
-    --  A={{pid,name,lv,photo,troop={state,tmStart,tmOver,arms={...}}},{...}}
-    --  D={{pid,name,lv,photo},{...}} || D={{propid},{...}}
-    --  Dcnt={total}
-    --}
-    --def={id,
-    --  A={{pid,name,lv,photo},{...}}
-    --  Acnt={total}
-    --  D={{pid,name,lv,photo,troop={state,tmStart,tmOver,arms={...}}},{...}}
-    --}
-    --union_mass_enemy_info = "pack info",    --敌方集结信息
-    --union_state_aid = "pack info",
+    
     union_tech_update = "pack info",    --广播科技变化{idx,.id,xx,.tmOver}
     union_tech_mark = "pack info",      --广播新的标记
     union_tech_info = "pack info",      --科技详细信息{idx,id,exp,tmOver,donate={2,0,0}}
@@ -632,20 +631,7 @@ Client = {
     union_battle_room_detail_resp = "pack data",
     --- 
 
-    --联盟数据广播
-    --fight:正在发生的战斗
-    --ADD={id,A={{pid,name,lv,photo},{...}},
-    --  Ds={total}
-    --  Au={uid,alias,flag},
-    --  D={{pid,name,lv,photo},{...}},||D={{propid},{...}}
-    --  Ds={total}
-    --  Du={uid,alias,flag},
-    --  Dc={cival,},
-    --  T={action,state,tmStart,tmOver,eid,did,sx,sy,dx,dy},
-    --}
-    --UPDATE={id,A={..},As={...},D={..},Ds={...},T={...}}
-    --DELETE={id,}
-    --
+    --联盟数据广播    
     --member:联盟成员变化(ADD和DELETE暂时还用union_add_member&union_on_rm_member)
     --ADD={pid,name,lv,rank,photo,mark}
     --UPDATE={pid,name,lv,rank,photo,mark}
@@ -729,6 +715,7 @@ Client = {
     --act info
     act_info_tag_ack = "int tag",
     --boss
+    gen_boss_eid_ack = "int eid",  --测试用
     boss_rank_ack = "pack info",
 
     act_info_ack = "pack info",
@@ -832,6 +819,11 @@ Client = {
     support_notify = "pack infos",
     sync = "int sn",
     qiri_get_award_resp = "int res",
+
+    test_struct = "int id, Array Struct UnionMember member",    
+    get_world_event_process_resp = "pack info",
+    ety_info_ack = "pack info", --测试使用
+
 }
 
 CrossQuery = {

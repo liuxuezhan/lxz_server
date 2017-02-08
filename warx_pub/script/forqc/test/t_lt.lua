@@ -29,7 +29,7 @@ function t1.action(_idx)
     local eid = p.lt_eid
     WARN("get lt %d", eid)
     --local eid = 729095
-    p.eid = nil
+    p.lt_eid = nil
 
 
     local u = gTime % 1000000

@@ -108,10 +108,10 @@ function loadMod()
     doLoadMod("packet", "frame/rpc/packet")
     doLoadMod("MsgPack", "frame/MessagePack")
     doLoadMod("Array", "frame/rpc/array")
-
     doLoadMod("Struct", "frame/rpc/struct")
     doLoadMod("RpcType", "frame/rpc/rpctype")
     doLoadMod("Rpc", "frame/rpc/rpc")
+
 
     require("frame/player_t")
     require("frame/perfmon")
@@ -176,7 +176,6 @@ function do_threadAction()
         if gCoroBad[ co ] then
             gCoroBad[ co ] = nil
             LOG("Coro, threadAction, i should go away, %s", co)
-            print("Coro, threadAction, i should go away", co)
             return
         end
         putCoroPool("action")
@@ -203,7 +202,6 @@ function do_threadTimer()
         if gCoroBad[ co ] then
             gCoroBad[ co ] = nil
             LOG("Coro, threadTimer, i should go away, %s", co)
-            print("Coro, threadTimer, i should go away", co)
             return
         end
     end
@@ -230,7 +228,6 @@ function do_threadRoi()
         if gCoroBad[ co ] then
             gCoroBad[ co ] = nil
             LOG("Coro, threadRoi, i should go away, %s", co)
-            print("Coro, threadRoi, i should go away", co)
             return
         end
     end
@@ -327,7 +324,6 @@ function do_threadPK()
         if gCoroBad[ co ] then
             gCoroBad[ co ] = nil
             --LOG("Coro, threadPk, i should go away, %s", co)
-            print("Coro, threadPk, i should go away", co)
             return
         end
     end
@@ -476,6 +472,7 @@ function main_loop(sec, msec, fpk, ftimer, froi, signal)
             if reload then reload() end
 
         elseif signal == SignalDefine.SIGUSR2 then
+            dofile( "extra.lua" )
 
         end
     end
@@ -653,10 +650,10 @@ function main_loop(sec, msec, fpk, ftimer, froi, signal)
         check_tool_ack()
     end
 
-    local t3 = c_msec()
-    if t3 - t1 > 20 then
-        --print( t3-t1, t3-t2, ( t3-t2 )*100/( t3-t1 ) )
-    end
+    --local t3 = c_msec()
+    --if t3 - t1 > 20 then
+    --    print( "use_time_save", t3-t1, t3-t2, math.floor(( t3-t2 )*10000/( t3-t1 )) * 0.01 .. "%" )
+    --end
 end
 
 
@@ -731,31 +728,29 @@ function global_save( )
                 doc[ id ] = nil
                 update = true
                 if not chgs._a_ then
+                    if tab ~= "todo" then
+                        LOG( "[DB], update, %s, %s", tab, tostring(id) )
+                    end
                     local oid = chgs._id
                     chgs._id = id
                     db[ tab ]:update({_id=id}, {["$set"] = chgs }, true)
                     chgs._id = oid
-                    if tab ~= "todo" then
-                        LOG( "[DB], update, %s, %s", tab, tostring(id) )
-                    end
-
                 else
                     if chgs._a_ == 0 then
-                        db[ tab ]:delete({_id=id})
                         if tab ~= "todo" then
                             LOG( "[DB], delete, %s, %s", tab, tostring(id) )
                         end
+                        db[ tab ]:delete({_id=id})
                     else
+                        if tab ~= "todo" then
+                            LOG( "[DB], create, %s, %s", tab, tostring(id) )
+                        end
                         local oid = chgs._id
                         rawset( chgs, "_a_", nil )
                         rawset( chgs, "_id", id )
                         db[ tab ]:update({_id=id}, chgs, true)
                         rawset( chgs, "_a_", 1)
                         rawset( chgs, "_id", oid )
-
-                        if tab ~= "todo" then
-                            LOG( "[DB], create, %s, %s", tab, tostring(id) )
-                        end
                     end
                 end
                 rawset( chgs, "_n_", cur )

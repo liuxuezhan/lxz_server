@@ -24,7 +24,6 @@ end
 
 --到达目的地
 function arrived_target(x, y, actor_eid, parm1, parm2, parm3, parm4, parm5)
-    print( "arrive", actor_eid )
     local troop = get_ety(actor_eid)
     if not troop then
         WARN( "arrive_target, eid = %d, not found", actor_eid )

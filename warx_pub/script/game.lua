@@ -32,7 +32,12 @@ function do_reload()
     do_load("common/define")
     do_load("common/tools")
     do_load("common/protocol")
-    do_load("common/rpc_parse")
+    do_load("common/struct")
+    for k, v in pairs( RpcType._struct ) do
+        pause()
+        RpcType._struct[ k ] = Rpc.parseFunction( v ).args
+    end
+
     do_load("timerfunc")
     do_load("public_t")
     do_load("player_t")
@@ -91,6 +96,7 @@ function do_reload()
     do_load("kw_mall")
     do_load("use_item_logic")
     do_load("rank_mng")
+    --do_load("rankmng")
     do_load("cross/gs_t")
     do_load("cross/cross_mng_c")
     do_load("cross/cross_refugee_c")
@@ -102,6 +108,7 @@ function do_reload()
     do_load("gmcmd")
     do_load("wander")
     do_load("pay_mall")
+    do_load("world_event")
 
     --gTimeReload = c_get_time()
 end
@@ -432,147 +439,26 @@ end
 
 
 function test()
-    local data = getPlayer( 4250021 )._union
-    local count = 100000
-
-    local a = c_msec()
-    for i = 1, count, 1 do
-        bson.encode( data )
+    local t1 = c_msec()
+    local count = 0
+    for i = 1, 100, 1 do
+        for k, v in pairs( resmng.prop_task_detail ) do
+            count = count + 1
+            copyTab( v.FinishCondition)
+        end
     end
-    print( "bson", c_msec() - a )
-
-    local a = c_msec()
-    for i = 1, count, 1 do
-        cmsgpack.pack( data )
-    end
-    print( "msgpack", c_msec() - a )
+    local t2 = c_msec()
+    print( count, t2 - t1 )
 
 
-    --local c = 0
-    --local a = c_msec()
-    --for k, v in pairs( gPlys ) do
-    --    c = c + 1
-    --    bson.encode( v._build )
-    --    --dumpTab( v._build )
+    --for pid, ply in pairs( gPlys ) do
+    --    if not ply:is_online() and ply._build then
+    --        print( "remove player", ply.pid )
+    --        ply._mail = nil
+    --        ply._build = nil
+    --        ply.tm_check = nil
+    --    end
     --end
-    --local b = c_msec()
-    --print( c, b-a, ( b-a ) / c )
-    --for k, v in pairs( gPlys ) do
-    --    dumpTab( v )
-    --    break
-    --end
-
-    --local a = c_msec()
-    --for i = 1, 10000, 1 do
-    --    llog( "Rpc:send_invite(ply, 650005@conference.war_x.org users" )
-    --end
-    --local b = c_msec()
-    --print( b-a )
-
-    --local a = c_msec()
-    --for i = 1, 10000, 1 do
-    --    linfo( "Rpc:send_invite(ply, 650005@conference.war_x.org users" )
-    --end
-    --local b = c_msec()
-    --print( b-a )
-
-    --local a = c_msec()
-    --for i = 1, 10000, 1 do
-    --    lwarn( "Rpc:send_invite(ply, 650005@conference.war_x.org users" )
-    --end
-    --local b = c_msec()
-    --print( b-a )
-
-
-    --local obj = get_ety( 4624387 )
-    --obj.state = BUILD_STATE.FIX
-    --etypipe.add( obj )
-
-    --rank_insert 3, 4490035, 1547784, 0
-    
-    --skiplist.info(3)
-
-    --local notice = "%d %s"
-    --WARN( "notice %s", notice )
-
-    --insert_global( "test", "hello", { test=gTime } )
-
-    --local defer = getPlayer( 4250051 )
-    --Rpc:be_attacked( defer )
-
-    --local db = dbmng:getOne()
-    --db.test:update( {_id=1}, {c =2 }, true )
-    --local info = db:runCommand("getLastError")
-    --dumpTab( info, "test" )
-
-
-    --print( c_map_test_pos_for_ply( 1109, 817, 4 ) )
-
-    --local pid = 3750050
-    --local p = getPlayer( pid )
-    --if p then
-    --    p:migrate_random()
-    --    --p:get_lv_6_gift()
-    --    --p:mail_load( 0 )
-    --    --p:mail_drop_by_class( 4, 2, -1 )
-    --end
-    --
-    --local id = bson.objectid()
-    --print( "id", tostring(id) )
-       
-    --local p = getPlayer( 4250018 )
-    --local ef = p:get_union_ef()
-    --dumpTab( ef, "union_ef" )
-
-    --gPendingInsert.hello[ "hello" ] = { _id = "hello", foo = "bar" }
-    --gPendingInsert.hello[ "hello" ] = { _id = "hello", hello = "wrold" }
-
-    --split( as, 10, "kill", 33, "mkdmg" )
-    --dumpTab( as )
-
-    --for i = 1, 20, 1 do
-    --    do_reload()
-    --end
-
-    --local p = getPlayer( 3750014 )
-    --p:refresh_food()
-    --dumpTab( p.res, "refresh_food" )
-
-    --local db = dbmng:getOne()
-    --local info = db.count:findOne( {_id={["$in"] = {3610031, 361}}} )
-    --dumpTab( info, "findOne" )
-
-    --db.test:update( {_id=1}, {[ "$set"] = { a = true} }, true )
-
-    --local info = db.test:findOne( {_id=1} )
-    --dumpTab( info, "test") 
-
-    --print( c_get_zone_lv( math.floor( 1055/16 ), math.floor( 224 / 16 ) ) )
-
-    --c_roi_chk_troop()
-    --local db = dbmng:getOne()
-    ----local info = db:runCommand( "isMaster" )
-    ----dumpTab( info, "test info" )
-
-    --local id = 6
-    --local val = {foo="bar"}
-    --db.test:update( {_id=id}, { ["$push"]={ vs={["$each"]={val, val}, ["$slice"]=-4 }} }, true )
-
-    --c_tick(0)
-    --for i = 1, 10000, 1 do
-    --    local a = string.dump( function () return resmng.prop_item end, true )
-    --end
-    --print( c_tick( 1 ) )
-
-    --c_tick(0)
-    --for i = 1, 10000, 1 do
-    --    local a = cmsgpack.pack( resmng.prop_item )
-    --end
-    --print( c_tick( 1 ) )
-
-    --db.report1:update( {_id=id}, { ["$push"]={ vs=val, ["$clice"]=-5 }}, true )
-    --local info = db:runCommand("getLastError")
-    --dumpTab( info, "test")
 end
 
 function test4()
@@ -641,125 +527,6 @@ function ack(self, funcname, code, reason)
     local hash = Rpc.localF[funcname].id
     Rpc:onError(self, hash, code, reason)
 end
-
--- -----------------------------------------------------------------------------
--- Hx@2016-01-25 : 模块类
--- 因为module 中找不到时会去全局找，所以对象局部变量找不到时很可能在全局找
--- 如：
--- local data = {module_class=nil}
--- local obj = name_t.new(data)
--- local k = obj.module_class
--- 如果obj中不存在class则会去全局找module_class，因此找到本全局函数，造成错误
--- 所以一定类成员不要和全局函数同名!!!!
--- -----------------------------------------------------------------------------
---function module_class(name, example)
---    assert(example._id, "must have _id as pk")
---    --module(name, package.seeall)
---    --setfenv(2, getfenv(1))
---    local mod = _G[ name ]
---    _ENV = mod
---
---    local _cache = mod._cache or {}
---    local _example = example
---    local _name = name
---
---    local mt = {
---        __index = function(t, k)
---            if t._pro[k] ~= nil then return t._pro[k] end
---            if _example[k] ~= nil then
---                if type(_example[k]) == "table" then
---                    t._pro[k] = copyTab(_example[k])
---                    return t._pro[k]
---                else
---                    return _example[k]
---                end
---            end
---            if _G[_name][k] ~= nil then return _G[_name][k] end
---        end,
---        __newindex = function(t, k, v)
---            if _example[k] ~= nil then
---                t._pro[k] = v
---                local id = t._id
---                local chgs = _cache[ id ]
---                if not chgs then
---                    chgs = {}
---                    _cache[ id ] = chgs
---                end
---                chgs[ k ] = v
---                chgs._n_ = nil
---            else
---                rawset(t, k, v)
---            end
---        end
---    }
---
---    function wrap(t)
---        return setmetatable({_pro=t}, mt)
---    end
---
---    function new(t)
---        if not t._id  then return MARK( "no _id") end
---        _cache[t._id] = t
---        local self = {_pro=t}
---        t._a_ = 1
---        setmetatable(self, mt)
---        self:init()
---
---        -- in order to detect add event when check_pending()
---        -- Hx@2016-01-07 : do it in init() by your self. some module did not want that
---        --_cache[self._id] = self._pro
---
---        return self
---    end
---
---    function clr(t)
---        _cache[ t._id ] = {_a_=0}
---    end
---
---    function init(self)
---        --override
---    end
---
---    function check_pending()
---        local db = dbmng:tryOne(1)
---        if not db then return end
---
---        local update = false
---        local cur = gFrame
---        for id, chgs in pairs(_cache) do
---            if not chgs._n_ then
---                if not chgs._a_ then
---                    local oid = chgs._id
---                    chgs._id = id
---                    db[ _name ]:update({_id=id}, {["$set"] = chgs }, true)
---                    chgs._id = oid
---                    print( "[DB], update", _name, id )
---                    dumpTab( chgs, _name )
---                else
---                    if chgs._a_ == 0 then
---                        db[ _name ]:delete( { _id = id } )
---                        print( "[DB], delete", _name, id )
---                    else
---                        local oid = chgs._id
---                        rawset( chgs, "_a_", nil )
---                        rawset( chgs, "_id", id )
---                        db[ _name ]:update( {_id=id}, chgs, true )
---                        rawset( chgs, "_a_", 1)
---                        rawset( chgs, "_id", oid )
---                        print( "[DB], create", _name, id )
---                    end
---                end
---                update = true
---                rawset( chgs, "_n_", cur )
---                if mod.on_check_pending then mod.on_check_pending( db, id, chgs ) end
---            end
---        end
---
---        if update then gen_checker( db, gFrame, _cache, _name ) end
---
---        return update
---    end
---end
 
 
 function module_class( name, example ) 
@@ -872,6 +639,12 @@ function remove_id(tab, id)
 end
 
 function to_tool( sn, info )
+    if sn == 0 then sn = getSn("to_tool")  end
+    local val = {}
+    val._t_ = gTime
+    val.info = info
+    gPendingToolAck[sn] = val
+    Rpc:qry_tool( gAgent, sn ,info )
 end
 
 gReplayMax = 0
@@ -1022,6 +795,4 @@ function insert_global( tab, key, info )
     info._a_ = 1
     update_global( tab, key, info)
 end
-
-
 

@@ -10,7 +10,7 @@ prop_citybuildview = {
 	[OPEN_CASTLE] = { ID = OPEN_CASTLE, PropId = 1, Bborn = 1, OpenCond = nil, OpenCastleLv = nil,},
 	[OPEN_ALTAR] = { ID = OPEN_ALTAR, PropId = 1001, Bborn = 0, OpenCond = {7,130010717}, OpenCastleLv = 11,},
 	[OPEN_WALLS] = { ID = OPEN_WALLS, PropId = 2001, Bborn = 1, OpenCond = nil, OpenCastleLv = nil,},
-	[OPEN_DAILYQUEST] = { ID = OPEN_DAILYQUEST, PropId = 3001, Bborn = 0, OpenCond = nil, OpenCastleLv = 7,},
+	[OPEN_DAILYQUEST] = { ID = OPEN_DAILYQUEST, PropId = 3001, Bborn = 1, OpenCond = nil, OpenCastleLv = nil,},
 	[OPEN_STOREHOUSE] = { ID = OPEN_STOREHOUSE, PropId = 4001, Bborn = 1, OpenCond = {7,130010129}, OpenCastleLv = 4,},
 	[OPEN_MARKET] = { ID = OPEN_MARKET, PropId = 5001, Bborn = 0, OpenCond = {7,130010408}, OpenCastleLv = 8,},
 	[OPEN_BLACKMARKET] = { ID = OPEN_BLACKMARKET, PropId = 6001, Bborn = 0, OpenCond = {7,130010412}, OpenCastleLv = 8,},
@@ -29,7 +29,7 @@ prop_citybuildview = {
 	[OPEN_SHIPYARD] = { ID = OPEN_SHIPYARD, PropId = 21001, Bborn = 0, OpenCond = {7,130010134}, OpenCastleLv = 4,},
 	[OPEN_MASCOTPLAT] = { ID = OPEN_MASCOTPLAT, PropId = 22001, Bborn = 0, OpenCond = nil, OpenCastleLv = nil,},
 	[OPEN_BARRACKS] = { ID = OPEN_BARRACKS, PropId = 2001001, Bborn = 0, OpenCond = {7,130010111}, OpenCastleLv = 3,},
-	[OPEN_STABLES] = { ID = OPEN_STABLES, PropId = 2002001, Bborn = 0, OpenCond = {7,130010101}, OpenCastleLv = 2,},
+	[OPEN_STABLES] = { ID = OPEN_STABLES, PropId = 2002001, Bborn = 0, OpenCond = {7,130010102}, OpenCastleLv = 2,},
 	[OPEN_RANGE] = { ID = OPEN_RANGE, PropId = 2003001, Bborn = 0, OpenCond = {7,130010125}, OpenCastleLv = 4,},
 	[OPEN_FACTORY] = { ID = OPEN_FACTORY, PropId = 2004001, Bborn = 0, OpenCond = {7,130010234}, OpenCastleLv = 5,},
 }

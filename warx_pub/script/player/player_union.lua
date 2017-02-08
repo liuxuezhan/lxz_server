@@ -41,12 +41,22 @@ function union_select(self, uid,what)
     elseif what == "member" then
         if not union.map_id then
             local _members = union:get_members()
+            local tmp = {}
             for _, A in pairs(_members or {}) do
+                --if A.uid == uid then
+                --    if A._union.rank == resmng.UNION_RANK_0 then
+                --        A._union.rank = resmng.UNION_RANK_1
+                --    end
+                --    table.insert(tmp,player_t.get_union_info(A))
+                --end
                 if not R0  and player_t.get_rank(A) == resmng.UNION_RANK_0 then
+
                 else
-                    table.insert(result.val, rpchelper.parse_rpc(player_t.get_union_info(A),"unionmember"))
+                    table.insert(tmp,player_t.get_union_info(A))
                 end
             end
+            Rpc:union_member_get(self, union.uid, tmp )
+            return
         else
             local map_id = union.map_id
             local func = "get_remote_member_info"
@@ -173,7 +183,7 @@ function union_search(self, what)
             end
         end
     end
-    Rpc:union_search(self, l)
+    Rpc:union_search(self,what,l)
 end
 
 function union_relation_set(self,uid,type)
@@ -196,23 +206,17 @@ function get_build_list(union)
                     local node = p._union and p._union.restore_sum
                     if node then
                         for mode, num in pairs( node ) do
-                            if num > 0 then
-                                flag = 1
-                                break
-                            end
+                            if num > 0 then flag = 1 break end
                         end
                     end
                 end
-                t.ga_state = falg
+                t.ga_state = flag
 
             elseif is_union_superres( t.propid ) and t.state == BUILD_STATE.WAIT then
                 t.ga_state = 0
                 if type( t.my_troop_id ) == "number" then
-                    if troop_mng.get_troop( t.my_troop_id ) then
-                        t.my_troop_id = { t.my_troop_id }
-                    else
-                        t.my_troop_id = {}
-                    end
+                    if troop_mng.get_troop( t.my_troop_id ) then t.my_troop_id = { t.my_troop_id }
+                    else t.my_troop_id = {} end
                 end
                 for _, tid in pairs( t.my_troop_id ) do
                     if troop_mng.get_troop( tid ) then
@@ -221,11 +225,8 @@ function get_build_list(union)
                     end
                 end
             else
-                if troop_mng.get_troop( t.my_troop_id ) then
-                    t.ga_state = 1
-                else
-                    t.ga_state = 0
-                end
+                if troop_mng.get_troop( t.my_troop_id ) then t.ga_state = 1
+                else t.ga_state = 0 end
             end
             table.insert(l,t)
         end
@@ -315,14 +316,17 @@ function union_set_info(self, info)
     --TODO: 敏感词检查，长度检查，唯一性检查
     if union_t.is_legal(self, "ChgName") and info.name then
         u.name = info.name
+        rank_mng.update_info_union( self.uid )
     end
     if union_t.is_legal(self, "ChgAlias") and info.alias then
         u.alias = info.alias
+        rank_mng.update_info_union( self.uid )
     end
     if union_t.is_legal(self, "ChgFlag") and info.flag then
         local c = resmng.get_conf("prop_flag",info.flag)
         if c and c.Price and self:do_dec_res(resmng.DEF_RES_GOLD, c.Price, VALUE_CHANGE_REASON.UNION_FLAG) then
             u.flag = info.flag
+            rank_mng.update_info_union( self.uid )
             for _, v in pairs(u._members) do
                 v.uflag = u.flag
                 etypipe.add(v)
@@ -413,13 +417,10 @@ function union_apply(self, uid)
     end
 
     local u = unionmng.get_union(uid)
-    if not u then
-        WARN("没军团:"..uid) return
-    end
+    if not u then WARN("没军团:"..uid) return end
 
-    if not self:union_enlist_check(uid) then
-        return
-    end
+    if not self:union_enlist_check(uid) then return end
+    if self.uid ~= 0  then return end
 
     if u.enlist.check == 0  then
         u:add_member(self)
@@ -518,7 +519,6 @@ function sort_info(self,union)
         elseif union:get_apply(self.pid) then
             info.state = resmng.UNION_STATE.APPLYING
         end
-        info = rpchelper.parse_rpc(info,"union")
         return info
     end
 end
@@ -560,7 +560,7 @@ function union_list(self,name)
                 end
             end
         end
-        Rpc:union_list(self, ret)
+        Rpc:union_list(self,ret.name,ret.list)
         return
     end
 
@@ -618,7 +618,7 @@ function union_list(self,name)
         if info then table.insert(ret.list,info) end
     end
 
-    Rpc:union_list(self, ret)
+    Rpc:union_list(self,ret.name,ret.list)
 end
 
 function union_invite(self, pid)
@@ -1229,20 +1229,21 @@ function union_buildlv_donate(self, mode)
     end
 end
 
-function union_build_setup(self, idx,propid, x, y,name)
+function union_build_setup(self, idx, propid, x, y,name)
     if check_ply_cross(self) then
         ack(self, "union_build_setup", resmng.E_DISALLOWED) return
     end
 
     local u = self:union()
-    if not u then
-        return
-    end
+    if not u then return end
 
-    if not union_t.is_legal(self, "BuildPlace") then
-        return
-    end
+    if not union_t.is_legal(self, "BuildPlace") then return end
 
+    if idx == 0 then
+
+    else
+
+    end
     union_build_t.create(self.uid, idx, propid, x, y,name)
 end
 

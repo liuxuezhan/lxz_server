@@ -48,6 +48,9 @@ function destroy_hero(hero_id)
         return false
     end
 
+    hero.status = HERO_STATUS_TYPE.DESTROY
+    hero_t.mark_recalc( hero )
+
     -- 解除领主的引用，消除数值影响
     local player = getPlayer(hero.pid)
     if not player then
@@ -55,10 +58,6 @@ function destroy_hero(hero_id)
         return false
     end
 
-    local build = player:get_build(hero.build_idx)
-    if build then
-        player:dispatch_hero(hero.build_idx, 0)
-    end
     player._hero[ hero.idx ] = nil
 
     -- 解除heromng的引用
@@ -66,9 +65,7 @@ function destroy_hero(hero_id)
 
     -- 清理缓存信息
     gPendingDelete.hero_t[ hero._id ] = 1
-
-    LOG("destroy_hero: succ.")
-    dumpTab(hero)
+    INFO( "[HERO], destroy, pid=%d, heroid=%s, propid=%d", hero.pid, hero._id, hero.propid )
 
     return true
 end
@@ -161,19 +158,12 @@ end
 -- Others   : NULL
 --------------------------------------------------------------------------------
 function is_same_skill(skill_id_1, skill_id_2)
-    if not skill_id_1 or not skill_id_2 then
-        ERROR("is_same_skill: skill_id_1 = %d, skill_id_2 = %d", skill_id_1 or -1, skill_id_2 or -1)
-        return false
+    local prop_skill = resmng.prop_skill
+    local conf1 = prop_skill[ skill_id_1 ]
+    local conf2 = prop_skill[ skill_id_2 ]
+    if conf1 and conf2 then
+        return conf1.Class == conf2.Class and conf1.Mode == conf2.Mode
     end
-
-    if not resmng.prop_skill[skill_id_1] or not resmng.prop_skill[skill_id_2] then
-        ERROR("is_same_skill: skill_id_1 = %d, skill_id_2 = %d", skill_id_1, skill_id_2)
-        return false
-    end
-
-    local skill_1 = string.sub(tostring(skill_id_1), 1, 4)
-    local skill_2 = string.sub(tostring(skill_id_2), 1, 4)
-    return (skill_1 == skill_2)
 end
 
 
@@ -197,6 +187,7 @@ function get_fight_attr(hero_id)
         ERROR("get_fight_attr: get_hero_by_uniq_id(hero_id = %s) failed.", hero_id or -1)
         return
     else
+        local pow = hero_t.calc_hero_pow( hero )
         local ret = {
             ["id"]    = hero.propid,
             ["num"]    = hero.hp / hero.max_hp,
@@ -209,7 +200,7 @@ function get_fight_attr(hero_id)
                 ["Atk"] = hero.atk,
                 ["Hp"]  = hero.max_hp,
                 ["Imm"] = hero:calc_imm(),
-                ["Pow"] = hero:calc_fight_power(),
+                ["Pow"] = pow,
                 ["Lv"] = hero.lv
             }
         }

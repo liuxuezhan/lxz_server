@@ -161,10 +161,3 @@ function save(u,d,log)
     u:notifyall(resmng.UNION_EVENT.RELATION, resmng.UNION_MODE.UPDATE, {uid = d.uid,data=u.relation.data[d.uid],log=logs })
 end
 
-
-
-
-
-
-
-

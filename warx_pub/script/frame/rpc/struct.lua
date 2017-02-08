@@ -62,7 +62,36 @@ function Struct.setData(self, dataArr)
 	self.data_ = dataArr
 end
 
+
+Struct.UnionMember = "int pid, string name, int lv"
+Struct.UnionUnion = "int uid, struct UnionMember members"
+
+
+
 return Struct
+
+
+--local Struct = {}
+--
+--Struct.PlyInfo = "int pid, int photo"
+--Struct.UnionMember = "int uid, Struct PlyInfo ply, string uname"
+--
+--RpcType._struct = Struct
+--
+
+-- Protocol.Server
+--agent_test_struct = "int id, Array Struct UnionMember mems, string name",
+--example
+--
+
+--    local mems = {
+--        { uid = 1, ply = { pid = 1, photo =1, item={sn=1,photo=1} }, uname = "foo", sex=0, lv = 5 },
+--        { uid = 2, ply = { pid = 2, photo =2 }, uname = "bar", sex=1, lv = 6 }
+--    }
+--    Rpc:callAgent( 3, "agent_test_struct", 1, mems, "kidworm" )
+--
+
+
 
 
 

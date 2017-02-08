@@ -21,7 +21,7 @@ end
 function add(p)--加入新手军团
     for _, u in pairs(unionmng.get_all()) do
         if u:is_new() and u.membercount < u:get_memberlimit() then
-            if u:add_member(p) then return end
+             if u:add_member(p)  then return end
         end
     end
     local u = new_union.new()
@@ -29,21 +29,18 @@ function add(p)--加入新手军团
 end
 
 function update(p)--玩家城堡等级改变处理
-    local build = p:get_build(1)
-    local node = resmng.get_conf("prop_build", build.propid)
     local u = unionmng.get_union(p:get_uid())
-    if (not u )or (u and not u:is_new()) then
-        return
-    end
+    if (not u )or (u and not u:is_new()) then return end
 
-    if node.Lv > 5 then
+    local lv = p:get_castle_lv()
+
+    if lv > 5 then
         p:union_quit()
-    elseif node.Lv > 3 then
+    elseif lv > 3 then
         p:set_rank(resmng.UNION_RANK_3)
-    elseif node.Lv > 2 then
+    elseif lv > 2 then
         p:set_rank(resmng.UNION_RANK_2)
     end
-
 
 end
 

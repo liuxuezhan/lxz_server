@@ -10,6 +10,9 @@
 --------------------------------------------------------------------------------
 --
 module( "hero_t", package.seeall )
+
+gPendingRecalcPow = gPendingRecalcPow or {}
+
 module_class("hero_t", 
 {
     _id          = 0,    -- 唯一ID
@@ -115,20 +118,23 @@ function create_hero(idx, pid, propid)
     t.hp = t.max_hp
 
     local hero = new(t)
-    hero:calc_fight_power()
+    calc_fight_power( hero )
 
     local player = getPlayer(pid)
     if player then
         Rpc:stateHero(player, hero._pro)
+        player:inc_pow( hero.fight_power )
     end
     heromng.add_hero(hero)
-
-    LOG("new: succ.")
-    dumpTab( hero, "new hero" )
-
     return hero
 end
 
+
+
+function calc_hero_pow( self )
+    local imm = calc_imm(self)
+    return math.floor(math.sqrt(self.max_hp * self.atk / (1 - imm)) / math.sqrt(2550))
+end
 
 --------------------------------------------------------------------------------
 -- Function : 计算 hero 的战力，并修改 fight_power 字段
@@ -136,13 +142,68 @@ end
 -- Return   : number
 -- Others   : 英雄战斗力 = 开方[英雄最大生命*英雄攻击力/(1-英雄免伤率)] / 开方[2550]
 --------------------------------------------------------------------------------
-function calc_fight_power(self)
-    local imm = self:calc_imm()
-    local fight_power = math.floor(math.sqrt(self.max_hp * self.atk / (1 - imm)) / math.sqrt(2550))
-    if fight_power ~= self.fight_power then
-        self.fight_power = fight_power
+function do_calc_fight_power(self)
+    if self.hp == 0 or self.status >= HERO_STATUS_TYPE.BEING_CAPTURED then
+        return 0, 0
+
+    else
+        local imm = calc_imm(self)
+        local pow_body = math.floor(math.sqrt(self.max_hp * self.atk / (1 - imm)) / math.sqrt(2550))
+
+        local pow_skill = 0
+        local pskill = resmng.prop_skill
+        local conf = pskill[ self.talent_skill ]
+        if conf then pow_skill = ( conf.Pow or 0 ) end
+
+        for _, v in pairs( self.basic_skill ) do
+            if v[1] ~= 0 then
+                conf = pskill[ v[1] ]
+                if conf then
+                    pow_skill = pow_skill + ( conf.Pow or 0 )
+                end
+            end
+        end
+        return pow_body, pow_skill
     end
+end
+
+
+function calc_fight_power(self)
+    local pow_body, pow_skill = do_calc_fight_power( self )
+    pow_body = pow_body * self.hp / self.max_hp
+
+    local percent = self.hp / self.max_hp
+    if percent < 0 then percent = 0 end
+    if percent > 1 then percent = 1 end
+    pow_body = pow_body * percent
+
+    local pow = math.floor( pow_body + pow_skill )
+    if pow ~= self.fight_power then self.fight_power = pow end
     return self.fight_power
+end
+
+
+function recalc_pow_hero( self )
+    local old = self.fight_power 
+    calc_fight_power( self )
+    local new = self.fight_power
+
+    if new ~= old then
+        if self.pid >= 10000 then
+            local owner = getPlayer( self.pid )
+            if owner then
+                if new > old then
+                    owner:inc_pow( new - old )
+                else
+                    owner:dec_pow( old - new )
+                end
+            end
+        end
+    end
+end
+
+function mark_recalc( self )
+    gPendingRecalcPow[ self._id ] = self
 end
 
 
@@ -154,6 +215,12 @@ function on_check_pending(db, sn, chgs)
     if p then
         chgs.idx = tonumber(idx)
         Rpc:stateHero(p, chgs)
+    end
+
+    local nodes = gPendingRecalcPow
+    gPendingRecalcPow = {}
+    for hid, hero in pairs( nodes or {} ) do
+        recalc_pow_hero( hero )
     end
 end
 
@@ -318,7 +385,6 @@ function gain_exp(self, exp_num)
 
         if up then
             self:up_attr()
-            self:calc_fight_power()
             --任务
             task_logic_t.process_task(owner, TASK_ACTION.HERO_LEVEL_UP)
             task_logic_t.process_task(owner, TASK_ACTION.HERO_EXP, exp_num)
@@ -343,101 +409,23 @@ function gain_skill_exp(self, skill_idx, exp_num)
         return
     end
 
-    local skillid = skill[1]
-    -- here use for loop, just for safe
-    local exp_total = skill[2] + exp_num
+    local skill_id = skill[1]
+    local skill_exp = skill[2] + exp_num
+
     for i = 1, 20, 1 do
-        local next_skill_id, exp_need = heromng.get_next_skill(skill[1])
+        local next_skill_id, exp_need = heromng.get_next_skill( skill_id )
         if not next_skill_id then break end
 
-        if exp_total < exp_need then
-            skill[2] = exp_total
+        if skill_exp < exp_need then
             break
         else
-            exp_total = exp_total - exp_need
-            skill = {next_skill_id, 0}
-        end
-    end
-    self.basic_skill[ skill_idx ] = skill
-    self:basic_skill_changed( skill_idx )
-
-    local role = getPlayer(self.pid)
-    if skillid ~= skill[1] then
-        --任务
-        task_logic_t.process_task(role, TASK_ACTION.SUPREME_HERO_LEVEL)
-        task_logic_t.process_task(role, TASK_ACTION.PROMOTE_HERO_LEVEL, (skill[1] - skillid))
-
-        if self.status == HERO_STATUS_TYPE.BUILDING then
-            local build = role:get_build(self.build_idx)
-            if build and build.state == BUILD_STATE.WORK then
-                build:recalc()
-            end
+            skill_exp = skill_exp - exp_need
+            skill_id = next_skill_id
         end
     end
 
-    self.basic_skill = self.basic_skill
+    self:change_basic_skill( skill_idx, skill_id, skill_exp )
 end
-
---function gain_skill_exp(self, skill_idx, exp_num, count)
---    if not self:is_valid() then
---        ERROR("gain_skill_exp: hero_id(%s) isn't valid.", self._id)
---        return
---    end
---
---    count = count or 0
---    if count >= #resmng.prop_hero_skill_exp then
---        ERROR("gain_skill_exp: check this function!!! It has been called %d times in a row.", count)
---        return
---    end
---
---    if not self or not skill_idx or not exp_num or type(exp_num) ~= 'number' or exp_num <= 0 then
---        ERROR("gain_skill_exp: skill_idx = %d, exp_num = %d", skill_idx or-1, exp_num or -1)
---        return
---    end
---
---    -- 能否升级
---    local skill = self.basic_skill[skill_idx]
---    if not skill then
---        ERROR("gain_skill_exp: hero._id = %s, basic_skill[%d] is still locked.", self._id or "nil", skill_idx)
---        return
---    else
---        if skill[1] == 0 then
---            ERROR("gain_skill_exp: hero._id = %s, basic_skill[%d] is still empty, should learn skill first.", self._id or "nil", skill_idx)
---            return
---        end
---    end
---
---    local next_skill_id, exp_need = heromng.get_next_skill(skill[1])
---    if not next_skill_id then
---        LOG("gain_skill_exp: get_next_skill() failed. skill_id = %d", skill[1])
---        return
---    end
---
---    if count == 0 then
---        LOG("gain_skill_exp: hero._id = %s, skill_idx = %d, exp_num = %d", self._id, skill_idx, exp_num)
---    end
---
---    -- 增加经验, 升级技能
---    local exp_total = exp_num + skill[2]
---    if exp_total < exp_need then
---        self:change_basic_skill(skill_idx, skill[1], exp_total)
---    elseif exp_total == exp_need then
---        self:change_basic_skill(skill_idx, next_skill_id, 0)
---        --任务
---        local player = getPlayer(self.pid)
---        task_logic_t.process_task(player, TASK_ACTION.SUPREME_HERO_LEVEL)
---    else
---        self:change_basic_skill(skill_idx, next_skill_id, 0)
---        --任务
---        local player = getPlayer(self.pid)
---        task_logic_t.process_task(player, TASK_ACTION.SUPREME_HERO_LEVEL)
---        if heromng.get_next_skill(next_skill_id) then
---            return self:gain_skill_exp(skill_idx, exp_total - exp_need, count + 1)
---        end
---    end
---
---    self:basic_skill_changed(skill_idx)
---end
 
 
 --------------------------------------------------------------------------------
@@ -447,11 +435,6 @@ end
 -- Others   : NULL
 --------------------------------------------------------------------------------
 function reset_skill(self, skill_idx)
-    if not self:is_valid() then
-        ERROR("reset_skill: hero_id(%s) isn't valid.", self._id)
-        return
-    end
-
     if not skill_idx then
         ERROR("reset_skill: no skill_idx.")
         return
@@ -466,30 +449,30 @@ function reset_skill(self, skill_idx)
             ERROR("reset_skill: hero._id = %s, basic_skill[%d] is empty.", self._id or "nil", skill_idx)
             return
         else
+            local skill_id = skill[1]
+            local skill_exp = skill[2]
+
             self:change_basic_skill(skill_idx, 0, 0)
-            self:basic_skill_changed(skill_idx)
 
             -- 统计经验值
-            local exp_total = skill[2]
-            local curr_skill_lv = heromng.get_skill_lv(skill[1]) or -1
+            local curr_skill_lv = heromng.get_skill_lv( skill_id ) or -1
             for lv = 2, curr_skill_lv do
                 local conf = resmng.get_conf("prop_hero_skill_exp", lv)
-                if not conf then
+                if conf then
+                    skill_exp = skill_exp + conf.NeedExp[skill_idx]
+                else
                     ERROR("reset_skill: hero.pid = %d, hero._id = %d, lv = %d", self.pid, self._id, lv)
-                    return
                 end
-                exp_total = exp_total + conf.NeedExp[skill_idx]
             end
-            local exp_return = math.floor(exp_total * RESET_SKILL_RETURN_RATIO)
-            LOG("reset_skill: hero.pid = %d, hero._id = %s, skill_idx = %d, skill_id = %d, exp_total = %d, exp_return = %d",
-                 self.pid, self._id, skill_idx, skill[1], exp_total, exp_return)
+            local exp_return = math.floor(skill_exp * RESET_SKILL_RETURN_RATIO)
+            LOG("reset_skill: hero.pid = %d, hero._id = %s, skill_idx = %d, skill_id = %d, skill_exp = %d, exp_return = %d", self.pid, self._id, skill_idx, skill_id, skill_exp, exp_return)
 
             local player = getPlayer(self.pid)
-            if not player then
+            if player then
+                player:return_exp_item(exp_return, VALUE_CHANGE_REASON.RESET_SKILL)
+            else
                 ERROR("reset_skill: getPlayer(%d) failed.", self.pid)
-                return
             end
-            player:return_exp_item(exp_return, VALUE_CHANGE_REASON.RESET_SKILL)
         end
     end
 end
@@ -699,7 +682,6 @@ function star_up(self)
         -- 解锁技能栏位
         if not self.basic_skill[big_star_lv] then
             self:change_basic_skill(big_star_lv, 0, 0)
-            self:basic_skill_changed(big_star_lv)
         else
             ERROR("star_up: hero[%s], basic_skill error. big_star_lv = %d.", self._id, big_star_lv)
             doDumpTab(self.basic_skill)
@@ -709,8 +691,6 @@ function star_up(self)
         self.talent_skill = new_talent_skill
         LOG("star_up: hero[%s], new_talent_skill = %d", self._id, self.talent_skill)
     end
-
-    self:calc_fight_power()
 end
 
 
@@ -725,6 +705,7 @@ function up_attr(self)
     local basic_conf   = resmng.get_conf("prop_hero_basic", self.propid)
     local quality_conf = resmng.get_conf("prop_hero_quality", self.quality)
     local star_up_conf = resmng.get_conf("prop_hero_star_up", self.star)
+
     if not basic_conf or not quality_conf or not star_up_conf then
         ERROR("up_attr: get conf failed. propid = %d, quality = %d, star = %d.", self.propid or -1, self.quality or -1, self.star or -1)
         return
@@ -734,7 +715,7 @@ function up_attr(self)
     local quality_rate = quality_conf.GrowRate and quality_conf.GrowRate[self._type]
     local star_up_rate = star_up_conf.GrowRate and star_up_conf.GrowRate[self._type]
     if not basic_delta or not quality_rate or not star_up_rate then
-        ERROR("up_attr: get data failed.")
+        ERROR("up_attr: get delta conf failed. propid = %d, quality = %d, star = %d.", self.propid or -1, self.quality or -1, self.star or -1)
         return
     end
 
@@ -742,10 +723,10 @@ function up_attr(self)
     self.def = math.ceil((basic_conf.Def + basic_delta[2] * (self.lv - 1)) * quality_rate[2] * star_up_rate[2])
     local old_max_hp = self.max_hp
     self.max_hp = math.ceil((basic_conf.HP + basic_delta[3] * (self.lv - 1)) * quality_rate[3] * star_up_rate[3])
-    self.hp = self.max_hp - old_max_hp + self.hp
 
-    LOG("up_attr: hero[%s], quality = %d, star = %d, lv = %d, atk = %d, def = %d, max_hp = %d",
-         self._id, self.quality, self.star, self.lv, self.atk, self.def, self.max_hp)
+    if self.hp > 0 then self.hp = self.max_hp - old_max_hp + self.hp end
+
+    mark_recalc( self )
 end
 
 
@@ -756,65 +737,43 @@ end
 -- Others   : 需要和 basic_skill_changed() 配合使用
 --------------------------------------------------------------------------------
 function change_basic_skill(self, skill_idx, skill_id, exp)
-    if not self:is_valid() then
-        ERROR("change_basic_skill: hero_id(%s) isn't valid.", self._id)
-        return
-    end
-
     if not skill_idx or not skill_id or not exp then
         ERROR("change_basic_skill: skill_idx = %d, skill_id = %d, exp = %d", skill_idx or -1, skill_id or -1, exp or -1)
         return
     end
+
+    local oskill = self.basic_skill[ skill_idx ]
+    local oid = oskill and oskill[ 1 ]
 
     self.basic_skill[skill_idx] = {skill_id, exp}
     self.basic_skill = self.basic_skill
 
     LOG("change_basic_skill: hero._id = %s, skill_idx = %d, skill_id = %d, exp = %d", self._id, skill_idx, skill_id, exp)
     --任务
-    local player = getPlayer(self.pid)
-    if player ~= nil then
-        task_logic_t.process_task(player, TASK_ACTION.LEARN_HERO_SKILL)
-    end
+    local role = getPlayer(self.pid)
+    if role ~= nil then
+        Rpc:on_basic_skill_changed(role, self.idx, skill_idx, skill_id, exp )
 
-    if self.status == HERO_STATUS_TYPE.BUILDING then
-        local role = getPlayer(self.pid)
-        if role then
+        if not oid and skill_id == 0 then
+            -- open the slot, will not change pow
+        else
+            mark_recalc( self )
+
+        end
+
+        if oid == 0 and skill_id ~= 0 then
+            task_logic_t.process_task(role, TASK_ACTION.LEARN_HERO_SKILL)
+        end
+
+        if oid and oid ~= 0 and skill_id ~= 0 and skill_id > oid then
+            task_logic_t.process_task(role, TASK_ACTION.SUPREME_HERO_LEVEL )
+            task_logic_t.process_task(role, TASK_ACTION.PROMOTE_HERO_LEVEL, skill_id - oid)
+        end
+
+        if self.status == HERO_STATUS_TYPE.BUILDING then
             local build = role:get_build(self.build_idx)
             if build and build.state == BUILD_STATE.WORK then
                 build:recalc()
-            end
-        end
-    end
-end
-
-
---------------------------------------------------------------------------------
--- Function : 技能变更后的入库和通知前端
--- Argument : self, skill_idx
--- Return   : NULL
--- Others   : NULL
---------------------------------------------------------------------------------
-function basic_skill_changed(self, skill_idx)
-    if not skill_idx then
-        ERROR("basic_skill_changed: no skill_idx.")
-        return
-    end
-
-    local skill = self.basic_skill[skill_idx]
-    if not skill then
-        ERROR("basic_skill_changed: hero._id = %s, basic_skill[%d] is still locked.", self._id, skill_idx)
-        return
-    else
-        self.basic_skill = self.basic_skill
-        local role = getPlayer( self.pid )
-        if role then
-            Rpc:on_basic_skill_changed(role, self.idx, skill_idx, skill[1], skill[2])
-            task_logic_t.process_task(role, TASK_ACTION.SUPREME_HERO_LEVEL)
-            if self.status == HERO_STATUS_TYPE.BUILDING then
-                local build = role:get_build(self.build_idx)
-                if build and build.state == BUILD_STATE.WORK then
-                    build:recalc()
-                end
             end
         end
     end

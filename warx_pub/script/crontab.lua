@@ -41,11 +41,13 @@ end
 function on_day_pass()
     local last_tick = _G.gSysStatus.pass_day_tick or 0
     if get_diff_days(gTime, last_tick) > 0 then
+        farm.respawn_tm = nil
         monster.on_day_pass()  --- boss reset
         npc_city.on_day_pass() --- npc score
 
         INFO( "on_day_pass, system" )
         player_t.refresh_global_black_market()
+
 
         --玩家跨天
         for k, v in pairs(gPlys) do
@@ -112,6 +114,25 @@ function upload_gs_info()
         end
     end
     Rpc:callAgent(center_id, "upload_gs_info", pack)
+end
+
+
+
+
+function start_action( mode )
+    if mode == 1 then
+
+    else
+
+    end
+end
+
+function stop_action( mode )
+    if mode == 1 then
+
+    else
+
+    end
 end
 
 

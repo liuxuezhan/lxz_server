@@ -1,1 +1,3 @@
-action(start_action, "forqc/test/t10")
+--action(start_action, "forqc/test/ubuild_atk")
+action(start_action, "forqc/test/ubuild_gather")
+--action(start_action, "forqc/test/ubuild_can")

@@ -7,23 +7,25 @@ function load()
         local data = info:next()
         local p = getPlayer(data._id)
         if p then
-            p._union = copyTab(data)
+            p._union = data
             local union = unionmng.get_union(p:get_uid())
             if union then
                 if union._members then
                     union._members[p.pid] = p
                 else
-                    local _members = union._members or {}
+                    local _members = {}
                     _members[p.pid] = p
                     union._members = _members
                 end
             end
-            p._union.buildlv = {}
+
+            local buildlv = {}
             for k,v in pairs (data.buildlv or {}) do
                 if k~="_n_"  then
-                    p._union.buildlv[v.mode] = v
+                    buildlv[ v.mode ] = v
                 end
             end
+            data.buildlv = buildlv
         else
             print("load_union_member, not found player", data._id)
         end
@@ -51,7 +53,7 @@ function create(ply, uid, rank)
         god_log = {lv=0,tm=0},       --战神膜拜记录
         tm_mission = 0,
         cur_item = 0, --已领军团任务奖励
-        join_tm = 0, --加入军团的次数
+        --join_tm = 0, --加入军团的次数
 
         restore_sum = {0,0,0,0},
         restore_day = {0,0},
@@ -142,15 +144,15 @@ function join_union(ply, union)
     local data = ply._union
     data.uid = union.uid
     data.tmJoin = gTime
-    data.join_tm = ( data.join_tm or 0 ) + 1
+    --data.join_tm = ( data.join_tm or 0 ) + 1
     data.rank = resmng.UNION_RANK_1
     data.restore_sum = {0,0,0,0}
     data.restore_day = {0,0}
 
     local chg = gPendingSave.union_member[ ply.pid ]
-    chg.uid = 0
+    chg.uid = union.uid
     chg.tmJoin = gTime
-    chg.join_tm = ( data.join_tm or 0 ) + 1
+    --chg.join_tm = ( data.join_tm or 0 ) + 1
     chg.rank = resmng.UNION_RANK_1
     chg.restore_sum = {0,0,0,0}
     chg.restore_day = {0,0}

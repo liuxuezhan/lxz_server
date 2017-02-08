@@ -1,0 +1,32 @@
+--
+-- $Id$
+--
+
+module( "resmng" )
+svnnum("$Id$")
+
+prop_world_events = {
+
+	[WORLD_EVENT_1] = { ID = WORLD_EVENT_1, TITLE = WE_TITLE_1, DESC = WE_DESC_1, UnlockEvent = LG_NIL, FinishScore = 1, UnlockScore = 0, TmOpenServer = 0, Bonus = {"mutex_award",{{"res",6,100,10000}}}, FinishCondition = {"castle_level",10,5}, OpenMail = nil, Notify = nil,},
+	[WORLD_EVENT_2] = { ID = WORLD_EVENT_2, TITLE = WE_TITLE_2, DESC = WE_DESC_2, UnlockEvent = LG_NIL, FinishScore = 1, UnlockScore = 0, TmOpenServer = 0, Bonus = {"mutex_award",{{"res",8,20000,10000}}}, FinishCondition = {"attack_monster",1,5}, OpenMail = nil, Notify = nil,},
+	[WORLD_EVENT_3] = { ID = WORLD_EVENT_3, TITLE = WE_TITLE_3, DESC = WE_DESC_3, UnlockEvent = LG_NIL, FinishScore = 3, UnlockScore = 0, TmOpenServer = 0, Bonus = {"mutex_award",{{"res",2,50000,10000}}}, FinishCondition = {"occupy_city",4,1}, OpenMail = nil, Notify = nil,},
+	[WORLD_EVENT_4] = { ID = WORLD_EVENT_4, TITLE = WE_TITLE_4, DESC = WE_DESC_4, UnlockEvent = WE_TITLE_3, FinishScore = 3, UnlockScore = 3, TmOpenServer = 172800, Bonus = {"mutex_award",{{"item",3002002,1,10000}}}, FinishCondition = {"hero_num",4,5}, OpenMail = 10033, Notify = 60373,},
+	[WORLD_EVENT_5] = { ID = WORLD_EVENT_5, TITLE = WE_TITLE_5, DESC = WE_DESC_5, UnlockEvent = WE_TITLE_4, FinishScore = 3, UnlockScore = 6, TmOpenServer = 259200, Bonus = {"mutex_award",{{"item",7018001,1,10000}}}, FinishCondition = {"occupy_city",3,1}, OpenMail = 10033, Notify = 60373,},
+	[WORLD_EVENT_6] = { ID = WORLD_EVENT_6, TITLE = WE_TITLE_6, DESC = WE_DESC_6, UnlockEvent = WE_TITLE_5, FinishScore = 3, UnlockScore = 9, TmOpenServer = 518400, Bonus = {"mutex_award",{{"item",20001002,1,10000}}}, FinishCondition = {"panjun_kill",100}, OpenMail = 10033, Notify = 60373,},
+	[WORLD_EVENT_7] = { ID = WORLD_EVENT_7, TITLE = WE_TITLE_7, DESC = WE_DESC_7, UnlockEvent = WE_TITLE_6, FinishScore = 3, UnlockScore = 12, TmOpenServer = 691200, Bonus = {"mutex_award",{{"item",7014001,1,10000}}}, FinishCondition = {"attack_monster",2,5}, OpenMail = 10033, Notify = 60373,},
+	[WORLD_EVENT_8] = { ID = WORLD_EVENT_8, TITLE = WE_TITLE_8, DESC = WE_DESC_8, UnlockEvent = WE_TITLE_7, FinishScore = 3, UnlockScore = 15, TmOpenServer = 864000, Bonus = {"mutex_award",{{"item",10002001,1,10000}}}, FinishCondition = {"occupy_city",2,1}, OpenMail = 10033, Notify = 60373,},
+	[WORLD_EVENT_9] = { ID = WORLD_EVENT_9, TITLE = WE_TITLE_9, DESC = WE_DESC_9, UnlockEvent = WE_TITLE_8, FinishScore = 3, UnlockScore = 18, TmOpenServer = 1036800, Bonus = {"mutex_award",{{"item",8002002,1,10000}}}, FinishCondition = {"cure_soldier",100}, OpenMail = 10033, Notify = 60373,},
+	[WORLD_EVENT_10] = { ID = WORLD_EVENT_10, TITLE = WE_TITLE_10, DESC = WE_DESC_10, UnlockEvent = WE_TITLE_9, FinishScore = 3, UnlockScore = 21, TmOpenServer = 1296000, Bonus = {"mutex_award",{{"item",7023007,3,10000}}}, FinishCondition = {"attack_monster",3,3}, OpenMail = 10033, Notify = 60373,},
+	[WORLD_EVENT_11] = { ID = WORLD_EVENT_11, TITLE = WE_TITLE_11, DESC = WE_DESC_11, UnlockEvent = WE_TITLE_10, FinishScore = 3, UnlockScore = 24, TmOpenServer = 1728000, Bonus = {"mutex_award",{{"item",8006001,1,10000}}}, FinishCondition = {"occupy_city",1,1}, OpenMail = 10033, Notify = 60373,},
+	[WORLD_EVENT_12] = { ID = WORLD_EVENT_12, TITLE = WE_TITLE_12, DESC = WE_DESC_12, UnlockEvent = WE_TITLE_11, FinishScore = 3, UnlockScore = 27, TmOpenServer = 2160000, Bonus = {"mutex_award",{{"item",7014002,1,10000}}}, FinishCondition = {"union_halltech_lv",10702,1}, OpenMail = 10033, Notify = 60373,},
+	[WORLD_EVENT_13] = { ID = WORLD_EVENT_13, TITLE = WE_TITLE_13, DESC = WE_DESC_13, UnlockEvent = WE_TITLE_12, FinishScore = 3, UnlockScore = 30, TmOpenServer = 2592000, Bonus = {"mutex_award",{{"item",7023002,25,10000}}}, FinishCondition = {"gather_num",20,100}, OpenMail = 10033, Notify = 60373,},
+	[WORLD_EVENT_14] = { ID = WORLD_EVENT_14, TITLE = WE_TITLE_14, DESC = WE_DESC_14, UnlockEvent = WE_TITLE_13, FinishScore = 3, UnlockScore = 33, TmOpenServer = 2592000, Bonus = {"mutex_award",{{"item",7023002,25,10000}}}, FinishCondition = {"occupy_king_city",1}, OpenMail = 10033, Notify = 60373,},
+	[WORLD_EVENT_15] = { ID = WORLD_EVENT_15, TITLE = WE_TITLE_15, DESC = WE_DESC_15, UnlockEvent = WE_TITLE_4, FinishScore = 0, UnlockScore = 6, TmOpenServer = 120, Bonus = {"mutex_award",{{"res",6,100,10000}}}, FinishCondition = {"attack_monster",4,1}, OpenMail = 10033, Notify = 60373,},
+	[WORLD_EVENT_16] = { ID = WORLD_EVENT_16, TITLE = WE_TITLE_16, DESC = WE_DESC_16, UnlockEvent = WE_TITLE_5, FinishScore = 0, UnlockScore = 9, TmOpenServer = 240, Bonus = {"mutex_award",{{"res",6,100,10000}}}, FinishCondition = {"hero_num",3,5}, OpenMail = 10033, Notify = 60373,},
+	[WORLD_EVENT_17] = { ID = WORLD_EVENT_17, TITLE = WE_TITLE_17, DESC = WE_DESC_17, UnlockEvent = WE_TITLE_6, FinishScore = 0, UnlockScore = 12, TmOpenServer = 360, Bonus = {"mutex_award",{{"res",6,100,10000}}}, FinishCondition = {"hero_num",2,5}, OpenMail = 10033, Notify = 60373,},
+	[WORLD_EVENT_18] = { ID = WORLD_EVENT_18, TITLE = WE_TITLE_18, DESC = WE_DESC_18, UnlockEvent = WE_TITLE_7, FinishScore = 0, UnlockScore = 15, TmOpenServer = 480, Bonus = {"mutex_award",{{"res",6,100,10000}}}, FinishCondition = {"hero_num",1,3}, OpenMail = 10033, Notify = 60373,},
+	[WORLD_EVENT_19] = { ID = WORLD_EVENT_19, TITLE = WE_TITLE_19, DESC = WE_DESC_19, UnlockEvent = WE_TITLE_8, FinishScore = 0, UnlockScore = 18, TmOpenServer = 600, Bonus = {"mutex_award",{{"res",6,100,10000}}}, FinishCondition = {"gather_num",1,100}, OpenMail = 10033, Notify = 60373,},
+	[WORLD_EVENT_20] = { ID = WORLD_EVENT_20, TITLE = WE_TITLE_20, DESC = WE_DESC_20, UnlockEvent = WE_TITLE_9, FinishScore = 0, UnlockScore = 21, TmOpenServer = 720, Bonus = {"mutex_award",{{"res",6,100,10000}}}, FinishCondition = {"gather_num",2,100}, OpenMail = 10033, Notify = 60373,},
+	[WORLD_EVENT_21] = { ID = WORLD_EVENT_21, TITLE = WE_TITLE_21, DESC = WE_DESC_21, UnlockEvent = WE_TITLE_10, FinishScore = 0, UnlockScore = 24, TmOpenServer = 840, Bonus = {"mutex_award",{{"res",6,100,10000}}}, FinishCondition = {"gather_num",3,100}, OpenMail = 10033, Notify = 60373,},
+	[WORLD_EVENT_22] = { ID = WORLD_EVENT_22, TITLE = WE_TITLE_22, DESC = WE_DESC_22, UnlockEvent = WE_TITLE_11, FinishScore = 0, UnlockScore = 27, TmOpenServer = 960, Bonus = {"mutex_award",{{"res",6,100,10000}}}, FinishCondition = {"gather_num",4,100}, OpenMail = 10033, Notify = 60373,},
+}

@@ -10,6 +10,7 @@ module_class("king_city",
     uid = 0,
     pid = 0,
     uname = "",
+    ualias = "",
     state = 0,
     status = 1,
     occuTime = 1,
@@ -474,7 +475,16 @@ function clear_city_uid()
     end
 end
 
-
+function reset_all_city()
+    for k, v in pairs(citys or {}) do
+        local city = get_ety(k)
+        if city then
+            city.uid =0
+            troop_mng.delete_troop(self.my_troop_id)
+            city.my_troop_id = nil
+        end
+    end
+end
 
 function fight_again()
     clean_timer()
@@ -523,6 +533,7 @@ function do_peace_city()
                 city.uid = 0  --初始化所以王城的uid都是0  这样才不会互相误伤
                 --city.pid = 0  --初始化所以王城的uid都是0  这样才不会互相误伤
                 city.uname = nil  --初始化所以王城的uid都是0  这样才不会互相误伤
+                city.ualias = nil  --初始化所以王城的uid都是0  这样才不会互相误伤
                 city.status = 0 --要塞失效
 
                 local troop = city:get_my_troop()
@@ -1010,6 +1021,7 @@ function reset_other_city(kingCity)
                 city.uid = kingCity.uid 
                 --city.pid = kingCity.pid 
                 city.uname = kingCity.uname
+                city.ualias = kingCity.ualias
                 local troop = city:get_my_troop()
                 if troop.owner_eid ~= city.eid then
                     troop:back()
@@ -1036,7 +1048,7 @@ function troop_back(troop)
     local target = get_ety(troop.target_eid)
     local dx, dy = get_ety_pos(target)
     for pid, arm in pairs(troop.arms or {}) do
-        if pid > 0 then
+        if pid >= 10000 then
             local ply = getPlayer(pid)
             if ply then
                 --ply:rem_busy_troop(tid)
@@ -1084,7 +1096,8 @@ after_atk_win[CITY_TYPE.FORT] = function(atkTroop, defenseTroop)
     city.my_troop_id = nil
     local union = unionmng.get_union(city.uid)
     if union then
-        city.uname = union.alias
+        city.uname = union.name
+        city.ualias = union.alias
     end
     clear_timer(city)
     deal_troop(atkTroop, defenseTroop)
@@ -1158,7 +1171,8 @@ after_atk_win[CITY_TYPE.KING_CITY] = function(atkTroop, defenseTroop)
     city.my_troop_id = nil
     local union = unionmng.get_union(city.uid)
     if union then
-        city.uname = union.alias
+        city.uname = union.name
+        city.ualias = union.alias
     end
     deal_troop(atkTroop, defenseTroop)
     clear_timer(city)
@@ -1193,6 +1207,8 @@ after_atk_win[CITY_TYPE.KING_CITY] = function(atkTroop, defenseTroop)
         for k, v in pairs(union._members or {}) do
             task_logic_t.process_task(v, TASK_ACTION.OCC_NPC_CITY, 5)
         end
+        --世界事件
+        world_event.process_world_event(WORLD_EVENT_ACTION.OCCUPY_KING_CITY)
     end
 
 end
@@ -1320,7 +1336,7 @@ function eye_info(city, pack)
     local lv =  resmng.prop_world_unit[city.propid].Lv
     if lv == CITY_TYPE.FORT then
         pack.defender = city.uid
-        pack.uname = city.uname
+        pack.uname = city.ualias
         pack.dmg = get_force_prop(city, "fire", "force")
         if is_super_boss() then
             pack.troop_dmg = get_force_prop(city, "super", "force") or 0
@@ -1330,11 +1346,11 @@ function eye_info(city, pack)
 
     elseif lv == CITY_TYPE.TOWER then
         pack.defender = city.uid
-        pack.uname = city.uname
+        pack.uname = city.ualias
         pack.dmg = get_force_prop(city, "fire", "force")
     elseif lv == CITY_TYPE.KING_CITY then
         pack.defender = city.uid
-        pack.uname = city.uname
+        pack.uname = city.ualias
         if city.uid ~= city.propid then
             local king = kings[season]
             if king then
@@ -1343,7 +1359,11 @@ function eye_info(city, pack)
                     pack.kingid = ply.pid
                     pack.kingname = ply.name
                     pack.kingphoto = ply.photo
-                    pack.score = king[4]
+                    local num = king[10] or 1
+                    if num == 0 then
+                        num = 1
+                    end
+                    pack.score = king[4] / num
                 end
             end
         end
@@ -1380,7 +1400,7 @@ end
 function select_king(union, pid)
     local ply = getPlayer(pid)
     if ply and union:has_member(ply) then
-        local king = {season, pid, union.uid, 0, gTime, ply.name, ply.flag, ply:get_castle_lv(), union.name}
+        local king = {season, pid, union.uid, 0, gTime, ply.name, ply.flag, ply:get_castle_lv(), union.name, 0}
         -- 国王加入到
         kings[season] = king
         --table.insert(kings,  king)
@@ -1486,8 +1506,11 @@ function mark_king(score)
     local king = kings[season]
     if king then
         local point = king[4] or 0
+        local num = king[10] or 0
         point = point + score
+        num = num + 1
         king[4] = point
+        king[10] = num
         kings[season] = king
         gPendingSave.status["kwState"].kings = kings
         return point

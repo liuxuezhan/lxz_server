@@ -143,6 +143,8 @@ VALUE_CHANGE_REASON = {
     REASON_UNION_BUILD              = 1021,          --军团建筑加奖励
     REASON_UNION_AID                = 1022,          --军团士兵援助加奖励
     REASON_WEEKLY_AWARD             = 1023,          --七日登录奖励
+    REASON_YUEKA                    = 1024,          --月卡奖励
+    REASON_WORLD_EVENT              = 1025,          --世界事件
 
     --扣除资源
     REASON_DEC_RES = 2000,
@@ -217,7 +219,7 @@ WALL_FIRE_SECONDS = 18          -- 非土地每18秒减1点城防
 WALL_FIRE_IN_BLACK_LAND = 44    -- 黑土地每1秒减44点城防
 WALL_FIRE_REPAIR_FREE = 60      -- 免费修复，每次恢复60点城防
 WALL_FIRE_REPAIR_TIME = 1800    -- 免费修复，每1800秒一次
-WALL_FIRE_OUTFIRE_COST = 30     -- 城墙灭火，花费30金币
+WALL_FIRE_OUTFIRE_COST = 50     -- 城墙灭火，花费30金币
 
 
 UNION_TASK =      ---军团悬赏任务类型
@@ -629,6 +631,7 @@ CastleState = {
     AntiSpy = 4,
     Imprison = 5,
     RecallTroop = 6,
+    DeFire =7,
 }
 
 TroopState = {
@@ -1192,6 +1195,7 @@ HERO_STATUS_TYPE = {
     BEING_IMPRISONED = 8,    -- 被监禁
     BEING_EXECUTED   = 9,    -- 处决中
     DEAD             = 10,   -- 死亡
+    DESTROY          = 11,   -- 解雇
 }
 
 -- 品质
@@ -1475,6 +1479,37 @@ TRIGGERS_EVENT_ID = {
     TRIGGERS_END               = 3,  --终止值（增加一个类型需要递增）
 }
 --------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------------
+--世界事件
+WORLD_EVENT_ACTION = {
+    CASTLE_LEVEL      = 1,         --升级城堡
+    ATTACK_MONSTER    = 2,         --攻击怪物
+    OCCUPY_CITY       = 3,         --占领城市
+    HERO_NUM          = 4,         --收集英雄数量
+    PANJUN_KILL       = 5,         --击杀叛军
+    CURE_SOLDIER      = 6,         --治疗士兵
+    UNION_TECH_NUM    = 7,         --军团数量
+    GATHER_NUM        = 8,         --采集量
+    OCCUPY_KING_CITY  = 9,         --占领王城
+}
+
+g_world_event_relation = {
+    ["castle_level"] = WORLD_EVENT_ACTION.CASTLE_LEVEL,       --升级城堡
+    ["attack_monster"] = WORLD_EVENT_ACTION.ATTACK_MONSTER,         --攻击怪物
+    ["occupy_city"] = WORLD_EVENT_ACTION.OCCUPY_CITY,            --占领城市
+    ["hero_num"] = WORLD_EVENT_ACTION.HERO_NUM,               --收集英雄数量
+    ["panjun_kill"] = WORLD_EVENT_ACTION.PANJUN_KILL,            --击杀叛军
+    ["cure_soldier"] = WORLD_EVENT_ACTION.CURE_SOLDIER,           --治疗士兵
+    ["union_halltech_lv"] = WORLD_EVENT_ACTION.UNION_TECH_NUM,              --军团数量
+    ["gather_num"] = WORLD_EVENT_ACTION.GATHER_NUM,             --采集量
+    ["occupy_king_city"] = WORLD_EVENT_ACTION.OCCUPY_KING_CITY,       --占领王城
+}
+
+-------------------------------------------------------------------------------------
+
+
+
 -- 日志中是否显示调试信息（文件名、函数名、行号）
 SHOW_DEBUG_INFO = false
 
@@ -1580,6 +1615,12 @@ function get_type(ety)
     return math.floor( ety.propid / 1000000 )
 end
 
+function is_type_propid(propid, typeid)
+    if not propid then return end
+    
+    return math.floor( propid / 1000000 ) == typeid
+end
+
 
 function is_ply(ety) return is_type( ety, EidType.Player ) end
 function is_res(ety) return is_type( ety, EidType.Res ) end
@@ -1612,6 +1653,11 @@ SEARCH_RANGE = {
 OFFLINE_UNIT_TYPE = {
     NPC_MONSTER = 1,
 }
+
+--月卡总天数
+YUEKA_TOTAL_DAYS = 30
+--月卡打折时间
+YUEKA_SALE_TIME = 259200 --3天
 
 PLAYER_INIT = {
     map = 0,
@@ -1655,6 +1701,7 @@ PLAYER_INIT = {
     relic_gold = 0,
     monster_gold = 0,
     showequip = 1,
+    pow = 0,
 
     cds = {},
     bufs = {},
@@ -1679,6 +1726,7 @@ PLAYER_INIT = {
     officer = 0,-- 王城战职务,
     vote_time = 0, -- 王城战投票购买时间,
     tm_union = 0, -- 进入军团的时间,
+    join_tm = 0, --  加入军团次数,
 
     activity = 0,  --每日任务活跃度,
     activity_box = {},  --每日活跃度箱子领取,
@@ -1741,6 +1789,13 @@ PLAYER_INIT = {
     nologin_time = 0,
 
     pay_state = {}, -- 玩家充值的相关状态
+
+    tm_yueka_cur = 0,       --月卡当前领取天数
+    tm_yueka_start = 0,     --月卡开始天数
+    tm_yueka_end = 0,       --月卡结束天数
+    yueka_level = 0,        --月卡档次
+
+    world_event_get_id = {},    --已经领取奖励的世界事件的ID
 }
 
 map_city_zone = {

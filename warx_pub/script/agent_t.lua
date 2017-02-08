@@ -1,5 +1,14 @@
 module( "agent_t", package.seeall )
 
+function agent_test( self, info, info1)
+    pause()
+end
+
+function agent_test_struct( self, id, mems, name )
+    pause()
+    print("ok")
+end
+
 function agent_move_eye( self, pid, x, y )
     c_mov_eye(pid, x, y)
 end
@@ -611,15 +620,19 @@ do_gm_cmd["pay"] = function(param)
             local prop = resmng.prop_buy[product_id]
             if prop then
                 LOG("GM CMD PAY pid = %s order_id = %d product_id = %d", param.order_id, ply_id, param.product_id)
-                if prop.Gold then
-                    ply:do_inc_res_normal(6, prop.Gold, VALUE_CHANGE_REASON.GM_PAY)
-                end
-                if prop.ExtraGold then
-                    ply:do_inc_res_normal(6, prop.ExtraGold, VALUE_CHANGE_REASON.GM_PAY)
-                end
+                if product_id == 50 or product_id == 51 then
+                    ply:set_yueka()
+                else
+                    if prop.Gold then
+                        ply:do_inc_res_normal(6, prop.Gold, VALUE_CHANGE_REASON.GM_PAY)
+                    end
+                    if prop.ExtraGold then
+                        ply:do_inc_res_normal(6, prop.ExtraGold, VALUE_CHANGE_REASON.GM_PAY)
+                    end
 
-                if prop.Item_ExtraGift then
-                    gm_add_ply_item(ply, {{"item", prop.Item_ExtraGift, 1, 10000}}, VALUE_CHANGE_REASON.GM_PAY)
+                    if prop.Item_ExtraGift then
+                        gm_add_ply_item(ply, {{"item", prop.Item_ExtraGift, 1, 10000}}, VALUE_CHANGE_REASON.GM_PAY)
+                    end
                 end
 
                 ply:process_order(product_id)

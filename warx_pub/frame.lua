@@ -752,7 +752,7 @@ function init(sec, msec)
     gInit = "StateBeginInit"
     loadMod()
 
-    require("game")
+    require("game_new")
 
     load_game_module()
 

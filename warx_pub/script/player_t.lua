@@ -112,11 +112,11 @@ function create(account, map, pid, culture)
     elseif culture == 3 then ply:make_hero(204)
     elseif culture == 4 then ply:make_hero(206) end
 
-
     --接任务
     ply:init_task()
 
     ply:initEffect()
+
     gPendingInsert.item[ pid ] = {}
 
     --player_t._cache[pid] = p
@@ -135,6 +135,7 @@ end
 
 function build_top(self)
     self:build_all()
+    --self:build_file() -- 建筑野地
     local bs = self:get_build()
     for k, v in pairs( bs ) do
         local id = v.propid
@@ -145,6 +146,76 @@ function build_top(self)
             self:do_upgrade( k )
         end
     end
+end
+
+function build_file(self)
+    local default_build = {
+        resmng.BUILD_FARM_1,
+        resmng.BUILD_FARM_1,
+        resmng.BUILD_FARM_1,
+        resmng.BUILD_FARM_1,
+        resmng.BUILD_FARM_1,
+        resmng.BUILD_FARM_1,
+        resmng.BUILD_FARM_1,
+        resmng.BUILD_FARM_1,
+        resmng.BUILD_HOSPITAL_1,
+        resmng.BUILD_HOSPITAL_1,
+        resmng.BUILD_HOSPITAL_1,
+        resmng.BUILD_HOSPITAL_1,
+        resmng.BUILD_HOSPITAL_1,
+        resmng.BUILD_HOSPITAL_1,
+        resmng.BUILD_HOSPITAL_1,
+        resmng.BUILD_HOSPITAL_1,
+        resmng.BUILD_LOGGINGCAMP_1,
+        resmng.BUILD_LOGGINGCAMP_1,
+        resmng.BUILD_LOGGINGCAMP_1,
+        resmng.BUILD_LOGGINGCAMP_1,
+        resmng.BUILD_LOGGINGCAMP_1,
+        resmng.BUILD_LOGGINGCAMP_1,
+        resmng.BUILD_LOGGINGCAMP_1,
+        resmng.BUILD_LOGGINGCAMP_1,
+        resmng.BUILD_MINE_1,
+        resmng.BUILD_MINE_1,
+        resmng.BUILD_MINE_1,
+        resmng.BUILD_MINE_1,
+        resmng.BUILD_MINE_1,
+        resmng.BUILD_MINE_1,
+        resmng.BUILD_MINE_1,
+        resmng.BUILD_MINE_1,
+        resmng.BUILD_QUARRY_1,
+        resmng.BUILD_QUARRY_1,
+        resmng.BUILD_QUARRY_1,
+        resmng.BUILD_QUARRY_1,
+        resmng.BUILD_QUARRY_1,
+        resmng.BUILD_QUARRY_1,
+        resmng.BUILD_QUARRY_1,
+        resmng.BUILD_QUARRY_1,
+        resmng.BUILD_MILITARYTENT_1,
+        resmng.BUILD_MILITARYTENT_1,
+        resmng.BUILD_MILITARYTENT_1,
+        resmng.BUILD_MILITARYTENT_1,
+        resmng.BUILD_MILITARYTENT_1,
+        resmng.BUILD_MILITARYTENT_1,
+        resmng.BUILD_MILITARYTENT_1,
+        resmng.BUILD_MILITARYTENT_1,
+    }
+
+    local bs = self:get_build()
+    local idx = 1
+    for _, build_propid in ipairs(default_build) do
+        local conf = resmng.get_conf("prop_build", build_propid)
+        local build_idx = self:calc_build_idx(conf.Class, conf.Mode, idx % 8 + 1)
+        idx = idx + 1
+        if not bs[ build_idx ] then
+            bs[ build_idx ] = build_t.create(build_idx, self.pid, build_propid, 0, 0, BUILD_STATE.WAIT)
+            Rpc:stateBuild(self, bs[ build_idx ]._pro)
+            if conf.Effect then self:ef_add( conf.Effect ) end
+        end
+    end
+    if self:get_castle_lv() == 1 then self:do_upgrade( 1 ) end
+
+    self:refresh_black_marcket()
+    self:refresh_res_market()
 end
 
 function build_all(self)
@@ -311,7 +382,10 @@ function upload_user_ack(self)
 end
 
 function check_token(signature, time, open_id, token)
-    return true
+    --return true
+    --local app_secret = 1
+    local cal_token = c_md5(c_md5(tostring(time)..open_id..token)..APP_SECRET)
+    return signature == cal_token
 end
 
 function is_token_overdue(time)
@@ -472,7 +546,6 @@ function firstPacket2(self, sockid, from_map, cival, pid, signature, time, open_
         player_t.login( p, p.pid )
     end
     p:pre_tlog("PlayerLogin",p.gold,0,"iphone6","ios","oper","wifi","800","600",2000)
-    return p
 end
 
 
@@ -616,7 +689,9 @@ function set_uid(self, u)
         self.uid = u.uid
         self.uname = u.alias
         self.uflag = u.flag
+        self.join_tm = self.join_tm + 1
         etypipe.add(self)
+        rank_mng.update_info_player( self.pid )
 
         local troop = troop_mng.get_troop(self.my_troop_id)
         if troop ~= nil then troop.owner_uid = u.uid end
@@ -627,6 +702,7 @@ function set_uid(self, u)
         self.uname = ""
         self.uflag = 0
         etypipe.add(self)
+        rank_mng.update_info_player( self.pid )
 
         local troop = troop_mng.get_troop(self.my_troop_id)
         if troop ~= nil then troop.owner_uid = 0 end
@@ -675,6 +751,7 @@ function set_rank(self, val)
         mode = resmng.UNION_MODE.RANK_UP
     end
     self._union.rank = val
+    INFO(self.pid..":set_rank:"..val)
     gPendingSave.union_member[self.pid] = self._union
     local u = unionmng.get_union(self:get_uid())
     if u  then
@@ -696,7 +773,7 @@ function get_union_info(self)
         language = self.language,
         rank = player_t.get_rank(self),
         title = self._union.title,
-        tm_join = self._union.tmJion,
+        tm_join = self._union.tmJoin,
         photo = self.photo,
         eid = self.eid,
         x = self.x,
@@ -794,7 +871,7 @@ function check_pending()
     local db = dbmng:tryOne(1)
     if not db then return end
 
-        local hit = false
+    local hit = false
     local cur = gFrame
     for pid, chgs in pairs(_cache) do
         if not chgs._n_ then
@@ -830,32 +907,63 @@ function check_pending()
         end
     end
     if hit then gen_checker(db, cur, _cache_items, "item")  end
-
-    for pid, actions in pairs( gDelayAction ) do
-        local A = getPlayer( pid )
-        if A then
-            for func, v in pairs( actions ) do
-                if v == 0 then
-                    func( A )
-                    actions[ func ] = 1
-                end
-            end
+    
+    while next( gDelayAction ) do
+        local co, flag, code
+        if #gGlobalThreadDelayAction > 0 then
+            co = table.remove( gGlobalThreadDelayAction )
+            coro_mark( co, "outpool" )
+            flag, code = coroutine.resume( co )
+        else
+            co = coroutine.create( thread_delay_aciton )
+            coro_mark_create( co, "delay_action" )
+            coro_mark( co, "outpool" )
+            flag, code = coroutine.resume( co )
         end
+        if flag and code == "ok" then break end
     end
-    gDelayAction = {}
 
     local notifys = troop_t.gPendingNotify
     troop_t.gPendingNotify = {}
     for tid, troop in pairs( notifys ) do
         troop:do_notify_owner()
     end
-
+    
     for k, v in pairs( gSync ) do
         Rpc:sync( k, v )
     end
     gSync = {}
 
     warxG_check_save()
+end
+
+
+gGlobalThreadDelayAction = gGlobalThreadDelayAction or {}
+function thread_delay_aciton()
+    local co = coroutine.running()
+    local q_actions = gDelayAction
+    while true do
+        local pid, actions = next( q_actions ) 
+        while not pid do 
+            if gCoroBad[ co ] then return "ok" end
+            if #gGlobalThreadDelayAction >= 2 then return "ok" end
+
+            table.insert( gGlobalThreadDelayAction, co )
+            coroutine.yield( "ok" )
+            pid, actions = next( q_actions )
+        end
+
+        q_actions[ pid ] = nil
+        local A = getPlayer( pid )
+        if A then
+            for func, v in pairs( actions ) do
+                if v == 0 then
+                    actions[ func ] = 1
+                    func( A )
+                end
+            end
+        end
+    end
 end
 
 
@@ -867,15 +975,11 @@ end
 -- _ef_hero
 -- _ef_union todo
 function initEffect(self, init)
-    local old_pow = self.pow or 0
     local ef = {}
     local pow = 0
     local conf = resmng.prop_level[ self.lv ]
-    if conf then
-        pow = resmng.prop_level[ self.lv ].Pow
-    end
+    if conf then pow = resmng.prop_level[ self.lv ].Pow end
 
-    --LOG( "initEffect, pid=%d, default", self.pid )
     local ptab = resmng.prop_effect_type
     for k, v in pairs(ptab) do
         if v.Default and v.Default ~= 0 then
@@ -884,25 +988,27 @@ function initEffect(self, init)
     end
 
     -- build
-    --LOG( "initEffect, pid=%d, build", self.pid )
-    local old = pow
+    local pow_build = 0
     local bs = self:get_build()
     if bs then
         local ptab = resmng.prop_build
         for _, v in pairs(bs) do
             local node = ptab[ v.propid ]
             if node then
-                pow = pow + (node.Pow or 0)
+                if node.Pow then
+                    pow_build = pow_build + ( node.Pow or 0 )
+                end
+
                 if node.Effect then
                     for ek, ev in pairs( node.Effect ) do ef[ ek ] = ( ef[ ek ] or 0 ) + ev end
                 end
             end
         end
     end
-    self.pow_build = pow - old
+    self.pow_build = pow_build
+    pow = pow + pow_build
 
     -- equip
-    --LOG( "initEffect, pid=%d, equip", self.pid )
     local es = self:get_equip()
     if es then
         local ptab = resmng.prop_equip
@@ -910,26 +1016,24 @@ function initEffect(self, init)
             if v.pos > 0 then
                 local node = ptab[ v.propid ]
                 if node then
-                    pow = pow + (node.Pow or 0)
                     for ek, ev in pairs( node.Effect ) do ef[ ek ] = ( ef[ ek ] or 0 ) + ev end
+                    if node.Pow then pow = pow + node.Pow end
                 end
             end
         end
     end
 
     -- tech
-    --LOG( "initEffect, pid=%d, tech", self.pid )
     local ptab = resmng.prop_tech
     for _, v in pairs(self.tech or {}) do
         local node = ptab[ v ]
         if node then
-            pow = pow + ( node.Pow or 0 )
             for ek, ev in pairs( node.Effect ) do ef[ ek ] = ( ef[ ek ] or 0 ) + ev end
+            if node.Pow then pow = pow + node.Pow end
         end
     end
 
     -- genius
-    --LOG( "initEffect, pid=%d, genius", self.pid )
     local ptab = resmng.prop_genius
     for _, v in pairs(self.genius or {}) do
         local node = ptab[ v ]
@@ -939,7 +1043,6 @@ function initEffect(self, init)
     end
 
     -- bufs
-    --LOG( "initEffect, pid=%d, buf", self.pid )
     local ptab = resmng.prop_buff
     for k, v in pairs(self.bufs or {}) do
         local bufid = v[1]
@@ -954,28 +1057,22 @@ function initEffect(self, init)
 
     self._ef = ef
 
-    pow = pow + self:do_calc_pow_arm()
+    pow = pow + self:calc_pow_arm()
+    pow = pow + self:calc_pow_hero()
 
-    pow = math.floor( pow )
-    if pow ~= old_pow then
-        self.pow = pow
-        if not init then rank_mng.add_data(3, self.pid, {self.pow}) end
-
-        local union = self:get_union()
-        if union then
-            union.pow = ( union.pow or 0) + ( pow - old_pow )
-            if not init then rank_mng.add_data(5, union.uid, {union.pow}) end
-        end
-    end
+    if pow ~= self.pow then self.pow = pow end
+    self.pow_last = pow
 
     if self.tm_lv == 0 then self.tm_lv = gTime end
     if self.tm_lv_castle == 0 then self.tm_lv_castle = gTime end
 end
 
-function do_calc_pow_arm(self)
+
+function calc_pow_arm( self )
     local pow = 0
     local troop = self:get_my_troop()
     if troop then pow = pow + troop:calc_pow(self.pid) end
+
     for k, v in pairs(self.busy_troop_ids) do
         troop = troop_mng.get_troop(v)
         if troop then pow = pow + troop:calc_pow(self.pid) end
@@ -985,31 +1082,28 @@ function do_calc_pow_arm(self)
     return pow
 end
 
-function calc_pow_arm( self )
+
+function recalc_pow_arm( self )
     local old = self.pow_arm or 0
-    local new = self:do_calc_pow_arm()
-    if new > old then self:inc_pow( new - old ) else self:dec_pow( old - new ) end
-    return new
+    self:calc_pow_arm()
+    local new = self.pow_arm or 0
+
+    if old ~= new then
+        if new > old then self:inc_pow( new - old ) else self:dec_pow( old - new ) end
+    end
 end
 
 
-function calc_pow_build(self)
-    local old = self.pow_build or 0
+function calc_pow_hero( self )
     local pow = 0
-
-    local ts = self:get_build()
-    if ts then
-        local ptab = resmng.prop_build
-        for _, v in pairs(ts) do
-            local node = ptab[ v.propid ]
-            if node then
-                pow = pow + (node.Pow or 0)
-            end
+    local hs = self:get_hero()
+    for _, h in pairs( hs or {} ) do
+        if h.status < HERO_STATUS_TYPE.BEING_CAPTURED then
+            pow = pow + h:calc_fight_power()
         end
     end
-    pow =  math.floor(pow)
-    self.pow_build = pow
-    if pow > old then self:inc_pow( pow - old ) else self:dec_pow( old - pow ) end
+    pow = math.floor( pow )
+    self.pow_hero = pow
     return pow
 end
 
@@ -1150,12 +1244,24 @@ function recalc_build_queue( self )
     local val = self:get_val( "CountBuild" )
     if val <= 1 then
         local queues = self.build_queue
-        queues[ 2 ] = nil
-        self.build_queue = queues
-    else
-        local queues = self.build_queue
-        if not queues[ 2 ] then
-            queues[ 2 ] = 0
+        if queues[ 2 ] then
+            queues[ 2 ] = nil
+            self.build_queue = queues
+        end
+    end
+
+    local queues = self.build_queue
+    for k, idx in pairs( queues ) do
+        local valid = false
+        local build = self:get_build( idx )
+        if build then
+            local state = build.state
+            if state == BUILD_STATE.CREATE or state == BUILD_STATE.UPGRADE or state == BUILD_STATE.DESTROY then
+                valid = true
+            end
+        end
+        if not valid then 
+            queues[ k ] = 0 
             self.build_queue = queues
         end
     end
@@ -1451,19 +1557,23 @@ function do_add_bonus(self, class, mode, num, ratio, reason)
     local real_num = math.floor(num * ratio)
     if class == "item" then
         local itemp = resmng.get_conf("prop_item", mode)
-        if itemp.Open == 1 then
-            if itemp.Action then
-                if self:do_item_check( itemp ) then
-                    if not debug.getinfo( 50, "n" )  then
-                        player_t.use_item_logic[itemp.Action](self,itemp.ID, real_num, itemp)
-                        return
-                    else
-                        WARN( "do_add_bonus, deep loop, id = %d, num = %d", itemp.ID, real_num )
+        if itemp then
+            if itemp.Open == 1 then
+                if itemp.Action then
+                    if self:do_item_check( itemp ) then
+                        if not debug.getinfo( 50, "n" )  then
+                            player_t.use_item_logic[itemp.Action](self,itemp.ID, real_num, itemp)
+                            return
+                        else
+                            WARN( "do_add_bonus, deep loop, id = %d, num = %d", itemp.ID, real_num )
+                        end
                     end
                 end
             end
+            self:addItem(mode, real_num, reason)
+        else
+            ERROR( "do_add_bonus, class=%s, mode=%s, num=%s", class, mode, num )
         end
-        self:addItem(mode, real_num, reason)
 
     elseif class == "res" then
         self:do_inc_res_normal(mode, real_num, reason)
@@ -1577,6 +1687,10 @@ function gm_user(self, cmd)
             self:add_debug( "%d, %d, %d, %d", v[1], v[2], v[3], v[3]-gTime )
         end
         coro_info()
+
+    elseif choose == "pow" then
+        self:add_debug( string.format( "pow = %d", self.pow ) )
+
 
     elseif choose == "addexp" then
         local value = get_parm(1)
@@ -1821,7 +1935,7 @@ function gm_user(self, cmd)
         monster.try_upgrade_stage()
     elseif choose == "forceboss" then --世界boss 加积分
         local lv = tonumber(tb[2])
-        local x, y = monster.force_born(math.floor(self.x/16), math.floor(self.y/16), lv)
+        local propid, x, y = monster.force_born(math.floor(self.x/16), math.floor(self.y/16), lv)
         self:add_debug(string.format("boss pos , %d, %d", x, y))
     elseif choose == "syncall" then --同步call
         local union = unionmng:get_union(self.uid)
@@ -1872,7 +1986,7 @@ function gm_user(self, cmd)
     elseif choose == "skill" then
         self:launch_talent_skill(tonumber(get_parm(1)))
     elseif choose == "reload" then
-        --os.execute("./reload.sh")
+        os.execute("./reload.sh")
         do_reload()
         player_t.add_chat(self, 0, 0, {pid=0}, "ok", 0, {})
 
@@ -1917,6 +2031,7 @@ function gm_user(self, cmd)
             {5000000,5000000},
             {5000000,5000000}
         }
+        self:inc_sinew( 100) 
 
         for _, h in pairs(self._hero or {}) do h.hp = h.max_hp end
         --for _, h in pairs(self._hero or {}) do h.hp = 0 end
@@ -2008,13 +2123,14 @@ function gm_user(self, cmd)
         for k, v in pairs( self:get_hero() ) do
             if v.status == HERO_STATUS_TYPE.MOVING or v.status == HERO_STATUS_TYPE.FREE then
                 self:hero_set_free( v )
-                v.hp = v.max_hp
+                v.hp = v.max_hp * 0.5
+                hero_t.mark_recalc( v )
             end
         end
         troop:save()
         Rpc:upd_arm(self, troop:get_live(self.pid))
 
-        self:mark_action( calc_pow_arm )
+        self:mark_action( recalc_pow_arm )
         self:mark_action( recalc_food_consume )
         self:mark_action( notify_arm )
 
@@ -2025,6 +2141,8 @@ function gm_user(self, cmd)
         end
 
     elseif choose == "addallitem" then
+        if true then return end
+
         local its = {
             [1] = {1, 4001001, 10000},
             [2] = {2, 4001002, 10000},
@@ -2151,7 +2269,8 @@ function gm_user(self, cmd)
                 self:add_debug( string.format( "ARMY %d, diff = %d", mode, -1) )
             end
         end
-
+    elseif choose == "yueka" then
+        self:set_yueka()
 
     elseif choose == "lvbuild" then
         local class = tonumber(get_parm(1))
@@ -2180,6 +2299,11 @@ function gm_user(self, cmd)
             end
         end
         upload_user_info(self)
+
+    elseif choose == "world_event" then
+        local id = tonumber(get_parm(1))
+        local num = tonumber(get_parm(2))
+        world_event.gm_finish_world_event(id, num)
     end
 end
 
@@ -2254,11 +2378,10 @@ function loadData(self, what)--本函数严禁加日志
         if my_troop ~= nil then
             local a = my_troop.arms[ self.pid ]
             if a then a = a.live_soldier end
-            --if not a then a = {} end
-            a = {}
+            if not a then a = {} end
             t.val = a
         end
-        lxz( "arm", t.val )
+        dumpTab( "arm", t.val )
 
     elseif what == "task" then
         t.val = self:packet_all_task_id()
@@ -2633,8 +2756,6 @@ function recalc_food_consume(self)
 
     self.foodTm = gTime
     self.foodUse = math.floor(consume)
-
-    print( "recalc_food_consume", self.foodUse )
 end
 
 
@@ -2798,6 +2919,17 @@ function reCalcFood(self)
     self.foodTm = gTime
 end
 
+
+function mark_action_by_pid( pid, action )
+    if not action then return end
+    local node = gDelayAction[ pid ]
+    if not node then
+        gDelayAction[ pid ] = { [ action ] = 0 }
+    else
+        node[ action ] = 0
+    end
+end
+
 function mark_action( self, action )
     if not action then
         MARK("mark_action")
@@ -2827,7 +2959,7 @@ function add_soldier( self, id, num )
         if conf then
             if num > 0 then
                 troop:add_soldier( id, num )
-                self:mark_action( calc_pow_arm )
+                self:mark_action( recalc_pow_arm )
                 self:mark_action( recalc_food_consume )
                 self:mark_action( notify_arm )
                 troop:save()
@@ -2840,7 +2972,7 @@ function rem_soldier( self, id, num )
     local troop = self:get_my_troop()
     if troop then
         if troop:rem_soldier( id, num ) then
-            self:mark_action( calc_pow_arm )
+            self:mark_action( recalc_pow_arm )
             self:mark_action( recalc_food_consume )
             self:mark_action( notify_arm )
             troop:save()
@@ -2854,7 +2986,7 @@ function add_soldiers( self, soldiers )
     if troop then
         local count = troop:add_soldiers( soldiers )
         if count > 0 then
-            self:mark_action( calc_pow_arm )
+            self:mark_action( recalc_pow_arm )
             self:mark_action( recalc_food_consume )
             self:mark_action( notify_arm )
             troop:save()
@@ -2883,7 +3015,8 @@ function add_chat( to, channel, id, speaker, word, lang, args )
     local idx = id * 10 + channel
     if channel == resmng.ChatChanelEnum.Notice then
         idx = 0
-        word = string.format( "<color=#FFD700>%s</color>", word )
+        --word = string.format( "<color=#FFD700>%s</color>", word )
+        word = string.format( "<color=#F0FF00>%s</color>", word )
     end
 
     local node = gChat[ idx ]
@@ -2896,7 +3029,6 @@ function add_chat( to, channel, id, speaker, word, lang, args )
     local list = node.list
     table.insert( list, { sn, gTime, speaker, word, lang, args } )
 
-    print( sn, to, channel, id )
     if #list > 100 then table.remove( list, 1 ) end
     Rpc:chat( to, channel, sn, speaker, word, lang, args)
 end
@@ -2968,8 +3100,10 @@ function chat(self, channel, word, sn)
 
     local lvip = nil
     if self:is_vip_enable() then lvip = self.vip_lv end
-    local speaker = { pid = self.pid, photo = self.photo, name = self.name, vip = lvip , officer = self.officer, title = self.title}
-    print("is valid string ", is_valid_string(word))
+    local officer = self.officer
+
+    local speaker = { pid = self.pid, photo = self.photo, name = self.name, vip = lvip , officer = officer, title = self.title}
+    --print("is valid string ", is_valid_name(word))
     if config.IsEnableGm == 1 then
         local ctr = string.sub(word, 1, 1)
         if ctr == "@" then
@@ -2977,13 +3111,17 @@ function chat(self, channel, word, sn)
             return
         end
     else
-        if not is_valid_string(word) then
+        if not is_valid_name(word) then
             ack(self, "chat", resmng.E_DISALLOWED, 0)
         end
     end
 
     local u = self:union()
     if u then speaker.uname = u.alias end
+
+    if officer == KING then 
+        word = string.format( "<color=#ffb804ff>%s</color>", word )
+    end
 
     if channel == resmng.ChatChanelEnum.World then
         add_chat({pid=-1,gid=_G.GateSid}, channel, 0, speaker, word, 0, {} )
@@ -3256,6 +3394,11 @@ function do_migrate(self, x, y)
     if x + 3 >= 1280 then return false end
     if y + 3 >= 1280 then return false end
 
+    if x == self.x and y == self.y then 
+        self:add_debug( "same pos" )
+        return false 
+    end
+
     if #self.busy_troop_ids > 0 then return ack(self, "migrate", resmng.E_TROOP_BUSY, 0) end
 
     if not self:can_move_to(x, y)  then return self:add_debug("can not move by castle lv") end
@@ -3325,6 +3468,8 @@ function do_migrate(self, x, y)
     self:add_count( resmng.ACH_COUNT_MIGRATE, 1 )
     reply_ok(self, "migrate", y*65536+x)
     union_build_t.ply_move(self)
+
+    --if self:is_wall_fire() then self:wall_fire( 0 ) end
 
     --任务
     local zone_lv = get_pos_lv(x, y)
@@ -3411,8 +3556,7 @@ end
 
 
 function change_name(self, name)
-
-    if not is_valid_string(name) then
+    if not is_valid_name(name) then
         ack(self, "change_name", resmng.E_DISALLOWED)
     end
 
@@ -3431,10 +3575,12 @@ function change_name(self, name)
 
     self.name = name
     etypipe.add(self)
-    rank_mng.change_name( 1, self.pid, name )
-    rank_mng.change_name( 2, self.pid, name )
-    rank_mng.change_name( 3, self.pid, name )
-    rank_mng.change_name( 4, self.pid, name )
+    rank_mng.update_info_player( self.pid )
+
+    --rank_mng.change_name( 1, self.pid, name )
+    --rank_mng.change_name( 2, self.pid, name )
+    --rank_mng.change_name( 3, self.pid, name )
+    --rank_mng.change_name( 4, self.pid, name )
 
     local u  = unionmng.get_union(self.uid)
     if u then
@@ -3530,6 +3676,7 @@ function equip_on(self, id)
     gPendingSave.equip[ id ].pos = idx
     reply_ok(self, "equip_on", id)
 end
+
 
 function equip_off(self, id)
     local n = self:get_equip(id)
@@ -3891,9 +4038,29 @@ function get_npc_map_req(self)
         local city = get_ety(k)
         if city then
             npc_city.format_union(city)
-            local union = unionmng.get_union(city.uid) or {}
-            local name = union.name or ""
-            table.insert(map, {city.eid, city.uid, name, city.propid, city.unions, city.state, city.startTime, city.endTime})
+
+            --local name = union.name or ""
+            --local union = unionmng.get_union(city.uid) or {}
+
+            local name = ""
+            local info = {city.eid, city.uid, "", city.propid, city.unions, city.state, city.startTime, city.endTime}
+
+            local union = unionmng.get_union(city.uid)
+            if union then
+                info[3] = union.name 
+            else
+                if city.last_uid == 0 then
+                    local conf = resmng.get_conf( "prop_world_unit", city.propid )
+                    local flag = conf and conf.Flag
+                    if flag and flag[4] ~= 0 then
+                        info[2] = flag[4]
+                        info[3] = flag[2]
+                        local uinfo = { flag[4], flag[2], flag[3], flag[1] }
+                        info[5][1] = uinfo
+                    end
+                end
+            end
+            table.insert( map, info )
         end
     end
     local king_city = king_city.get_king()
@@ -4000,11 +4167,36 @@ function get_union_npc_rank_req(self)
     local version, tops = rank_mng.load_rank( 13 )
     local rank = {}
     for k, v in pairs( tops ) do
-        local id = v[1]
-        local score = v[2]
-        local name = v[ 5 ]
+
+        local id = v[2][1]
+        local score = v[1]
+        local name = v[ 2 ][2]
+
         table.insert( rank, { id, name, score } )
     end
+
+    local points = {}
+    local prop_world_unit = resmng.prop_world_unit
+    for k, v in pairs( npc_city.citys ) do
+        local city = get_ety( k )
+        if city then
+            if not city.uid or city.uid == 0 then
+                local conf = prop_world_unit[ city.propid ]
+                local uid = conf and conf.Flag and conf.Flag[4]
+                if uid then
+                    points[ uid ] = ( points[ uid ] or 0 ) + conf.Boss_point
+                end
+            end
+        end
+    end
+
+    for uid, point in pairs( points ) do
+        local conf = resmng.prop_default_union[ uid ]
+        if conf then
+            table.insert( rank, { conf.ID, conf.Fullname, point } )
+        end
+    end
+
     Rpc:get_union_npc_rank_ack( self, { s_id = gMapID, rank=rank } )
 end
 
@@ -4637,19 +4829,21 @@ end
 function find_player_by_name_req(self, name)
     local pack = {}
     local db = dbmng:getOne()
-    local info = db.player:findOne({name = name})
+    local info = db.player:findOne({name = name}, {pid=1})
     pack.name = name
     if info  then
-        local p = player_t.new(info)
-        pack.pid = info.pid
-        pack.name = info.name
-        pack.photo = info.photo
-        pack.photo_url = info.photo_url
-        pack.lv = p:get_castle_lv()
-        pack.vip_lv = info.vip_lv
-        local union = unionmng.get_union(info.uid) or {}
-        pack.uid = info.uid
-        pack.uname = union.alias or ""
+        local p = getPlayer( info.pid )
+        if p then
+            pack.pid = p.pid
+            pack.name = p.name
+            pack.photo = p.photo
+            pack.photo_url = p.photo_url
+            pack.lv = p:get_castle_lv()
+            pack.vip_lv = p.vip_lv
+            pack.uid = p.uid
+            local union = unionmng.get_union(p.uid)
+            if union then pack.uname = union.alias or "" end
+        end
     end
     Rpc:find_player_by_name_ack(self, pack)
 end
@@ -4876,11 +5070,11 @@ function mc_info_req(self)
         local citys = {}
         for k, v in pairs (union.npc_citys) do
             local city = {}
+            local npc = get_ety(v)
+            local def_tr = npc:get_my_troop()
             local mc = union_t.get_live_mc(v)
             if mc then
                 city.endTime = mc.endTime
-                local npc = get_ety(v)
-                local def_tr = npc:get_my_troop()
                 if def_tr then
                     pack.def_num = def_tr:get_troop_total_soldier()
                 end
@@ -4944,29 +5138,34 @@ function get_pow(self)
     return self.pow or 0
 end
 
-function inc_pow(self, num)
-    if num and num > 0 then
-        self.pow = (self.pow or 0) + num
-        rank_mng.add_data(3, self.pid, {self.pow})
+function refresh_rank_pow( self )
+    local delta = self.pow - ( self.pow_last or self.pow )
+    if delta ~= 0 then
+        LOG( "REFRESH_POW, pid=%d, new=%d, old=%d, delta=%d", self.pid, self.pow, self.pow_last, delta )
+        self.pow_last = self.pow
+        rank_mng.add_data( 3, self.pid, { self.pow } )
 
         local union = self:get_union()
         if union then
-            union.pow = (union.pow or 0) + num
+            union.pow = (union.pow or 0) + delta
             rank_mng.add_data( 5, union.uid, { union.pow } )
+            union_mission.ok(self,UNION_MISSION_CLASS.POW, delta)
         end
     end
-    union_mission.ok(self,UNION_MISSION_CLASS.POW,num)
+end
+
+
+function inc_pow(self, num)
+    if num and num > 0 then
+        self.pow = (self.pow or 0) + num
+        self:mark_action( refresh_rank_pow )
+    end
 end
 
 function dec_pow(self, num)
     if num and num > 0 then
         self.pow = self.pow - num
-        rank_mng.add_data(3, self.pid, {self.pow})
-        local union = self:get_union()
-        if union then
-            union.pow = union.pow - num
-            rank_mng.add_data( 5, union.uid, { union.pow } )
-        end
+        self:mark_action( refresh_rank_pow )
     end
 end
 
@@ -5209,7 +5408,6 @@ function syn_back_code(self, syn)
 end
 
 function load_rank( self, idx, version )
-    print( "load_rank", idx, version )
     local ver, info = rank_mng.load_rank( idx )
     local pos = 0
 
@@ -5282,7 +5480,7 @@ can_ply_join_act[ACT_TYPE.NPC] = function(ply)
         return false
     end
 
-    if ( ply._union.join_tm or 3 ) > 2 and (gTime - ply._union.tmJoin ) <= (12 * 3600) then
+    if ( ply.join_tm or 3 ) > 2 and (gTime - ply._union.tmJoin ) <= (12 * 3600) then
         ply:add_debug(string.format("join union  %f", (gTime - ply._union.tmJoin) / 3600))
         return false
     end
@@ -5319,7 +5517,7 @@ can_ply_join_act[ACT_TYPE.LT] = function(ply)
         return false
     end
 
-    if ( ply._union.join_tm or 3 ) > 2 and (gTime - ply._union.tmJoin) <= (12 * 3600) then
+    if ( ply.join_tm or 3 ) > 2 and (gTime - ply._union.tmJoin) <= (12 * 3600) then
         return false
     end
 
@@ -5342,7 +5540,7 @@ can_ply_join_act[ACT_TYPE.MC] = function(ply)
         return false
     end
 
-    if ( ply._union.join_tm or 3 ) > 2 and (gTime - ply._union.tmJoin) <= (12 * 3600) then
+    if ( ply.join_tm or 3 ) > 2 and (gTime - ply._union.tmJoin) <= (12 * 3600) then
         return false
     end
 
@@ -5446,6 +5644,7 @@ function get_gs_buf(self)
 end
 
 function role_info( self, pid )
+    if pid < 10000 then return end
     local p = getPlayer( pid )
     if p then
         local info = {}
@@ -5456,6 +5655,8 @@ function role_info( self, pid )
         info.exp = p.exp
         info.title = p.title
         info.officer = p.officer
+        info.vip_lv = p.vip_lv
+        info.pow = p.pow
 
         local equip = {}
         local show = p.showequip
@@ -5533,10 +5734,12 @@ function choose_head_icon(self, id)
     end
 
     self.photo = id
-    rank_mng.change_icon( 1, self.pid, id )
-    rank_mng.change_icon( 2, self.pid, id )
-    rank_mng.change_icon( 3, self.pid, id )
-    rank_mng.change_icon( 4, self.pid, id )
+    rank_mng.update_info_player( self.pid )
+
+    --rank_mng.change_icon( 1, self.pid, id )
+    --rank_mng.change_icon( 2, self.pid, id )
+    --rank_mng.change_icon( 3, self.pid, id )
+    --rank_mng.change_icon( 4, self.pid, id )
 
     Rpc:choose_head_icon_resp(self, 0)
 end
@@ -5700,4 +5903,61 @@ function set_show_equip( self, flag )
         end
     end
 end
+
+function set_yueka(self)
+    local sale = gTime - self.tm_create
+    local tmp_level = 0
+    if sale <= YUEKA_SALE_TIME then --前3天第一档月卡
+        tmp_level = 1
+    else
+        tmp_level = 2
+    end
+    local cur_day = get_days(gTime)
+    if cur_day > self.tm_yueka_end then
+        --第一次买
+        self.tm_yueka_start = cur_day
+        self.tm_yueka_end = cur_day + YUEKA_TOTAL_DAYS - 1 --减去今天能够领奖
+        self.yueka_level = tmp_level
+    else
+        if self.yueka_level ~= tmp_level then
+            --月卡出错日志
+            return
+        end
+        --续费
+        self.tm_yueka_end = self.tm_yueka_end + YUEKA_TOTAL_DAYS
+    end
+
+end
+
+function get_yueka_award(self)
+    local cur_day = get_days(gTime)
+    if cur_day > self.tm_yueka_end or cur_day <= self.tm_yueka_cur then
+        return
+    end
+    --领取
+    self.tm_yueka_cur = cur_day
+    local get_day = (cur_day - self.tm_yueka_start) % YUEKA_TOTAL_DAYS
+    if get_day == 0 then
+        get_day = YUEKA_TOTAL_DAYS
+    end
+    local id = self.yueka_level * 1000 + get_day
+    local prop_yueka = resmng.get_conf("prop_month_card", id)
+    if prop_yueka == nil then
+        --月卡日志
+        return
+    end
+    self:add_bonus(prop_yueka.Item[1], prop_yueka.Item[2], VALUE_CHANGE_REASON.REASON_YUEKA)
+end
+
+
+function get_world_event_award(self, event_id)
+    world_event.get_world_event_award(self, event_id)
+end
+
+function get_world_event_process(self)
+    local data = world_event.packet_world_event_data() 
+    Rpc:get_world_event_process_resp(self, data)
+end
+
+
 

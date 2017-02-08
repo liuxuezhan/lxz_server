@@ -61,19 +61,36 @@ function is_hold(e)
     return 0
 end
 
-function create(uid,idx, propid, x, y,name)
+function get_build_id( uid, propid )
+    local conf_build = resmng.get_conf( "prop_world_unit", propid )
+    if (not conf_build) or conf_build.Class ~= BUILD_CLASS.UNION then return end
 
+    local build_lv = union_buildlv.get_buildlv( uid, conf_build.BuildMode )
+    if not build_lv then return end
+
+    local conf_buildlv = resmng.get_conf( "prop_union_buildlv", build_lv.id )
+    if not conf_buildlv then return end
+
+    return propid - conf_build.Lv + conf_buildlv.Lv
+end
+
+function create(uid,idx, propid, x, y,name)
     assert(idx and propid and  uid and  x and y)
+
     local u = unionmng.get_union(uid)
     if not u then return end
 
-    local cc = resmng.get_conf("prop_world_unit",propid)
-    if (not cc) or cc.Class ~= BUILD_CLASS.UNION then return end
-    if c_map_test_pos_for_ply(x, y, cc.Size) ~= 0 then LOG("军团建筑不在空地") return end
-
-    if not u:can_build(propid,x,y) then return end
     local e
     if idx == 0 then
+        propid = get_build_id( uid, propid )
+        if not propid then return end
+
+        local cc = resmng.get_conf("prop_world_unit",propid)
+        if (not cc) or cc.Class ~= BUILD_CLASS.UNION then return end
+
+        if c_map_test_pos_for_ply(x, y, cc.Size) ~= 0 then LOG("军团建筑不在空地") return end
+        if not u:can_build(propid,x,y) then return end
+
         idx = #u.build+1
         local _id = string.format("%s_%s", idx, uid)
         _sn = _sn + 1
@@ -121,7 +138,14 @@ function create(uid,idx, propid, x, y,name)
     else
         e = u.build[idx]
         if not e then return end
+
+        local cc = resmng.get_conf("prop_world_unit",e.propid)
+        if (not cc) or cc.Class ~= BUILD_CLASS.UNION then return end
+        if c_map_test_pos_for_ply(x, y, cc.Size) ~= 0 then LOG("军团建筑不在空地") return end
+        if not u:can_build(e.propid,x,y) then return end
+
         e.eid = get_eid_uion_building()
+
         _sn = _sn + 1
         e.sn = _sn
 
@@ -169,6 +193,7 @@ function remove(e)
         local tr = troop_mng.get_troop(e.my_troop_id)
         if tr then tr:back() end
         del(e)
+        u:notifyall("build", resmng.OPERATOR.DELETE, e)
         return
     end
 
@@ -357,10 +382,6 @@ function can_troop(action, p, eid, res)--行军队列发出前判断
     elseif action == resmng.TroopAction.SaveRes then
         if not is_union_restore(dp.propid) then return false end
 
-        for mode, num in pairs(res or {} ) do
-            if num > p:get_res_num_normal(mode) then return false end
-        end
-
         --仓库上限
         local d = get_restore_limit(p,dp)
         local sum = 0
@@ -406,6 +427,16 @@ function can_ef(build,ply) --奇迹内
     end
 end
 
+function is_in_range( miracal, ply )
+    local c = resmng.get_conf("prop_world_unit", ply.propid) or {}
+    local cc = resmng.get_conf("prop_world_unit", miracal.propid) or {}
+
+    local offx = math.abs( ( ply.x + c.Size * 0.5 ) - ( miracal.x + cc.Size * 0.5 ) )
+    local offy = math.abs( ( ply.y + c.Size * 0.5 ) - ( miracal.y + cc.Size * 0.5 ) )
+    return math.max( offx, offy ) < ( ( c.Size + cc.Size ) * 0.5 + cc.Range )
+end
+
+
 function save(obj)
     if is_union_building(obj) then
         obj.holding = is_hold(obj)
@@ -447,12 +478,12 @@ function buf_open(e)--奇迹生成
         for _, eid in pairs( es ) do
             local ply = get_ety( eid )
             if ply and is_ply( ply ) then
-                if union_build_t.can_ef(e,ply) then
-                    print( "buf_open", ply.pid )
+                if is_in_range(e, ply ) then
                     local tmp = get_ety( ply.ef_eid )
                     if tmp and tmp.sn < e.sn then
 
                     else
+                        print( "buf_open, pid, eid", ply.pid, e.eid )
                         ply.ef_eid = e.eid
                     end
                 end
@@ -484,6 +515,9 @@ function ply_move(ply, ignore)--迁城变奇迹影响
     local builds = get_around_eids( ply.eid, 25 )
     if not builds then return end
 
+    local x, y = ply.x, ply.y
+    local w = 4 -- player castle size
+
     local sn  = math.huge
     for _, eid in pairs( builds ) do
         if is_union_building(eid) then
@@ -492,7 +526,7 @@ function ply_move(ply, ignore)--迁城变奇迹影响
                 if is_union_miracal(e.propid) then
                     local state = e.state
                     if state == BUILD_STATE.UPGRADE or state == BUILD_STATE.FIX or state == BUILD_STATE.WAIT then
-                        if union_build_t.can_ef(e,ply) then
+                        if is_in_range( e, ply ) then
                             if e.sn < sn then
                                 ply.ef_eid = e.eid
                                 sn = e.sn
@@ -583,6 +617,11 @@ function build_complete( obj )
             if conf then
                 obj.val = conf.Count
             end
+        end
+
+        if is_union_restore( obj.propid ) then
+            local u = unionmng.get_union( obj.uid )
+            if u then u:ef_init() end
         end
 
         if is_firing( obj ) then
@@ -745,7 +784,6 @@ function recalc_build( obj )
 
     local speed_b = 0
     if is_building( obj ) then speed_b = calc_speed_build( obj ) end
-    speed_b = speed_b * 10
 
     if obj.speed_b == 0 and obj.speed_f == 0 then
         if speed_f > 0 then
@@ -778,6 +816,7 @@ function recalc_build( obj )
     end
 
     local hp = obj.hp + delta
+    if player_t.debug_tag then hp = obj.tohp end
     if hp > obj.tohp then hp = obj.tohp end
     if hp < 0 then hp = 0 end
 

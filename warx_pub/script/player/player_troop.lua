@@ -166,7 +166,7 @@ function siege(self, dest_eid, arm)
 
     local action = 0
     if is_monster(dest) then
-        if not monster.can_atk_monster[dest.grade](self) then
+        if not monster.can_atk_monster[dest.grade](self, dest) then
             self:add_debug( "no npc occupy" )
 
             if not player_t.debug_tag then
@@ -176,7 +176,9 @@ function siege(self, dest_eid, arm)
         local prop = resmng.prop_world_unit[dest.propid]
         if prop then
             if prop.Declare == 1 then
-                return
+                if not player_t.debug_tag then
+                    return
+                end
             end
         end
 
@@ -234,7 +236,7 @@ function siege(self, dest_eid, arm)
         end
 
     elseif is_res(dest) then
-        if dest.pid and dest.pid > 0 then
+        if dest.pid and dest.pid >= 10000 then
             if ( self.uid ~= dest.uid) or (self.uid == 0 and dest.uid == 0) then
                 action = TroopAction.Gather
             end
@@ -337,7 +339,7 @@ function spy(self, dest_eid)
         if dest.uid == self.uid and self.uid ~= 0 then return end
 
     elseif is_res(dest) then
-        if dest.pid > 0 then
+        if dest.pid >= 10000 then
             if dest.uid == self.uid and self.uid ~= 0 then return end
         end
     elseif is_king_city(dest) then
@@ -381,7 +383,7 @@ end
 function union_mass_create(self, dest_eid, wait_time, arm)
     if self:check_mass_time(wait_time) == false then return end
     if not config.release and wait_time == 900 then wait_time = 300 end
-    --wait_time = 5
+    --wait_time = 30
     if self.uid == 0 then return end
 
     local D = get_ety(dest_eid)
@@ -392,7 +394,7 @@ function union_mass_create(self, dest_eid, wait_time, arm)
 
     local action = 0
     if is_monster(D) then
-        if not monster.can_atk_monster[D.grade](self) then
+        if not monster.can_atk_monster[D.grade](self, D) then
             self:add_debug( "no npc occupy" )
 
             if not player_t.debug_tag then
@@ -563,7 +565,7 @@ function union_mass_join(self, dest_eid, dest_troop_id, arm)
 
 
     if is_monster(dest_tr_target) then
-        if not monster.can_atk_monster[dest_tr_target.grade](self) then
+        if not monster.can_atk_monster[dest_tr_target.grade](self, dest_tr_target) then
             self:add_debug( "no npc occupy" )
 
             if not player_t.debug_tag then
@@ -674,7 +676,7 @@ function declare_tw_status_req(self, dest_eid)
 
         pack.union_tm_join = self._union.tmJoin
 
-        pack.union_join = self._union.join_tm
+        pack.union_join = self.join_tm
 
         pack.donate = u.donate
 
@@ -734,6 +736,9 @@ function declare_tw_req(self, dest_eid)
     end
 
     local union = self:union()
+    if self.uid == 0 then
+        return
+    end
     if not union then
         add_debug(self, "没有军团 宣战失败")
         if not debug_tag then
@@ -896,6 +901,13 @@ function union_save_res(self, dest_eid, res)
     if not dest then return end
 
     if self:is_troop_full() then self:add_debug("CountTroop") return end
+
+    for mode, num in pairs(res or {} ) do
+        num = math.ceil( num )
+        if num > 0 then
+            if num > self:get_res_num_normal(mode) then return false end
+        end
+    end
 
     if not union_build_t.can_troop( TroopAction.SaveRes, self, dest_eid, res) then return end
 
@@ -1186,17 +1198,7 @@ function troop_recall(self, dest_troop_id, force)
                end
             end
         end
-
-        if action == TroopAction.SaveRes then
-            local res = troop:get_extra("union_save_res")
-            --放到部队上
-            local real_res={}
-            for k, v in pairs(res) do
-                table.insert(real_res, {"res",k,v})
-            end
-            troop:add_goods(real_res, VALUE_CHANGE_REASON.REASON_UNION_SAVE_RESTORE )
-        end
-
+        
         troop.action = troop:get_base_action() + 300
         troop.curx , troop.cury = c_get_actor_pos(troop.eid)
         troop.tmCur = gTime
@@ -1263,9 +1265,9 @@ function troop_recall(self, dest_troop_id, force)
             return one
 
         elseif action == TroopAction.Camp then
-            troop:back()
             local camp = get_ety(troop.target_eid)
             if camp then rem_ety(camp.eid) end
+            troop:back()
             return troop
 
         elseif action == TroopAction.HoldDefense or 
@@ -1643,7 +1645,9 @@ function cure( self, arm, quick )
     for id, num in pairs( arm ) do
         if hurts[ id ] and hurts[ id ] >= num then
             local prop = proptab[ id ]
-            if not prop then return ack(self, "cure", resmng.E_NO_CONF, id) end
+            if not prop then 
+                return ack(self, "cure", resmng.E_NO_CONF, id) 
+            end
             dura = dura + prop.TrainTime * 0.05 * num
             total = total + num
 
@@ -1700,7 +1704,8 @@ function cure( self, arm, quick )
         self:add_count( resmng.ACH_COUNT_CURE, c_count )
         --任务
         task_logic_t.process_task(self, TASK_ACTION.CURE, 2, c_count)
-
+        --世界事件
+        world_event.process_world_event(WORLD_EVENT_ACTION.CURE_SOLDIER, c_count)
 
     else
         for mode, num in pairs( res ) do
@@ -1727,7 +1732,6 @@ function cure( self, arm, quick )
         self.tm_cure = timer.new("cure", dura, self.pid )
         self.cure_start = gTime
         self.cure_over = gTime + dura
-        --self:cure_on( gTime, gTime+dura, self.tm_cure)
         reply_ok(self, "cure", 0)
     end
 end

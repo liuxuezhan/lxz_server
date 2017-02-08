@@ -210,6 +210,10 @@ function get_boss_pos_in_zone(tx, ty, prop, grade)
 end
 
 function force_born(tx, ty, clv)
+    if clv > 30 then
+        return find_advanced_boss(tx, ty, clv)
+    end
+
     local prop = resmng.prop_world_unit
     if prop then
         for k, v in pairs(prop) do
@@ -227,7 +231,7 @@ function force_born(tx, ty, clv)
                             if m and is_monster( m ) then
                                 local conf = resmng.get_conf( "prop_world_unit", m.propid )
                                 if conf and conf.Clv == clv  then
-                                    return m.propid, m.x, m.y
+                                    return m.propid, m.x, m.y, m.eid
                                 end
                             end
                         end
@@ -240,6 +244,42 @@ function force_born(tx, ty, clv)
     end
 end
 
+function find_advanced_boss(tx, ty, clv)
+    if clv == 40 then
+        for k, boss_list in pairs(boss_special or {}) do
+            for idx, eid in pairs(boss_list) do
+                local boss = get_ety(eid)
+                if boss then
+                    local prop = resmng.prop_world_unit[boss.propid]
+                    if prop then
+                        if prop.Clv == clv then
+                            return boss.propid, boss.x, boss.y, boss.eid
+                        end
+                    end
+                end
+            end
+        end
+        local boss = respawn(1, 1, BOSS_TYPE.SPECIAL)
+        if boss then
+            return boss.propid, boss.x, boss.y, boss.eid
+        end
+    elseif clv > 40 and clv < 200 then
+        for k, v in pairs(boss or {}) do
+            local ety = get_ety(v)
+            local prop = resmng.prop_world_unit[ety.propid]
+            if prop.Clv == clv then
+                return ety.propid, ety.x, ety.y, ety.eid
+            end
+        end
+    else
+        local super = get_ety(super_boss)
+        if super then
+            return super.propid, super.x, super.y, super.eid
+        end
+    end
+end
+
+
 function gen_task_boss(tx, ty, propid)
     if tx <= 0 or tx > 80 then
         tx = 1
@@ -251,7 +291,6 @@ function gen_task_boss(tx, ty, propid)
     local prop = resmng.prop_world_unit[propid] 
     if prop then
         local x, y = get_boss_pos_in_zone(tx, ty, prop, BOSS_TYPE.NORMAL)
-        print("boss pos ", x, y)
         if x then
             local eid = get_eid_monster()
             if eid then
@@ -275,7 +314,7 @@ function gen_task_boss(tx, ty, propid)
                 setmetatable(m, _mt)
                 gEtys[ eid ] = m
                 etypipe.add(m)
-                return propid, x, y
+                return propid, x, y, eid
             end
         end
     end
@@ -298,7 +337,6 @@ end
 
 function get_near_lv_pos(tx, ty, target_lv)
     local cur_lv = c_get_zone_lv(tx, ty)
-    print(cur_lv, target_lv, tx, ty)
 
     if cur_lv == target_lv then
         return tx, ty
@@ -420,6 +458,7 @@ function respawn(tx, ty, grade, npc_id)
                 boss_notify(m)
 
                 checkin(m)
+                return m
             end
         else
             return
@@ -1091,13 +1130,25 @@ function get_jungle_reward(self, pid, mkdmg, totalDmg , hp_lost, is_mass)
 end
 
 
-can_atk_monster[BOSS_TYPE.NORMAL] = function(ply)
+can_atk_monster[BOSS_TYPE.NORMAL] = function(ply, monster)
+    local prop = resmng.prop_world_unit[monster.prop_id]
+    if prop then
+        if ply:get_castle_lv() or 1 < prop.Attack_lv then
+            return false
+        end
+    end
     return true
 end
-can_atk_monster[BOSS_TYPE.SPECIAL] = function(ply)
+can_atk_monster[BOSS_TYPE.SPECIAL] = function(ply, monster)
+    local prop = resmng.prop_world_unit[monster.prop_id]
+    if prop then
+        if ply:get_castle_lv() or 1 < prop.Attack_lv then
+            return false
+        end
+    end
     return true
 end
-can_atk_monster[BOSS_TYPE.ELITE] = function(ply)
+can_atk_monster[BOSS_TYPE.ELITE] = function(ply, monster)
 
     local union = unionmng.get_union(ply.uid)
     if not union then
@@ -1109,9 +1160,16 @@ can_atk_monster[BOSS_TYPE.ELITE] = function(ply)
     if npc_city.get_city_num(union.npc_citys, 4, OPT_TYPE.LT) < 1 then
         return false
     end
+
+    local prop = resmng.prop_world_unit[monster.prop_id]
+    if prop then
+        if ply:get_castle_lv() or 1 < prop.Attack_lv then
+            return false
+        end
+    end
     return true
 end
-can_atk_monster[BOSS_TYPE.LEADER] = function(ply)
+can_atk_monster[BOSS_TYPE.LEADER] = function(ply, monster)
 
     local union = unionmng.get_union(ply.uid)
     if not union then
@@ -1123,9 +1181,16 @@ can_atk_monster[BOSS_TYPE.LEADER] = function(ply)
     if npc_city.get_city_num(union.npc_citys, 3, OPT_TYPE.LT) < 1 then
         return false
     end
+
+    local prop = resmng.prop_world_unit[monster.prop_id]
+    if prop then
+        if ply:get_castle_lv() or 1 < prop.Attack_lv then
+            return false
+        end
+    end
     return true
 end
-can_atk_monster[BOSS_TYPE.SUPER] = function(ply)
+can_atk_monster[BOSS_TYPE.SUPER] = function(ply, monster)
     local union = unionmng.get_union(ply.uid)
     if not union then
         return false
@@ -1136,6 +1201,13 @@ can_atk_monster[BOSS_TYPE.SUPER] = function(ply)
     local king = king_city.get_king()
     if king then
         if king.uid ~= ply.uid then
+            return false
+        end
+    end
+
+    local prop = resmng.prop_world_unit[monster.prop_id]
+    if prop then
+        if ply:get_castle_lv() or 1 < prop.Attack_lv then
             return false
         end
     end

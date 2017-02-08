@@ -59,6 +59,8 @@ _funs["cure"] = function(sn, pid)
 
         --任务
         task_logic_t.process_task(p, TASK_ACTION.CURE, 2, count)
+        --世界事件
+        world_event.process_world_event(WORLD_EVENT_ACTION.CURE_SOLDIER, count)
     end
 end
 
@@ -76,6 +78,7 @@ _funs["hero_cure"] = function(sn, pid, hidx, tohp)
             hero.tmSn = 0
             hero.tmStart = 0
             hero.tmOver = 0
+            hero_t.mark_recalc( hero )
         end
     end
 end
@@ -373,42 +376,14 @@ end
 
 _funs["city_fire"] = function(sn, pid)
     local ply = getPlayer( pid )
-    local wall = ply:get_wall()
-    local cur = wall:get_extra( "cur" )
-    if not cur then return end
 
-    local fire = wall:get_extra( "fire" )
-    if not fire then return end
-    if gTime > fire then
-        wall:clr_extra( "fire" )
-        return
-    end
-
-    local dura = 1
-    local black = 0
-    if is_in_black_land( ply.x, ply.y ) then
-        cur = cur - WALL_FIRE_IN_BLACK_LAND
-        black = 1
-    else
-        cur = cur - 1
-        dura = WALL_FIRE_SECONDS
-    end
-
-    if cur <= 0 then
-        local x, y = c_get_pos_by_lv(1,4,4)
-        if x then
-            --call back all troop
-            c_rem_ety(ply.eid)
-            ply.x = x
-            ply.y = y
-            etypipe.add(ply)
+    if ply then 
+        local wall = ply:get_wall()
+        if wall then
+            if sn == wall:get_extra( "tmSn_f" ) then
+                ply:wall_fire( 0 )
+            end
         end
-        wall:clr_extras( { "cur", "last", "fire", "black" } )
-
-    else
-        wall:set_extra( "cur", cur )
-        wall:set_extra( "black", black )
-        timer.new( "city_fire", dura, pid )
     end
 end
 
@@ -490,4 +465,6 @@ _funs["remove_state"] = function(sn, pid, state)
 end
 
 
-
+_funs["world_event"] = function(sn, id)
+    world_event.check_time(id)
+end

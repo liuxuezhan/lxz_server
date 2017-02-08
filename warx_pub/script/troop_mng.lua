@@ -216,7 +216,7 @@ function create_troop(action, owner, target, arm)
         d.arms[ pid ] = {pid=pid, live_soldier={}}
     end
 
-    if arm and arm.pid > 0 and arm.heros then
+    if arm and arm.pid >= 10000 and arm.heros then
         for i = 1, 4, 1 do
             local id = arm.heros[ i ]
             if id ~= 0 then
@@ -600,6 +600,11 @@ gTroopActionTrigger[TroopAction.SiegeMonster] = function(ack_troop)
     local hp_lost = dest.hp_before - dest.hp
     report.hp_lost = hp_lost
 
+    --世界事件
+    if dest.hp <= 0 then
+        world_event.process_world_event(WORLD_EVENT_ACTION.ATTACK_MONSTER, dest.propid)
+    end
+
     local result = ack_troop:statics()
 
     monster.send_union_item(dest, ack_troop.owner_pid)
@@ -654,6 +659,10 @@ gTroopActionTrigger[TroopAction.SiegeMonster] = function(ack_troop)
     if dest.hp <= 0 then
         if dest.grade ~= BOSS_TYPE.NORMAL and  dest.grade ~= BOSS_TYPE.SUPER and  dest.grade ~= BOSS_TYPE.SPECIAL then
             timer.new("monster", BossRbTime[dest.grade], dest.zx, dest.zy, dest.grade, dest.npc_id)
+        end
+
+        if dest.grade == BOSS_TYPE.NORMAL then
+            monster.respawn(dest.zx, dest.zy, grade)
         end
 
         local prop = resmng.prop_world_unit[dest.propid]
@@ -864,7 +873,6 @@ gTroopActionTrigger[TroopAction.Camp] = function(troop)
     local camp = {_id=eid, eid=eid, x=x, y=y, propid=prop.ID, size=prop.Size, pid=ply.pid, uid=ply.uid, extra={tid=troop._id}, my_troop_id=troop._id }
     local info = ply:get_name_info()
     camp.name, camp.uname, camp.uflag = info.name, info.alias, info.flag
-    print(camp.name, camp.uname, camp.uflag)
     gEtys[ eid ] = camp
     etypipe.add(camp)
     troop.target_eid = eid
@@ -884,7 +892,7 @@ gTroopActionTrigger[TroopAction.Gather] = function(troop)
     if not ply then return troop:back() end
 
 	--sanshimark 判断是否已经被占了
-    if dest.pid and dest.pid > 0  and not is_union_building(dest) then
+    if dest.pid and dest.pid >= 10000  and not is_union_building(dest) then
         local dply = getPlayer(dest.pid)
         if dply then
             if dply.uid ~= ply.uid or (dply.uid == 0 and dply.uid == 0) then
@@ -944,7 +952,7 @@ gTroopActionTrigger[TroopAction.Refugee] = function(troop)
     if not ply then return troop:back() end
 
 	--sanshimark 判断是否已经被占了
-    if dest.pid and dest.pid > 0 then
+    if dest.pid and dest.pid >= 10000 then
         local dply = getPlayer(dest.pid)
         if dply then
             if dply.uid ~= ply.uid or (dply.uid == 0 and dply.uid == 0) then
@@ -997,7 +1005,7 @@ gTroopActionTrigger[TroopAction.SiegeCamp] = function(troop)
     local ply = getPlayer(troop.owner_pid)
     if not ply then return troop:back() end
 
-    if dest.pid and dest.pid > 0 then
+    if dest.pid and dest.pid >= 10000 then
         local dply = getPlayer(dest.pid)
         if dply then
             if dply.uid ~= ply.uid or (dply.uid == 0 and dply.uid == 0) then
@@ -1547,7 +1555,7 @@ gTroopActionTrigger[TroopAction.LostTemple] = function(ack_troop)
 	local defense_troop = dest:get_my_troop()
 
 	--开战
-	fight.pvp(TroopAction.SiegeNpc, ack_troop, defense_troop)
+	fight.pvp(TroopAction.LostTemple, ack_troop, defense_troop)
     local win = defense_troop:is_no_live_arm()
 
     local dmg_prop = resmng.prop_damage_rate[resmng.LT]
@@ -1556,7 +1564,7 @@ gTroopActionTrigger[TroopAction.LostTemple] = function(ack_troop)
         dmg_rate = 1 - dmg_prop.Damage_rate
     end
     ack_troop:handle_dead( TroopAction.LostTemple, 0, dmg_rate, 1 )
-    if defense_troop.owner_uid ~= 0 then defense_troop:handle_dead( TroopAction.SiegeNpc, 0, dmg_rate , 1 ) end
+    if defense_troop.owner_uid ~= 0 then defense_troop:handle_dead( TroopAction.LostTemple, 0, dmg_rate , 1 ) end
 
     --邮件
     if defense_troop.owner_uid ~= 0 then
@@ -1583,6 +1591,7 @@ gTroopActionTrigger[TroopAction.LostTemple] = function(ack_troop)
 
 	--回城
     lost_temple.deal_troop(ack_troop, defense_troop)
+    deal_no_arm_troop(ack_troop, defense_troop) 
     union_hall_t.battle_room_remove( ack_troop )
 end
 
@@ -1637,6 +1646,7 @@ gTroopActionTrigger[TroopAction.SiegeNpc] = function(ack_troop)
 
 	--回城
     npc_city.deal_troop(ack_troop, defense_troop)
+    deal_no_arm_troop(ack_troop, defense_troop) 
     union_hall_t.battle_room_remove( ack_troop )
 
     --任务
@@ -1704,6 +1714,7 @@ gTroopActionTrigger[TroopAction.King] = function(troop)
     end
 
     king_city.after_fight(troop, defense_troop)
+    deal_no_arm_troop(troop, defense_troop) 
     union_hall_t.battle_room_remove( troop )
 
 	-- do deal_troop in after_fight
@@ -1854,7 +1865,7 @@ gTroopActionTrigger[TroopAction.SiegeMonsterCity] = function(ack_troop)
     local u = unionmng.get_union(dest.uid)
     if city_pro and u then
         if win and not check_atk_win(ack_troop, defense_troop) then
-            king_city.common_ntf(resmng.MC_SUPPORT, {city_pro.name}, u)
+            king_city.common_ntf(resmng.MC_SUPPORT, {city_pro.Name}, u)
         end
     end
 
@@ -1884,6 +1895,8 @@ gTroopActionTrigger[TroopAction.SiegeMonsterCity] = function(ack_troop)
             end
         end
     end
+
+    deal_no_arm_troop(ack_troop, defense_troop) 
 
 end
 
@@ -2185,7 +2198,7 @@ send_report[TroopAction.MonsterAtkPly] = function(atk_troop, defense_troop)
     local prop_arm = resmng.prop_arm
     local plys = {}
     local hurt = 0
-
+    local total_point = 0
     for pid, arm in pairs( defense_troop.arms or {} ) do
         local A = getPlayer( pid )
         local ply = {}
@@ -2195,6 +2208,7 @@ send_report[TroopAction.MonsterAtkPly] = function(atk_troop, defense_troop)
             ply.left_pow = math.floor(troop_t.calc_pow(defense_troop, pid))
             ply.lost_pow = math.floor(troop_t.lost_pow(defense_troop, pid))
             ply.point = math.floor(arm.mkdmg)
+            total_point = total_point + ply.point
             ply.name = A.name
             local hurt_num = 0
             if arm.amend then
@@ -2224,6 +2238,9 @@ send_report[TroopAction.MonsterAtkPly] = function(atk_troop, defense_troop)
             A:report_new( MAIL_REPORT_MODE.PANJUN2, report )
         end
     end
+    --世界事件
+    world_event.process_world_event(WORLD_EVENT_ACTION.PANJUN_KILL, total_point)
+
 end
 
 --怪物攻击玩家占领npc
@@ -2261,6 +2278,7 @@ send_report[TroopAction.SiegeMonsterCity] = function(atk_troop, defense_troop)
     local prop_arm = resmng.prop_arm
     local plys = {}
 
+    local total_point = 0
     for pid, arm in pairs( defense_troop.arms or {} ) do
         local A = getPlayer( pid )
         local ply = {}
@@ -2268,6 +2286,7 @@ send_report[TroopAction.SiegeMonsterCity] = function(atk_troop, defense_troop)
             ply.left_pow = math.floor(troop_t.calc_left_pow(defense_troop, pid))
             ply.lost_pow = math.floor(troop_t.lost_pow(defense_troop, pid))
             ply.point = math.floor(arm.mkdmg)
+            total_point = total_point + ply.point
             ply.name = A.name
             local kill_num = 0
             for k, v in pairs(arm.kill_soldier or {}) do
@@ -2287,6 +2306,8 @@ send_report[TroopAction.SiegeMonsterCity] = function(atk_troop, defense_troop)
             A:report_new( MAIL_REPORT_MODE.PANJUN, report )
         end
     end
+    --世界事件
+    world_event.process_world_event(WORLD_EVENT_ACTION.PANJUN_KILL, total_point)
 
 
 end
@@ -2344,6 +2365,7 @@ gTroopActionTrigger[TroopAction.AtkMC] = function(ack_troop)
 
     monster_city.after_been_atk(ack_troop, defense_troop)
     union_hall_t.battle_room_remove( ack_troop )
+    deal_no_arm_troop(ack_troop, defense_troop) 
 end
 
 gTroopActionTrigger[TroopAction.SaveRes] = function(troop)
@@ -2367,6 +2389,25 @@ gTroopActionTrigger[TroopAction.SaveRes] = function(troop)
     troop.goods = nil
 
     owner:restore_add_res( res )
+
+    local empty = false
+    local union = unionmng.get_union( dest.uid )
+    if union then
+        if not union:is_restore_empty() then
+            empty = true
+        end
+    end
+
+    if empty then
+        for k, v in pairs( union.build or {} ) do
+            if is_union_restore( v.propid ) and v.state == BUILD_STATE.WAIT then
+                v.holding = 1
+                etypipe.add( v )
+                gPendingSave.union_build[ v._id ].holding = 1
+                union:notifyall( "build", resmng.OPERATOR.UPDATE, v )
+            end
+        end
+    end
 end
 
 --从联盟仓库取资源
@@ -2406,7 +2447,7 @@ gTroopActionTrigger[TroopAction.GetRes] = function(troop)
                 for k, v in pairs( union.build or {} ) do
                     if is_union_restore( v.propid ) and v.state == BUILD_STATE.WAIT then
                         v.holding = 0
-                        etypipe.add( obj )
+                        etypipe.add( v )
                         gPendingSave.union_build[ v._id ].holding = 0
                         union:notifyall( "build", resmng.OPERATOR.UPDATE, v )
                     end
@@ -2465,7 +2506,7 @@ function get_troop_fight_statistic(At)
     local totals = {}
     for pid, arm in pairs(At.arms) do
         local node = 0
-        if pid > 0 then
+        if pid >= 10000 then
             local owner = getPlayer(pid)
             node = {pid, owner.name, owner.propid }
         else
@@ -2635,6 +2676,7 @@ function dismiss_mass(troop)
 
                 if action == TroopAction.SiegeMonster then A:inc_sinew( 10 ) end
                 local one = create_troop(TroopAction.JoinMass, A, T, arm)
+                one.curx, one.cury = get_ety_pos( T )
                 one:back()
             end
         end
@@ -2664,5 +2706,15 @@ end
 
 function get_my_troop( obj )
     return get_troop(obj.my_troop_id)
+end
+
+function deal_no_arm_troop(atk_troop, def_troop)
+    if is_ply(atk_troop.owner_eid) then
+        atk_troop:rem_no_arm_troop()
+    end
+
+    if is_ply(def_troop.owner_eid) then
+        def_troop:rem_no_arm_troop()
+    end
 end
 

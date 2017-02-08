@@ -116,5 +116,63 @@ RpcType.__struct = {
 }
 
 
+
+RpcType.Array = {
+    _write=function( packet, value, idx, define )
+        local what = define[ idx ]
+        local node = RpcType[ what ]
+        if node then
+            local count = 0
+            local offset = bufOffSet()
+            packet:WriteUint( 0 )
+
+            for k, v in pairs( value ) do
+                node._write( packet, value[ k ], idx+1, define )
+                count = count + 1
+            end
+            pushIntAt( offset, count )
+        end
+    end,
+
+    _read=function( packet, idx, define )
+        local what = define[ idx ]
+        local node = RpcType[ what ]
+        if node then
+            local count = packet:ReadUint()
+            local as = {}
+            for i = 1, count, 1 do
+                local t = node._read( packet, idx+1, define )
+                table.insert( as, t )
+            end
+            return as
+        end
+    end
+}
+
+RpcType.Struct = {
+    _write=function( packet, value, idx, define )
+        local stype = define[ idx ]
+        local node = RpcType._struct[ stype ]
+        if node then
+            for k, v in ipairs( node ) do
+                RpcType[ v.t ]._write( packet, value[ v.n ], 1, v.d )
+            end
+        end
+    end,
+
+    _read=function( packet, idx, define )
+        local stype = define[ idx ]
+        local node = RpcType._struct[ stype ]
+        local res = {}
+        if node then
+            for k, v in ipairs( node ) do
+                res[ v.n ] = RpcType[ v.t ]._read( packet, 1, v.d )
+            end
+        end
+        return res
+    end
+}
+
+
 return RpcType
 

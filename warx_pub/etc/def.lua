@@ -7,7 +7,8 @@ g_host = "192.168.99.78"
 _list={
 
     db_server1 ={ 
-        db1={ host="192.168.100.12",port = 27017, },
+        db1={ host="192.168.101.223",port = 27017, },
+        --db1={ host="192.168.100.12",port = 27017, },
         -- db1={ host="127.0.0.1",port = 27017, },
         -- db={  host = "127.0.0.1", port = 27017,username="admin",password="admin" },
     },
@@ -221,6 +222,10 @@ mathx = {
  end
 
 function gen_checker(... )
+end
+
+function c_tick(...)
+    return 1
 end
 
 

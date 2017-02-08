@@ -728,7 +728,9 @@ function get_small_mc_reward(city)
     if prop then
         for k, v in pairs(prop.Fix_award) do
             local fixAward = player_t.bonus_func[ v[1] ](prop, v[2])
-            table.insert(Rewards, fixAward)
+            for _, gift in pairs(fixAward) do
+                table.insert(Rewards, gift)
+            end
         end
     end
     return Rewards

@@ -70,6 +70,26 @@ function set_one(p,cur)
                     build:acceleration(tm)
                 end
                 u.help[cur].log[p.pid]=p.pid
+                if t.what == "build" then 
+                    local build = w:get_build(idx)
+                    local c = resmng.get_conf("prop_build", build.propid)
+                    if build.state == BUILD_STATE.UPGADE then
+                        Rpc:tips(w,1,resmng.UNION_BEHELPED_TYPE_BUILD,{p.name,c.Lv + 1,c.Name}) 
+                    elseif build.state == BUILD_STATE.WORK then
+                        if c.Mode == 9 then
+                            local id = build:get_extra_val("forge")
+                            c = resmng.get_conf("prop_equip", id)
+                            Rpc:tips(w,1,resmng.UNION_BEHELPED_TYPE_EQUIP,{p.name,c.Lv,c.Name}) 
+                        elseif c.Mode == 10 then
+                            local id = build:get_extra( "id" )
+                            c = resmng.get_conf("prop_tech", id)
+                            Rpc:tips(w,1,resmng.UNION_BEHELPED_TYPE_TECH,{p.name,c.Lv,c.Name}) 
+                        end
+                    end
+                elseif t.what == "cure" then 
+                    Rpc:tips(w,1,resmng.UNION_BEHELPED_TYPE_HEAL,{p.name}) 
+                end
+
                 union_mission.ok(p,UNION_MISSION_CLASS.HELP,1)
                 --任务
                 task_logic_t.process_task(p, TASK_ACTION.UNION_HELP_NUM, 1)

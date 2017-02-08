@@ -85,7 +85,7 @@ function loadMod()
 
     dofile( c_get_conf() )
 
-    require("frame/debugger") 
+    --require("frame/debugger") 
 
 
     require("frame/socket")
@@ -118,8 +118,12 @@ function loadMod()
     do_load("common/define")
     do_load("common/tools")
     do_load("common/protocol")
-    do_load("common/rpc_parse")
+    do_load("common/struct")
+    for k, v in pairs( RpcType._struct ) do
+        RpcType._struct[ k ] = Rpc.parseFunction( v ).args
+    end
     --do_load("forqc/test/t_npc")
+
 
     doLoadMod( "OnRpc", "forqc/OnRpc" )
     require( "forqc/test/action" )
@@ -201,7 +205,7 @@ function onConnectComp( self )
         local culture = node.culture
         if not pid then 
             pid = -1 
-            culture = ( idx % 4 ) + 1
+            culture = self.culture or ( ( idx % 4 ) + 1 )
         end
 
         local signature = c_md5( c_md5( time .. openid .. token ) .. APP_SECRET )

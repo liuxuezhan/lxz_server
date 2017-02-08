@@ -10,7 +10,6 @@
 --------------------------------------------------------------------------------
 module("player_t")
 
-
 --------------------------------------------------------------------------------
 function make_hero(self, propid)
     local hs = self:get_hero()
@@ -40,6 +39,8 @@ function make_hero(self, propid)
                     Rpc:tips({pid = -1, gid = _G.GateSid}, 2, resmng.GACHA_NOTIFY_GRADE4, {self.name, prop_hero.Name})
                     player_t.add_chat({pid=-1,gid=_G.GateSid}, 0, 0, {pid=0}, "", resmng.GACHA_NOTIFY_GRADE4, {self.name, prop_hero.Name} )
                 end
+                --世界事件
+                world_event.process_world_event(WORLD_EVENT_ACTION.HERO_NUM, propid)
             end
             return
         end
@@ -319,6 +320,7 @@ function destroy_hero(self, hero_idx)
         local conf = resmng.get_conf( "prop_hero_basic", hero.propid )
         if conf then base_exp = conf.DestroyExp end
         self:return_exp_item(exp * DESTROY_HERO_RETURN_RATIO + base_exp, VALUE_CHANGE_REASON.DESTROY_HERO)
+
     end
 end
 
@@ -582,8 +584,12 @@ function relive_hero(self, hero_idx, is_quick  )
 
         self:dec_cons( cons_have, VALUE_CHANGE_REASON.RELIVE_HERO, true )
         if gold_need > 0 then self:do_dec_res(resmng.DEF_RES_GOLD, gold_need, VALUE_CHANGE_REASON.RELIVE_HERO) end
+
+    else
+        return
     end
 
+    hero_t.mark_recalc( hero )
     hero.hp = hero.max_hp
     self:hero_set_free( hero )
 end
@@ -596,7 +602,8 @@ end
 -- Others   : NULL
 --------------------------------------------------------------------------------
 function calc_relive_price(self, hero)
-    local pow = hero:calc_fight_power()
+    --local pow = hero:calc_fight_power()
+    local pow = hero:calc_hero_pow()
     return { 
         {resmng.CLASS_RES, resmng.DEF_RES_FOOD, math.ceil( 30 * pow ) }, 
         {resmng.CLASS_RES, resmng.DEF_RES_WOOD, math.ceil( 6 * pow ) }
@@ -630,7 +637,8 @@ function do_calc_hero_cure( self, hero, hp )
     if hp > hero.max_hp then return false, E_HP end
     if hp <= hero.hp then return false, E_HP end
 
-    local pow = hero:calc_fight_power()
+    --local pow = hero:calc_fight_power()
+    local pow = hero:calc_hero_pow()
     local delta = ( hp - hero.hp ) / hero.max_hp
     if delta > 0 then
         local consume_rate = self:get_num( "CountConsumeCure_R" ) or 0
@@ -694,7 +702,7 @@ function hero_cure_quick(self, hidx, tohp)
 
     if not hero:is_valid() then ack( self, "cure_hero_quick", resmng.E_HERO_BUSY, mode) end
 
-    --local tohp = hero.max_hp
+    if tohp > hero.max_hp then tohp = hero.max_hp end
     local dura, res = self:do_calc_hero_cure( hero, tohp )
     if not dura then return  ack( self, "hero_cure", E_HP, 0 )  end
 
@@ -716,6 +724,7 @@ function hero_cure_quick(self, hidx, tohp)
     task_logic_t.process_task(self, TASK_ACTION.CURE, 1, (tohp - hero.hp))
 
     hero.hp = tohp
+    hero_t.mark_recalc( hero )
     reply_ok(self, "hero_cure_quick", 0)
 end
 
@@ -1164,9 +1173,10 @@ function release(self, hero)
     if ply then
         local arm = {pid=ply.pid, heros={hero._id, 0, 0, 0}}
         local troop = troop_mng.create_troop(TroopAction.HeroBack, ply, self, arm)
+        troop:settle()
         troop.curx, troop.cury = get_ety_pos(self)
         troop:back()
-        self:add_debug("hero in prison gone")
+        hero_t.mark_recalc( hero )
     end
 end
 
@@ -1272,8 +1282,8 @@ function kill_hero(self, hero_id, buff_idx)
     local hero = jail:release(hero_id)
     if not hero then return end
 
-    local fpow = hero.fight_power
-    if fpow < 1 then fpow = hero:calc_fight_power() end
+    fpow = hero:calc_hero_pow()
+    print( "kill_hero,", hero_id, fpow, hero.hp, hero.max_hp, hero.fight_power )
 
     local buff_id = false
     for k, v in ipairs( resmng.prop_sacrifice_hero ) do
@@ -1289,6 +1299,7 @@ function kill_hero(self, hero_id, buff_idx)
 
     local tmOver = gTime + kill_time
     hero.status = HERO_STATUS_TYPE.BEING_EXECUTED
+    hero.buff_idx = buff_idx
     hero.tmStart = gTime
     hero.tmOver = tmOver
 
@@ -1348,6 +1359,32 @@ function use_hero_skill_item(self, hero_idx, skill_idx, item_idx, num)
     end
 end
 
+function hero_skill_up( self, hero_idx, skill_idx, item_idx, num )
+    local hero = self:get_hero(hero_idx)
+    if not hero or not hero:is_valid() then return end
+
+    if num < 1 then return end
+    local item = self:get_item(item_idx)
+    if not item then return end
+    if item[3] < num then return end
+
+    local conf = resmng.get_conf("prop_item" ,item[2])
+    if not conf or conf.Class ~= ITEM_CLASS.SKILL then return end
+
+    local exp = 0
+    if conf.Mode == ITEM_SKILL_MODE.SPECIAL_BOOK then
+        exp = conf.Param[ 2 ] * num
+    elseif conf.Mode == ITEM_SKILL_MODE.COMMON_BOOK then
+        exp = conf.Param[ 2 ] * num
+    end
+
+    if exp == 0 then return end
+
+    if self:dec_item(item_idx, num, VALUE_CHANGE_REASON.USE_ITEM) then
+        hero:gain_skill_exp(skill_idx, exp)
+    end
+end
+
 
 function use_skill_special_book(self, hero_idx, skill_idx, item_idx, num, skill_id, exp)
     local hero = self:get_hero(hero_idx)
@@ -1356,49 +1393,43 @@ function use_skill_special_book(self, hero_idx, skill_idx, item_idx, num, skill_
     local skill = hero.basic_skill[skill_idx]
     if not skill then return end
 
-    local conf = resmng.get_conf("prop_skill", skill_id)
+    local prop_skill = resmng.prop_skill
+
+    local conf = prop_skill[ skill_id ]
     if not conf then return end
-
-    -- TODO: 校验 num 是否过大，超过升到顶级所需的经验值
-    if conf.Class == skill_idx then
-        if skill[1] == 0 then
-            -- 尚无: 首张用于获得该技能，其余用于升级
-            if self:dec_item(item_idx, num, VALUE_CHANGE_REASON.USE_ITEM) then
-                hero:change_basic_skill(skill_idx, skill_id, 0)
-                if num > 1 then
-                    hero:gain_skill_exp(skill_idx, (num - 1) * exp)
-                else
-                    hero:basic_skill_changed(skill_idx)
+    
+    if skill[1] == 0 then
+        -- 尚无: 首张用于获得该技能，其余用于升级
+        local mode = conf.Mode
+        for _, v in pairs( hero.basic_skill or {} ) do
+            local id = v[1]
+            if id and id > 0 then
+                if prop_skill[ id ] and prop_skill[ id ].Mode == mode then
+                    WARN( "use_skill_special_book, pid=%d, hero_idx=%d, skill_id=%d, have = %d, same skill", self.pid, hero_idx, skill_id, id )
+                    return
                 end
-                LOG("item_func.useHeroSkillSpecialBook: hero._id = %s, skill_idx = %d", hero._id, skill_idx)
-            else
-                return
             end
-        elseif heromng.is_same_skill(skill[1], skill_id) then
-            -- 校验能否升级
-            if not heromng.get_next_skill(skill[1]) then
-                LOG("item_func.useHeroSkillSpecialBook: get_next_skill() failed. hero._id = %s, skill_idx = %d, skill_id = %d",
-                hero._id or "nil", skill_idx, skill[1])
-                return
-            end
+        end
 
-            -- 增加技能经验
-            if self:dec_item(item_idx, num, VALUE_CHANGE_REASON.USE_ITEM) then
-                hero:gain_skill_exp(skill_idx, num * exp)
-            else
-                return
-            end
-        else
-            -- 被其它技能占据，不能使用
-            ERROR("item_func.useHeroSkillSpecialBook: hero._id = %s, basic_skill[%d][1] = %d ~= skill_id = %d",
-            hero._id or "nil", skill_idx, skill[1] or -1, skill_id)
+        if self:dec_item(item_idx, num, VALUE_CHANGE_REASON.USE_ITEM) then
+            hero:change_basic_skill(skill_idx, skill_id, 0)
+            if num > 1 then hero:gain_skill_exp(skill_idx, (num - 1) * exp) end
+            LOG("use_skill_common_book: pid=%d, hero._id = %s, skill_idx = %d, skill_id=%d, ", self.pid, hero._id, skill_idx, skill_id )
+        end
+    elseif heromng.is_same_skill(skill[1], skill_id) then
+        -- 校验能否升级
+        if not heromng.get_next_skill(skill[1]) then
+            LOG("item_func.useHeroSkillSpecialBook: get_next_skill() failed. hero._id = %s, skill_idx = %d, skill_id = %d",
+            hero._id or "nil", skill_idx, skill[1])
             return
         end
-    else
-        -- skill_idx 与 skill_id 不匹配
-        ERROR("item_func.useHeroSkillSpecialBook: pid = %d, hero_idx = %s, skill_id = %d, conf.Class(%d) ~= skill_idx(%d)",
-        self and self.pid or -1, hero_idx, skill_id, conf.Class or -1, skill_idx)
-        return
+
+        -- 增加技能经验
+        if self:dec_item(item_idx, num, VALUE_CHANGE_REASON.USE_ITEM) then
+            hero:gain_skill_exp(skill_idx, num * exp)
+        else
+            return
+        end
     end
 end
 
@@ -1409,7 +1440,6 @@ function use_skill_common_book(self, hero_idx, skill_idx, item_idx, num, skill_i
         WARN("use_skill_common_book: hero isn't valid. pid = %d, hero_idx = %d", self.pid, hero_idx)
         return
     end
-
 
     local skill = hero.basic_skill[skill_idx]
     if not skill then
@@ -1450,18 +1480,9 @@ end
 
 -- 重置技能
 function reset_skill(self, hero_idx, skill_idx)
-    local hero = self:get_hero(hero_idx)
-    if not hero or not hero:is_valid() then
-        WARN("reset_skill: hero isn't valid. pid = %d, hero_idx = %d", self.pid, hero_idx)
-        return
-    end
+    local hero = self:get_hero( hero_idx )
+    if not hero then return end
 
-    local skill = hero.basic_skill[skill_idx]
-    if skill == nil or skill[1] == 0 then
-        return
-    end
-
-    --使用物品
     local num = self:get_item_num(RESET_SKILL_ITME)
     if num ~= 0 then
         self:dec_item_by_item_id(RESET_SKILL_ITME, 1, VALUE_CHANGE_REASON.REASON_DEC_ITEM_RESET_SKILL)
@@ -1476,4 +1497,49 @@ function reset_skill(self, hero_idx, skill_idx)
         hero:reset_skill(skill_idx)
     end
 end
+
+function reset_skill_senior(self, hero_idx, skill_idx)
+    local hero = self:get_hero(hero_idx)
+    if not hero or not hero:is_valid() then
+        WARN("reset_skill: hero isn't valid. pid = %d, hero_idx = %d", self.pid, hero_idx)
+        return
+    end
+
+    local skill = hero.basic_skill[skill_idx]
+    if skill == nil or skill[1] == 0 then return end
+
+    local skillid = skill[1]
+    if skillid == 0 then return end
+
+    --使用物品
+    local num = self:get_item_num(RESET_SKILL_ITME)
+    if num ~= 0 then
+        self:dec_item_by_item_id(RESET_SKILL_ITME, 1, VALUE_CHANGE_REASON.REASON_DEC_ITEM_RESET_SKILL)
+        hero:reset_skill(skill_idx)
+
+        local conf = resmng.get_conf( "prop_skill", skillid )
+        if conf then
+            local itemid = conf.SkillItemID
+            local item_conf = resmng.get_conf( "prop_item", itemid )
+            if item_conf then
+                self:inc_item( itemid, 1, VALUE_CHANGE_REASON.RESET_SKILL )
+            end
+        end
+        return
+    end
+end
+
+function reset_skill_primary(self, hero_idx, skill_idx)
+    local hero = self:get_hero(hero_idx)
+    if not hero or not hero:is_valid() then
+        WARN("reset_skill: hero isn't valid. pid = %d, hero_idx = %d", self.pid, hero_idx)
+        return
+    end
+
+    local skill = hero.basic_skill[skill_idx]
+    if skill == nil or skill[1] == 0 then return end
+
+    hero:reset_skill( skill_idx )
+end
+
 

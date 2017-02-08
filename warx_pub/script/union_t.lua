@@ -27,7 +27,7 @@ module_class("union_t", {
     mc_timer = 0, -- 怪物攻城定时器
     mc_ntf_timer = 0, -- 怪物攻城定时器
     set_mc_time = 999, -- 设置mc 开始的时间
-    mc_start_time = 20, -- 设置mc 开始的时间
+    mc_start_time = {}, -- 设置mc 开始的时间
     mc_reward_pool = {}, -- 怪物攻城的奖励池
     enlist = {}, --招募信息
     rank_alias = {"","","","","",""}, --军阶称谓
@@ -132,15 +132,15 @@ end
 function set_mc_start(self, time, ply)
     if os.date("%d", self.set_mc_time) ~= os.date("%d", gTime) and self.monster_city_stage == 0 then
         local now = os.date("*t", gTime)
-        local hour = now.hour
-        if hour > time then  --只能设置当天的怪物定时器
-            return
-        end
+        --local hour = now.hour
+        --if hour > time then  --只能设置当天的怪物定时器
+        --    return
+        --end
 
         timer.del(self.mc_timer)
         timer.del(self.mc_ntf_timer)
-        local leftTime = get_left_time(time)
-        self.mc_start_time = time
+        local leftTime = get_left_time({time, 30})
+        self.mc_start_time = {time, 30}
         self.set_mc_time = gTime
         -- to do
         --
@@ -184,16 +184,21 @@ end
 
 function get_default_time(self)
     -- base on language
-    return 18
+    return {10, 30}
 end
 
-function get_left_time(endTime)
+function get_left_time(time)
     local now = os.date("*t", gTime)
     local temp = { year=now.year, month=now.month, day=now.day, hour=0, min=0, sec=0 }
 
-    temp.hour = endTime
+    temp.hour = time[1]
+    temp.min = time[2]
     time = os.time(temp)
-    return (time - gTime)
+    if time > gTime then
+        return (time - gTime)
+    else
+        return (time - gTime) + 86400
+    end
 end
 
 function set_default_start(self)
@@ -201,7 +206,7 @@ function set_default_start(self)
         return
     end
 
-    if self.mc_start_time == 999 then
+    if self.set_mc_time == 999 then
         self.mc_start_time =  get_default_time(self)
     end
 
@@ -762,7 +767,7 @@ function get_info(self)
     local info = {}
 
     info.uid = self.uid
-    info.new_union_sn = self.new_union_sn
+    info.new_union_sn = self.new_union_sn or 0
     info.name = self.name
     info.alias = self.alias
     info.level = self.level
@@ -837,12 +842,14 @@ function add_member(self, A,B)
     end
 
     A:set_uid(self)
+    etypipe.add(A)
+    self._members[A.pid] = A
+    self.membercount = tabNum(self._members)
+    INFO(A.pid..":add_member:"..self.uid)
 
     self.pow = (self.pow or 0) + A:get_pow()
     if self.pow > 0 and not self:is_new() then rank_mng.add_data( 5, self.uid, { self.pow } ) end
 
-    self._members[A.pid] = A
-    self.membercount = tabNum(self._members)
 
     local t = A:get_union_info()
     t.uid = self.uid
@@ -893,8 +900,12 @@ function rm_member(self, A,kicker)
     end
 
     self:notifyall(resmng.UNION_EVENT.MEMBER, resmng.UNION_MODE.DELETE, {name=A.name,pid=A.pid,kicker=kicker.pid})
+
+    A:set_uid()
+    etypipe.add(A)
     self._members[A.pid] = nil
     self.membercount = tabNum(self._members)
+    INFO(A.pid..":rm_member:"..self.uid)
 
     self.pow = (self.pow or 0) - A:get_pow()
     if self.pow > 0 and not self:is_new() then rank_mng.add_data( 5, self.uid, { self.pow } ) end
@@ -907,8 +918,6 @@ function rm_member(self, A,kicker)
         end
     end
 
-    A:set_uid()
-    etypipe.add(A)
 
     self.donate_rank = {} --清除捐献排行
     if f then unionmng.rm_union(self) end
@@ -1252,31 +1261,39 @@ function donate_summary_week(self)
     local t = get_donate_rank(self,resmng.DONATE_RANKING_TYPE.WEEK)
     for k, v in pairs(t) do
         local val = {}
-        if k == 1 then
-            val = resmng.prop_item[1013161].Param[2] 
-        elseif k == 2 then
-            val = resmng.prop_item[1013162].Param[2] 
-        elseif k == 3 then
-            val = resmng.prop_item[1013163].Param[2] 
-        end
         local p = getPlayer(v.pid)
-        p:send_system_notice(10024, {}, {t[1].name,t[2].name,t[3].name}, val)
-        union_member_t.clear_donate_data(p,resmng.DONATE_RANKING_TYPE.WEEK)
+        if p then
+            if k == 1 then
+                val = resmng.prop_item[2013161].Param[2] 
+                p:send_system_notice(10024, {}, {}, val)
+            elseif k == 2 then
+                val = resmng.prop_item[2013162].Param[2] 
+                p:send_system_notice(10024, {}, {}, val)
+            elseif k == 3 then
+                val = resmng.prop_item[2013163].Param[2] 
+                p:send_system_notice(10024, {}, {}, val)
+            end
+            union_member_t.clear_donate_data(p,resmng.DONATE_RANKING_TYPE.WEEK)
+        end
     end
 
     local t = get_donate_rank(self,resmng.DONATE_RANKING_TYPE.WEEK_B)
     for _, v in pairs(t) do
         local val = {}
-        if k == 1 then
-            val = resmng.prop_item[1013164].Param[2] 
-        elseif k == 2 then
-            val = resmng.prop_item[1013165].Param[2] 
-        elseif k == 3 then
-            val = resmng.prop_item[1013166].Param[2] 
-        end
         local p = getPlayer(v.pid)
-        p:send_system_notice(10025, {}, {t[1].name,t[2].name,t[3].name}, val)
-        union_member_t.clear_donate_data(p,resmng.DONATE_RANKING_TYPE.WEEK_B)
+        if p then
+            if k == 1 then
+                val = resmng.prop_item[2013164].Param[2] 
+                p:send_system_notice(10025, {}, {}, val)
+            elseif k == 2 then
+                val = resmng.prop_item[2013165].Param[2] 
+                p:send_system_notice(10025, {}, {}, val)
+            elseif k == 3 then
+                val = resmng.prop_item[2013166].Param[2] 
+                p:send_system_notice(10025, {}, {}, val)
+            end
+            union_member_t.clear_donate_data(p,resmng.DONATE_RANKING_TYPE.WEEK_B)
+        end
     end
 
 end
@@ -1483,6 +1500,11 @@ function can_build(self, id, x, y)
     local bcc = resmng.get_conf("prop_world_unit",id)
     if not bcc then return false end
 
+    if is_hit_black_land( x, y, bcc.Size ) then 
+        print( "hit black" )
+        return false 
+    end
+
     if not is_union_miracal(id) then
         if not self:can_castle( x, y,bcc.Size/2) then
             INFO( "不在奇迹范围内 \n" )
@@ -1493,6 +1515,7 @@ function can_build(self, id, x, y)
             INFO("奇迹不能建造在其他奇迹范围内\n")
             return false
         end
+
     end
 
 
@@ -1520,6 +1543,11 @@ function can_build(self, id, x, y)
         return false
     end
 
+    if is_union_miracal_small( id ) and sum < 1 then
+        INFO("先修建大奇迹")
+        return false
+    end
+
     if is_union_restore(id) then
         --超级矿排他
         for k, v in pairs(self.build) do
@@ -1536,7 +1564,8 @@ end
 function get_build_count(self, mode)--计算军团建筑已有数量
     local count = 0
     for k, v in pairs(self.build) do
-        if v.BuildMode == mode and v.state ~=BUILD_STATE.DESTROY then
+        local c = resmng.get_conf("prop_world_unit",v.propid)
+        if c.BuildMode == mode and v.state ~=BUILD_STATE.DESTROY and v.state ~=BUILD_STATE.CREATE then
             count = count + 1
         end
     end

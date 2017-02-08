@@ -5,8 +5,8 @@ function get_one2(acc,culture )
     local culture = culture or 1
     local tm = 0  
 
-    os.execute("python forqc/new.py "..acc)
-    dofile( "/tmp/new.lua" )
+    os.execute("python forqc/new.py "..acc.." "..getMap())
+    dofile( "/tmp/new_"..getMap()..".lua" )
     if _pids[acc] then
         for k, v in pairs( _pids[acc].pid or {} ) do
             if v.map == getMap() and v.tm > tm then 
@@ -33,7 +33,6 @@ function get_one2(acc,culture )
             wait_for_ack( node, "onLogin" )
             loadData( node )
             sync( node )
-            back( node )
             return node
         end
     end
@@ -43,7 +42,7 @@ function back( p )
     local back = {}
     for k, v in pairs( p._troop or {} ) do table.insert(back,k) end
     for _, v in pairs( back ) do Rpc:troop_recall(p,v) end
-    while next(p._troop) do
+    while next(p._troop or {} ) do
         sync( p )
         for k, v in pairs( p._troop or {} ) do 
             troop_acc(p,v._id)  
@@ -56,9 +55,10 @@ end
 function set_build( p, propid, x, y, range )
     range = range or 50
     if _us and _us[p.uid] then
-        while true do
+        for i=1,range * range do
             for k, v in pairs( _us[p.uid].build or {} ) do
                 if v.propid == propid  then
+                    if not p._etys then p._etys={}  end 
                     p._etys[ v.eid ] = v
                     return v
                 end
@@ -67,7 +67,7 @@ function set_build( p, propid, x, y, range )
             local ty = y + math.random( 1, 2 * range ) - range
             if tx >= 0 and tx < 1280 then
                 if ty >= 0 and ty < 1280 then
-                    print( tx, ty )
+--                 print( tx, ty )
                     Rpc:union_build_setup(p,0,propid,tx,ty,"")
                     sync( p )
                 end
@@ -90,7 +90,11 @@ function build( p, obj,f )
                 if  v.action < 200 then 
                     troop_acc(p,v._id) 
                     wait_for_ack( p, "stateTroop" )
-                    if f then chat( p, "@undebug" ) end
+                    if f then 
+                        chat( p, "@undebug" ) 
+                    else
+                        wait_for_ack( p, "union_broadcast" )
+                    end
                     return 
                 end
             end
@@ -99,18 +103,46 @@ function build( p, obj,f )
 end
 
 function atk( p, obj )
-    chat( p, "@initarm" )
-    sync( p )
-    local arms = {}
-    for id, num in pairs( p._arm ) do arms[ id ] = 10000 break end
-    Rpc:siege(p, obj.eid, {live_soldier=arms} ) 
-    while true do
+
+    if is_npc_city(obj) then
+        chat( p, "@debug" )
+        Rpc:declare_tw_req(p, obj.eid)
         sync( p )
         for k, v in pairs( p._troop or {}  ) do
             if v.target == obj.eid then 
                 if  v.action < 200 then 
                     troop_acc(p,v._id) 
                     wait_for_ack( p, "stateTroop" )
+                    back(p)
+                    chat( p, "@fighttw" )
+                    break
+                end
+            end
+        end
+    end
+
+    chat( p, "@addarm=4010=10000" )
+    local arms = {}
+    local heros = {}
+    for id, num in pairs( p._arm ) do 
+        arms[ id ] = 10000 
+        local hero = get_hero( p, 1 )
+        if not hero then return "nohero" end
+        Rpc:hero_cure_quick(p, hero.idx, 10)
+        sync( p )
+        local conf = resmng.get_conf( "prop_arm", id )
+        heros[conf.Mode] = hero.idx
+        break 
+    end
+
+    Rpc:siege(p, obj.eid, {live_soldier=arms,heros=heros } ) 
+    while true do
+        sync( p )
+        for k, v in pairs( p._troop or {}  ) do
+            if v.target == obj.eid then 
+                if  v.action < 200 then 
+                    troop_acc(p,v._id) 
+--                    wait_for_ack( p, "stateTroop" )
                     return 
                 end
             end
@@ -119,9 +151,14 @@ function atk( p, obj )
 end
 
 function gather( p, obj )
-    chat( p, "@initarm" )
     local arms = {}
-    for id, num in pairs( p._arm ) do arms[ id ] = 10000 break end
+    for id, num in pairs( p._arm ) do 
+        local c = resmng.get_conf( "prop_arm", id )
+        if c.Mode == 4 and c.Lv == 10 then
+            arms[ id ] = 100000 
+            break 
+        end
+    end
     Rpc:gather(p, obj.eid, {live_soldier=arms} ) 
     while true do
         sync( p )
@@ -129,7 +166,6 @@ function gather( p, obj )
             if v.target == obj.eid then 
                 if  v.action < 200 then 
                     troop_acc(p,v._id) 
-                    wait_for_ack( p, "stateTroop" )
                     return 
                 end
             end
@@ -257,7 +293,7 @@ function do_get_new_one()
 end
 
 
-function get_one( is_new )
+function get_one( is_new, culture )
     local idx 
     if is_new then
         for k, v in ipairs( gHavePlayers ) do
@@ -286,6 +322,7 @@ function get_one( is_new )
             local sid = connect(config.GateHost, config.GatePort, 0, 0 )
             if sid then
                 local t = { action= "login", gid = sid, idx = idx }
+                if is_new then t.culture = culture end
                 gConns[ sid ] = t
                 wait_for_ack( t, "onLogin" )
                 return t
@@ -336,7 +373,8 @@ function loadData( p )
     Rpc:loadData( p, "hero" )
     Rpc:loadData( p, "troop" )
     Rpc:loadData( p, "arm" )
-    if p.uid ~= 0  then 
+    sync( p )
+    if p.uid and p.uid ~= 0  then 
         Rpc:union_load( p, "info" )
         Rpc:union_load( p, "member" )
         Rpc:union_load( p, "build" )
@@ -470,7 +508,7 @@ function hero_star_up( p, h, star )
         local conf = resmng.prop_hero_star_up[ i ]
         itemnum = itemnum + conf.StarUpPrice
     end
-    itemnum = itemnum + 1
+    itemnum = itemnum + 100
 
     chat( p, "@clearitem" )
     chat( p, string.format("@additem=%d=%d", itemid, itemnum ) )
@@ -482,6 +520,32 @@ function hero_star_up( p, h, star )
 
     local item = get_item( p, itemid )
     if item[3] == 1 then return "ok" end
+end
+
+function hero_lv_up(p, h, lv)
+    local h_lv = h.lv
+    local quality = h.quality
+    local total = 0
+    for i = h_lv + 1 , lv, 1 do
+        local exp_conf = resmng.get_conf("prop_hero_lv_exp", i)
+        local need = exp_conf.NeedExp[quality]
+        total = total + need
+    end
+    local num = math.ceil(total/ 1000)
+    local cmd = "@additem=" .. "4003003=" .. tostring(num)
+    chat(p, cmd)
+    loadData(p)
+    local idx = item_idx(p, 4003003)
+    Rpc:hero_lv_up(p, h.idx, idx, num)
+    sync(p)
+end
+
+function item_idx(p, item_id)
+    for k, v in pairs(p._item) do
+        if v[2] == item_id then
+            return k
+        end
+    end
 end
 
 
@@ -551,6 +615,442 @@ timer._funs[ "wait_for_time" ] = function( tsn, sn )
     if co then
         gCoroWaitForTime[ sn ] = nil
         coroutine.resume( co )
+    end
+end
+
+function atk_lt(p, city_lv)
+    city_lv = city_lv or 1
+    if city_lv == 0 then
+        city_lv = 1
+    end
+
+    local force_tb = 
+    {
+        {96000, 35000, 40000},
+        {71000, 35000, 30000}, 
+        {40000, 20000, 20000}, 
+    }
+
+    chat( p, "@lvbuild=0=0=30" )
+    chat( p, "@buildtop" )
+    chat( p, "@set_val=gold=100000000" )
+    chat( p, "@addbuf=1=-1" )
+    chat(p, "@debug1")
+
+    chat(p, "@startlt")
+    WARN("startlt")
+
+    Rpc:get_city_for_robot_req(p, ACT_NAME.LOST_TEMPLE, city_lv)
+    wait_for_ack(p, "get_city_for_robot_ack")
+    local eid = p.lt_eid
+    WARN("get lt %d", eid)
+    --local eid = 729095
+    p.lt_eid = nil
+
+    local u = gTime % 1000000
+    Rpc:union_quit( p ) 
+    sync(p)
+
+    Rpc:union_create(p, tostring(u), tostring(u % 1000),40,1000)
+    WARN("create u %d ", u)
+    sync(p)
+
+    chat(p, "@all")
+    local arms = {}
+    chat( p, "@addarm=1001010=999999999" )
+    for id, num in pairs(p._arm) do
+        if num >  force_tb[city_lv][1] then
+            arms[ id ] = force_tb[city_lv][1]
+            break
+        end
+    end
+    Rpc:siege(p, eid, {live_soldier = arms})
+    WARN("siege king  %d ", eid)
+    sync(p)
+
+    local tid = 0
+    for k, v in pairs(p._troop) do
+        if v.target == eid then
+            tid = k
+            break
+        end
+    end
+
+    if tid == 0 then
+        WARN("no troop")
+        return
+    end
+
+    ts = p._troop
+    while true do
+        local flag = false
+        local t = ts[tid]
+        if t then
+            print(t.tmOver,get_tm(p))
+            if t.tmOver > get_tm(p) + 1 then
+                 Rpc:troop_acc( p, tid, 7014001 )
+                 sync(p)
+                 flag = true
+            end
+        end
+        if not flag then break end
+    end
+
+    wait_for_ack( p, "stateTroop" ) 
+
+end
+
+function atk_king(p, city_lv)
+    city_lv = city_lv or 1
+    if city_lv == 0 then
+        city_lv = 1
+    end
+
+    local force_tb = 
+    {
+        {178000, 50000, 30000},
+        {178000, 50000, 30000},
+        {7800, 50000, 30000},
+    }
+
+    chat( p, "@lvbuild=0=0=30" )
+    chat( p, "@buildtop" )
+    chat( p, "@set_val=gold=100000000" )
+    chat( p, "@addbuf=1=-1" )
+    chat(p, "@debug1")
+
+    chat(p, "@fightkw")
+    WARN("fightkw")
+
+    Rpc:get_city_for_robot_req(p, ACT_NAME.KING, city_lv)
+    wait_for_ack(p, "get_city_for_robot_ack")
+    local eid = p.king_eid
+    WARN("get king %d", eid)
+    --local eid = 729095
+    p.king_eid = nil
+
+    local u = gTime % 1000000
+    Rpc:union_quit( p ) 
+    sync(p)
+
+    Rpc:union_create(p, tostring(u), tostring(u % 1000),40,1000)
+    WARN("create u %d ", u)
+    sync(p)
+
+    chat(p, "@all")
+    local arms = {}
+    chat( p, "@addarm=1001010=999999999" )
+    for id, num in pairs(p._arm) do
+        if num >  force_tb[city_lv][1] then
+            arms[ id ] = force_tb[city_lv][1]
+            break
+        end
+    end
+    Rpc:siege(p, eid, {live_soldier = arms})
+    WARN("siege king  %d ", eid)
+    sync(p)
+
+    local tid = 0
+    for k, v in pairs(p._troop) do
+        if v.target == eid then
+            tid = k
+            break
+        end
+    end
+
+    if tid == 0 then
+        WARN("no troop")
+        return
+    end
+
+    ts = p._troop
+    while true do
+        local flag = false
+        local t = ts[tid]
+        if t then
+            print(t.tmOver,get_tm(p))
+            if t.tmOver > get_tm(p) + 1 then
+                 Rpc:troop_acc( p, tid, 7014001 )
+                 sync(p)
+                 flag = true
+            end
+        end
+        if not flag then break end
+    end
+
+    wait_for_ack( p, "stateTroop" ) 
+
+end
+
+function acc_troop_by_tid(p, tid)
+    chat( p, "@set_val=gold=100000000" )
+    buy_item(p, 39, 100)
+
+    ts = p._troop
+    while true do
+        local flag = false
+        local t = ts[tid]
+        if t then
+            --print(t.tmOver,get_tm(a1))
+            if t.tmOver > get_tm(p) + 1 then
+                 Rpc:troop_acc( p, tid, 7014001 )
+                 sync(p)
+                 flag = true
+            end
+        end
+        if not flag then break end
+    end
+
+    wait_for_ack( p, "stateTroop" ) 
+end
+
+function atk_by_eid(p, eid, arms)
+    Rpc:siege(p, eid, {live_soldier = arms})
+    WARN("siege npc  %d ", eid)
+    sync(p)
+
+    local tid = 0
+    for k, v in pairs(p._troop) do
+        if v.target == eid then
+            tid = k
+            break
+        end
+    end
+    if tid == 0 then
+        WARN("no troop")
+        return "atk error"
+    end
+
+    acc_troop_by_tid(p, tid)
+
+    return tid
+end
+
+function atk_npc(p, city_lv)
+    city_lv = city_lv or 4
+    if city_lv == 0 then
+        city_lv = 4
+    end
+    local force_tb = 
+    {
+        {207000, 115000, 40000},
+        {99000,  55000, 40000},
+        {42000, 25000, 40000},
+        {25000, 15000, 40000},
+    }
+
+    chat( p, "@lvbuild=0=0=30" )
+    chat( p, "@buildtop" )
+    chat( p, "@set_val=gold=100000000" )
+    chat( p, "@addbuf=1=-1" )
+    chat(p, "@debug1")
+
+    chat(p, "@starttw")
+    WARN("starttw")
+
+    Rpc:get_city_for_robot_req(p, ACT_NAME.NPC_CITY, city_lv)
+    wait_for_ack(p, "get_city_for_robot_ack")
+    local eid = p.npc_eid
+    WARN("get npc %d", eid)
+    --local eid = 729095
+    p.npc_eid = nil
+
+    local u = gTime % 1000000
+    Rpc:union_quit( p ) 
+    sync(p)
+
+    Rpc:union_create(p, tostring(u), tostring(u % 1000),40,1000)
+    WARN("create u %d ", u)
+    sync(p)
+
+    Rpc:declare_tw_req(p, eid) --宣战
+    WARN("delcare war  %d ", eid)
+    sync(p)
+
+    buy_item(p, 39, 100)
+
+    local tid = 0
+    for k, v in pairs(p._troop) do
+        if v.target == eid then
+            tid = k
+            break
+        end
+    end
+
+    if tid == 0 then
+        WARN("no troop")
+        return
+    end
+
+    local ts = p._troop
+    while true do
+        local flag = false
+        local t = ts[tid]
+        if t then
+            print(t.tmOver,get_tm(p))
+            if t.tmOver > get_tm(p) + 1 then
+                 Rpc:troop_acc( p, tid, 7014001 )
+                 sync(p)
+                 flag = true
+            end
+        end
+        if not flag then break end
+    end
+
+    wait_for_ack(p, "stateTroop")
+
+    chat(p, "@fighttw")
+    chat(p, "@all")
+    local arms = {}
+    chat( p, "@addarm=1001010=999999" )
+    for id, num in pairs(p._arm) do
+        if num >  force_tb[city_lv][1] then
+            arms[ id ] = force_tb[city_lv][1]
+        else
+            arms[id] = num
+        end
+    end
+    Rpc:siege(p, eid, {live_soldier = arms})
+    WARN("siege npc  %d ", eid)
+    sync(p)
+
+    local tid = 0
+    for k, v in pairs(p._troop) do
+        if v.target == eid then
+            tid = k
+            break
+        end
+    end
+
+    if tid == 0 then
+        WARN("no troop")
+        return
+    end
+
+    ts = p._troop
+    while true do
+        local flag = false
+        local t = ts[tid]
+        if t then
+         --   print(t.tmOver,get_tm(p))
+            if t.tmOver > get_tm(p) + 1 then
+                 Rpc:troop_acc( p, tid, 7014001 )
+                 sync(p)
+                 flag = true
+            end
+        end
+        if not flag then break end
+    end
+
+    wait_for_ack( p, "stateTroop" ) 
+
+end
+
+function spy_ply(p)
+    local s_p = get_one(true)
+    loadData(s_p)
+    chat( s_p, "@lvbuild=0=0=30" )
+
+    Rpc:spy(p, s_p.eid)
+    sync(p)
+    print("spy ply from to ", p.pid, s_p.pid)
+
+    local tid = 0
+    for k, v in pairs(p._troop) do
+        if v.target == s_p.eid then
+            tid = k
+            break
+        end
+    end
+
+    if tid == 0 then
+        WARN("no troop")
+        return
+    end
+
+    local ts = p._troop
+    while true do
+        local flag = false
+        local t = ts[tid]
+        if t then
+         --   print(t.tmOver,get_tm(p))
+            if t.tmOver > get_tm(p) + 1 then
+                 Rpc:troop_acc( p, tid, 7014001 )
+                 sync(p)
+                 flag = true
+            end
+        end
+        if not flag then break end
+    end
+
+    wait_for_ack(p, "stateTroop")
+end
+
+function atk_ply(p)
+    local s_p = get_one(true)
+    loadData(s_p)
+    chat( s_p, "@lvbuild=0=0=30" )
+
+    local h_idx = math.random(20)
+    get_hero(s_p, h_idx)
+
+    chat( p, "@set_val=gold=100000000" )
+    buy_item(p, 39, 100)
+    chat(p, "@all")
+    chat( p, "@addbuf=1=-1" )
+
+    local arms = {}
+    chat(p, "@initarm")
+    for id, num in pairs(p._arm) do
+        arms[id] = num
+    end
+    Rpc:siege(p, s_p.eid, {live_soldier = arms})
+    sync(p)
+
+    print("atk ply from to ", p.pid, s_p.pid)
+
+
+    local tid = 0
+    for k, v in pairs(p._troop) do
+        if v.target == s_p.eid then
+            tid = k
+            break
+        end
+    end
+
+    if tid == 0 then
+        WARN("no troop")
+        return
+    end
+
+    local ts = p._troop
+    while true do
+        local flag = false
+        local t = ts[tid]
+        if t then
+       --     print(t.tmOver,get_tm(p))
+            if t.tmOver > get_tm(p) + 1 then
+                 Rpc:troop_acc( p, tid, 7014001 )
+                 sync(p)
+                 flag = true
+            end
+        end
+        if not flag then break end
+    end
+end
+
+
+function join_union(ply, num, level)
+    level = level or 10
+    for i = 1, num, 1 do
+        local p = get_one(true)
+        loadData(p)
+        local cmd = "@lvbuild=0=0=" .. tostring(level)
+        chat( p, cmd )
+        Rpc:union_quit( p )
+        sync(p)
+        Rpc:union_apply(p, ply.uid)
+        sync(p)
     end
 end
 

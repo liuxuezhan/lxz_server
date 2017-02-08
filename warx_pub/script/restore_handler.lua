@@ -19,14 +19,7 @@ function load_player()
             rawset(p, "eid", data.eid)
             rawset(p, "size", 4)
             rawset(p, "uname", "")
-
-            if data.uid > 0 then
-                local union = unionmng.get_union(data.uid)
-                if union then
-                    rawset(p, "uname", union.alias)
-                    rawset(p, "uflag", union.flag)
-                end
-            end
+            
             gEtys[ p.eid ] = p
 
             count = count + 1
@@ -192,22 +185,23 @@ function init_effect()
         if v.propid ~= propid then v.propid = propid end
         v.nprison = v:get_prison_count()
         v:initEffect(true)
+
         if v.uid > 0 then
             local u = unionmng.get_union( v.uid )
             if u then 
                 v.uname = u.alias
+                v.uflag = u.flag
             end
         end
-
         etypipe.add(v)
         count = count + 1
+        if count % 100 == 0 then print( "init_effect, count =", count ) end
     end
     print( "init_effect_done" )
 
     local us = unionmng.get_all()
-    for _, v in pairs( us ) do
-        v:union_pow()
-    end
+    for _, v in pairs( us ) do v:union_pow() end
+
     print( "init_effect_union_done" )
     return count
 end
@@ -298,6 +292,10 @@ function post_init()
     INFO("-- init_rank ---------")
     rank_mng.init()
     INFO("-- init_rank done  ---")
+
+    INFO("-- accpet world events ---------")
+    world_event.accept_world_event()
+    INFO("-- accpet world events done  ---")
 end
 
 function action()
@@ -315,6 +313,11 @@ function action()
     load_player()
     INFO("-- load_player done --------")
     monitoring(MONITOR_TYPE.LOADDATA, "load_player")
+
+    INFO("-- load_world_event -------------")
+    world_event.load_world_event()
+    INFO("-- load_world_event done --------")
+    monitoring(MONITOR_TYPE.LOADDATA, "load_world_event")
 
     INFO("-- load_union --------------")
     union_t.load()
@@ -495,15 +498,19 @@ function action()
     INFO("-- white list done-----")
     monitoring(MONITOR_TYPE.LOADDATA, "white_list")
 
-    post_init()
-    INFO("-- done done done ----------")
-
     INFO("-- restore_timer -----------")
     local compensate =  restore_timer()
     INFO("-- restore_timer done ------, %s", compensate or "none")
     monitoring(MONITOR_TYPE.LOADDATA, "restore_timer")
 
+    c_tick(0)
     init_effect()
+    local use = c_tick(1)
+    WARN( "init_effect, use %d ms", use )
+
+    post_init()
+
+    INFO("-- done done done ----------")
 
     return compensate
 end
@@ -515,8 +522,18 @@ function load_unit()
     local info = db.unit:find({})
     while info:hasNext() do
         local m = info:next()
-        gEtys[ m.eid ] = m
-        etypipe.add(m)
+        if is_camp( m ) then
+            local troop = troop_mng.get_troop( m.my_troop_id )
+            if troop and troop.target_eid == m.eid then
+                gEtys[ m.eid ] = m
+                etypipe.add(m)
+            else
+                gPendingDelete.unit[ m.eid ] = 1
+            end
+        else
+            gEtys[ m.eid ] = m
+            etypipe.add(m)
+        end
     end
 end
 

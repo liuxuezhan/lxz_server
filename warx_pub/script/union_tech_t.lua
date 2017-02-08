@@ -18,7 +18,8 @@ end
 
 function create(idx, uid)
     local conf = get_conf(get_class(idx), get_mode(idx), 0)
-    assert(conf, "conf not found")
+    if not conf then LOG("没有军团科技:"..idx) return end
+
     local idx = conf.Idx
     local data = {
         _id = string.format("%s_%s", uid, idx),
@@ -47,7 +48,7 @@ end
 function clear(uid)--删除军团时清除数据
     local union = unionmng.get_union(uid)
     for _,v in pairs(union._tech) do
-        dbmng:getOne().union_tech:delete({_id=v._id})
+        gPendingDelete.union_tech[ v._id ] = 1
     end
 end
 
@@ -278,5 +279,7 @@ function up_ok(u, tsn, idx)
     u:ef_init()
     gPendingSave.union_tech[tech._id] = tech
     u:notifyall(resmng.UNION_EVENT.TECH, resmng.UNION_MODE.ADD, { idx=tech.idx,id=tech.id,exp=tech.exp,tmOver=tech.tmOver,tmStart=tech.tmStart })
+    --世界事件
+    world_event.process_world_event(WORLD_EVENT_ACTION.UNION_TECH_NUM, next_conf.ID)
 end
 

@@ -19,6 +19,7 @@ function OnRpc.getTime( p,tag,tm,sm)
     p.stm = tm - gTime
 end
 
+
 function OnRpc.loadData( p, info )
     local key = info.key
     local val = info.val
@@ -170,7 +171,10 @@ function OnRpc.union_load(p,pack)
         u.donate = pack.val
     elseif pack.key == "fight" then--room
     elseif pack.key == "build" then
-        if pack.val then u.build = pack.val.build end
+        for _, v in pairs(pack.val.build or {} ) do
+            if not u.build then u.build = {} end 
+            u.build[v.idx] = v 
+        end
     elseif pack.key =="buildlv" then--军团建筑捐献
         if not u.buildlv then u.buildlv = {} end
         for k, v in pairs(pack.val) do
@@ -190,8 +194,11 @@ end
 
 function OnRpc.union_broadcast(p,key,mode,data)
     if key == "build" then
-        if mode == 2 then 
+--        lxz(mode,data)
+        if mode == resmng.OPERATOR.UPDATE then 
             _us[p.uid].build[data.idx] = data
+        elseif mode == resmng.OPERATOR.DELETE then 
+            _us[p.uid].build[data.idx] = nil
         end
     end
 end
@@ -204,6 +211,49 @@ function OnRpc.ack_troop_info(p, info)
         end
     end
     p.arm_count = count
+end
+
+function OnRpc.finish_task_resp(p, ret)
+    p.task_resp = ret
+end
+
+function OnRpc.union_task_get(p, info)
+    p.union_task = info
+end
+
+function OnRpc.get_can_atk_citys_ack(p,info)
+    p.city_propid = {}
+    if not _npc then 
+        Rpc:get_npc_map_req(p)
+        wait_for_ack( p, "get_npc_map_ack")
+    end
+    for _, propid in pairs(info.can_atk_citys or {}) do
+        table.insert(p.city_propid,propid)
+    end
+end
+
+function OnRpc.get_npc_map_ack(p,info)
+    _npc = {} 
+    for _, v in pairs(info.map or {}) do
+        _npc[v[4]]={ eid = v[1], propid=v[4] }
+    end
+end
+
+function OnRpc.get_buff(p,k,v)
+    if not p.buf then  p.buff = {} end
+    p.buff[k] = v
+end
+
+function OnRpc.gen_boss_eid_ack(p, eid)
+    p.boss_eid = eid
+end
+
+function OnRpc.get_eye_info(p, eid, info)
+    p.eye_info = info
+end
+
+function OnRpc.ety_info_ack(p, info)
+    p.ety_info = info
 end
 
 return OnRpc

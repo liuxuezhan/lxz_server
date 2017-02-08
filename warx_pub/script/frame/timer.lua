@@ -43,6 +43,19 @@ function new(what, sec, ...)
     end
 end
 
+function is_valid( sn, ... )
+    local node = get( sn )
+    if node then
+        local param = node.param
+        for k, v in ipairs( { ... } ) do
+            if param[ k ] ~= v then
+                return false
+            end
+        end
+        return true
+    end
+end
+
 function new_ignore(what, sec, ...)
     --if what == "tlog" then pause() end
     if sec >= 0 and _funs[ what ] then

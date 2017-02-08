@@ -295,7 +295,7 @@ end
 -- 反击
 local function _counter_attack(A, D)
     for amode, a in pairs(A.arms) do
-        if a.ef.CounterAtk and a.ef.CounterAtk > 0 and a.num > 0 and a.dmg > 0 then
+        if a.ef.CounterAtk and a.ef.CounterAtk > 0 and a.num and a.num > 0 and a.dmg and a.dmg > 0 then
             local rate = {0.25, 0.25, 0.25, 0.25}
             local sum = 0
             for dmode, d in pairs(D.arms) do
@@ -539,11 +539,12 @@ local function _launch_skills(As, Ds, round, report, who)
     for _, A in pairs(As.arms) do
         for _, obj in pairs(A.objs) do
             if obj.hero then
-                if obj.lead and obj.num > 0 then
+                if obj.num > 0 then
                     for _, v in pairs(obj.skills) do
                         local skill = resmng.prop_skill[v]
                         if skill and skill.Type == 1 and skill_check(skill, A, As, Ds) then
                             skill_fire(skill, obj, A, As, Ds)
+                            print( "launch_skills", obj.hero, v )
                             --table.insert(report, {round, 3, who, A.mode, obj.id, skill.ID, "skills"})
                         end
                     end
@@ -562,7 +563,6 @@ local function _launch_skill(As, Ds, round, report, who)
                     local rate = math.random(1, 100)
                     if (obj.fit_per and rate <= 23) or rate <= 15 then
                         skill_fire(skill, obj, A, As, Ds)
-                        print( "skill_fire", obj.hero, obj.skill )
                         table.insert(report, {round, 2, who, A.mode, obj.id, skill.ID, "skill"})
                     end
                 end
@@ -680,15 +680,8 @@ fight.pvp = function(action, A0, D0)
 
     local atker = get_ety( A0.owner_eid )
     local defer = get_ety( D0.owner_eid )
-
-    if is_ply( atker ) then
-        atker:mark_action( player_t.calc_pow_arm )
-        atker:mark_action( player_t.recalc_food_consume )
-    end
-
+    
     if is_ply( defer ) then
-        defer:mark_action( player_t.calc_pow_arm )
-        defer:mark_action( player_t.recalc_food_consume )
         Rpc:be_attacked( defer )
     end
 
@@ -714,7 +707,6 @@ fight.pvp = function(action, A0, D0)
         if math.abs( atker:get_castle_lv() - defer:get_castle_lv() ) >= 5 then count_round = 16 end
     end
 
-    print( "fight_before", c_tick(1) )
     
     local round = 0
     local tutter_dmg = 0
@@ -788,7 +780,6 @@ fight.pvp = function(action, A0, D0)
 
         if la == 0 or ld == 0 then break end
     end
-    print( "round", round )
     print( "fight_over", c_tick(1) )
 
     --dumpTab(report, "fight")
@@ -799,8 +790,8 @@ fight.pvp = function(action, A0, D0)
     local lostD, liveD, make_dmgD, dead_numD, dead_lvlD = fight_status(D) 
 
 
-    print( lostA, liveA, make_dmgA, dead_numA, dead_lvlA )
-    print( lostD, liveD, make_dmgD, dead_numD, dead_lvlD )
+    --print( lostA, liveA, make_dmgA, dead_numA, dead_lvlA )
+    --print( lostD, liveD, make_dmgD, dead_numD, dead_lvlD )
 
     if tutter_dmg > 0 then
         make_dmgD = make_dmgD + tutter_dmg
@@ -877,7 +868,7 @@ function get_troop_buf(At)
         "CountSoldier", "CountSoldier_A" 
     }
     local buf = {}
-    if At.owner_pid and At.owner_pid > 0 then
+    if At.owner_pid and At.owner_pid >= 10000 then
         local A = getPlayer(At.owner_pid)
         if A then
             --人物单独的buff
@@ -984,8 +975,6 @@ function hero_capture(At, Dt)
     local plA = getPlayer(pidA)
     captive = captive + plA:get_num("Captive")
 
-    plA:add_debug( string.format("Captive=%s, Counter=%s", captive, counter ) )
-
     if captive <= counter then return end
     if math.random(1,10000) <= captive - counter then 
         local heroD = false
@@ -1021,21 +1010,18 @@ end
 -- new_buf_arangement
 function effect_attach(dst, src) -- attach src to dst
     for k, v in pairs(src or {}) do
-        print( "add_ef", k )
         dst[ k ] = (dst[ k ] or 0) + v
     end
 end
 
 function effect_detach(src, dst) -- detach dst from src
     for k, v in pairs(dst or {}) do
-        print( "dec_ef", k )
         src[ k ] = (src[ k ] or 0) - v
     end
 end
 
 -- buf = {bufid, count, effect}
 function do_add_buf(arm, prop, count)
-    print( "do_add_buf", prop.ID, count )
     local id = prop.ID
     for k, v in pairs( arm.buf or {} ) do
         if v[1] == id then
@@ -1180,7 +1166,7 @@ function init_troop(T)
     "ExtraAtk", "VampireAtk", "CounterAtk" }
 
     local owner = false
-    if T.owner_pid > 0 then
+    if T.owner_pid >= 10000 then
         local p = getPlayer(T.owner_pid)
         if p then
             owner = p
@@ -1254,14 +1240,18 @@ function init_troop(T)
                     node.num0 = node.num
                     node.pids[ pid ] = { num0 = num }
                     node_a.num = node_a.num + num
-                    if pid >= 10000 then t.is_player = true end
+                    if pid >= 10000 then 
+                        t.is_player = true 
+                        player_t.mark_action_by_pid( pid, player_t.recalc_pow_arm )
+                        player_t.mark_action_by_pid( pid, player_t.recalc_food_consume )
+                    end
                 end
             end
         end
 
-        for mode, hero in pairs(arm.heros or {}) do
-            if hero ~= 0 then
-                local h = heromng.get_fight_attr(hero)
+        for mode, hid in pairs(arm.heros or {}) do
+            if hid ~= 0 then
+                local h = heromng.get_fight_attr(hid)
                 if h and h.num > 0 then 
 
                     local node_a = t.arms[ mode ]
@@ -1271,9 +1261,9 @@ function init_troop(T)
                         t.herohp[ mode ] = h.num
                         t.heros[ mode ] = h
 
-                        local node = { id = hero, mode=mode, num = h.num, Atk = h.prop.Atk, Imm = h.prop.Imm, Lv = h.prop.Lv, Hp = h.prop.Hp, Pow = h.prop.Pow, pids = {}, fit_per = h.fit_per, skill=h.skill, skills=h.skills }
+                        local node = { id = hid, mode=mode, num = h.num, Atk = h.prop.Atk, Imm = h.prop.Imm, Lv = h.prop.Lv, Hp = h.prop.Hp, Pow = h.prop.Pow, pids = {}, fit_per = h.fit_per, skill=h.skill, skills=h.skills }
                         node.num0 = node.num
-                        node.hero = hero
+                        node.hero = hid
                         node.cul = h.cul
                         node.per = h.per
                         objs[ mode  ] = node
@@ -1284,7 +1274,16 @@ function init_troop(T)
 
                         node.pids[ pid ] = { num0 = h.num }
                         node_a.num = node_a.num + node.num
-                        if pid == 0 then t.arms[ mode ].ef = copyTab( h.ef ) end
+                        if pid == 0 then 
+                            t.arms[ mode ].ef = copyTab( h.ef ) 
+                        elseif pid >= 10000 then
+                            hero_t.gPendingRecalcPow[ hid ] = 1
+
+                            local hero = heromng.get_hero_by_uniq_id( hid )
+                            if hero then
+                                hero_t.mark_recalc( hero )
+                            end
+                        end
                     end
                 end
             end

@@ -451,7 +451,7 @@ function mail_all(v)
     db.mail:insert(v)
 
     for k, ply in pairs(gPlys) do
-        if ply:is_online() == true then
+        if ply:is_online() then
             ply:mail_new(copyTab(v))
         end
     end

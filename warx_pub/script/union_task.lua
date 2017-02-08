@@ -57,34 +57,46 @@ function add(p,sub,eid,hero_id,num,mode,res,res_num,x,y) --发布悬赏任务
     for k,v in pairs(_d ) do
         if v.eid == eid and v.uid == p:get_uid() then INFO("已有任务") return end
     end
+
     if is_ply(eid) then
         local e = get_ety(eid)
         if p.uid == e.uid then INFO("是自己") return end
     end
 
-    if not p:do_dec_res(resmng.DEF_RES_GOLD, UNION_TASK_CONFIG.PRICE, VALUE_CHANGE_REASON.UNION_TASK) then 
-        INFO("金币不够") return end
-
     if sub > UNION_TASK.NUM then INFO("类型错误:"..sub) return end
     if num < 1 then INFO("次数小于1") return end
 
-    if sub == UNION_TASK.HERO and (num ~= 1 or hero_id == "") then return
-    elseif sub == UNION_TASK.PLY and num > 10 then return
-    elseif sub == UNION_TASK.NPC and num ~= 1  then return
-    end
+    if sub == UNION_TASK.HERO then
+        if num ~= 1 then return end
+        if hero_id == "" then return end
 
-    if not union_task.del_res(p,res,res_num) then return end
-    if hero_id ~= "" then
         local h = heromng.get_hero_by_uniq_id(hero_id)
-        if h then
-            local p = getPlayer(h.capturer_pid)     
-            eid = p.eid
-        end
-    end
+        if not h then return end
+        if h.status ~= HERO_STATUS_TYPE.BEING_IMPRISONED then return end
+        if h.capturer_pid < 10000 then return end
+        local enemy = getPlayer( h.capturer_pid )
+        if not enemy then return end
+        eid = enemy.eid
 
+    elseif sub == UNION_TASK.PLY then
+        if num > 10 then return end
+        local target = get_ety( eid )
+        if not target then return end
+        if not is_ply( target ) then return end
+
+    elseif sub == UNION_TASK.NPC then 
+        if num ~= 1 then return end
+
+        local target = get_ety( eid )
+        if not target then return end
+        if not is_npc_city( target ) then return end
+
+    end
+    
     _id = _id + 1
     local t = {}
     if mode == 2 then
+        if res_num < num * 1000 then return end
         for i = 1, num do t[i] = 1000 end
         local sum =  res_num - num * 1000
         while sum > 0  do
@@ -94,9 +106,14 @@ function add(p,sub,eid,hero_id,num,mode,res,res_num,x,y) --发布悬赏任务
             t[k] = t[k] + n 
         end
     end
+
+    if p.gold < UNION_TASK_CONFIG.PRICE then return end
+    if not union_task.del_res(p,res,res_num) then return end
+    if not p:do_dec_res(resmng.DEF_RES_GOLD, UNION_TASK_CONFIG.PRICE, VALUE_CHANGE_REASON.UNION_TASK) then INFO("金币不够") return end
+
     local data= {_id=_id,pid=p.pid,eid=eid,hero_id = hero_id,uid=p:get_uid(),type=sub,num=num,
-                mode=mode,t=t,res=res,res_num = res_num,sum = res_num, tmStart=gTime,log={},x=x,y=y }
-    data.tax_rate = 45   
+                mode=mode,t=t,res=res,res_num = res_num,sum = res_num, tmStart=gTime,log={},x=x,y=y, tax_rate=45 }
+
     local b = p:get_build_extra(BUILD_CLASS.FUNCTION, BUILD_FUNCTION_MODE.MARKET)
     if b then
         local c = resmng.get_conf("prop_build",b.propid)

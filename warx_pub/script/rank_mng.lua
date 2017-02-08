@@ -2,17 +2,18 @@ module("rank_mng", package.seeall)
 
 gRanks = gRanks or {}
 
+gRankInfoPlayer = gRankInfoPlayer or {}
+gRankInfoUnion = gRankInfoUnion or {}
+
 -- tops, 前100， 排好序的数组
 -- ranks, 前100， 以pid做key, val 是排行
--- alls, 前1000， 以pid做key
 
 function init()
     gRanks = {}
     local db = dbmng:getOne()
     for k, v in pairs( resmng.prop_rank ) do
         local sl = skiplist.new( k, table.unpack( v.Skeys ) )
-
-        local t = { id=k, ntop=v.Num, nall=v.Limit, detail=rank_function[ v.IsPerson ], is_persion = v.IsPerson } -- infos, tops, ranks, time
+        local t = { id=k, ntop=v.Num, nall=v.Limit, detail=rank_function[ v.IsPerson ], is_person = v.IsPerson } -- infos, tops, ranks, time
         gRanks[ k ] = t
         local tab = string.format("rank%d", k )
         local info = db[tab]:find( {} )
@@ -22,7 +23,6 @@ function init()
         end
         load_rank(k)
     end
-    --fill()
 end
 
 function load_rank( which )
@@ -32,8 +32,6 @@ function load_rank( which )
     if node.tops then return node.time, node.tops end
     local info = skiplist.get_range_with_score( which, 1, node.ntop )
     if info then
-        local oinfos = node.infos or {}
-        local ninfos = {}
         local tops = {}
         local ranks = {}
 
@@ -41,28 +39,64 @@ function load_rank( which )
         for i = 1, count, 2 do
             local id = info[ i ]
             local score = info[ i + 1 ]
-
-            local p = oinfos[ id ]
-            if not p then
-                p = node.detail( id, score )
-            end
-            ninfos[ id ] = p
+            local detail = get_info( node.is_person, id, true )
+            local p = { score, detail }
             table.insert( tops, p )
             ranks[ id ] = #tops
         end
         node.tops = tops        -- index to info
-        node.infos = ninfos     -- key to info
         node.ranks = ranks      -- key to index
         node.time = gTime
+
+        print( "load_rank, refresh", which )
 
         return node.time, node.tops
     end
     return gTime, {}
 end
 
-function add_node( idx, key, val, info, init )
+function get_info( is_person, id, init )
+    if is_person == 0 then
+        local info = gRankInfoUnion[ id ]
+        if info then return info end
 
+        local info = rank_function[ 0 ]( id )
+        if info then 
+            gRankInfoUnion[ id ] = info
+            if not init then gPendingInsert.rank_info_union[ id ] = info end
+            return info 
+        end
+
+        local db = dbmng:getOne()
+        local info = db.rank_info_union:findOne( {_id=id } )
+        if info then
+            info._id = nil
+            gRankInfoUnion[ id ] = info
+            return info
+        end
+
+    elseif is_person == 1 then
+        local info = gRankInfoPlayer[ id ]
+        if info then return info end
+
+        local info = rank_function[ 1 ]( id )
+        if info then 
+            gRankInfoPlayer[ id ] = info
+            if not init then gPendingInsert.rank_info_player[ id ] = info end
+            return info 
+        end
+
+        local db = dbmng:getOne()
+        local info = db.rank_info_player:findOne( {_id=id } )
+        if info then
+            info._id = nil
+            gRankInfoPlayer[ id ] = info
+            return info
+        end
+    end
+    return {}
 end
+
 
 function add_data( idx, key, data, init )
     local node = gRanks[ idx ]
@@ -83,14 +117,6 @@ function add_data( idx, key, data, init )
         gPendingSave[tab][ key ].v = data 
     end
 
-    --if node.tops and node.infos[ key ] then
-    --    node.infos[ key ][ 2 ] = data[ 1 ]
-    --end
-
-    if node.infos and node.infos[ key ] then
-        node.infos[ key ] = nil
-    end
-
     if rank then
         if rank == 0 then
             node.time = gTime
@@ -109,41 +135,49 @@ function rem_data( idx, key )
     local tab = string.format( "rank%d", idx )
     gPendingDelete[tab][ key ] = 1
 
-    if rank then
-        if node.tops then
-            if node.infos and node.infos[ key ] then node.infos[ key ] = nil end
-            if rank > 0 and rank <= node.ntop then node.tops = nil end
-        end
+    if rank and rank <= node.ntop then
+        node.tops = nil
     end
 end
 
 
-function change_name( idx, key, name )
-    local node = gRanks[ idx ]
-    if node then
-        if node.tops then
-            local i = node.infos[ key ]
-            if i then
-                i[3] = name
-                node.time = gTime
+function update_info_player( pid )
+    local ninfo = rank_function[ 1 ]( pid )
+    local oinfo = gRankInfoPlayer[ pid ]
+    if oinfo then
+        for k, v in pairs( ninfo ) do
+            oinfo[ k ] = v
+        end
+    end
+    gPendingInsert.rank_info_player[ pid ] = ninfo
+
+    for k, v in pairs( gRanks ) do
+        if v.is_person == 1 then
+            if v.ranks and v.ranks[ pid ] then
+                v.time = gTime
             end
         end
     end
 end
 
-function change_icon( idx, key, icon )
-    local node = gRanks[ idx ]
-    if node then
-        if node.tops then
-            local i = node.infos[ key ]
-            if i then
-                i[4] = icon
-                node.time = gTime
+function update_info_union( uid )
+    local ninfo = rank_function[ 0 ]( uid )
+    local oinfo = gRankInfoUnion[ uid ]
+    if oinfo then
+        for k, v in pairs( ninfo ) do
+            oinfo[ k ] = v
+        end
+    end
+    gPendingInsert.rank_info_union[ uid ] = ninfo
+
+    for k, v in pairs( gRanks ) do
+        if v.is_person ~= 1 then
+            if v.ranks and v.ranks[ uid ] then
+                v.time = gTime
             end
         end
     end
 end
-
 
 
 function get_rank( idx, key )
@@ -166,12 +200,11 @@ end
 
 
 rank_function = {}
-rank_function[1] = function( id, score )
-    local info = { id, score }
-    local pid = id
-    if pid < 10000 then return end
+rank_function[1] = function( pid )
+    -- pid, name, photo, alias, uname
     local ply = getPlayer( pid )
     if ply then
+        local info = { pid }
         table.insert( info, ply.name )
         table.insert( info, ply.photo )
         local u = ply:get_union()
@@ -182,31 +215,28 @@ rank_function[1] = function( id, score )
             table.insert( info, "" )
             table.insert( info, "" )
         end
+        return info
     end
-    return info
 end
 
-rank_function[0] = function( id, score )
-    local info = {id, score}
-    local uid = id
+
+rank_function[0] = function( uid )
+    -- uid, name, flag, alias, lname
     local u = unionmng.get_union( uid )
     if u then
+        local info = { uid }
+        table.insert( info, u.name )
         table.insert( info, u.flag )
         table.insert( info, u.alias )
-        table.insert( info, u.name )
+
         local leader = getPlayer( u.leader )
         if leader then
             table.insert( info, leader.name )
         else
             table.insert( info, "" )
         end
-    else
-        table.insert( info, 1 )
-        table.insert( info, "" )
-        table.insert( info, "" )
-        table.insert( info, "" )
+        return info
     end
-    return info
 end
 
 

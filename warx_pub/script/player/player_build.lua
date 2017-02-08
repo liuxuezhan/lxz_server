@@ -319,6 +319,12 @@ function do_upgrade(self, build_idx)
             self:ef_chg(node.Effect or {}, dst.Effect or {})
             build.propid = dst.ID
 
+            if dst.Pow then
+                local delta = dst.Pow - ( node.Pow or 0 )
+                self.pow_build = self.pow_build + delta
+                self:inc_pow( delta )
+            end
+
             if dst.Class == BUILD_CLASS.RESOURCE then
                 build.state = BUILD_STATE.WORK
                 build:init_speed()
@@ -368,20 +374,22 @@ function do_upgrade(self, build_idx)
                     self:take_daily_task()
                     --向登录服务器注册
                     self:upload_user_info()
+                    new_union.update(self)
+
+                    --世界事件
+                    world_event.process_world_event(WORLD_EVENT_ACTION.CASTLE_LEVEL, unit.Lv)
 
                 elseif dst.Mode == BUILD_FUNCTION_MODE.WALLS then
-                    local cur = build:get_extra( "cur" )
-                    if cur then
+                    local hp = build:get_extra( "hp" )
+                    if hp then
                         local src = resmng.get_conf( "prop_build", dst.ID - 1)
                         local offset = dst.Param.Defence - src.Param.Defence
-                        cur = cur + offset
-                        if cur > dst.Param.Defence then cur = dst.Param.Defence end
-                        build:set_extra( "cur", cur )
+                        build:set_extra( "hp", hp + offset )
+                        build:wall_fire( 0 )
                     end
                 end
             end
 
-            new_union.update(self)
             if build_idx == 1 then
                 self:pre_tlog("PlayerExpFlow",0,node.Lv-1,0,0)
             end
@@ -390,10 +398,6 @@ function do_upgrade(self, build_idx)
             task_logic_t.process_task(self, TASK_ACTION.CITY_BUILD_MUB, 1)
             task_logic_t.process_task(self, TASK_ACTION.PROMOTE_POWER, 1, dst.Pow)
 
-            if dst.Pow then
-                self.pow_build = self.pow_build + dst.Pow - ( node.Pow or 0 )
-                self:inc_pow(dst.Pow-node.Pow)
-            end
             return true
         end
     end
@@ -488,7 +492,10 @@ function doTimerBuild(self, tsn, build_idx, arg_1, arg_2, arg_3, arg_4)
             local node = resmng.prop_build[ build.propid ]
             if node then
                 self:clear_build_queue( build.idx )
-                self:inc_pow(node.Pow or 0)
+                if node.Pow then
+                    self.pow_build = (self.pow_build or 0) + node.Pow
+                    self:inc_pow(node.Pow or 0)
+                end
                 if node.Effect then self:ef_add(node.Effect) end
                 if node.Class == BUILD_CLASS.RESOURCE then
                     build.state = BUILD_STATE.WORK
@@ -502,10 +509,6 @@ function doTimerBuild(self, tsn, build_idx, arg_1, arg_2, arg_3, arg_4)
                 if build.propid == resmng.BUILD_MANOR_1 or build.propid == resmng.BUILD_MONSTER_1 or build.propid == resmng.BUILD_RELIC_1 then self:refresh_mall() end
                 if build.propid == resmng.BUILD_RESOURCESMARKET_1 then self:refresh_res_market() end
 
-                if node.Pow then
-                    self.pow_build = (self.pow_build or 0) + node.Pow
-                    self:inc_pow( node.Pow )
-                end
             end
         elseif state == BUILD_STATE.UPGRADE then
             self:clear_build_queue( build.idx )
@@ -1096,6 +1099,7 @@ function learn_tech(self, build_idx, tech_id, is_quick)
         build.tmStart = gTime
         build.extra = { count=tech_conf.Dura, id=tech_id }
         build:recalc()
+
         return reply_ok( self, "learn_tech", 0)
     end
 end
@@ -2072,42 +2076,145 @@ function build_action_cancel( self, build_idx )
     end
 end
 
+--function wall_fire( self, dura )
+--    local wall = self:get_wall()
+--    if not wall then return end
+--    if dura < 0 then return end
+--    --todo, test
+--    dura = 20
+--
+--    local fire = wall:get_extra( "fire" )
+--    if not fire or fire < gTime then
+--        local prop = resmng.get_conf( "prop_build", wall.propid )
+--        local cur = prop.Param.Defence
+--        if is_in_black_land( self.x, self.y ) then
+--            timer.new( "city_fire", 1, self.pid )
+--        else
+--            timer.new( "city_fire", 18, self.pid )
+--        end
+--        fire = gTime
+--    end
+--    wall:set_extra( "fire", fire + dura )
+--    self:add_state( CastleState.DeFire )
+--
+--    local cur = wall:get_extra( "cur" )
+--    if not cur then
+--        local conf = resmng.get_conf( "prop_build", wall.propid )
+--        if not conf then return end
+--        cur = conf.Param.Defence
+--        wall:set_extra( "cur", cur )
+--        if is_in_black_land( self.x, self.y ) then
+--            wall:set_extra( "black", 1 )
+--            wall:set_extra( "cur", cur - WALL_FIRE_IN_BLACK_LAND )
+--        else
+--            wall:set_extra( "black", 0 )
+--            wall:set_extra( "cur", cur - 1)
+--        end
+--    end
+--
+--    local last = wall:get_extra( "last" )
+--    if not last or gTime - last > WALL_FIRE_REPAIR_TIME then wall:set_extra( "last", 0 ) end
+--end
+
+function is_wall_fire( self, wall )
+    wall = wall or self:get_wall()
+    if not wall then return end
+    local tmOver_f = wall:get_extra( "tmOver_f" )
+    return tmOver_f and tmOver_f > gTime 
+end
+
 function wall_fire( self, dura )
     local wall = self:get_wall()
     if not wall then return end
     if dura < 0 then return end
 
-    local fire = wall:get_extra( "fire" )
-    if not fire then
-        local prop = resmng.get_conf( "prop_build", wall.propid )
-        local cur = prop.Param.Defence
-        fire = gTime
-        if is_in_black_land( self.x, self.y ) then
-            timer.new( "city_fire", 1, self.pid )
-        else
-            timer.new( "city_fire", 18, self.pid )
-        end
-        fire = gTime
-    end
-    wall:set_extra( "fire", fire + dura )
+    --todo test
+    --if dura > 10 then dura = 10 end
+    --hp = hp - speed_f * ( gTime - tmStart_f )
+    --
+    local prop = resmng.get_conf( "prop_build", wall.propid )
+    if not prop then return end
+    local max = prop.Param.Defence
 
-    local cur = wall:get_extra( "cur" )
-    if not cur then
-        local conf = resmng.get_conf( "prop_build", wall.propid )
-        if not conf then return end
-        cur = conf.Param.Defence
-        wall:set_extra( "cur", cur )
-        if is_in_black_land( self.x, self.y ) then
-            wall:set_extra( "black", 1 )
-            wall:set_extra( "cur", cur - WALL_FIRE_IN_BLACK_LAND )
-        else
-            wall:set_extra( "black", 0 )
-            wall:set_extra( "cur", cur - 1)
-        end
+    local hp = wall:get_extra( "hp" )
+    if not hp then
+        hp = max
+        wall:set_extra( "hp", hp )
     end
 
-    local last = wall:get_extra( "last" )
-    if not last or gTime - last > WALL_FIRE_REPAIR_TIME then wall:set_extra( "last", 0 ) end
+    local speed_f = wall:get_extra( "speed_f" )
+    if not speed_f or speed_f == 0 then
+        if is_in_black_land( self.x, self.y ) then
+            speed_f = WALL_FIRE_IN_BLACK_LAND
+        else
+            speed_f = 1/18 * 10
+        end
+        wall:set_extra( "speed_f", speed_f )
+        wall:set_extra( "tmStart_f", gTime )
+    end
+
+    local tmStart_f = wall:get_extra( "tmStart_f" )
+    if not tmStart_f or tmStart_f == 0 then
+        tmStart_f = gTime
+        wall:set_extra( "tmStart_f", tmStart_f )
+    end
+
+    local tmOver_f = wall:get_extra( "tmOver_f" )
+    if not tmOver_f or tmOver_f < gTime then
+        tmOver_f = gTime
+    end
+    tmOver_f = tmOver_f + dura
+    wall:set_extra( "tmOver_f", tmOver_f )
+
+    hp = hp - speed_f * ( gTime - tmStart_f )
+    if hp > max then hp = max end
+    if hp < 0 then
+        self:rem_state( CastleState.DeFire )
+        local x, y = c_get_pos_by_lv(1,4,4)
+        if x then
+            --todo
+            --call back all troop
+            self:recall_all()
+            c_rem_ety(self.eid)
+            self.x = x
+            self.y = y
+            etypipe.add(self)
+        end
+        wall:clr_extras( { "hp", "speed_f", "tmStart_f", "tmOver_f", "tmSn_f", "last" } )
+        return 
+    end
+    wall:set_extra( "hp", hp )
+
+    local remain = tmOver_f - gTime
+    if remain > 0 then
+        self:add_state( CastleState.DeFire )
+        if is_in_black_land( self.x, self.y ) then
+            speed_f = WALL_FIRE_IN_BLACK_LAND
+        else
+            speed_f = 1/18
+        end
+        --speed_f = speed_f * 100
+        wall:set_extra( "speed_f", speed_f )
+        wall:set_extra( "tmStart_f", gTime )
+
+        local need = math.ceil( hp / speed_f )
+        remain = math.min( remain, need ) + 1
+
+        local tmSn_f = wall:get_extra( "tmSn_f" )
+        if timer.is_valid( tmSn_f, self.pid ) then
+            timer.adjust( tmSn_f, gTime + remain )
+        else
+            tmSn_f = timer.new( "city_fire", remain, self.pid )
+            wall:set_extra( "tmSn_f", tmSn_f )
+        end
+    else
+        self:rem_state( CastleState.DeFire )
+        wall:clr_extras( { "speed_f", "tmStart_f", "tmOver_f", "tmSn_f" } )
+        if hp == max then
+            wall:clr_extras( { "hp", "last" } )
+        end
+    end
+    dumpTab( wall.extra, "wall_fire" )
 end
 
 
@@ -2115,62 +2222,53 @@ function wall_repair( self, mode ) -- mode == 0; free, mode == 1, use gold; mode
     local wall = self:get_wall()
     if not wall then return end
 
-    local cur = wall:get_extra( "cur" )
-    if not cur then return end
+    local hp = wall:get_extra( "hp" )
+    if not hp then return end
 
     local prop = resmng.get_conf( "prop_build", wall.propid )
     local max = prop.Param.Defence
 
     if mode == 0 then
-        local last = wall:get_extra( "last" )
-        if last and gTime - last < WALL_FIRE_REPAIR_TIME then return end
-        cur = cur + WALL_FIRE_REPAIR_FREE
-        if cur > max then cur = max end
+        local last = wall:get_extra( "last" ) or 0
+        if gTime - last < WALL_FIRE_REPAIR_TIME then return end
         wall:set_extra( "last", gTime )
 
+        local hp = wall:get_extra( "hp" )
+        hp = hp + WALL_FIRE_REPAIR_FREE
+        wall:set_extra( "hp", hp )
+        self:wall_fire( 0 )
+
     elseif mode == 1 then
-        local cost = math.ceil( ( max - cur ) / 300 ) * 20
+        local cost = math.ceil( ( max - hp ) / 300 ) * 20
         if cost < 1 then return end
         if self.gold < cost then return end
         self:do_dec_res( resmng.DEF_RES_GOLD, cost, VALUE_CHANGE_REASON.WALL_REPAIR)
-        cur = max
+        wall:clr_extras( { "hp", "speed_f", "tmStart_f", "tmOver_f", "tmSn_f", "last" } )
+        self:rem_state( CastleState.DeFire )
 
     elseif mode == 2 then
-        if self:dec_item_by_item_id( resmng.ITEM_PROMPTLY_RECOVERY, 1, VALUE_CHANGE_REASON.WALL_REPAIR ) then
-            cur = max
-        else
-            return
-        end
-    end
+        if not self:dec_item_by_item_id( resmng.ITEM_PROMPTLY_RECOVERY, 1, VALUE_CHANGE_REASON.WALL_REPAIR ) then return end
+        wall:clr_extras( { "hp", "speed_f", "tmStart_f", "tmOver_f", "tmSn_f", "last" } )
+        self:rem_state( CastleState.DeFire )
 
-    if cur >= max then
-        local fire = wall:get_extra( "fire" )
-        if not fire or fire < gTime then
-            wall:clr_extras( { "cur", "last", "fire", "black" } )
-        else
-            wall:set_extra( "cur", max )
-        end
-    else
-        wall:set_extra( "cur", cur )
     end
     return true
 end
 
 
-
+-- client: 灭火
 function wall_outfire( self )
     local wall = self:get_wall()
     if not wall then return end
 
-    local fire = wall:get_extra( "fire" )
-    if not fire or fire < gTime then
-        wall:clr_extra( "fire" )
-        return
-    end
+    if not self:is_wall_fire( wall ) then return end
 
     if self.gold < WALL_FIRE_OUTFIRE_COST then return end
     self:do_dec_res( resmng.DEF_RES_GOLD, WALL_FIRE_OUTFIRE_COST, VALUE_CHANGE_REASON.WALL_REPAIR)
-    wall:clr_extra( "fire" )
+
+    self:wall_fire( 0 )
+    wall:clr_extras( { "speed_f", "tmStart_f", "tmOver_f", "tmSn_f" } )
+    self:rem_state( CastleState.DeFire )
 end
 
 

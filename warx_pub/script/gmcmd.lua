@@ -151,10 +151,18 @@ function refreshboss(pids, param)
     end
 end
 
-function buylist(pids, param)
+function hurt(pids, arm_id, num)
+    arm_id = tonumber(arm_id)
+    num = tonumber(num)
     local ply = getPlayer(pids[1])
     if ply then
-        ply:get_can_buy_list_req()
+        local hurt = ply.hurts
+        if not hurt[arm_id] then
+            hurt[arm_id] = num
+        else
+            hurt[arm_id] = hurt[arm_id] + num
+        end
+        ply.hurts = hurt
         return {code = 1, msg = "success"}
     else
         return {code = 0, msg = "no ply"}
@@ -171,6 +179,105 @@ function pay(pids, product_id)
         return {code = 0, msg = "no ply"}
     end
 end
+
+function taskbuild(pids)
+    local ply = getPlayer(pids[1])
+    if ply then
+        task_logic_t.process_task(ply, TASK_ACTION.CITY_BUILD_LEVEL_UP) 
+        task_logic_t.process_task(ply, TASK_ACTION.CITY_BUILD_MUB, 1)
+        task_logic_t.process_task(ply,  TASK_ACTION.PROMOTE_POWER, 1, 1)
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
+function fieldtop(pids)
+    local ply = getPlayer(pids[1])
+    if ply then
+        ply:build_file()
+        ply:build_top()
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
+function genboss(pids, mode, lv)
+    local ply = getPlayer(pids[1])
+    if ply then
+        while true
+            do
+                local propid, x, y, eid = monster.force_born(math.floor(ply.x/16), math.floor(ply.y/16), tonumber(lv))
+                if eid then
+                    Rpc:gen_boss_eid_ack(ply, eid)
+                    break
+                end
+            end
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
+function reset_city(pids, mode)
+    if mode == ACT_NAME.NPC_CITY then
+        npc_city.reset_all_npc()
+    end
+    if mode == ACT_NAME.LOST_TEMPLE then
+        lost_temple.end_lt()
+    end
+    if mode == ACT_NAME.KING then
+        king_city.reset_all_city()
+    end
+    return {code = 1, msg = "success"}
+end
+
+function ety_info(pids, eid)
+    eid = tonumber(eid)
+    local ply = getPlayer(pids[1])
+    if ply then
+        local ety = get_ety(eid)
+        ety = ety or {}
+        Rpc:ety_info_ack(ply, ety)
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
+function addcount(pids, s_id, s_num)
+    local id = tonumber(s_id)
+    local num = tonumber(s_num)
+    local ply = getPlayer(pids[1])
+    if ply then
+        ply:add_count(id, num)
+        if id ==  resmng.ACH_TASK_SPY_PLAYER then
+            task_logic_t.process_task(ply, TASK_ACTION.SPY_PLAYER_CITY, 1) 
+        end
+        if id ==  resmng.ACH_TASK_CAPTIVE_HERO then
+            task_logic_t.process_task(ply, TASK_ACTION.CAPTIVE_HERO, 1) 
+        end
+        if id == resmng.ACH_COUNT_GATHER then
+            task_logic_t.process_task(ply, TASK_ACTION.GATHER, 1, num)
+        end
+        if id == resmng.ACH_TASK_ATK_RES1 then
+            task_logic_t.process_task(ply, TASK_ACTION.LOOT_RES, 1, num)
+        end
+
+        if id == resmng.ACH_TASK_SHESHI_DONATE then
+            task_logic_t.process_task(ply, TASK_ACTION.UNION_SHESHI_DONATE, 1)
+        end
+
+        if id == resmng.ACH_TASK_TECH_DONATE then
+            task_logic_t.process_task(ply, TASK_ACTION.UNION_TECH_DONATE, 1)
+        end
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
 
 gmcmd_table = {
     --     -- 权限越大,数字越大
@@ -206,5 +313,13 @@ gmcmd_table = {
     ---- 测试使用
     ["buylist"]         = { 4,              buylist,         "生成购买列表",                     "buylist" },
     ["pay"]         = { 4,              pay,         "模拟购买",                     "pay=product_id" },
+    ["hurt"] = {4, hurt, "增加伤兵", "hurt=arm_id=num"},
+    ["addcount"] = {4, addcount, "增加计数器", "addcount=id=num"},
+    ["taskbuild"] = {4, taskbuild, "更新城建相关任务", "taskbuild"},
+    ["fieldtop"] = {4, fieldtop, "野地区域全满", "feildtop"},
+    ["genboss"] = {4, genboss, "生成规定野怪", "genboss=mode=lv"},
+    ["resetcity"] = {4, reset_city, "重置城市", "resetcity=mode"},
+    ["occcitynum"] = {4, occ_city_num, "占领npc数量", "occcitynum"},
+    ["etyinfo"] = {4, ety_info, "ety 信息", "etyinfo=eid"},
 
 }

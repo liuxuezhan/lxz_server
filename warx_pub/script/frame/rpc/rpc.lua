@@ -43,6 +43,19 @@ local function isTypeOf(i,s,v)
 end
 
 
+local function push_args( defs, vals )
+    for i, v in ipairs(vals) do
+        local t = defs[i].t
+        if t and isTypeOf(i,t,v) then
+			RpcType[t]._write( packet, v, 1, defs[i].d )
+		else
+			error(string.format("bad argument %d, expected %s, but a %s",i,t,type(v)))
+		end
+    end
+end
+
+
+
 local function makeRpc( rpc, name, ... )
     local rf = rpc.remoteF[name]
    	if  not rf then
@@ -70,52 +83,6 @@ local function makeRpc( rpc, name, ... )
 	return packet
 end
 
---local function parseRpc( rpc, packet )
---    local rfid = packet:Type()
---	local rf = rpc.localF[rfid]
---	if not rf then
---		error(string.format("rfid(%d) not found in LocalF", rfid))
---	end
---
---	local args={}
---	for i,v in ipairs(rf.args) do
---		local tm = RpcType[v.t]
---		args[i] = tm:_read( packet )
---	end
---	
---	local lf = ProtocolImp[rf.name]
---	if lf then
---		lf(unpack(args))
---	else
---		error(string.format("%s local function do not defined", rf.name))
---	end
---end 
---
-
-
---local function parseRpc( rpc, packet, rfid, mod, ply )
---	local rf = rpc.localF[rfid]
---	if not rf then
---		error(string.format("rfid(%d) not found in LocalF", rfid))
---	end
---
---    LOG("RpcR, name=%s, pid=%d", rf.name, ply.pid)
---
---	local args={}
---	for i,v in ipairs(rf.args) do
---		local tm = RpcType[v.t]
---		args[i] = tm._read( packet )
---	end
---	
---	local lf = mod[rf.name]
---	if lf then
---		lf(ply, unpack(args))
---	else
---		error(string.format("%s local function do not defined", rf.name))
---	end
---end 
-
-
 local function parseRpc( rpc, packet, rfid)
 	local rf = rpc.localF[rfid]
 	if not rf then
@@ -126,7 +93,7 @@ local function parseRpc( rpc, packet, rfid)
 	local args={}
 	for i,v in ipairs(rf.args) do
 		local tm = RpcType[v.t]
-		args[i] = tm._read( packet )
+		args[i] = tm._read( packet, 1, v.d )
         if args[i] == nil then 
             WARN("parseRpc, name = %s, arg:%s is nil", rf.name, i)
             error("paresRpc failed, wrong args") 
@@ -137,12 +104,27 @@ end
 
 
 
-local function parseFunction( funcimpl )
-   	local rf = { args = {} }
-	for t,n in string.gmatch(funcimpl,"(%w+)%s+([%w_]+)") do
-        table.insert(rf.args, {t=t, n=n})
-	end
-	return rf
+function parseFunction( funcimpl )
+   	--local rf = { args = {} }
+	--for t,n in string.gmatch(funcimpl,"(%w+)%s+([%w_]+)") do
+    --    table.insert(rf.args, {t=t, n=n})
+	--end
+	--return rf
+
+    local args = {}
+    for w in string.gmatch( funcimpl, "([^,]+),?" ) do
+        local ns = {}
+        for v in string.gmatch( w, "[%w_]+" ) do
+            table.insert( ns, v )
+        end
+        local t = table.remove( ns, 1 )
+        local n = table.remove( ns )
+        local node = { t = t, n = n }
+        if #ns > 0 then node.d = ns end
+        table.insert( args, node )
+    end
+
+    return { args = args }
 end
 
 local function parseProtocol( rpc, what )
@@ -201,7 +183,6 @@ local function parseRpcType()
             local remain_len = nil
 		    for i, arg in ipairs(desc) do
                 remain_len = packet:checkBuf()
-                --print("remain_len:",remain_len)
                 if remain_len and remain_len > 0 then
                     local rt = RpcType[arg.t]
                     local data = rt._read( packet )
@@ -266,14 +247,17 @@ local function do_around( lv, rpc, eid, name, ... )
 
     --pushHead(eid, lv, rf.id) -- eid will be set to buf->sid, lv will be the an integer after pklen
     pushHead2s(eid, rf.id) -- eid will be set to buf->sid, lv will be the an integer after pklen
-    for i, v in ipairs(arg) do
-        local t = rf.args[i].t
-		if t and isTypeOf(i,t,v) then
-			RpcType[t]._write( packet, v )
-		else
-			error(string.format("bad argument %d, expected %s, but a %s",i,t,type(v)))
-		end
-    end
+
+    push_args( rf.args, arg )
+
+    --for i, v in ipairs(arg) do
+    --    local t = rf.args[i].t
+	--	if t and isTypeOf(i,t,v) then
+	--		RpcType[t]._write( packet, v )
+	--	else
+	--		error(string.format("bad argument %d, expected %s, but a %s",i,t,type(v)))
+	--	end
+    --end
     pushAround(eid)
 end
 
@@ -299,14 +283,15 @@ local function callAgent( rpc, map, name, ... )
 	end
 
     pushHead(_G.GateSid, map, rf.id)
-    for i, v in ipairs(arg) do
-        local t = rf.args[i].t
-		if t and isTypeOf(i,t,v) then
-			RpcType[t]._write( packet, v )
-		else
-			error(string.format("bad argument %d, expected %s, but a %s",i,t,type(v)))
-		end
-    end
+    push_args( rf.args, arg )
+    --for i, v in ipairs(arg) do
+    --    local t = rf.args[i].t
+	--	if t and isTypeOf(i,t,v) then
+	--		RpcType[t]._write( packet, v )
+	--	else
+	--		error(string.format("bad argument %d, expected %s, but a %s",i,t,type(v)))
+	--	end
+    --end
     pushOver()
 
     LOG("RpcAS, pid=%d, func=%s", map, name)
@@ -331,14 +316,16 @@ local function sendToSock( rpc, sockid, name,  ... )
     pushInt( sockid )
     pushInt( rf.id )
 
-    for i, v in ipairs(arg) do
-        local t = rf.args[i].t
-		if t and isTypeOf(i,t,v) then
-			RpcType[t]._write( packet, v )
-		else
-			error(string.format("bad argument %d, expected %s, but a %s",i,t,type(v)))
-		end
-    end
+    push_args( rf.args, arg )
+
+    --for i, v in ipairs(arg) do
+    --    local t = rf.args[i].t
+	--	if t and isTypeOf(i,t,v) then
+	--		RpcType[t]._write( packet, v )
+	--	else
+	--		error(string.format("bad argument %d, expected %s, but a %s",i,t,type(v)))
+	--	end
+    --end
     pushOver()
 end
 
@@ -379,14 +366,18 @@ local function callRpc( rpc, name, plA, ... )
         pushHead2s(plA.gid or _G.GateSid, rf.id)
     end
 
-    for i, v in ipairs(arg) do
-        local t = rf.args[i].t
-        if t and isTypeOf(i,t,v) then
-			RpcType[t]._write( packet, v )
-		else
-			error(string.format("bad argument %d, expected %s, but a %s",i,t,type(v)))
-		end
-    end
+    push_args( rf.args, arg )
+
+    --for i, v in ipairs(arg) do
+    --    local t = rf.args[i].t
+    --    if t and isTypeOf(i,t,v) then
+	--		RpcType[t]._write( packet, v, 1, rf.args[i].d )
+	--	else
+	--		error(string.format("bad argument %d, expected %s, but a %s",i,t,type(v)))
+	--	end
+    --end
+
+
     pushOver()
 
     LOG("RpcS, pid=%d, func=%s", plA.pid or 0, name)
@@ -414,9 +405,11 @@ local function new()
     ins.callAgent = callAgent
     ins.sendToSock = sendToSock
     ins.debugListAllRpc = debugListAllRpc
+    ins.parseFunction = parseFunction
     setmetatable(ins, mt)
     return ins
 end
 
 return new()
+
 

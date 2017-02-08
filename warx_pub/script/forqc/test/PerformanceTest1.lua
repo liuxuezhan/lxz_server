@@ -16,7 +16,9 @@ function t1.action( _idx )
 
             chat( ply, "@addres=6=100000" )
             chat( ply, "@lvbuild=0=0="..tostring(lvtable[i]))
-            move_to(ply, 300, 100, 150)
+            move_to(ply, 720, 70, 30)
+            Rpc:change_name(ply,"P"..tostring(j+8)..tostring(i))
+            sync( ply )
             logout( ply )
         end
     end    

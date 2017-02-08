@@ -5,7 +5,7 @@ prop_cron = {
     [3] = {game="*", boot=true, min="*", hour="5", day="*", month="*", wday="*", action="setDayStart", arg={1, "hello"}},
     [4] = {game="*", boot=nil, min="1", hour="5", day="*", month="*", wday="*", action="union_donate_summary", arg={}},
     [5] = {game="*", boot=true, min="0", hour="0", day="*", month="*", wday="*", action="on_day_pass", arg={}},
-    [6] = {game="*", boot=nil, min="0", hour="9", day="*", month="*", wday="*", action="start_tw", arg={}},
+    [6] = {game="*", boot=nil, min="0", hour="12", day="*", month="*", wday="*", action="start_tw", arg={}},
     [7] = {game="*", boot=nil, min="59", hour="23", day="*", month="*", wday="*", action="end_tw", arg={}},
     [8] = {game="*", boot=nil, min="0", hour="0", day="*", month="*", wday="*", action="reset_kw_mall", arg={}},
     [9] = {game="*", boot=nil, min="30", hour="23", day="*", month="*", wday="*", action="try_open_lt", arg={}},

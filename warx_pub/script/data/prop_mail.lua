@@ -41,4 +41,5 @@ prop_mail = {
 	[MAIL_10030] = { ID = MAIL_10030, Class = 1, Name = UNION_NEWUNION_MANAGER_1, Title = LG_MAIL_TITLE_10030, Content = LG_MAIL_CONTENT_10030, AddBonus = nil,},
 	[MAIL_10031] = { ID = MAIL_10031, Class = 1, Name = UNION_NEWUNION_MANAGER_1, Title = LG_MAIL_TITLE_10032, Content = LG_MAIL_CONTENT_10032, AddBonus = nil,},
 	[MAIL_10032] = { ID = MAIL_10032, Class = 1, Name = UNION_NEWUNION_MANAGER_1, Title = LG_MAIL_TITLE_10033, Content = LG_MAIL_CONTENT_10033, AddBonus = nil,},
+	[MAIL_10033] = { ID = MAIL_10033, Class = 1, Name = UNION_NEWUNION_MANAGER_1, Title = LG_MAIL_TITLE_10034, Content = LG_MAIL_CONTENT_10034, AddBonus = nil,},
 }

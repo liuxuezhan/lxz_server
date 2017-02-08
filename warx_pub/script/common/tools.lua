@@ -478,10 +478,10 @@ etypipe[EidType.Troop]  =       {"propid", "eid", "culture","action", "owner_eid
 etypipe[EidType.Monster]=       {"propid", "eid", "x", "y", "hp", "level","born"}
 etypipe[EidType.UnionBuild] =   {"propid", "eid", "x", "y", "uid","alias", "sn","idx","hp","state","name","val","culture","holding","speed_b","speed_f","tmStart_b","tmStart_f","speed_g","tmStart_g" }
 etypipe[EidType.NpcCity]=       {"propid", "eid", "x", "y", "state", "startTime","endTime", "unions", "randomAward", "declareUnions", "getAwardMember"}
-etypipe[EidType.KingCity]=      {"propid", "eid", "x", "y", "state", "status","startTime", "endTime", "occuTime","uid", "uname", "uflag"}
+etypipe[EidType.KingCity]=      {"propid", "eid", "x", "y", "state", "status","startTime", "endTime", "occuTime","uid", "uname", "uflag", "ualias"}
 etypipe[EidType.MonsterCity]=   {"propid", "eid", "x", "y", "state", "class", "startTime", "endTime"}
 etypipe[EidType.Camp]    =      {"propid", "eid", "x", "y", "pid", "uid", "name", "uname", "uflag"}
-etypipe[EidType.LostTemple]=    {"propid", "eid", "x", "y", "state", "startTime", "endTime", "uid", "uname", "born", "uflag"}
+etypipe[EidType.LostTemple]=    {"propid", "eid", "x", "y", "state", "startTime", "endTime", "uid", "uname", "born", "uflag", "ualias"}
 etypipe[EidType.CLOWN]=         {"propid", "eid", "x", "y" }
 etypipe[EidType.Wander]=        {"propid", "eid", "x", "y" }
 
@@ -1099,7 +1099,7 @@ function ana_res(unit)
     if prop_tab == nil then
         return
     end
-    unit.icon = prop_tab.Icon
+    unit.icon = prop_tab.IconBig
     unit.grade = prop_tab.Color or 1
     unit.name = prop_tab.Name
 end
@@ -1139,6 +1139,19 @@ end
 function is_in_black_land( x, y )
     --return  x >= 512 and x < 512 + 256 and y >= 512 and y < 512 + 256 
     return  x >= 608 and x < 608 + 64 and y >= 608 and y < 608 + 64  -- 640 - 16 * 2
+end
+
+function is_hit_black_land( x, y, size )
+    return is_intersec( x, y, size, 608, 608, 64 )
+end
+
+function is_intersec( x1, y1, w1, x2, y2, w2 )
+    local minx = math.min( x1, x2 )
+    local maxx = math.max( x1 + w1, x2 + w2 )
+    local miny = math.min( y1, y2 )
+    local maxy = math.max( y1 + w1, y2 + w2 )
+
+    return math.max( maxx - minx, maxy - miny ) < w1 + w2
 end
 
 function is_union_construct(propid)
@@ -1421,7 +1434,7 @@ function is_program_keyword( ch )
 end
 
 --必须为汉字、数字、字母、标点符号字符串
-function is_valid_string( s )
+function is_valid_name( s )
     if( type(s) == "string" )then
         local length = string.len(s)
         local i = 1
@@ -1441,4 +1454,25 @@ function is_valid_string( s )
         return false
     end
     return true
+end
+
+function check_valid_input(s)
+    local regular = { ['<'] = true, ['>'] = true }
+
+    local rst=""
+    if( type(s) == "string" )then
+        local length = string.len(s)
+        local i = 1
+
+        while( i <= length ) do
+            local first_char = string.sub( s, i, i )
+            if( regular[first_char] == true )then
+                rst=rst.."*"
+            else
+                rst=rst..first_char
+            end
+            i = i + 1
+        end
+    end
+    return rst
 end

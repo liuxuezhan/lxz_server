@@ -14,5 +14,5 @@ prop_sacrifice_hero = {
 	[SACRIFICE_5] = { ID = SACRIFICE_5, Index = 5, FightCapacity = 150000, Buff = {51003005,51002005,51001005},},
 	[SACRIFICE_6] = { ID = SACRIFICE_6, Index = 6, FightCapacity = 200000, Buff = {51003006,51002006,51001006},},
 	[SACRIFICE_7] = { ID = SACRIFICE_7, Index = 7, FightCapacity = 250000, Buff = {51003007,51002007,51001007},},
-	[SACRIFICE_8] = { ID = SACRIFICE_8, Index = 8, FightCapacity = 300000, Buff = {51003008,51002008,51001008},},
+	[SACRIFICE_8] = { ID = SACRIFICE_8, Index = 8, FightCapacity = 99999999, Buff = {51003008,51002008,51001008},},
 }

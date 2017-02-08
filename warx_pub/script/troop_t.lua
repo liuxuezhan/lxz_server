@@ -193,91 +193,171 @@ function get_pos( self )
     end
 end
 
-function back(self)
-    if self:is_back() then return end
-    if self:is_go() or self:is_ready() then
-        if self.owner_pid >= 10000 then
-            local owner = getPlayer( self.owner_pid )
-            if owner then
-                owner:troop_recall( self._id, true )
-                return self
-            end
+function is_multiple( self )
+    local count = 0
+    for pid, arm in pairs( self.arms or {} ) do
+        if pid >= 10000 then
+            count = count + 1
+            if count > 1 then return true end
         end
-        return
     end
+end
 
-    local action = self:get_base_action() + 300
-    local bs_action = self:get_base_action()
-    if self.is_mass ~= 1 then
-        local owner = get_ety(self.owner_eid)
-        if owner then
-            self.sx, self.sy = self.dx, self.dy
-            self.dx, self.dy = get_ety_pos(owner)
-            local x, y = c_get_actor_pos( self.eid )
-            if x then
-                self.curx, self.cury = x, y
-            else
-                self.curx, self.cury = self.sx, self.sy
-            end
+g_no_arm_troop = {
+    [ TroopAction.Spy ] = 1,
+    [ TroopAction.SaveRes ] = 1,
+    [ TroopAction.GetRes ] = 1,
+    [ TroopAction.Declare ] = 1,
+    [ TroopAction.SupportRes ] = 1,
+}
 
-            -- no arm but have hero change action
-            if self:check_no_arm() and not self:check_no_hero() then
-                self.action = TroopAction.HeroBack + 300
-            else
-                self.action = action
-            end
+function back( self )
 
-            if self:check_no_arm() and self:check_no_hero() and bs_action ~= TroopAction.Spy and bs_action ~= TroopAction.SaveRes and bs_action ~= TroopAction.GetRes and  bs_action ~= TroopAction.Declare and  bs_action ~= TroopAction.SupportRes then  -- 如果没有部队 删除
-                troop_mng.delete_troop(self._id)
-                return {}
-            end
-
-            self:start_march()
-            return { [self.owner_pid] = self}
-        end
-    else
+    if is_multiple( self ) then
         troop_mng.delete_troop(self._id)
         if self:is_go() then c_rem_ety( self.eid ) end
 
+        local action = self.action
         local target = get_ety(self.target_eid)
-        local id = self._id
-        local fid = self.fid
         local curx, cury = self:get_pos()
+        local flag = self.flag
+        local fid = self.fid
 
         local ts = {}
-        for pid, arm in pairs(self.arms) do
+        for pid, arm in pairs( self.arms or {} ) do
             if pid >= 10000 then
-                local ply = getPlayer(pid)
+                local ply = getPlayer( pid )
                 if ply then
-                    local troop = troop_mng.create_troop(action, ply, target, arm)
-                    troop.fid = fid
-                    troop.curx, troop.cury = curx, cury
-                    troop.sx, troop.sy = curx, cury
-                    troop.dx, troop.dy = get_ety_pos(ply)
-                    troop.flag = self.flag
-                    if not target then
-                        troop.target_propid = self.target_propid
-                    end
-
-                    -- no arm but have hero change action
-                    if troop:check_no_arm() and not troop:check_no_hero() then
-                        troop.action = TroopAction.HeroBack + 300
-                    end
-
-                    if troop:check_no_arm() and troop:check_no_hero() and bs_action ~= TroopAction.Spy and bs_action ~= TroopAction.SaveRes and bs_action ~= TroopAction.GetRes and  bs_action ~= TroopAction.Declare and  bs_action ~= TroopAction.SupportRes then  -- 如果没有部队 删除
-                        troop_mng.delete_troop(troop._id)
-                    else
-                        troop:start_march()
-                        ts[ pid ] = troop
-                        print( "create_back_troop,", action, pid, troop.sx, troop.sy, troop.dx, troop.dy )
-                    end
-
+                    local one = troop_mng.create_troop( action, ply, target, arm )
+                    one.fid = fid
+                    one.curx, one.cury = curx, cury
+                    one.flag = flag
+                    if not target then one.target_propid = self.target_propid end
+                    one:back()
+                    ts[ pid ] = one
                 end
             end
         end
         return ts
     end
+
+    local bs_action = self:get_base_action()
+    self.action = bs_action + 300
+
+    local owner = get_ety( self.owner_eid )
+    local target = get_ety( self.target_eid )
+
+    --self.curx, self.cury = curx, cury
+
+    local x, y = c_get_actor_pos( self.eid )
+    if x then self.curx, self.cury = x, y end
+
+    if target then self.sx, self.sy = get_ety_pos( target )
+    else self.sx, self.sy = self.curx, self.cury end
+
+    self.dx, self.dy = get_ety_pos( owner )
+
+    if not g_no_arm_troop[ bs_action ] then
+        if self:check_no_arm() then
+            if self:check_no_hero() then
+                troop_mng.delete_troop( self._id )
+                return {}
+            else
+                self.action = TroopAction.HeroBack + 300
+            end
+        end
+    end
+
+    self:start_march()
+
+    return { [self.owner_pid]= self }
 end
+
+--function back(self)
+--    if self:is_back() then return end
+--    if self:is_go() or self:is_ready() then
+--        if self.owner_pid >= 10000 then
+--            local owner = getPlayer( self.owner_pid )
+--            if owner then
+--                owner:troop_recall( self._id, true )
+--                return self
+--            end
+--        end
+--        return
+--    end
+--
+--    local action = self:get_base_action() + 300
+--    local bs_action = self:get_base_action()
+--    if self.is_mass ~= 1 then
+--        local owner = get_ety(self.owner_eid)
+--        if owner then
+--            self.sx, self.sy = self.dx, self.dy
+--            self.dx, self.dy = get_ety_pos(owner)
+--            local x, y = c_get_actor_pos( self.eid )
+--            if x then
+--                self.curx, self.cury = x, y
+--            else
+--                self.curx, self.cury = self.sx, self.sy
+--            end
+--
+--            -- no arm but have hero change action
+--            if self:check_no_arm() and not self:check_no_hero() then
+--                self.action = TroopAction.HeroBack + 300
+--            else
+--                self.action = action
+--            end
+--
+--            if self:check_no_arm() and self:check_no_hero() and bs_action ~= TroopAction.Spy and bs_action ~= TroopAction.SaveRes and bs_action ~= TroopAction.GetRes and  bs_action ~= TroopAction.Declare and  bs_action ~= TroopAction.SupportRes then  -- 如果没有部队 删除
+--                troop_mng.delete_troop(self._id)
+--                return {}
+--            end
+--
+--            self:start_march()
+--            return { [self.owner_pid] = self}
+--        end
+--    else
+--        troop_mng.delete_troop(self._id)
+--        if self:is_go() then c_rem_ety( self.eid ) end
+--
+--        local target = get_ety(self.target_eid)
+--        local id = self._id
+--        local fid = self.fid
+--        local curx, cury = self:get_pos()
+--
+--        local ts = {}
+--        for pid, arm in pairs(self.arms) do
+--            if pid >= 10000 then
+--                local ply = getPlayer(pid)
+--                if ply then
+--                    local troop = troop_mng.create_troop(action, ply, target, arm)
+--                    troop.fid = fid
+--                    troop.curx, troop.cury = curx, cury
+--                    troop.sx, troop.sy = curx, cury
+--                    troop.dx, troop.dy = get_ety_pos(ply)
+--                    troop.flag = self.flag
+--                    if not target then
+--                        troop.target_propid = self.target_propid
+--                    end
+--
+--                    -- no arm but have hero change action
+--                    if troop:check_no_arm() and not troop:check_no_hero() then
+--                        troop.action = TroopAction.HeroBack + 300
+--                    end
+--
+--                    if troop:check_no_arm() and troop:check_no_hero() and bs_action ~= TroopAction.Spy and bs_action ~= TroopAction.SaveRes and bs_action ~= TroopAction.GetRes and  bs_action ~= TroopAction.Declare and  bs_action ~= TroopAction.SupportRes then  -- 如果没有部队 删除
+--                        troop_mng.delete_troop(troop._id)
+--                    else
+--                        troop:start_march()
+--                        ts[ pid ] = troop
+--                        print( "create_back_troop,", action, pid, troop.sx, troop.sy, troop.dx, troop.dy )
+--                    end
+--
+--                end
+--            end
+--        end
+--        return ts
+--    end
+--end
 
 function home(self)
     local pid = self.owner_pid
@@ -286,12 +366,15 @@ function home(self)
     local owner = getPlayer(pid)
     if not owner then return end
 
+    local troopid = self._id
+
     for bid, arm in pairs( self.arms or {} ) do
         if bid ~= pid then
             self.arms[ bid ] = nil
             local ply = getPlayer( bid )
             if ply then
-                --ply:rem_busy_troop( self._id )
+                ply:rem_busy_troop( troopid )
+                Rpc:stateTroop(ply, {_id=troopid, delete=true})
                 local troop = troop_mng.create_troop( TroopAction.JoinMass, ply, owner, arm )
                 troop.curx, troop.cury = get_ety_pos( owner )
                 troop:back()
@@ -809,7 +892,7 @@ function start_march(self, default_speed)
     gEtys[self.eid] = self
     etypipe.add(self)
 
-    print( "start_march", self.sx, self.sy, self.dx, self.dy, self.speed, self.action )
+    --print( "start_march", self.sx, self.sy, self.dx, self.dy, self.speed, self.action )
     self:save()
     self:notify_owner()
 
@@ -841,8 +924,6 @@ function start_march(self, default_speed)
     end
 
     self:add_link()
-
-    print( "start_march" )
 
     monitoring(MONITOR_TYPE.TROOP)
 end
@@ -1618,7 +1699,7 @@ function is_pvp( troop )
         elseif action == TroopAction.Gather then
             local D = get_ety( troop.target_eid )
             if D and is_res( D ) then
-                if D.pid > 0 then
+                if D.pid >= 10000 then
                     if not (troop.owner_uid > 0 and troop.owner_uid == D.uid) then return true end
                 end
 
@@ -1798,6 +1879,7 @@ function gather_gain( troop )
 end
 
 function gather_stop(troop)
+    local mode = troop:get_extra("mode") or 1
     local count = troop:gather_gain()
     local dp = get_ety( troop.target_eid )
     if dp then
@@ -1821,7 +1903,6 @@ function gather_stop(troop)
 
     local owner = getPlayer(troop.owner_pid)
     if owner then
-        local mode = troop:get_extra("mode") or 1
         local content = {x=dp.x, y=dp.y, carry = {{"res", mode, math.ceil(count)}}, buildid=dp.propid }
         owner:report_new( MAIL_REPORT_MODE.GATHER, content )
 
@@ -1832,14 +1913,39 @@ function gather_stop(troop)
         owner:add_count(resmng[ach_index], count)
         --任务
         task_logic_t.process_task(owner, TASK_ACTION.GATHER, mode, count)
+        --世界事件
+        world_event.process_world_event(WORLD_EVENT_ACTION.GATHER_NUM, mode, count)
     end
 end
-
 
 function flush_data( troop )
     if troop:is_go() or troop:is_back() then
         local node = etypipe[ EidType.Troop ]
         c_troop_set_data( troop.eid, etypipe.pack( node, troop ) )
+    end
+end
+
+function rem_no_arm_troop(self)
+    for pid, arm in pairs(self.arms or {}) do
+        local ret = false
+        for mode, id in pairs(arm.heros or {}) do
+            if id ~= 0 then
+                ret = true
+            end
+        end
+
+        if ret == false then
+            local tag = false
+            for id, num in pairs(arm.live_soldier or {}) do
+                if num > 0 then
+                    tag = true
+                end
+            end
+            if tag == false then
+                local tr = self:split_pid(pid)
+                tr:back()
+            end
+        end
     end
 end
 

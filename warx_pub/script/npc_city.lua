@@ -11,6 +11,7 @@ module_class("npc_city",
     propid = 0,
     defender = 0,
     uid = 0,
+    last_uid = 0,
     pid = 0,
     state = 1,
     startTime = 0,
@@ -158,10 +159,20 @@ function init_npc_citys(have)
     end
 end
 
+function reset_all_npc()
+    for k, v in pairs(citys) do
+        local city = get_ety(v)
+        if city then
+            city:reset_npc()
+        end
+    end
+end
+
 function reset_npc(self)
     self:drop_city(self.uid) -- post to cross center
     self.uid = 0
     --self.pid = 0
+    troop_mng.delete_troop(self.my_troop_id)
     self.my_troop_id = nil
     format_union(self)
     etypipe.add(self)
@@ -603,8 +614,8 @@ function declare_notify(atk_eid, npc_eid)
     for k, v in pairs(npc.declareUnions or {}) do
         local union = unionmng.get_union(v)
         if union then
-            table.insert(unions, union.name, union.flag)
-            table.insert(u_alias, union.alias, union.flag)
+            table.insert(unions, union.name)
+            table.insert(u_alias, union.alias)
         end
     end
 
@@ -745,6 +756,7 @@ function get_my_troop(self)
     else 
         --军团无人守城
         tr = troop_mng.create_troop(TroopAction.HoldDefenseNPC, self, self)
+        troop_mng.delete_troop(tr)
         --tr:add_arm(0,{live_soldier = {[3002] = 0}, heros = {0,0,0,0}})
     end
     if tr then
@@ -839,6 +851,7 @@ function deal_troop(atkTroop, defenseTroop)
         else
             troop_mng.delete_troop(atkTroop._id)
         end
+
 
         --defenseTroop:home_hurt_tr()
     end
@@ -949,6 +962,10 @@ function make_new_defender(ackTroop, defenseTroop, npcCity)
             for k, v in pairs(_members or {}) do
                 task_logic_t.process_task(v, TASK_ACTION.OCC_NPC_CITY, city_type)
             end
+            --世界事件
+            if npcCity.last_uid > 0 then
+                world_event.process_world_event(WORLD_EVENT_ACTION.OCCUPY_CITY, prop_build.Lv)
+            end
         end
     end
     union_hall_t.battle_room_update_ety(OPERATOR.UPDATE, npcCity)
@@ -1007,6 +1024,9 @@ end
 function deal_npc_new_defender(newdefender, npcCity, ackTroop)
     reset_declare(npcCity.eid, {npcCity.uid})
     npcCity.uid = newdefender
+    if type(newdefender) == "number" and newdefender > 0 then
+        npcCity.last_uid = newdefender
+    end
 
     npcCity:occu_city(npcCity.uid)  --- post to center
 
@@ -1311,6 +1331,9 @@ function get_troop_info(self)
     local pow
     if tr then
         pow = tr:get_tr_pow()
+    end
+    if  tr:is_robot_troop() then
+        troop_mng.delete_troop(tr)
     end
     return pow
 end
