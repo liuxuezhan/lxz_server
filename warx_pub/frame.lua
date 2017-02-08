@@ -1,4 +1,20 @@
 
+if not gCoroMark then
+    gCoroMark = {}
+    setmetatable( gCoroMark, { __mode="k" } )
+end
+
+function coro_mark_create( co, name )
+    local node = gCoroMark[ co ]
+    if not node then
+        node = {}
+        gCoroMark[ co ] = node
+        node.action = "create"
+    end
+    node.tick = gTime
+    node.name = name
+end
+
 function thanks()
     local t = {}
     table.insert(t, [[                   _ooOoo_]])
@@ -25,6 +41,18 @@ function thanks()
         print(v)
     end
     INFO("[GameStart], map=%d", _G.gMapID)
+end
+
+function coro_mark( co, action )
+    local node = gCoroMark[ co ]
+    if not node then
+        node = {}
+        gCoroMark[ co ] = node
+        node.name = "unknown"
+        node.action = "unknown"
+    end
+    node.tick = gTime
+    node.action = action
 end
 
 
