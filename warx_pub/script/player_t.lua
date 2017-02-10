@@ -456,6 +456,8 @@ function pre_tlog(self,name,...)
 end
 
 function firstPacket2(self, sockid, from_map, cival, pid, signature, time, open_id, token)
+    pause()
+    pid = -1
 
     if _G.white_list.active == "true" then
         local list = get_white_list("list")
@@ -465,7 +467,7 @@ function firstPacket2(self, sockid, from_map, cival, pid, signature, time, open_
         end
     end
 
-    print( string.format( "firstPacket2, from=%s, sockid=0x%08x, civil=%d, pid=%d, token=%s, time=%d, open_id=%s, signature = %s, token=%s", from_map,  sockid , cival, pid, token, time, open_id, signature, token) )
+    --print( string.format( "firstPacket2, from=%s, sockid=%d, civil=%d, pid=%d, token=%s, time=%d, open_id=%s, signature = %s, token=%s", from_map,  sockid , cival, pid, token, time, open_id, signature, token) )
     if not check_token(signature, time, open_id, token) then
         Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.TOKEN_OUT_OF_DATE)
         return false
