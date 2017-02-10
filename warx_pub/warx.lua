@@ -69,7 +69,7 @@ local function accept(fd, addr)
             local d = json.decode(copyTab(ret))
             if d then
                 lxz(d.f)
-                if d.f == "firstPacket" then
+                if d.f == "firstPacket2" then
                     d.args[1]=fd
                     local p = player_t.firstPacket2(_G.gAgent, unpack(d.args)  ) 
                     if p  then plys[fd] = p end

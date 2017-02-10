@@ -2,13 +2,13 @@
 -- 原warx 的socket由c语言引擎统一队列处理 ，移植后由lua分发处理
 json = require "json"
 require "mytool"
-g_host = "192.168.67.136"
+g_host = "192.168.99.78"
 
 _list={
 
     db_server1 ={ 
         db1={ host="192.168.67.135",port = 27017, },
-        --db1={ host="192.168.101.223",port = 27017, },
+        db2={ host="192.168.101.223",port = 27017, },
         -- db1={ host="127.0.0.1",port = 27017, },
         -- db={  host = "127.0.0.1", port = 27017,username="admin",password="admin" },
     },
@@ -53,7 +53,7 @@ function c_pull_msg_roi()
     return ROI_MSG.NTY_NO_RES 
 end
  c_pid = {}
-local _x,_y=0,0
+local _x,_y = 100,100
 function c_mov_eye(pid,x,y)
 lxz(x,y)
     c_pid[pid] = {x=x,y=y}
