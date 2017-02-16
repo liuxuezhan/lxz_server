@@ -35,6 +35,10 @@ if __name__ == "__main__":
         os.system("php -S %s:80 -t rockmongo/"%(ip))
         exit() 
 
+    if name == "clear":
+        os.system('mongo warx_1 --eval "db.dropDatabase()"')
+        exit() 
+
     if name == "warx":
         lua_path = lua_path + ";%s/script/?.lua"%(path)
 
