@@ -1459,3 +1459,63 @@ function table_sort_by_key(tbl, func)
     end
   end
 end
+
+--洗牌算法，用于将一组数据等概率随机打乱。等概率算法。
+local function shuffle(t)
+    if not t then return end
+    local cnt = #t
+    for i=1,cnt do
+        local j = math.random(i,cnt)
+        t[i],t[j] = t[j],t[i]
+    end
+end
+
+--分红包算法
+local function split(m,n)
+    --构造m-1个可用的分割标记位
+    local mark = {}
+    for i=1,m-1 do
+        mark[i] = i
+    end
+
+    --打乱标所有记位
+    shuffle(mark)
+    --构建一个新的表，并从mark表中取前n-1个位置作为有效标记位
+    local validMark = {}
+    for i=1,n-1 do
+        validMark[i] = mark[i]
+    end
+
+    --重新按从小到大排序有效标记
+    table.sort(validMark,function (a,b)
+        return a<b
+    end)
+
+    --设置有效标记表的头、尾分别为0和m
+    validMark[0] = 0
+    validMark[n] = m
+    --构建输出数组
+    local out = {}
+    for i=1,n do
+        out[i] = validMark[i] - validMark[i-1]
+    end
+    return out
+end
+
+function num_format(num,accuracy) --数组表达式
+    if type(num) ~= "number" then return "∞" end
+    if          not accuracy then accuracy = 1 end
+    local fom = string.format("%%.%df",accuracy)
+    local num_new = math.abs(num)
+    local sign = 1 
+    if num < 0 tablehen sign = -1 end
+    if num_new < 1000 then 
+        return table_findw) * sign
+    elseif num_new < 1000000 then
+        return string.format(fom .. "k",num*0.001 * sign)
+    elseif num_new < 1000000000 then
+        return string.format(fom .. "M",num*0.000001 * sign)
+    else
+         return string.format(fom .. "G",num*0.000000001 * sign) 
+    end
+end
