@@ -9,8 +9,6 @@ gDelayAction = gDelayAction or {}
 can_ply_join_act = {}  --玩家是否可以参加活动
 can_ply_opt_act = {}   --玩家时刻可以设操控活动
 
---setmetatable( gDelayAction, { __mode = "kv" } )
-
 function can_move_to(self, x, y)
     if x < 0 or y < 0 then return false end
     if x >= 1280 or y >= 1280 then return false end
@@ -46,8 +44,9 @@ function create(account, map, pid, culture)
     p._id = pid
     p.pid = pid
     p.eid = eid
-    p.smap = map
-    p.map = gMapID
+    p.smap = map -- 生成角色时所在的服务器
+    p.emap = map -- 当前所在的临时服务器
+    p.map = gMapID -- 当前归属的服务器
     p.corss_gs = gMapID
     p.name = string.format("K%da%d", gMapID, p.pid)
     p.reg_name = p.name
@@ -278,35 +277,35 @@ function build_farm( self )
 end
 
 
-function create_character(self, info)
-    dumpTab(info, "create_character")
-
-    local account = info.account
-    local process = info.process
-    local name = info.name
-
-    local gate = self.gid
-
-    if not process or not account then
-        WARN("create_character, name=%s, not enough param", name)
-        return
-    end
-
-    local p = gAccs[ account ]
-    if not p then
-        p = player_t.create(account, gMapID)
-        p.name = name
-        if p then
-            print("firstPacket, account=%s, pid=%d, process=%s, create new player in local ", account, p.pid, process)
-            LOG("firstPacket, account=%s, pid=%d, process=%s, create new player in local ", account, p.pid, process)
-            local dg = dbmng:getGlobal()
-            dg.ply:insert({_id=account, pid=p._id, map=p.map, create=gTime, state=0, uid = p.account})
-            set_ply_map(gate, process, p.map, p.pid)
-        else
-            --sendCertify()
-        end
-    end
-end
+--function create_character(self, info)
+--    dumpTab(info, "create_character")
+--
+--    local account = info.account
+--    local process = info.process
+--    local name = info.name
+--
+--    local gate = self.gid
+--
+--    if not process or not account then
+--        WARN("create_character, name=%s, not enough param", name)
+--        return
+--    end
+--
+--    local p = gAccs[ account ]
+--    if not p then
+--        p = player_t.create(account, gMapID)
+--        p.name = name
+--        if p then
+--            print("firstPacket, account=%s, pid=%d, process=%s, create new player in local ", account, p.pid, process)
+--            LOG("firstPacket, account=%s, pid=%d, process=%s, create new player in local ", account, p.pid, process)
+--            local dg = dbmng:getGlobal()
+--            dg.ply:insert({_id=account, pid=p._id, map=p.map, create=gTime, state=0, uid = p.account})
+--            set_ply_map(gate, process, p.map, p.pid)
+--        else
+--            --sendCertify()
+--        end
+--    end
+--end
 
 
 function set_ply_map(gate, proc, map, pid)
@@ -371,7 +370,6 @@ function firstPacket3(self, sockid, from_map, account, pasw)
 end
 
 function upload_user_info(self)
-    if config.Robot then return end
     local sign = c_md5(c_md5(APP_ID..self.account..tostring(self.pid)..tostring(gMapID)..tostring(self:get_castle_lv()).. tostring(self.name)..tostring(self.culture)..self.token),APP_SECRET)
 --    to_tool(0, {type = "login_server", cmd = "upload_ply_info", appid = APP_ID, open_id = self.account, pid = tostring(self.pid), logic = tostring(gMapID), level = tostring(self:get_castle_lv()), name = self.name, custom = tostring(self.culture), token = self.token, signature=sign})
    to_tool(0, {url = config.Login_url or LOGIN_URL, method = "post", appid = APP_ID, open_id = self.account, pid = tostring(self.pid), logic = tostring(gMapID), level = tostring(self:get_castle_lv()), name = self.name, custom = tostring(self.culture), token = self.token, signature=sign})
@@ -456,7 +454,6 @@ function pre_tlog(self,name,...)
 end
 
 function firstPacket2(self, sockid, from_map, cival, pid, signature, time, open_id, token)
-    pause()
     pid = -1
 
     if _G.white_list.active == "true" then
@@ -602,13 +599,25 @@ end
 function king_online(self)
     if self.officer == KING then
         local u = self:get_union() or {}
-        local prop = resmng.get_conf("prop_act_notify", resmng.KING_ONLINE)
-        if prop then
-            if prop.Notify then
-                 Rpc:tips({pid=-1,gid=_G.GateSid}, 2, prop.Notify, {self.name, u.alias})
+        if u then
+            local prop = resmng.get_conf("prop_act_notify", resmng.KING_ONLINE)
+            if prop then
+                if prop.Notify then
+                    Rpc:tips({pid=-1,gid=_G.GateSid}, 2, prop.Notify, {self.name, u.alias})
+                end
+                if prop.Chat1 then
+                    player_t.add_chat({pid=-1,gid=_G.GateSid}, 0, 0, {pid=0}, "king online", prop.Chat1, {self.name, u.alias})
+                end
             end
-            if prop.Chat1 then
-                player_t.add_chat({pid=-1,gid=_G.GateSid}, 0, 0, {pid=0}, "king online", prop.Chat1, {self.name, u.alias})
+        else
+            local prop = resmng.get_conf("prop_act_notify", resmng.KING_ONLINE_NOUNION)
+            if prop then
+                if prop.Notify then
+                    Rpc:tips({pid=-1,gid=_G.GateSid}, 2, prop.Notify, {self.name})
+                end
+                if prop.Chat1 then
+                    player_t.add_chat({pid=-1,gid=_G.GateSid}, 0, 0, {pid=0}, "king online", prop.Chat1, {self.name})
+                end
             end
         end
     end
@@ -631,7 +640,7 @@ function onBreak(self)
 end
 
 function is_online(self)
-    return self.gid
+    if self.gid then return true end
 end
 
 function debugInput(self, str)
@@ -941,7 +950,7 @@ function check_pending()
     end
     gSync = {}
 
-    warxG_check_save()
+    --warxG_check_save()
 end
 
 
@@ -1072,6 +1081,9 @@ function initEffect(self, init)
 
     if self.tm_lv == 0 then self.tm_lv = gTime end
     if self.tm_lv_castle == 0 then self.tm_lv_castle = gTime end
+
+    self:recalc_build_queue()
+
 end
 
 
@@ -1249,29 +1261,54 @@ end
 
 function recalc_build_queue( self )
     local val = self:get_val( "CountBuild" )
-    if val <= 1 then
-        local queues = self.build_queue
-        if queues[ 2 ] then
-            queues[ 2 ] = nil
-            self.build_queue = queues
-        end
-    end
-
     local queues = self.build_queue
-    for k, idx in pairs( queues ) do
-        local valid = false
-        local build = self:get_build( idx )
-        if build then
-            local state = build.state
-            if state == BUILD_STATE.CREATE or state == BUILD_STATE.UPGRADE or state == BUILD_STATE.DESTROY then
-                valid = true
+
+    local info = {}
+    for i = 1, val, 1 do
+        if queues[ i ] and queues[ i ] > 0 then
+            local valid = false
+            local idx = queues[ i ]
+            local build = self:get_build( idx )
+            if build then
+                local state = build.state
+                if state == BUILD_STATE.CREATE or state == BUILD_STATE.UPGRADE or state == BUILD_STATE.DESTROY then
+                    valid = true
+                end
             end
-        end
-        if not valid then 
-            queues[ k ] = 0 
-            self.build_queue = queues
+            if valid then 
+                info[ i ] = idx
+            else 
+                info[ i ] = 0 
+            end
+        else
+            info[ i ] = 0
         end
     end
+    self.build_queue = info
+
+    --if val <= 1 then
+    --    local queues = self.build_queue
+    --    if queues[ 2 ] then
+    --        queues[ 2 ] = nil
+    --        self.build_queue = queues
+    --    end
+    --end
+
+    --local queues = self.build_queue
+    --for k, idx in pairs( queues ) do
+    --    local valid = false
+    --    local build = self:get_build( idx )
+    --    if build then
+    --        local state = build.state
+    --        if state == BUILD_STATE.CREATE or state == BUILD_STATE.UPGRADE or state == BUILD_STATE.DESTROY then
+    --            valid = true
+    --        end
+    --    end
+    --    if not valid then 
+    --        queues[ k ] = 0 
+    --        self.build_queue = queues
+    --    end
+    --end
 end
 
 function recalc_shell( self )
@@ -1780,6 +1817,7 @@ function gm_user(self, cmd)
         debug_tag = 1
         union_item._tm = 60
         self._union.god_log.tm = 0
+        crontab.union_donate_week()
     elseif choose == "debug1" then
         debug_tag = 1
     elseif choose == "lxz" then
@@ -2018,6 +2056,18 @@ function gm_user(self, cmd)
     elseif choose == "title" then
         self:title_info_req()
 
+    elseif choose == "foract" then
+        self:ef_add({CountTroop=10, CountSoldier=1000000, Captive=100000})
+        self:add_soldier(arm_id( self.culture, 1010), 100000)
+        self:add_soldier(arm_id( self.culture, 2010), 100000)
+        self:add_soldier(arm_id( self.culture, 3010), 100000)
+        self:add_soldier(arm_id( self.culture, 4010), 100000)
+        local union = self:union()
+        if union then
+            union.donate = union.donate + 9900000
+        end
+        self._union.donate = self._union.donate + 9900000
+        gPendingSave.union_member[self.pid] = self._union
     elseif choose == "all" then
         self:build_all()
         self:ef_add({CountTroop=10, CountSoldier=1000000, Captive=100000})
@@ -2059,7 +2109,7 @@ function gm_user(self, cmd)
         --local clv = tonumber(tb[2])
         --self:search_entity( 0, clv )
 
-        self.hurts = {}
+        self.hurts = {[arm_id(self.culture, 1010)]=10000}
         self.cures = {}
         --self.res = { {0,0},{0,0},{0,0},{0,0} }
         local troop = self:get_my_troop()
@@ -2311,6 +2361,14 @@ function gm_user(self, cmd)
         local id = tonumber(get_parm(1))
         local num = tonumber(get_parm(2))
         world_event.gm_finish_world_event(id, num)
+
+    elseif choose == "massgo" then
+        for _, tid in pairs( self.busy_troop_ids ) do
+            local tr = troop_mng.get_troop(tid)
+            if tr and tr.is_mass == 1 and tr:is_ready() then
+                timer.adjust( tr.tmSn, gTime )
+            end
+        end
     end
 end
 
@@ -2405,6 +2463,7 @@ function loadData(self, what)--本函数严禁加日志
         t.val = self:packet_target_task()
 
     elseif what == "done" then
+        INFO( "[login], pid=%d, loaddone", self.pid )
 
     end
 
@@ -2819,7 +2878,7 @@ function do_inc_res_normal(self, mode, num, reason)
     elseif mode == resmng.DEF_RES_PERSONALHONOR then
         union_member_t.add_donate(self, num,reason)
         local union = unionmng.get_union(self:get_uid())
-        if union then union:add_donate(num, self) end
+        if union then union:add_donate(num * 1.4, self) end
     elseif mode == resmng.DEF_RES_UNITHONOR then
         -- 不做任何事情
 
@@ -3128,9 +3187,9 @@ function chat(self, channel, word, sn)
     local u = self:union()
     if u then speaker.uname = u.alias end
 
-    if officer == KING then 
-        word = string.format( "<color=#ffb804ff>%s</color>", word )
-    end
+    --if officer == KING then 
+    --    word = string.format( "<color=#ffb804ff>%s</color>", word )
+    --end
 
     if channel == resmng.ChatChanelEnum.World then
         add_chat({pid=-1,gid=_G.GateSid}, channel, 0, speaker, word, 0, {} )
@@ -3158,7 +3217,11 @@ function chat(self, channel, word, sn)
         player_t.add_chat(pids, channel, culture, speaker, word, 0, {})
 
     elseif channel == resmng.ChatChanelEnum.Notice then
-        if not self:dec_item_by_item_id( resmng.ITEM_NOTICE, 1, VALUE_CHANGE_REASON.USE_ITEM ) then return end
+        if not self:dec_item_by_item_id( resmng.ITEM_NOTICE, 1, VALUE_CHANGE_REASON.USE_ITEM ) then 
+            if not self:dec_gold( 500, VALUE_CHANGE_REASON.CHAT_NOTICE ) then
+                return 
+            end
+        end
         player_t.add_chat({pid=-1,gid=_G.GateSid}, channel, 0, speaker, word, 0, {} )
 
     end
@@ -3449,7 +3512,8 @@ function do_migrate(self, x, y)
 
     if math.abs( x - sx ) >= 4 or math.abs( y - sy ) >= 4 then
         if c_map_test_pos_for_ply( x, y, 4 ) ~= 0 then
-            self:add_debug( "overlap" )
+            Rpc:tips(self, 1, resmng.TIPS_OVERLAP, {})
+            --self:add_debug( "overlap" )
             return
         end
     else
@@ -4275,6 +4339,8 @@ function act_info_req(self)
                 local clock = timer.get(union.mc_timer)
                 if clock then
                     act.end_time = clock.over
+                else
+                    act.end_time = union.get_left_time(union.mc_start_time) + gTime
                 end
             end
         end
@@ -4282,6 +4348,15 @@ function act_info_req(self)
         if v == ACT_NAME.LOST_TEMPLE then
             act.state = lost_temple.actState
             act.end_time = lost_temple.end_time
+            local id = lost_temple.actState
+            local prop = resmng.prop_lt_stage[id]
+            if prop then
+                if act.end_time < gTime then
+                    act.end_time = lost_temple.end_time + prop.Spantime
+                else
+                    act.end_time = lost_temple.start_time + prop.Spantime
+                end
+            end
         end
 
         if v == ACT_NAME.NPC_CITY then
@@ -4422,7 +4497,7 @@ function get_eye_info(self,eid)--查询大地图建筑信息
            --king_city.rem_kw_buff(union, self) -- not use
         end
 
-        pack.all_hold_num = all_hold_num
+        pack.all_hold_num = all_hold_num or 0
         pack.troop_pow = npc_city.get_troop_info(dp)
         Rpc:get_eye_info(self, eid, pack)
 
@@ -4430,7 +4505,7 @@ function get_eye_info(self,eid)--查询大地图建筑信息
         npc_city.eye_info(dp, pack)
         pack.hold_num,pack.hold_limit = npc_city.hold_limit(dp, self)
         local all_hold_num, _hold_limit = npc_city.hold_num_limit(dp, self)
-        pack.all_hold_num = all_hold_num
+        pack.all_hold_num = all_hold_num or 0
         pack.troop = self:get_hold_info(dp)
         pack.troop_pow = npc_city.get_troop_info(dp)
         Rpc:get_eye_info(self, eid, pack)
@@ -4439,7 +4514,7 @@ function get_eye_info(self,eid)--查询大地图建筑信息
         lost_temple.eye_info(dp, pack)
         pack.hold_num,pack.hold_limit = npc_city.hold_limit(dp, self)
         local all_hold_num, _hold_limit = npc_city.hold_num_limit(dp, self)
-        pack.all_hold_num = all_hold_num
+        pack.all_hold_num = all_hold_num or 0
         pack.troop_pow = npc_city.get_troop_info(dp)
         pack.troop = self:get_hold_info(dp)
         Rpc:get_eye_info(self, eid, pack)
@@ -4981,6 +5056,7 @@ function add_buf(self, bufid, count)
                             v[3] = tmOver
                             timer.new("buf", remain, self.pid, bufid, tmOver)
                         end
+                        INFO( "add_buf, pid=%d, bufid=%d, count=%d", self.pid, bufid, count )
                         self.bufs = bufs
                         return
                     end
@@ -5001,7 +5077,7 @@ function add_buf(self, bufid, count)
         self.bufs = bufs
         if node.Value then self:ef_add(node.Value) end
 
-        print(string.format("add_buf, pid=%d, bufid=%d, count=%d", self.pid, bufid, count))
+        INFO( "add_buf, pid=%d, bufid=%d, count=%d", self.pid, bufid, count )
 
         if count ~= -1 then
             timer.new("buf", count, self.pid, bufid, tmOver)
@@ -5011,9 +5087,14 @@ function add_buf(self, bufid, count)
     end
 end
 
+function check_buf( self )
+
+end
+
 
 function rem_buf(self, bufid, tmOver)
     local bufs = self.bufs
+    local remain = 0
     for k, v in pairs(bufs) do
         --v = {bufid, tmStart, tmOver}
         if v[1] == bufid then
@@ -5023,18 +5104,24 @@ function rem_buf(self, bufid, tmOver)
                 if node and node.Value then self:ef_rem(node.Value) end
                 self.bufs = bufs
 
-                if bufid == resmng.BUFF_VIP_TEMPOR then
-                    self:add_to_do( "notify_buf", bufid, v[2], v[3] )
-                end
+                local r = v[3] - gTime
+                if r > 0 then remain = r end
 
-                return v[3]
+                if bufid == resmng.BUFF_VIP_TEMPOR then self:add_to_do( "notify_buf", bufid, v[2], v[3] ) end
+
+                INFO( "rem_buf, pid=%d, bufid=%d, tmOver=%d", self.pid, bufid, tmOver or 0 )
             end
         end
     end
+    return remain
 end
 
 function notify_buf( self, bufid, start, over )
     Rpc:notify_buf( self, bufid, start, over )
+end
+
+function notify_build_upgrade(self , build_idx)
+    Rpc:notify_build_upgrade(self, build_idx)
 end
 
 function get_buf( self, bufid )
@@ -5196,7 +5283,6 @@ function chat_account_info_req(self)
 end
 
 function create_chat_account(ply)
-   if config.Robot then return end
     --to_tool(0, {type = "chat", cmd = "create_chat", user = tostring(ply.pid), host = CHAT_HOST, password = tostring(ply.pid)})
    to_tool(0, {url = config.Chat_url or CHAT_URL, type = "chat", method = "post", cmd = "create_chat", user = tostring(ply.pid), host = CHAT_HOST,password = tostring(ply.pid)})
 end
@@ -5260,13 +5346,9 @@ function vip_add_exp( self, exp )
     if tolv > lv then
         self.vip_lv = tolv
         local src = resmng.get_conf( "prop_vip", lv)
-        local buf = self:get_buf( src.Buf )
-        if buf then
-            self:rem_buf( buf[1], buf[3] )
-            self:add_buf( node.Buf, buf[3] - gTime )
-        end
-        self:vip_enable( (tolv-lv) * 24 * 3600 )
-    self:pre_tlog("PlayerVipExpFlow",exp,lv,0,0)
+        local remain = self:rem_buf( src.Buf )
+        self:add_buf( node.Buf, remain + ( tolv - lv ) * 24 * 3600 )
+        self:pre_tlog("PlayerVipExpFlow",exp,lv,0,0)
     end
 end
 
@@ -5514,10 +5596,10 @@ can_ply_join_act[ACT_TYPE.KING] = function(ply)
 end
 
 can_ply_join_act[ACT_TYPE.LT] = function(ply)
-    local lv_castle = ply:get_castle_lv() or 0
-    if lv_castle < 10 then
-        return false
-    end
+--    local lv_castle = ply:get_castle_lv() or 0
+--    if lv_castle < 10 then
+--        return false
+--    end
 
     local union = unionmng.get_union(ply.uid)
     if not union then
@@ -5968,5 +6050,34 @@ function get_world_event_process(self)
     Rpc:get_world_event_process_resp(self, data)
 end
 
+function query_troop_coming( self )
+    local info = {}
+    for k, v in pairs( self.troop_comings or {} ) do
+        local troop = troop_mng.get_troop( k )
+        if troop then
+            info[ k ] = troop.action
+        end
+    end
+    Rpc:query_troop_coming( self, info )
+end
+
+function get_rank_detail( self )
+    return rank_mng.rank_function[1]( self.pid )
+end
+
+function clear_weekly_activity(self)
+    self.weekly_activity_score = {0,0,0,0,0,0}
+    self.weekly_activity_score = self.weekly_activity_score
+    self.weekly_activity_award = {0,0,0,0,0,0}
+    self.weekly_activity_award = self.weekly_activity_award
+end
+
+function get_weekly_activity_total(self)
+    local total_score = 0
+    for k, v in pairs(self.weekly_activity_score or {}) do
+        total_score = total_score + v
+    end
+    return total_score
+end
 
 

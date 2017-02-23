@@ -6,24 +6,50 @@ local mod = {}
 function mod.action( _idx )
     require("frame/debugger") 
     local name = math.floor(gTime%1000)
-    local p = get_one2(name.."0")
+    --local p = get_one2(name.."0")
+    local p = get_account( 100 )
     Rpc:union_quit( p )
     chat( p, "@set_val=gold=100000000" )
     chat( p, "@buildtop" )
     chat( p, "@addbuf=1=-1" )
+    Rpc:loadData( p, "pro" )
+
     sync( p )
-    Rpc:union_create(p,tostring(p.pid),p.account,40,1000)
+
+    --local alias = c_num2str( p.pid )
+    local alias = c_num2str( gTime )
+    local len = string.len( alias )
+    if len < 3 then
+        for i = len, 3, 1 do
+            alias = "0" .. alias
+        end
+    elseif len > 3 then
+        alias = string.sub( alias, len-2 )
+    end
+
+    local name = tostring( gTime )
+    if string.len( name ) < 6 then
+        for i = len, 6, 1 do 
+            name = "0" .. name
+        end
+    end
+
+    Rpc:union_create(p, name, alias, 40, 1000)
     wait_for_ack( p, "union_on_create" )
 
     local num,def = 2,{} 
     for i = 1, num do
-        def[i] = get_one2(name..i)
+        --def[i] = get_one2(name..i)
+        def[i] = get_account( i + 100 )
+
         Rpc:union_quit( def[i] )
         Rpc:union_apply( def[i],p.uid)
         chat( def[i], "@set_val=gold=100000000" )
-        chat( def[i], "@buildtop" )
-        chat( def[i], "@addbuf=1=-1" )
-        chat( def[i], "@addarm=4010=100000" )
+        --chat( def[i], "@buildtop" )
+        --chat( def[i], "@addbuf=1=-1" )
+        chat( def[i], "@ef_add=CountSoldier=1000000" )
+        chat( def[i], "@ef_add=CountTroop=2" )
+        chat( def[i], "@addarm=4010=10000000" )
         chat( def[i], "@ef_add=SpeedGather_R=90000000" )
         sync( def[i] )
     end

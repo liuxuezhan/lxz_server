@@ -43,7 +43,7 @@ function farm_reset()
     end
 end
 
-function get_respawn_type(lv)
+function get_respawn_type(lv, farm_mode)
     local node = farm.respawn_tm 
     if not node then 
         farm.respawn_tm = farm_reset() 
@@ -61,6 +61,10 @@ function get_respawn_type(lv)
                 break
             end
         end
+    end
+
+    if farm_mode then   -- 指定生成类型
+        mode = farm_mode
     end
 
     local tlv = false
@@ -88,9 +92,9 @@ function get_respawn_type(lv)
 end
 
 
-function respawn(tx, ty)
+function respawn(tx, ty, mode)
     local lv = c_get_zone_lv(tx, ty)
-    local prop = get_respawn_type(lv)
+    local prop = get_respawn_type(lv, mode)
     if prop then
         local eid = get_eid_res()
         if eid then
@@ -141,12 +145,12 @@ end
 
 function loop()
     local idx = scan_id
-    for i = 1, 80, 1 do
+    for i = 1, 320, 1 do
         if idx >= 6400 then idx = 0 end
+        scan_id = idx
         if distrib[ idx ] then
             local zx = idx % 80
-            local zy = math.floor(idx / 64)
-            scan_id = idx
+            local zy = math.floor(idx / 80)
             do_check(zx, zy, true)
         end
         idx = idx + 1
@@ -182,5 +186,9 @@ function load_from_db()
             checkin(m)
         end
     end
+end
+
+function on_day_pass()
+    farm.respawn_tm = nil
 end
 

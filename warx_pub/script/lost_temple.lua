@@ -26,8 +26,8 @@ module_class("lost_temple",
 
 local zset = require "frame/zset"
 
-start_time = start_time or 0  --本期活动开始世界
-end_time = end_time or 0  --本期活动开始世界
+start_time = start_time or gTime  --本期活动开始世界
+end_time = end_time or gTime  --本期活动开始世界
 
 actTimer = actTimer or 0
 actState = actState or 0
@@ -226,7 +226,8 @@ end
 
 function start_lt()
     lt_ntf(resmng.LT_START)
-    gPendingSave.status["lostTemple"].start_time  = gTime
+    start_time = gTime
+    gPendingSave.status["lostTemple"].start_time  = start_time
     actState = LT_STATE.ACTIVE
     gPendingSave.status["lostTemple"].actState  = actState
 
@@ -560,14 +561,14 @@ function finish_grap_state(self)
 
     local tr = self:get_my_troop()
     if tr then
-        local all_pow = tr:get_tr_pow()
+        local all_pow = math.ceil(tr:get_tr_pow())
 
         if  all_pow == 0 then
             all_pow  = 1
         end
 
         for k, v in pairs(tr.arms or {}) do
-            local pow = tr:calc_pow(k)
+            local pow = math.ceil(tr:calc_pow(k))
             local score = res * pow / all_pow
             local ply = getPlayer(k)
             if ply then
@@ -693,6 +694,20 @@ function test(ply)
 
 end
 
+function find_rank_prop(rank, score, prop)
+    while true do 
+        local v = prop[rank]
+        if not v then
+            break
+        end
+        if score >= v.Cond then
+            return v
+        end
+        rank = rank + 1
+    end
+    return
+end
+
 
 function send_score_reward()
     local prop = resmng.prop_lt_rank_award
@@ -701,14 +716,23 @@ function send_score_reward()
         for k, v in pairs(prop or {}) do
             local plys = rank_mng.get_range(10, v.Rank[1], v.Rank[2])
             for idx, pid in pairs(plys or {}) do
-                local score = rank_mng.get_score(10, tonumber(pid)) or 0
-                if score > v.Cond then
-                    local ply = getPlayer(tonumber(pid))
-                    if ply then
-                        ply:send_system_notice(10011, {}, {num}, v.Award)
+                local ply = getPlayer(tonumber(pid))
+                if ply then
+                    local score = rank_mng.get_score(10, tonumber(pid)) or 0
+                    local Award = find_rank_prop(k, score, prop)
+                    if Award then
+                        ply:send_system_notice(10011, {}, {num}, Award.Award)
                         num = num + 1
                     end
                 end
+
+                --if score > v.Cond then
+                --    local ply = getPlayer(tonumber(pid))
+                --    if ply then
+                --        ply:send_system_notice(10011, {}, {num}, v.Award)
+                --        num = num + 1
+                --    end
+                --end
             end
         end
     end

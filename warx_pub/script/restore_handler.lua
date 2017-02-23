@@ -241,10 +241,11 @@ function restore_timer()
 
     local info = db.timer:find({})
     local maxSn = 0
-    local isCron = false
 
     local tm_shutdown = (gSysStatus.tick or gTime) - 1
-    print( "tm_shutdown", tm_shutdown, gTime - tm_shutdown )
+    print( "tm_shutdown", tm_shutdown, gTime - tm_shutdown, os.date( "%c", tm_shutdown ) )
+
+    local sec_idx = tm_shutdown % 60
 
     _G.gTime = tm_shutdown
     _G.gMsec = 0
@@ -262,7 +263,14 @@ function restore_timer()
             if sn > maxSn then maxSn = sn end
         end
     end
+
     _G.gSns[ "timer" ] = maxSn + 1
+
+    if sec_idx <= 30 then
+        timer.new( "cron", 30 - sec_idx )
+    else
+        timer.new( "cron", 60 - sec_idx + 30 )
+    end
 
     for eid, ety in pairs( gEtys or {} ) do
         if not is_troop( ety ) then
@@ -296,6 +304,10 @@ function post_init()
     INFO("-- accpet world events ---------")
     world_event.accept_world_event()
     INFO("-- accpet world events done  ---")
+
+    INFO("-- init weekly activity ---------")
+    weekly_activity.init_activity()
+    INFO("-- init weekly activity done  ---")
 end
 
 function action()
@@ -318,6 +330,11 @@ function action()
     world_event.load_world_event()
     INFO("-- load_world_event done --------")
     monitoring(MONITOR_TYPE.LOADDATA, "load_world_event")
+
+    INFO("-- load_weekly_activity -------------")
+    weekly_activity.load_weekly_activity()
+    INFO("-- load_weekly_activity done --------")
+    monitoring(MONITOR_TYPE.LOADDATA, "load_weekly_activity")
 
     INFO("-- load_union --------------")
     union_t.load()

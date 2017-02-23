@@ -94,6 +94,20 @@ function add_donate(ply, num,r)
     end
 end
 
+function add_donate_rank(ply, num,r)
+    if num < 0 then WARN("") return end
+
+	if r== 1 then
+		for i = DONATE_RANKING_TYPE.DAY, DONATE_RANKING_TYPE.UNION do
+			ply._union.techexp_data[i] = ply._union.techexp_data[i] + num
+		end
+	elseif r== 2 then
+		for i = DONATE_RANKING_TYPE.DAY_B, DONATE_RANKING_TYPE.UNION_B do
+			ply._union.techexp_data[i] = ply._union.techexp_data[i] + 1
+		end
+	end
+    gPendingSave.union_member[ply.pid].techexp_data = ply._union.techexp_data
+end
 
 function clear_donate_data(ply, what)
     ply._union.donate_data[what] = 0
@@ -103,7 +117,6 @@ function clear_donate_data(ply, what)
     chg.donate_data = ply._union.donate_data
     chg.techexp_data = ply._union.techexp_data
 end
-
 
 function leave_union(ply)
     add_history(ply,{
@@ -169,4 +182,5 @@ function add_history(ply, data)
     end
     gPendingSave.union_member[ply.pid] = ply._union
 end
+
 

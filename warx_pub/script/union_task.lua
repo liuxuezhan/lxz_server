@@ -55,61 +55,56 @@ end
 
 function add(p,sub,eid,hero_id,num,mode,res,res_num,x,y) --发布悬赏任务
     for k,v in pairs(_d ) do
-        if v.eid == eid and v.uid == p:get_uid() then INFO("已有任务") return end
+        if v.eid == eid and v.uid == p:get_uid() then WARN("已有任务") return end
     end
 
     if is_ply(eid) then
         local e = get_ety(eid)
-        if p.uid == e.uid then INFO("是自己") return end
+        if p.uid == e.uid then WARN("是自己") return end
     end
 
-    if sub > UNION_TASK.NUM then INFO("类型错误:"..sub) return end
-    if num < 1 then INFO("次数小于1") return end
+    if sub > UNION_TASK.NUM then WARN("类型错误:"..sub) return end
+    if num < 1 then WARN("次数小于1") return end
 
     if sub == UNION_TASK.HERO then
-        if num ~= 1 then return end
-        if hero_id == "" then return end
+        if num ~= 1 then WARN("次数不对") return end
+        if hero_id == "" then WARN("没有英雄id") return end
 
         local h = heromng.get_hero_by_uniq_id(hero_id)
-        if not h then return end
-        if h.status ~= HERO_STATUS_TYPE.BEING_IMPRISONED then return end
-        if h.capturer_pid < 10000 then return end
+        if not h then WARN("没有英雄")return end
+        if h.status ~= HERO_STATUS_TYPE.BEING_IMPRISONED then WARN("英雄状态不对")return end
+        if h.capturer_pid < 10000 then WARN("英雄状态不对")return end
         local enemy = getPlayer( h.capturer_pid )
-        if not enemy then return end
+        if not enemy then WARN("英雄没有被捕")return end
         eid = enemy.eid
 
     elseif sub == UNION_TASK.PLY then
-        if num > 10 then return end
+        if num > 10 then WARN("次数不对") return end
         local target = get_ety( eid )
-        if not target then return end
+        if not target then WARN("没有目标") return end
         if not is_ply( target ) then return end
 
     elseif sub == UNION_TASK.NPC then 
-        if num ~= 1 then return end
+        if num > 10  then WARN("次数不对") return end
 
         local target = get_ety( eid )
-        if not target then return end
-        if not is_npc_city( target ) then return end
+        if not target then WARN("没有目标") return end
+        if not is_npc_city( target ) then WARN("不是npc") return end
 
     end
     
     _id = _id + 1
     local t = {}
     if mode == 2 then
-        if res_num < num * 1000 then return end
-        for i = 1, num do t[i] = 1000 end
+        if res_num < num * 1000 then WARN("资源下限不够") return end
         local sum =  res_num - num * 1000
-        while sum > 0  do
-            local n = math.random(1,sum )
-            local k  = math.random(1,num )
-            sum  = sum - n
-            t[k] = t[k] + n 
-        end
+        t = split(sum,num)
+        for i = 1, num do t[i] = t[i] + 1000 end
     end
 
-    if p.gold < UNION_TASK_CONFIG.PRICE then return end
-    if not union_task.del_res(p,res,res_num) then return end
-    if not p:do_dec_res(resmng.DEF_RES_GOLD, UNION_TASK_CONFIG.PRICE, VALUE_CHANGE_REASON.UNION_TASK) then INFO("金币不够") return end
+    if p.gold < UNION_TASK_CONFIG.PRICE then WARN("gold不够")return end
+    if not union_task.del_res(p,res,res_num) then WARN("资源不够")return end
+    if not p:do_dec_res(resmng.DEF_RES_GOLD, UNION_TASK_CONFIG.PRICE, VALUE_CHANGE_REASON.UNION_TASK) then INFO("金币不够:"..UNION_TASK_CONFIG.PRICE) return end
 
     local data= {_id=_id,pid=p.pid,eid=eid,hero_id = hero_id,uid=p:get_uid(),type=sub,num=num,
                 mode=mode,t=t,res=res,res_num = res_num,sum = res_num, tmStart=gTime,log={},x=x,y=y, tax_rate=45 }
@@ -121,6 +116,49 @@ function add(p,sub,eid,hero_id,num,mode,res,res_num,x,y) --发布悬赏任务
     end
     if mark(data) then gPendingSave.union_task[data._id] = data end
     Rpc:union_task_add(p,get_one(p.uid,data._id))
+    return true
+end
+
+--洗牌算法，用于将一组数据等概率随机打乱。等概率算法。
+function shuffle(t)
+    if not t then return end
+    local cnt = #t
+    for i=1,cnt do
+        local j = math.random(i,cnt)
+        t[i],t[j] = t[j],t[i]
+    end
+end
+
+--分红包算法
+function split(m,n)
+    --构造m-1个可用的分割标记位
+    local mark = {}
+    for i=1,m-1 do
+        mark[i] = i
+    end
+
+    --打乱标所有记位
+    shuffle(mark)
+    --构建一个新的表，并从mark表中取前n-1个位置作为有效标记位
+    local validMark = {}
+    for i=1,n-1 do
+        validMark[i] = mark[i]
+    end
+
+    --重新按从小到大排序有效标记
+    table.sort(validMark,function (a,b)
+        return a<b
+    end)
+
+    --设置有效标记表的头、尾分别为0和m
+    validMark[0] = 0
+    validMark[n] = m
+    --构建输出数组
+    local out = {}
+    for i=1,n do
+        out[i] = validMark[i] - validMark[i-1]
+    end
+    return out
 end
 
 function get(uid,id)
@@ -211,12 +249,37 @@ function ok(p,obj,sub) --完成悬赏任务
                 if _d[id].mode == 2  then r =  _d[id].t[num+1] end
                 _d[id].res_num = _d[id].res_num - r 
                 table.insert(_d[id].log,{name=p.name,num = r,tm=gTime})
+                local old = r
                 r = math.floor(r * (100-_d[id].tax_rate)/100)
-                p:send_system_notice(10017, {},{o.name}, {{"res",_d[id].res,r,10000}})
+                local res = resmng.LG_RESOURCE_NAME_124100000
+                if _d[id].res == 2 then
+                    res = resmng.LG_RESOURCE_NAME_124100001
+                end
+                p:send_system_notice(10017, {},
+                    {o.name,nformat(old),res,nformat(old-r),res,nformat(r),res}, 
+                    {"mutex_award",{{"res",_d[id].res,r,10000}}})
                 if num + 1 == _d[id].num  then del(id)
                 else gPendingSave.union_task[id] = _d[id] end
             end
         end
+    end
+end
+
+function nformat(num,accuracy)--数字表达式 
+    if type(num) ~= "number" then return "∞" end
+    if not accuracy then accuracy = 1 end
+    local fom = string.format("%%.%df",accuracy)
+    local num_new = math.abs(num)
+    local sign = 1 
+    if num < 0 then sign = -1 end       
+    if num_new < 1000 then 
+        return math.floor(num_new) * sign
+    elseif num_new < 1000000 then
+        return string.format(fom .. "k",num*0.001 * sign)
+    elseif num_new < 1000000000 then
+        return string.format(fom .. "M",num*0.000001 * sign)
+    else
+        return string.format(fom .. "G",num*0.000000001 * sign)
     end
 end
 

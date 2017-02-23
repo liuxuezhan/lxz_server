@@ -1,7 +1,6 @@
-module("crontab")
+module("crontab") --年月日定时器
 
 function union_donate_summary()
-    local t = os.date("*t", gTime)
     LOG("[Union] summary start")
     local n = 1
     for _, u in pairs(unionmng.get_all()) do
@@ -13,11 +12,24 @@ function union_donate_summary()
         n = n + 1
 
         u:donate_summary_day()
-        if t.wday == 1 then
-            u:donate_summary_week()
-        end
     end
     LOG("[Union] summary end")
+end
+
+function union_donate_week()
+    LOG("[Union] week start")
+    local n = 1
+    for _, u in pairs(unionmng.get_all()) do
+
+        if n % 50 == 0 then 
+            begJob() 
+            wait(1) 
+        end
+        n = n + 1
+
+        u:donate_summary_week()
+    end
+    LOG("[Union] week end")
 end
 
 
@@ -41,7 +53,7 @@ end
 function on_day_pass()
     local last_tick = _G.gSysStatus.pass_day_tick or 0
     if get_diff_days(gTime, last_tick) > 0 then
-        farm.respawn_tm = nil
+        farm.on_day_pass()
         monster.on_day_pass()  --- boss reset
         npc_city.on_day_pass() --- npc score
 
@@ -51,7 +63,7 @@ function on_day_pass()
 
         --玩家跨天
         for k, v in pairs(gPlys) do
-            if v:is_online() == true then
+            if v:is_online() then
                 if get_diff_days(gTime, v.cross_time) > 0 then
                     v:on_day_pass()
                 end
@@ -59,6 +71,8 @@ function on_day_pass()
         end
         --抽卡限制重置
         gacha_limit_t.gacha_limit_on_day_pass()
+        --周限时活动
+        weekly_activity.on_day_pass()
 
         _G.gSysStatus.pass_day_tick = gTime
         set_sys_status("pass_day_tick", gTime)
@@ -114,25 +128,6 @@ function upload_gs_info()
         end
     end
     Rpc:callAgent(center_id, "upload_gs_info", pack)
-end
-
-
-
-
-function start_action( mode )
-    if mode == 1 then
-
-    else
-
-    end
-end
-
-function stop_action( mode )
-    if mode == 1 then
-
-    else
-
-    end
 end
 
 

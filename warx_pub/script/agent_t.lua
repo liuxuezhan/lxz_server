@@ -20,13 +20,18 @@ end
 
 function agent_syn_call(self, id, func, arg)
     --print("sync all ", id, func, arg)
+    local map_id = self.pid
     if arg[1] == "union" then
         local uid = arg[2]
         local union = unionmng.get_union(uid)
         if union then
             table.remove(arg, 1)
             table.remove(arg, 1)
-            union_t[func](union, self.pid, id, unpack(arg))
+            local val  = union_t[func](union, self.pid, id, unpack(arg))
+            if id ~= 0 then
+                Rpc:callAgent(map_id, "agent_syn_call_ack", id, val or {})
+                return
+            end
         end
     elseif arg[1] == "union_relation" then
         local uid = arg[2]
@@ -35,7 +40,10 @@ function agent_syn_call(self, id, func, arg)
             table.remove(arg, 1)
             table.remove(arg, 1)
             local val = union_relation.list(union)
-            Rpc:callAgent(map_id, "agent_syn_call_ack", id, val or {})
+            if id ~= 0 then
+                Rpc:callAgent(map_id, "agent_syn_call_ack", id, val or {})
+                return
+            end
         end
     elseif arg[1] == "player" then
         local pid = arg[2]
@@ -43,10 +51,18 @@ function agent_syn_call(self, id, func, arg)
         if ply then
             table.remove(arg, 1)
             table.remove(arg, 1)
-            player_t[func](ply, unpack(arg))
+            local val = player_t[func](ply, unpack(arg))
+            if id ~= 0 then
+                Rpc:callAgent(map_id, "agent_syn_call_ack", id, val or {})
+                return
+            end
         end
-    elseif arg[1] == "union_relation" then
     end
+
+    if id~= 0 then
+        Rpc:callAgent(map_id, "agent_syn_call_ack", id, {})
+    end
+
 end
 
 function agent_syn_call_ack(self, id, ret)
@@ -590,6 +606,8 @@ do_gm_cmd["pay"] = function(param)
     local product_id = tonumber(param.product_id)
     local pay_amount = tonumber(param.pay_amount)
 
+    INFO( "[pay], pid=%s, order_id=%s, product_id=%s, pay_amount=%s", ply_id or "unknown", order_id or "unknown", product_id or "unknown", pay_amount or "unknown" )
+
     if not ply_id or not order_id or not product_id or not pay_amount then
         LOG("GM CMD pay param error ~p", param)
         return {code = 0, msg = "param error"}
@@ -598,55 +616,32 @@ do_gm_cmd["pay"] = function(param)
     local ply = getPlayer(ply_id)
     if not ply then
         LOG("GM CMD PAY did not find ply")
+        INFO( "[pay], error, pid=%d, order_id=%s, product_id=%s, pay_amount=%s, no player", ply_id, order_id, product_id, pay_amount )
         return {code = 0, msg = "no this ply"}
     end
+
     if param.order_id then
         local db = dbmng:getOne()
         local info =db.order:findOne({_id = param.order_id})
         if not info then
 
-            if not ply:is_in_can_buy_list(product_id) then
-                LOG("GM CMD PAY product did not in buy list")
-                return {code = 0, msg = "product did not in buy list"}
-            end
-
-            if not ply:check_can_buy(product_id) then
-                LOG("GM CMD PAY product id buy limited")
-                return {code = 0, msg = "product buy limited"}
-            end
-
             info = {_id = param.order_id,}
-            db.order:insert(info, {["$set"] = param}, true)
-            local prop = resmng.prop_buy[product_id]
-            if prop then
-                LOG("GM CMD PAY pid = %s order_id = %d product_id = %d", param.order_id, ply_id, param.product_id)
-                if product_id == 50 or product_id == 51 then
-                    ply:set_yueka()
-                else
-                    if prop.Gold then
-                        ply:do_inc_res_normal(6, prop.Gold, VALUE_CHANGE_REASON.GM_PAY)
-                    end
-                    if prop.ExtraGold then
-                        ply:do_inc_res_normal(6, prop.ExtraGold, VALUE_CHANGE_REASON.GM_PAY)
-                    end
+            gPendingInsert.order[ info._id ] = info 
 
-                    if prop.Item_ExtraGift then
-                        gm_add_ply_item(ply, {{"item", prop.Item_ExtraGift, 1, 10000}}, VALUE_CHANGE_REASON.GM_PAY)
-                    end
-                end
+            local result = ply:on_pay( product_id, true )
 
-                ply:process_order(product_id)
-                ply:get_can_buy_list_req()
-
+            if result.code == 1 then 
                 ply:pre_tlog("PayFlow",prop.NewPrice,(prop.Gold + (prop.ExtraGold or 0)),param.order_id ,"null")
-                return {code = 1, msg = "success"}
-            else
-                LOG("GM CMD PAY pid = %s order_id %d product_id = %d", param.order_id, ply_id, product_id)
             end
+
+            return result
+
         else
+            INFO( "[pay], error, pid=%d, order_id=%s, product_id=%s, pay_amount=%s, duplicate", ply_id, order_id, product_id, pay_amount )
             return {code = 0, msg = "already pay"}
         end
     end
+
     return {code = 0, msg = "no order info in req"}
 end
 

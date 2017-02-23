@@ -5,14 +5,14 @@ local mod = {}
 
 function mod.action( _idx )
     require("frame/debugger") 
-    local name = math.floor(gTime%1000)
-    local p = get_one2(name.."0")
+    local name = tostring(math.floor(gTime%1000))
+    local p = get_one2(name)
     Rpc:union_quit( p )
     chat( p, "@set_val=gold=100000000" )
     chat( p, "@buildtop" )
     chat( p, "@addbuf=1=-1" )
     sync( p )
-    Rpc:union_create(p,tostring(p.pid),p.account,40,1000)
+    Rpc:union_create(p,name,name,40,1000)
     wait_for_ack( p, "union_on_create" )
 
     local num,def = 1,{} 

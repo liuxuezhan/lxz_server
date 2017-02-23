@@ -187,7 +187,7 @@ function get_fight_attr(hero_id)
         ERROR("get_fight_attr: get_hero_by_uniq_id(hero_id = %s) failed.", hero_id or -1)
         return
     else
-        local pow = hero_t.calc_hero_pow( hero )
+        local pow = hero_t.calc_hero_pow_body( hero )
         local ret = {
             ["id"]    = hero.propid,
             ["num"]    = hero.hp / hero.max_hp,

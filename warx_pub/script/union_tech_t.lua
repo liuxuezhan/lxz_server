@@ -149,12 +149,12 @@ end
 
 function clear_tmdonate(ply)
     if ply._union.tmDonate > gTime then
-        ply._union.CD_doante_num  = ply._union.CD_doante_num or 0
+        ply._union.CD_donate_num  = ply._union.CD_donate_num or 0
         if can_date(ply._union.CD_doante_tm)  then ply._union.CD_doante_tm  = gTime end
 
         local g =  0
-        if ply._union.CD_doante_num < #resmng.CLEAR_DONATE_COST then
-            g = resmng.CLEAR_DONATE_COST[ply._union.CD_doante_num +1]
+        if ply._union.CD_donate_num < #resmng.CLEAR_DONATE_COST then
+            g = resmng.CLEAR_DONATE_COST[ply._union.CD_donate_num +1]
         else g = resmng.CLEAR_DONATE_COST[#resmng.CLEAR_DONATE_COST] end
 
         if (ply._union.tmDonate - gTime)< tm_cool then
@@ -164,28 +164,12 @@ function clear_tmdonate(ply)
         if ply:do_dec_res(resmng.DEF_RES_GOLD, g, VALUE_CHANGE_REASON.UNION_DONATE) then
             ply._union.donate_flag = 0
             ply._union.tmDonate = gTime
-            ply._union.CD_doante_num = ply._union.CD_doante_num + 1
+            ply._union.CD_donate_num = ply._union.CD_donate_num + 1
             gPendingSave.union_member[ply.pid] = ply._union
         end
     end
 end
 
-function add_techexp(ply, num,r)
-    if num < 0 then WARN("") return end
-
-	if r== VALUE_CHANGE_REASON.REASON_UNION_DONATE then
-		for i = DONATE_RANKING_TYPE.DAY, DONATE_RANKING_TYPE.UNION do
-			ply._union.techexp_data[i] = ply._union.techexp_data[i] + num
-		end
-	elseif r== VALUE_CHANGE_REASON.UNION_BUILDLV then
-		for i = DONATE_RANKING_TYPE.DAY_B, DONATE_RANKING_TYPE.UNION_B do
-			ply._union.techexp_data[i] = ply._union.techexp_data[i] + num
-		end
-	end
-    --ply._union.techexp_data = ply._union.techexp_data
-    --gPendingSave.union_member[ply.pid] = ply._union
-    gPendingSave.union_member[ply.pid].techexp_data = ply._union.techexp_data
-end
 
 function donate(self, idx, mode)
 
@@ -227,7 +211,7 @@ function donate(self, idx, mode)
     if not self:do_dec_res(cost[1], cost[2], VALUE_CHANGE_REASON.UNION_DONATE) then return end
 
     self:add_donate(reward[1], VALUE_CHANGE_REASON.REASON_UNION_DONATE)
-    add_techexp(self,reward[3],VALUE_CHANGE_REASON.REASON_UNION_DONATE)
+    union_member_t.add_donate_rank(self,reward[3],1)
     union_mission.ok(self,UNION_MISSION_CLASS.DONATE,1)
 
     local c = resmng.get_conf("prop_union_tech", tech.id + 1)

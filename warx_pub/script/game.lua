@@ -48,10 +48,10 @@ function do_reload()
     do_load("player/player_hero")
     do_load("player/player_build")
     do_load("player/player_task")
-    do_load("player/player_online_award")
-    do_load("player/player_month_award")
+    do_load("player/player_online_award") --签到
+    do_load("player/player_month_award") --月卡
     do_load("player/player_skill")
-    do_load("player/player_gacha")
+    do_load("player/player_gacha") --抽卡
     do_load("player/player_ache")
     do_load("player/player_title")
     do_load("player/player_pay_mall")
@@ -64,7 +64,7 @@ function do_reload()
     do_load("hero/hero_t")
     do_load("fight")
     do_load("farm")
-    do_load("restore_handler")
+    do_load("restore_handler") 
     do_load("unionmng")
     do_load("union_t")
     do_load("union2_t")
@@ -109,6 +109,8 @@ function do_reload()
     do_load("wander")
     do_load("pay_mall")
     do_load("world_event")
+    --do_load("operate_activity")
+    do_load("weekly_activity")
 
     --gTimeReload = c_get_time()
 end
@@ -439,16 +441,32 @@ end
 
 
 function test()
-    local t1 = c_msec()
-    local count = 0
-    for i = 1, 100, 1 do
-        for k, v in pairs( resmng.prop_task_detail ) do
-            count = count + 1
-            copyTab( v.FinishCondition)
-        end
-    end
-    local t2 = c_msec()
-    print( count, t2 - t1 )
+    --local info = rank_mng.get_info( 1, 4251386 )
+    --local info = rank_mng.get_info( 0, 4400036 )
+    --dumpTab( info, "rank_info" )
+
+
+    local ply = getPlayer( 580020 )
+    ply:query_log_support_arm()
+    ply:on_pay( 52 )
+
+
+    --local p = getPlayer( 4250018 )
+    --if p then
+    --    --union_mission._d[ p.uid ] = nil
+    --    union_mission.add( p.uid )
+    --end
+
+    --local t1 = c_msec()
+    --local count = 0
+    --for i = 1, 100, 1 do
+    --    for k, v in pairs( resmng.prop_task_detail ) do
+    --        count = count + 1
+    --        copyTab( v.FinishCondition)
+    --    end
+    --end
+    --local t2 = c_msec()
+    --print( count, t2 - t1 )
 
 
     --for pid, ply in pairs( gPlys ) do
@@ -471,6 +489,7 @@ function check_pending()
     end
     gRemEty = {}
     player_t.check_pending()
+    warxG_check_save()
 end
 
 function on_shutdown()

@@ -602,8 +602,7 @@ end
 -- Others   : NULL
 --------------------------------------------------------------------------------
 function calc_relive_price(self, hero)
-    --local pow = hero:calc_fight_power()
-    local pow = hero:calc_hero_pow()
+    local pow = hero:calc_hero_pow_body()
     return { 
         {resmng.CLASS_RES, resmng.DEF_RES_FOOD, math.ceil( 30 * pow ) }, 
         {resmng.CLASS_RES, resmng.DEF_RES_WOOD, math.ceil( 6 * pow ) }
@@ -637,8 +636,7 @@ function do_calc_hero_cure( self, hero, hp )
     if hp > hero.max_hp then return false, E_HP end
     if hp <= hero.hp then return false, E_HP end
 
-    --local pow = hero:calc_fight_power()
-    local pow = hero:calc_hero_pow()
+    local pow = hero:calc_hero_pow_body()
     local delta = ( hp - hero.hp ) / hero.max_hp
     if delta > 0 then
         local consume_rate = self:get_num( "CountConsumeCure_R" ) or 0
@@ -656,6 +654,8 @@ function hero_cure( self, hidx, tohp )
     local hero = self:get_hero( hidx )
     if not hero then return ack( self, "hero_cure", E_NO_HERO, 0) end
     if not hero:is_valid() then ack( self, "cure_hero", resmng.E_HERO_BUSY, mode) end
+
+    if tohp > hero.max_hp then tohp = hero.max_hp end
 
     local dura, res = self:do_calc_hero_cure( hero, tohp )
     if not dura then return  ack( self, "hero_cure", E_HP, 0 )  end
@@ -739,7 +739,11 @@ function hero_cure_acc_item(self, hero_idx, item_idx, item_num)
     local item = self:get_item(item_idx)
     if not item then return end
     local conf = resmng.get_conf("prop_item" ,item[2])
-    if not conf or conf.Class ~= ITEM_CLASS.SPEED or conf.IsCure ~= 1 then return end
+    if not conf then return end 
+
+    if conf.Class ~= ITEM_CLASS.SPEED then return end
+    if conf.Mode ~= ITEM_SPEED_MODE.CURE and conf.Mode ~= ITEM_SPEED_MODE.COMMON then return end
+
     if item[3] < item_num then return end
     
     if self:dec_item(item_idx, item_num, VALUE_CHANGE_REASON.BUILD_ACC) then
@@ -1027,6 +1031,7 @@ function hero_set_free( self, hero )
     self:hero_try_onduty( hero )
 end
 
+
 function hero_try_onduty(self, hero)
     if hero.status ~= HERO_STATUS_TYPE.FREE then return end
     if hero.build_last == 0 then return end
@@ -1057,21 +1062,7 @@ function hero_onduty(self, hero, build)
         end
         build.hero_idx = 0
     end
-
-    for _, v in pairs(hero.basic_skill) do
-        local id = v[1]
-        if id > 0 then
-            local skill = resmng.get_conf("prop_skill", id)
-            if skill and skill.Type == SKILL_TYPE.BUILD and skill.Bclass == class and (skill.Bmode == mode or skill.Bmode == 0) then
-                for _, e in pairs(skill.Effect) do
-                    if e[1] == "AddBuf" then
-                        build:do_add_buf(e[2])
-                    end
-                end
-            end
-        end
-    end
-
+    
     build.hero_idx = hero.idx
     hero.build_idx = build.idx
     hero.build_last = build.idx
@@ -1092,30 +1083,15 @@ function hero_offduty(self, hero)
     if hero.build_idx == 0 then return end
     local build = self:get_build(hero.build_idx)
 
-    if build then
-        if build.hero_idx ~= hero.idx then return Mark("hero = %d", hero._id) end
-        build.hero_idx = 0
-        local prop = resmng.get_conf("prop_build", build.propid)
-        local class = prop.Class
-        local mode = prop.Mode
-        for _, v in pairs(hero.basic_skill) do
-            local id = v[1]
-            if id > 0 then
-                local skill = resmng.get_conf("prop_skill", id)
-                if skill and skill.Bclass == class and (skill.Bmode == mode or skill.Bmode == 0) then
-                    for _, e in pairs(skill.Effect) do
-                        if e[1] == "AddBuf" then
-                            build:do_rem_buf(e[2])
-                        end
-                    end
-                end
-            end
-        end
-        if build.state == BUILD_STATE.WORK then build:recalc() end
-    end
-
     hero.build_idx = 0
     if hero.status == HERO_STATUS_TYPE.BUILDING then hero.status = HERO_STATUS_TYPE.FREE end
+
+    if build then
+        if build.hero_idx == hero.idx then
+            build.hero_idx = 0
+            if build.state == BUILD_STATE.WORK then build:recalc() end
+        end
+    end
 
     return true
 end
@@ -1282,7 +1258,7 @@ function kill_hero(self, hero_id, buff_idx)
     local hero = jail:release(hero_id)
     if not hero then return end
 
-    fpow = hero:calc_hero_pow()
+    fpow = hero:calc_hero_pow_body()
     print( "kill_hero,", hero_id, fpow, hero.hp, hero.max_hp, hero.fight_power )
 
     local buff_id = false

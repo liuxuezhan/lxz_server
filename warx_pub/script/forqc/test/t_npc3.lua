@@ -25,7 +25,7 @@ function t1.action(_idx)
     Rpc:union_create(a1, tostring(u), tostring(u % 1000),40,1000)
     WARN("create u %d ", u) 
     sync(a1)
-    join_union(a1, 10, 10)
+    join_union(a1, 8, 10)
 
     local a2 = get_one(true)   -- 创建账号A1 5级创建军团
     loadData(a2)

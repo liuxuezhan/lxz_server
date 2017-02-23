@@ -105,6 +105,7 @@ function do_reload()
     do_load("wander")
     do_load("pay_mall")
     do_load("world_event")
+    do_load("weekly_activity")
 
     --gTimeReload = c_get_time()
 end

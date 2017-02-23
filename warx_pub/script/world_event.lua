@@ -83,6 +83,35 @@ function notify_board(prop_event)
 	end
 end
 
+function check_score()
+	local flag = true
+	while flag do
+		flag = false
+		for k, v in pairs(resmng.prop_world_events or {}) do
+			local event = WorldEventData.events[v.ID]
+			if event ~= nil then
+				if event.unlock == 1 and event.is_finish == 1 and event.add_score == nil then
+				    WorldEventData.unlock_score = WorldEventData.unlock_score + v.FinishScore
+					gPendingSave.status["world_event_score"].score = WorldEventData.unlock_score
+					event.add_score = 1
+					flag = true
+				end
+
+				if event.unlock == 0 and WorldEventData.unlock_score >= v.UnlockScore then
+					event.unlock = 1
+					if event.timer > 0 then
+						timer.del(event.timer)
+					end
+					event.timer = -1
+					gPendingSave.world_event[v.ID] = event
+					flag = true
+					notify_board(v)
+				end
+			end
+		end
+	end
+end
+
 function check_time(id)
 	local prop_event = resmng.get_conf("prop_world_events", id)
 	if prop_event == nil then
@@ -93,25 +122,8 @@ function check_time(id)
 		event.unlock = 1
 		event.timer = -1
 		gPendingSave.world_event[id] = event
-
 		notify_board(prop_event)
-	end
-end
-
-function check_score()
-	for k, v in pairs(resmng.prop_world_events or {}) do
-		if WorldEventData.unlock_score >= v.UnlockScore then
-			local event = WorldEventData.events[v.ID]
-			if event ~= nil and event.unlock == 0 then
-				event.unlock = 1
-				if event.timer > 0 then
-					timer.del(event.timer)
-				end
-				event.timer = -1
-				gPendingSave.world_event[v.ID] = event
-				notify_board(v)
-			end
-		end
+		check_score()
 	end
 end
 
@@ -155,21 +167,21 @@ function process_world_event(action, ...)
 	for k, v in pairs(list or {}) do
 		if v.is_finish == 0 then
 			local prop_event = resmng.get_conf("prop_world_events", v.id)
-		    local con_tab = copyTab(prop_event.FinishCondition)
-	        table.remove(con_tab, 1)
-		    for i, j in pairs({...}) do
-		        table.insert(con_tab, j)
-		    end
+			if prop_event ~= nil then
+				local con_tab = copyTab(prop_event.FinishCondition)
+		        table.remove(con_tab, 1)
+			    for i, j in pairs({...}) do
+			        table.insert(con_tab, j)
+			    end
 
-		    local res = do_world_event[action](v, unpack(con_tab))
-		    if res == true then
-		    	gPendingSave.world_event[v.id] = v
-		    end
-		    if v.is_finish == 1 then
-		    	WorldEventData.unlock_score = WorldEventData.unlock_score + prop_event.FinishScore
-				gPendingSave.status["world_event_score"].score = WorldEventData.unlock_score
-				check_score()
-		    end
+			    local res = do_world_event[action](v, unpack(con_tab))
+			    if res == true then
+			    	gPendingSave.world_event[v.id] = v
+			    end
+			    if v.is_finish == 1 and v.unlock == 1 then
+					check_score()
+			    end
+			end
 		end
 	end
 end
@@ -297,6 +309,15 @@ end
 do_world_event[WORLD_EVENT_ACTION.OCCUPY_KING_CITY] = function(event_data)
 	event_data.cur_num = event_data.cur_num + 1
 	event_data.is_finish = 1
+	return true
+end
+
+--获得怪物积分
+do_world_event[WORLD_EVENT_ACTION.MONSTER_POINT] = function(event_data, con_num, real_num)
+	event_data.cur_num = event_data.cur_num + real_num
+	if event_data.cur_num >= con_num then
+		event_data.is_finish = 1
+	end
 	return true
 end
 

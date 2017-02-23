@@ -20,6 +20,7 @@ module_class("build_t", {
 function create(idx, pid, propid, x, y, state, tmStart, tmOver)
     local _id = string.format("%d_%d", idx, pid)
     local t = {_id=_id, map=gMapID, idx=idx, pid=pid, propid=propid, x=x, y=y, state=state or 2, tmStart=tmStart or 0, tmOver=tmOver or 0, extra={}, bufs={}, hero_idx=0 }
+    print( "create_build", _id, propid )
     return new(t)
 end
 
@@ -367,6 +368,62 @@ end
 
 function get_ef(self)
     local ef = {}
+    if self.hero_idx then
+        local role = getPlayer( self.pid )
+        if role then
+            local hero = role:get_hero( self.hero_idx )
+            if hero and hero.status == HERO_STATUS_TYPE.BUILDING and hero.build_idx == self.idx then
+                local pow = hero_t.calc_hero_pow_body( hero ) + hero_t.calc_hero_pow_skill( hero )
+                local idx = 1
+                local pconf = resmng.prop_hero_build
+                local over = true
+                while true do
+                    local conf = pconf[ idx + 1 ]
+                    if not conf then break end
+                    if pow <= conf.Power then
+                        conf = pconf[ idx ]
+                        over = false
+                        for k, v in pairs( conf.Effect or {} ) do
+                            ef[ k ] = v
+                        end
+                        break
+                    end
+                    idx = idx + 1
+                end
+                if over then
+                    conf = pconf[ idx ]
+                    if conf then
+                        for k, v in pairs( conf.Effect or {} ) do
+                            ef[ k ] = v
+                        end
+                    end
+                end
+
+                local prop = resmng.get_conf( "prop_build", self.propid )
+                local class = prop.Class
+                local mode = prop.Mode
+                for _, v in pairs(hero.basic_skill) do
+                    local id = v[1]
+                    if id > 0 then
+                        local skill = resmng.get_conf("prop_skill", id)
+                        if skill and skill.Type == SKILL_TYPE.BUILD and skill.Bclass == class and (skill.Bmode == mode or skill.Bmode == 0) then
+                            for _, e in pairs(skill.Effect) do
+                                if e[1] == "AddBuf" then
+                                    local buf = resmng.get_conf( "prop_buff", e[2] )
+                                    if buf then
+                                        for k, v in pairs(buf.Value) do
+                                            ef[ k ] = (ef[ k ] or 0) + v
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
     for _, buf in pairs(self.bufs) do
         local id = buf[1]
         local over = buf[2]

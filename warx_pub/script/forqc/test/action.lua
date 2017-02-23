@@ -174,6 +174,37 @@ function gather( p, obj )
 
 end
 
+function save_res( p, obj )
+    Rpc:union_save_res(p, obj.eid, {[1]=100*1000} ) 
+    while true do
+        sync( p )
+        for k, v in pairs( p._troop or {}  ) do
+            if v.target == obj.eid then 
+                if  v.action < 200 then 
+                    troop_acc(p,v._id) 
+                    return 
+                end
+            end
+        end
+    end
+
+end
+function get_res( p, obj )
+    Rpc:union_get_res(p, obj.eid, {[1]=100*1000} ) 
+    while true do
+        sync( p )
+        for k, v in pairs( p._troop or {}  ) do
+            if v.target == obj.eid then 
+                if  v.action < 200 then 
+                    troop_acc(p,v._id) 
+                    return 
+                end
+            end
+        end
+    end
+
+end
+
 function troop_acc( p, id)
     chat( p, "@set_val=gold=100000000" )
     sync( p )
@@ -508,7 +539,7 @@ function hero_star_up( p, h, star )
         local conf = resmng.prop_hero_star_up[ i ]
         itemnum = itemnum + conf.StarUpPrice
     end
-    itemnum = itemnum + 100
+    itemnum = itemnum + 500
 
     chat( p, "@clearitem" )
     chat( p, string.format("@additem=%d=%d", itemid, itemnum ) )
@@ -636,6 +667,8 @@ function atk_lt(p, city_lv)
     chat( p, "@set_val=gold=100000000" )
     chat( p, "@addbuf=1=-1" )
     chat(p, "@debug1")
+    local cmd = "@resetcity=" .. tostring(ACT_NAME.LOST_TEMPLE)
+    chat(p, cmd)
 
     chat(p, "@startlt")
     WARN("startlt")
@@ -696,7 +729,7 @@ function atk_lt(p, city_lv)
         if not flag then break end
     end
 
-    wait_for_ack( p, "stateTroop" ) 
+    --wait_for_ack( p, "stateTroop" ) 
 
 end
 
@@ -718,6 +751,8 @@ function atk_king(p, city_lv)
     chat( p, "@set_val=gold=100000000" )
     chat( p, "@addbuf=1=-1" )
     chat(p, "@debug1")
+    local cmd = "@resetcity=" .. tostring(ACT_NAME.KING)
+    chat(p, cmd)
 
     chat(p, "@fightkw")
     WARN("fightkw")
@@ -844,6 +879,8 @@ function atk_npc(p, city_lv)
     chat( p, "@set_val=gold=100000000" )
     chat( p, "@addbuf=1=-1" )
     chat(p, "@debug1")
+    local cmd = "@resetcity=" .. tostring(ACT_NAME.NPC_CITY)
+    chat(p, cmd)
 
     chat(p, "@starttw")
     WARN("starttw")
@@ -990,6 +1027,8 @@ function atk_ply(p)
     local s_p = get_one(true)
     loadData(s_p)
     chat( s_p, "@lvbuild=0=0=30" )
+    chat( s_p, "@addres=1=999999999" )
+    chat( s_p, "@addres=2=999999999" )
 
     local h_idx = math.random(20)
     get_hero(s_p, h_idx)
@@ -1052,5 +1091,10 @@ function join_union(ply, num, level)
         Rpc:union_apply(p, ply.uid)
         sync(p)
     end
+end
+
+function change_name( p, name )
+    chat( p, "@addres=6=200" )
+    Rpc:change_name( p, name )
 end
 

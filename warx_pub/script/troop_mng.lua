@@ -16,28 +16,30 @@ function load_data(t)
     end
 
     troop_id_map[troop._id] = troop
+    -- check_troop will handle
+    --local obj = get_ety(t.target_eid)
+    --if obj then
+    --    if t:is_go() and (t:get_base_action() == TroopAction.HoldDefense 
+    --        or t:get_base_action() == TroopAction.HoldDefenseNPC
+    --        or t:get_base_action() == TroopAction.HoldDefenseKING
+    --        or t:get_base_action() == TroopAction.HoldDefenseLT)
+    --        then
+    --        if obj == nil then return troop:back() end
 
-    local obj = get_ety(t.target_eid)
-    if obj then
-        if t:is_go() and (t:get_base_action() == TroopAction.HoldDefense 
-            or t:get_base_action() == TroopAction.HoldDefenseNPC
-            or t:get_base_action() == TroopAction.HoldDefenseKING
-            or t:get_base_action() == TroopAction.HoldDefenseLT)
-            then
-            if obj == nil then return troop:back() end
+    --    elseif t:is_settle() then
+    --        if obj and is_union_building( obj ) then
+    --            if t:get_base_action() == TroopAction.Gather then
 
-        elseif t:is_settle() then
-            if obj and is_union_building( obj ) then
-                if t:get_base_action() == TroopAction.Gather then
+    --            else
+    --                obj.my_troop_id = t._id
+    --            end
+    --            --union_build_t.mark(obj)
+    --            --save_ety(obj)
+    --        end
+    --    end
+    --else
 
-                else
-                    obj.my_troop_id = t._id
-                end
-                --union_build_t.mark(obj)
-                --save_ety(obj)
-            end
-        end
-    end
+    --end
 end
 
 function check_troop( tm_shutdown )
@@ -432,6 +434,8 @@ gTroopActionTrigger[TroopAction.SiegePlayer] = function(troop)
     end
     troop:save()
 
+    mark_support_arm( defense_troop, troop )
+
     defense_troop:handle_dead( TroopAction.SiegePlayer, 0, 0, 1 )
     defense_troop:save()
 
@@ -554,6 +558,12 @@ end
 gTroopActionTrigger[TroopAction.SiegeMonster] = function(ack_troop)
 	local dest = get_ety(ack_troop.target_eid)
     if not dest then
+        if ack_troop.owner_pid >= 10000 then
+            local p = getPlayer( ack_troop.owner_pid )
+            if p then
+                Rpc:tips( p, 1, resmng.TIPS_TARGET_DISAPPEARED, {} )
+            end
+        end
         back_sinew(ack_troop)
         ack_troop:back()
         return
@@ -581,6 +591,14 @@ gTroopActionTrigger[TroopAction.SiegeMonster] = function(ack_troop)
 	local win = fight.pvp(TroopAction.SiegeMonster, ack_troop, defense_troop)
 
     monster.calc_hp( dest, defense_troop )
+    local finfo = fight.gFightReports[ ack_troop.eid ]
+    if finfo then
+        local report = finfo[2]
+        if report then
+            local node = report[ #report ]
+            node.hp = dest.hp
+        end
+    end
 
     local dmg_prop = resmng.prop_damage_rate[resmng.BOSS]
     local dmg_rate = 0.995
@@ -644,6 +662,19 @@ gTroopActionTrigger[TroopAction.SiegeMonster] = function(ack_troop)
                     end
                 end
             end
+            local pool = {}
+            for k, v in pairs(awards[1] or {}) do
+                if v[2] then
+                    local award = pool[v[2]]
+                    if not award then
+                        award = v
+                    else
+                        award[3] = award[3] + v[3]
+                    end
+                    pool[v[2]] = award
+                end
+            end
+            awards[1] = pool
             report.its = awards
             report.replay_id = ack_troop.replay_id
 
@@ -662,7 +693,7 @@ gTroopActionTrigger[TroopAction.SiegeMonster] = function(ack_troop)
         end
 
         if dest.grade == BOSS_TYPE.NORMAL then
-            monster.respawn(dest.zx, dest.zy, grade)
+            monster.respawn(dest.zx, dest.zy, dest.grade)
         end
 
         local prop = resmng.prop_world_unit[dest.propid]
@@ -700,6 +731,12 @@ gTroopActionTrigger[TroopAction.SiegeMonster] = function(ack_troop)
         end
     end
 
+    --周限时活动
+    local prop_monster = resmng.prop_world_unit[mid]
+    if prop_monster ~= nil then
+        weekly_activity.process_weekly_activity(WEEKLY_ACTIVITY_ACTION.ATK_MONSTER, prop_monster.Clv, 1)
+    end
+    
 end
 
 --攻击任务npc怪物
@@ -732,7 +769,6 @@ gTroopActionTrigger[TroopAction.SiegeTaskNpc] = function(ack_troop)
     end
     defense_troop = {owner_eid=0, owner_pid=0,arms={[0]=arm}, sx=dx, sy=dy, owner_propid=monster_id}
     local win = fight.pvp(TroopAction.SiegeTaskNpc, ack_troop, defense_troop)
-    local ts = ack_troop:back()
 
     local live_total = 0
     local all_total = 0
@@ -776,6 +812,8 @@ gTroopActionTrigger[TroopAction.SiegeTaskNpc] = function(ack_troop)
     end
     ack_troop:handle_dead( TroopAction.SiegeTaskNpc, dmg_rate, 0, 1 )
     local result = ack_troop:statics()
+    local ts = ack_troop:back()
+
 
     local A = getPlayer( ack_troop.owner_pid )
     if A then
@@ -852,8 +890,13 @@ gTroopActionTrigger[TroopAction.SupportRes] = function(troop)
     if ply.uid > 0 and ply.uid == dest.uid then
         local tax = troop:get_extra("tax")
         local ratio = (100 - tax) / 100
-        dest:add_bonus("mutex_award", troop.goods, troop.goods_reason, ratio)
+        local goods = troop.goods
         troop.goods = nil
+        for _, v in pairs( goods ) do
+            v[3] = math.floor( v[3] * ratio )
+        end
+        dest:add_bonus("mutex_award", goods, troop.goods_reason)
+        dest:send_system_support_res( ply, goods )
     end
 end
 
@@ -919,6 +962,7 @@ gTroopActionTrigger[TroopAction.Gather] = function(troop)
 
                     else
                         troop:back()
+
 
                         --local make = dtroop:get_extra("speed") * (gTime - dtroop:get_extra("start"))
                         --dest.val = dest.val - make
@@ -1638,7 +1682,7 @@ gTroopActionTrigger[TroopAction.SiegeNpc] = function(ack_troop)
     end
 
     local p = get_ety(ack_troop.owner_eid)
-    union_task.ok(p,dest,UNION_TASK.NPC) --攻击胜利后领取军团悬赏任务
+    union_task.ok(p,dest,UNION_TASK.NPC) --攻击后领取军团悬赏任务
 
     if is_npc_city(dest) then
         npc_city.after_fight(ack_troop, defense_troop)
@@ -1880,7 +1924,7 @@ gTroopActionTrigger[TroopAction.SiegeMonsterCity] = function(ack_troop)
 
     monster_city.after_fight(ack_troop, defense_troop)
 
-    if not check_atk_win(ack_troop, defense_troop) then
+    --if not check_atk_win(ack_troop, defense_troop) then
         local prop = resmng.prop_mc_stage[ack_troop.mcStage]
         if prop then
             if ack_troop.mcStage == prop.NextStage then
@@ -1888,16 +1932,32 @@ gTroopActionTrigger[TroopAction.SiegeMonsterCity] = function(ack_troop)
                 if union then
                     local city = union_t.get_monster_city(dest.eid)
                     if city then
-                        monster_city.send_act_award(city)
+                        --monster_city.send_act_award(city)
+                        if is_last_mc_fight(ack_troop, defense_troop) then
+                            monster_city.send_union_act_award(union)
+                        end
                         monster_city.rem_mc_by_npc(dest.eid)
                     end
                 end
             end
         end
-    end
+    --end
 
     deal_no_arm_troop(ack_troop, defense_troop) 
 
+end
+
+function is_last_mc_fight(ack_troop, defense_troop)
+    local union = unionmng.get_union(defense_troop.owner_uid)
+    if union then
+        local mc_trs = union.mc_trs or {}
+        mc_trs[ack_troop._id] = nil
+        union.mc_trs = mc_trs
+        if get_table_valid_count(mc_trs or {}) == 0 then
+            return true
+        end
+    end
+    return false
 end
 
 function check_atk_win(atkTroop, defenseTroop)
@@ -2547,6 +2607,7 @@ function troop_timer(tsn, tid)
     troop.tmSn = 0
 
     if is_monster(troop.target_eid) then
+        if not troop:is_ready() then return end 
         local monster = get_ety(troop.target_eid)
         if not monster then -- monster already gone
             troop_mng.dismiss_mass(troop)
@@ -2631,6 +2692,7 @@ function do_kick_mass(troop, pid)
             Rpc:stateTroop( A, { _id=troop._id, delete=true} )
 
             local one = troop_mng.create_troop(TroopAction.JoinMass, A, T, arm)
+            one.curx, one.cury = get_ety_pos( T )
             one:back()
 
             if troop.action == TroopAction.SiegeMonster then A:inc_sinew( 10 ) end
@@ -2715,6 +2777,44 @@ function deal_no_arm_troop(atk_troop, def_troop)
 
     if is_ply(def_troop.owner_eid) then
         def_troop:rem_no_arm_troop()
+    end
+end
+
+function count_soldier( arm )
+    if not arm then return 0 end
+    local count = 0
+    for _, v in pairs( arm or {} ) do
+        count = count + v
+    end
+    return count
+end
+
+function mark_support_arm( troop, Atroop )
+    if troop.action ~= TroopAction.DefultFollow then return end
+    if not ( troop.owner_pid >= 10000 ) then return end
+    local infos = {}
+    for pid, arm in pairs( troop.arms or {} ) do
+        if pid >= 10000 and pid ~= troop.owner_pid then
+            local ply = getPlayer( pid )
+            if ply then
+                local nlive = count_soldier( arm.live_soldier )
+                local ndead = count_soldier( arm.dead_soldier )
+                table.insert(infos, { ply.pid, ply.name, ply.photo, nlive+ndead, ndead } )
+            end
+        end
+    end
+    if #infos > 0 then
+        local log = { time=gTime, infos=infos }
+        local atker = get_ety( Atroop.owner_eid )
+        if atker and is_ply( atker ) then
+            log.pid = atker.pid
+            log.name = atker.name
+            log.photo = atker.photo
+        else
+            log.propid = Atroop.owner_propid
+        end
+
+        dbmng:getOne().log_support_arm:update( {_id=troop.owner_pid}, { ["$push"]={ log={["$each"]={log}, ["$slice"]=-50 }} }, true )
     end
 end
 

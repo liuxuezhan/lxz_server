@@ -59,13 +59,13 @@ function set_one(p,cur)
     local pid = t.param[1]
     if t and (t.what == "build" or t.what == "cure")and p.pid~=pid  then
         local w = getPlayer(pid)
+        local idx = t.param[2]
         if  w then
             local tm = w:get_val("TimeHelp")
             if u.help[cur].limit > num then
                 if t.what == "cure" then
                     w:do_cure_acc(tm)
                 else
-                    local idx = t.param[2]
                     local build = w:get_build(idx)
                     build:acceleration(tm)
                 end
@@ -73,17 +73,17 @@ function set_one(p,cur)
                 if t.what == "build" then 
                     local build = w:get_build(idx)
                     local c = resmng.get_conf("prop_build", build.propid)
-                    if build.state == BUILD_STATE.UPGADE then
-                        Rpc:tips(w,1,resmng.UNION_BEHELPED_TYPE_BUILD,{p.name,c.Lv + 1,c.Name}) 
+                    if build.state == BUILD_STATE.UPGRADE then
+                        Rpc:tips(w,1,resmng.UNION_BEHELPED_TYPE_BUILD,{p.name,c.Name,c.Lv + 1}) 
                     elseif build.state == BUILD_STATE.WORK then
                         if c.Mode == 9 then
                             local id = build:get_extra_val("forge")
                             c = resmng.get_conf("prop_equip", id)
-                            Rpc:tips(w,1,resmng.UNION_BEHELPED_TYPE_EQUIP,{p.name,c.Lv,c.Name}) 
+                            Rpc:tips(w,1,resmng.UNION_BEHELPED_TYPE_EQUIP,{p.name,c.Name,c.Lv}) 
                         elseif c.Mode == 10 then
                             local id = build:get_extra( "id" )
                             c = resmng.get_conf("prop_tech", id)
-                            Rpc:tips(w,1,resmng.UNION_BEHELPED_TYPE_TECH,{p.name,c.Lv,c.Name}) 
+                            Rpc:tips(w,1,resmng.UNION_BEHELPED_TYPE_TECH,{p.name,c.Name,c.Lv}) 
                         end
                     end
                 elseif t.what == "cure" then 

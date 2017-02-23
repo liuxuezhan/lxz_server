@@ -40,6 +40,7 @@ VALUE_CHANGE_REASON = {
     BUY_RES = 5,
     GM_PAY = 6,
     GM_CMD = 7,
+    CHAT_NOTICE = 8,
 
     -- [10, 19] Item
     USE_ITEM   = 10,
@@ -230,6 +231,28 @@ UNION_TASK =      ---军团悬赏任务类型
     NUM = 3,
 }
 
+UNION_DONATE_LIMIT =60000 
+UNION_DONATE_B_LIMIT =7 
+
+UNION_DONATE_WEEK = 
+{
+    ONE = 2013161, 
+    TWO = 2013162, 
+    THREE = 2013163, 
+    B_ONE = 2013164, 
+    B_TWO = 2013165, 
+    B_THREE = 2013166, 
+}
+
+DONATE_RANKING_TYPE = {
+    DAY = 1, --科技日排行
+    WEEK = 2, --科技周排行
+    UNION = 3, --科技历史排行
+    DAY_B = 4, --建筑日排行
+    WEEK_B = 5, --建筑周排行
+    UNION_B = 6, --建筑历史排行
+}
+
 UNION_ITEM =      ---军团礼包来源
 {
     POS = 1,      --- 充值
@@ -286,8 +309,8 @@ CLASS_UNIT = {
 }
 
 ACT_NAME = {
-    MONSTER_CITY = 1,
-    NPC_CITY = 2,
+    NPC_CITY = 1,
+    MONSTER_CITY = 2,
     LOST_TEMPLE = 3,
     KING = 4,
     REFUGEE = 5,
@@ -310,8 +333,8 @@ RANK_MODE = {
 }
 
 ACT_TYPE ={
-    BOSS = 1,
-    NPC = 2,
+    NPC = 1,
+    BOSS = 2,
     MC = 3,
     KING = 4,
     LT = 5,
@@ -700,7 +723,7 @@ TroopTimerCallBack = {
 }
 
 MassTime = {
-    Level1 = 30,
+    Level1 = 300,
     Level2 = 900,
     Level3 = 1800,
     Level4 = 3600,
@@ -765,7 +788,6 @@ EidType = {
     CLOWN = 12,
     Wander = 13,
     Refugee = 14,
-
 }
 
 --聊天频道枚举
@@ -782,14 +804,6 @@ TECH_DONATE_TYPE = {
     SENIOR = 3,     --高级
 }
 
-DONATE_RANKING_TYPE = {
-    DAY = 1, --科技日排行
-    WEEK = 2, --科技周排行
-    UNION = 3, --科技历史排行
-    DAY_B = 4, --建筑日排行
-    WEEK_B = 5, --建筑周排行
-    UNION_B = 6, --建筑历史排行
-}
 
 ---军团科技层级开放配置，必须比最后一层配置多一个值，不可达到的极限值
 TechValidCond = {0,10,100,200,1000}
@@ -922,6 +936,9 @@ BUILD_STATE = {
     UPGRADE = 4,   -- 升级中
     FIX     = 5,   -- 修理中
 }
+
+
+
 CANCEL_BUILD_FACTOR = 0.6  -- 取消建筑操作返还的资源比率(向上取整)
 DESTROY_FIELD_FACTOR = 20  -- 拆除野地耗时:Lv*20
 -- Build end.
@@ -1031,6 +1048,8 @@ UNION_EVENT = { --  军团事件类型
     HELP = "help",
     RELATION = "relation",
 }
+
+
 
 EVENT_TYPE = {
     UNION_CREATE = 1,
@@ -1300,7 +1319,7 @@ UNION_MISSION_CLASS = {
     BUILD       =1,
     HELP        =2,
     DONATE      =3,
-    ACTIVE      =4,
+    ACTIVE      =4, --积分
     GATHER      =5,
     POW         =6,
     GOD         =7,
@@ -1492,6 +1511,7 @@ WORLD_EVENT_ACTION = {
     UNION_TECH_NUM    = 7,         --军团数量
     GATHER_NUM        = 8,         --采集量
     OCCUPY_KING_CITY  = 9,         --占领王城
+    MONSTER_POINT     = 10,        --击杀怪物获得积分
 }
 
 g_world_event_relation = {
@@ -1504,9 +1524,42 @@ g_world_event_relation = {
     ["union_halltech_lv"] = WORLD_EVENT_ACTION.UNION_TECH_NUM,              --军团数量
     ["gather_num"] = WORLD_EVENT_ACTION.GATHER_NUM,             --采集量
     ["occupy_king_city"] = WORLD_EVENT_ACTION.OCCUPY_KING_CITY,       --占领王城
+    ["monster_point"] = WORLD_EVENT_ACTION.MONSTER_POINT,   --击杀怪物获得积分
 }
 
 -------------------------------------------------------------------------------------
+
+
+-------------------------------------------------------------------------------------
+--运营活动类型
+OPERATE_ACTIVITY_ACTION = {
+    HEISHI            = 1,         --黑市购买
+    WUZISHICHANG      = 2,         --物资市场
+}
+
+g_operate_activity_relation = {
+    ["black_market"] = OPERATE_ACTIVITY_ACTION.BLACK_MARKET,       --黑市
+    ["res_market"] = OPERATE_ACTIVITY_ACTION.RES_MARKET,         --物资市场
+}
+
+-------------------------------------------------------------------------------------
+
+
+-------------------------------------------------------------------------------------
+--周限时活动
+WEEKLY_ACTIVITY_ACTION = {
+    GATHER            = 1,         --采集
+    TRAIN_ARM         = 2,         --训练士兵
+    POWER_UP          = 3,         --提升战斗力
+    ATK_MONSTER       = 4,         --攻击怪物
+    GACHA             = 5,         --抽卡
+    RES_MARKET        = 6,         --物资市场
+    BLACK_MARKET      = 7,         --黑市
+    KILL_ARM          = 8,         --攻击玩家击杀士兵
+}
+
+-------------------------------------------------------------------------------------
+
 
 
 
@@ -1556,22 +1609,22 @@ ETY_TROOP =
 
 -- 积分商城类型
 POINT_MALL = {
-    MONSTER = 1,    --怪物
-    MANOR = 2,      --领地
+    MANOR = 1,      --领地
+    MONSTER = 2,    --怪物
     RELIC = 3,      --遗迹塔
     KING = 4,       --国王
 }
 
 MALL_PAY_TYPE =
 {
-    "PayMonster",
     "PayManor",
+    "PayMonster",
     "PayRelic",
 }
 
 POINT_MALL_TYPE = {
-    "monster_gold",
     "manor_gold",
+    "monster_gold",
     "relic_gold",
     "kw_gold",
 }
@@ -1796,6 +1849,10 @@ PLAYER_INIT = {
     yueka_level = 0,        --月卡档次
 
     world_event_get_id = {},    --已经领取奖励的世界事件的ID
+
+    weekly_activitiy_num = 0,   --周限时活动计数
+    weekly_activity_score = {0,0,0,0,0,0},  --周限时活动积分
+    weekly_activity_award = {0,0,0,0,0,0},  --周限时活动领奖标记
 }
 
 map_city_zone = {

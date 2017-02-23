@@ -82,8 +82,11 @@ function buy_res(self, id)
     nfresh = nfresh + 1
 
     self:add_bonus("mutex_award", {{"res", mode, nres}}, VALUE_CHANGE_REASON.BLACK_MARKET_BUY)
+
     --任务
     task_logic_t.process_task(self, TASK_ACTION.MARKET_BUY_NUM, 2, 1)
+    --周限时活动
+    weekly_activity.process_weekly_activity(WEEKLY_ACTIVITY_ACTION.RES_MARKET, mode, nres)
 
     extra[1] = total
     extra[2] = free
@@ -112,5 +115,7 @@ function buy_res(self, id)
 
     dumpTab(extra, "resource_buy")
     market.extra = extra
+
+    reply_ok(self, "buy_res", combo )
 end
 

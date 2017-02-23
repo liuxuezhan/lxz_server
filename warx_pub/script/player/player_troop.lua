@@ -65,8 +65,8 @@ end
 
 
 -- WARNING!!! this function should be call just before create_troop, because here will deduct arm
-function check_arm(self, arm)
-    if self:is_troop_full() then
+function check_arm(self, arm, action)
+    if self:is_troop_full(action) then
         self:add_debug("CountTroop")
         return
     end
@@ -254,7 +254,7 @@ function siege(self, dest_eid, arm)
     if action == 0 then return end
     if self:check_troop_action( dest, action ) then return end
 
-    if not self:check_arm(arm) then return end
+    if not self:check_arm(arm, action) then return end
     local troop = troop_mng.create_troop(action, self, dest, arm)
 
     if troop.action ==  TroopAction.SiegeNpc then
@@ -277,9 +277,8 @@ function siege_task_npc(self, task_id, dest_eid, x, y, arm)
         WARN("任务不存在")
         return
     end
-    if not self:check_arm(arm) then
-        return
-    end
+    local action = TroopAction.SiegeTaskNpc
+    if not self:check_arm(arm, action) then return end
 
     local prop_task = resmng.prop_task_detail[task_id]
     if prop_task == nil then
@@ -287,7 +286,7 @@ function siege_task_npc(self, task_id, dest_eid, x, y, arm)
     end
     local key, monster_id = unpack(prop_task.FinishCondition)
 
-    local troop = troop_mng.create_troop(TroopAction.SiegeTaskNpc, self, self, arm)
+    local troop = troop_mng.create_troop(action, self, self, arm)
     troop.target_eid = dest_eid
     troop.target_propid = monster_id
     troop.dx = x
@@ -304,8 +303,9 @@ end
 function gather(self, dest_eid, arm)
     local dest = get_ety(dest_eid)
     if not dest then return end
+    local action = TroopAction.Gather
     if is_union_superres(dest.propid) then
-        if not union_build_t.can_troop( TroopAction.Gather, self, dest_eid ) then return end
+        if not union_build_t.can_troop( action, self, dest_eid ) then return end
     end
     if not self:can_move_to(dest.x, dest.y)  then return self:add_debug("can not move by castle lv") end
 
@@ -317,10 +317,10 @@ function gather(self, dest_eid, arm)
     if not mode then return end
     if self:get_castle_lv() < Gather_Level[ mode ] then return self:add_debug("can not gather by castle level") end
 
-    if self:check_troop_action( dest, TroopAction.Gather ) then return end
+    if self:check_troop_action( dest, action) then return end
 
-    if not self:check_arm(arm) then return end
-    local troop = troop_mng.create_troop(TroopAction.Gather, self, dest, arm)
+    if not self:check_arm(arm, action) then return end
+    local troop = troop_mng.create_troop(action, self, dest, arm)
     troop:go()
 
     if is_res(dest) then farm.mark(dest) end
@@ -331,7 +331,7 @@ function spy(self, dest_eid)
     local dest = get_ety(dest_eid)
     if not dest then return end
     if not self:can_move_to(dest.x, dest.y)  then return self:add_debug("can not move by castle lv") end
-    if self:is_troop_full() then return self:add_debug("CountTroop") end
+    if self:is_troop_full(TroopAction.Spy) then return self:add_debug("CountTroop") end
 
     if self:check_troop_action( dest, TroopAction.Spy ) then return end
 
@@ -365,8 +365,9 @@ function camp(self, x, y, arm)
         return
     end
 
-    if not self:check_arm(arm) then return end
-    local troop = troop_mng.create_troop(TroopAction.Camp, self, self, arm)
+    local action = TroopAction.Camp
+    if not self:check_arm(arm, action) then return end
+    local troop = troop_mng.create_troop(action, self, self, arm)
     troop.target_eid = 0
     troop.dx = x+1
     troop.dy = y+1
@@ -381,9 +382,9 @@ end
 
 --集结
 function union_mass_create(self, dest_eid, wait_time, arm)
+    --if wait_time == 30 then wait_time = 300 end
     if self:check_mass_time(wait_time) == false then return end
-    if not config.release and wait_time == 900 then wait_time = 300 end
-    --wait_time = 30
+
     if self.uid == 0 then return end
 
     local D = get_ety(dest_eid)
@@ -401,6 +402,8 @@ function union_mass_create(self, dest_eid, wait_time, arm)
                 return
             end
         end
+
+        if self:get_sinew() < 10 then return end
 
         D.aimed = self.eid
         D:mark()
@@ -471,7 +474,7 @@ function union_mass_create(self, dest_eid, wait_time, arm)
         return
     end
 
-    if not self:check_arm(arm) then return end
+    if not self:check_arm(arm, action) then return end
     local troopA = troop_mng.create_troop(action, self, D, arm)
     troopA.arms[ self.pid ].tm_join = gTime
     troopA.is_mass = 1
@@ -633,11 +636,12 @@ function union_mass_join(self, dest_eid, dest_troop_id, arm)
     if self:check_troop_action( dest, troopT.action) then return end
 
     if troopT.action == TroopAction.SiegeMonster then
-        if self.sinew < 10 then return end
+        if self:get_sinew() < 10 then return end
     end
 
     arm.heros = {}
-    if not self:check_arm(arm)  then return end
+
+    if not self:check_arm(arm, troopT.action)  then return end
     local troopA = troop_mng.create_troop(TroopAction.JoinMass, self, T, arm)
     troopA.dest_troop_id = dest_troop_id
     troopA:go()
@@ -709,7 +713,7 @@ function declare_tw_req(self, dest_eid)
     local dest = get_ety(dest_eid)
     if not dest then return end
 
-    if self:is_troop_full() then
+    if self:is_troop_full(TroopAction.Declare) then
         self:add_debug("出征队列达到上限")
         return
     end
@@ -818,8 +822,9 @@ function support_arm(self, dest_eid, arm)
     end
 
     arm.heros = {}
-    if not self:check_arm(arm) then return end
-    local troop = troop_mng.create_troop(TroopAction.SupportArm, self, dest, arm)
+    local action = TroopAction.SupportArm
+    if not self:check_arm(arm, action) then return end
+    local troop = troop_mng.create_troop(action, self, dest, arm)
     troop:go()
 
     local troopT = dest:get_my_troop()
@@ -843,7 +848,7 @@ function support_res(self, dest_eid, res)
     if not is_ply(dest) then return end
     if self.uid == 0 then return end
     if dest.uid ~= self.uid then return end
-    if self:is_troop_full() then self:add_debug("CountTroop") return end
+    if self:is_troop_full(TroopAction.SupportRes) then self:add_debug("CountTroop") return end
 
     local limit_load = 0
     local tax = 100
@@ -900,7 +905,7 @@ function union_save_res(self, dest_eid, res)
     local dest = get_ety(dest_eid)
     if not dest then return end
 
-    if self:is_troop_full() then self:add_debug("CountTroop") return end
+    if self:is_troop_full(TroopAction.SaveRes) then self:add_debug("CountTroop") return end
 
     for mode, num in pairs(res or {} ) do
         num = math.ceil( num )
@@ -952,7 +957,7 @@ function union_get_res(self, dest_eid, res)
     local dest = get_ety(dest_eid)
     if not dest then return end
 
-    if self:is_troop_full() then self:add_debug("CountTroop") return end
+    if self:is_troop_full(TroopAction.GetRes) then self:add_debug("CountTroop") return end
 
     if not union_build_t.can_troop( TroopAction.GetRes, self, dest_eid, res) then return end
 
@@ -1022,38 +1027,11 @@ function hold_defense(self, dest_eid, arm)
         action = TroopAction.HoldDefenseLT
     end
 
-    if not self:check_arm(arm) then return end
+    if not self:check_arm(arm, action) then return end
     local troop = troop_mng.create_troop(action, self, dest, arm)
     troop:go()
     union_hall_t.battle_room_update_ety(OPERATOR.UPDATE, dest)
 end
-
-
-
---侦查
---function spy(self, dest_eid)
---    if self:is_eid_valid(dest_eid) == false then return end
---    if self:is_troop_full() then return end
---    --todo
---
---    local dest_obj = get_ety(dest_eid)
---    local sx, sy = get_ety_pos(self)
---    local dx, dy = get_ety_pos(dest_obj)
---
---    local troop = troop_mng.create_troop(self.eid, dest_eid, TroopAction.Spy, sx, sy, dx, dy)
---    self:add_busy_troop(troop._id)
---    troop.owner_pid = self.pid
---    troop.union_id = self:get_uid()
---
---    if is_ply(dest_obj) then troop.dest_uid = dest_obj.uid else troop.dest_uid = 0 end
---
---    troop.speed = (FixTroopSpeed.Spy / 60)
---    troop:start_march()
---
---
---    --local dest = get_ety(dest_eid)
---    --if not dest then return end
---end
 
 
 function union_build(self, dest_eid, arm)
@@ -1064,8 +1042,9 @@ function union_build(self, dest_eid, arm)
         return
     end
 
-    if not self:check_arm(arm)  then return end
-    local troop = troop_mng.create_troop(TroopAction.UnionBuild, self, dest, arm)
+    local action = TroopAction.UnionBuild
+    if not self:check_arm(arm, action)  then return end
+    local troop = troop_mng.create_troop(action, self, dest, arm)
     troop:go()
 end
 
@@ -1785,16 +1764,12 @@ function do_cure_acc( self, sec )
     if self.tm_cure then
         local remain = self.cure_over - gTime - sec
         if remain < 0 then remain = 0 end
+        local old_over = self.cure_over
         self.cure_over = gTime + remain
-        self.cure_start = self.cure_start + sec
-        if self.cure_start > gTime then self.cure_start = gTime end
+        self.cure_start = self.cure_start + ( self.cure_over - old_over )
 
-        local tm = timer.get( self.tm_cure )
-        if tm then
-            local dec = tm.over - self.cure_over
-            if dec > 0 then
-                timer.acc( self.tm_cure, dec )
-            end
+        if timer.is_valid( self.tm_cure, self.pid ) then
+            timer.adjust( self.tm_cure, self.cure_over )
         end
     end
 end
@@ -1833,8 +1808,18 @@ function cure_cancel( self )
 end
 
 
-function is_troop_full(self)
-    if #self.busy_troop_ids  >= self:get_val("CountTroop") then return true end
+function is_troop_full(self, action)
+    local cur = #self.busy_troop_ids
+    local max = self:get_val( "CountTroop" )
+    if cur < max then 
+        return false
+    else
+        if cur == max then
+            local conf = resmng.get_conf( "prop_troop_action", math.floor( action % 100 ) )
+            if conf and conf.CanSpecial == 1 then return false end
+        end
+    end
+    return true
 end
 
 
@@ -1890,6 +1875,15 @@ function check_troop_action( self, dest, action )
             Rpc:tips( self, 1, resmng.TIPS_SHELL_ROOKIE, {})
         end
         return result
+    end
+end
+
+function query_log_support_arm( self )
+    local db = dbmng:getOne()
+    local info = db.log_support_arm:findOne( {_id=self.pid} )
+    if info then
+        Rpc:query_log_support_arm( self, info.log or {} )
+        return
     end
 end
 

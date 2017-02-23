@@ -55,6 +55,7 @@ function get_online_award(self)
     local ship = self:get_shipyard()
     if ship ~= nil then
         ship:set_extra("next_time", self:get_online_award_next_time())
+        ship:set_extra("prev_time", gTime )
     end
     self:add_count( resmng.ACH_COUNT_DAILY_REWARD, 1 )
     --任务

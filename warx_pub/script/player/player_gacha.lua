@@ -122,14 +122,19 @@ function do_gacha(self, type)
 		task_num = 10
 	elseif type == GACHA_TYPE.HUNXIA_ONE then
 		self:do_hunxia_one(msg_send)
+		task_type = 3
 		task_num = 1
 	elseif type == GACHA_TYPE.HUNXIA_TEN then
 		self:do_hunxia_ten(msg_send)
+		task_type = 3
 		task_num = 10
 	end
 
 	task_logic_t.process_task(self, TASK_ACTION.GACHA_MUB, task_type, task_num)
     self:add_count( resmng.ACH_COUNT_GACHA, task_num )
+
+    --周限时活动
+    weekly_activity.process_weekly_activity(WEEKLY_ACTIVITY_ACTION.GACHA, task_type, task_num)
 
 	msg_send.gift = self.gacha_gift
 	msg_send.type = type

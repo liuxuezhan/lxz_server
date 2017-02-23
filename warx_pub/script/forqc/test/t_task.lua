@@ -114,26 +114,24 @@ end
 
 local branch_list =
 {
-    130020114,
-    130020228,
-    130020325,
-    130020431,
-    130020526,
-    130020644,
-    130020764,
-    130020819,
-    130020906,
+    [130020114] = 1,
+    [130020228] = 1,
+    [130020325] = 1,
+    [130020431] = 1,
+    [130020526] = 1,
+    [130020644] = 1,
+    [130020764] = 1,
+    [130020819]= 1,
+    [130020906] = 1,
 }
 
 function process_task(ply, task)  --处理身上的单个任务
     if task.task_status == TASK_STATUS.TASK_STATUS_ACCEPTED then
         print("process task ", task.task_id, task.task_status)
         do_task(ply, task)
-    elseif task.task_status == TASK_STATUS.TASK_STATUS_CAN_FINISH then
-        if get_table_valid_count(ply.branch_list or {}) == 6 and ply.trunk_id == 130011548 then
-            return "ok"
-        end
+    end
 
+    if task.task_status == TASK_STATUS.TASK_STATUS_CAN_FINISH then
         if task.task_id == 130011548 then
             ply.trunk_id = 130011548
         end
@@ -143,9 +141,14 @@ function process_task(ply, task)  --处理身上的单个任务
             if not list[task.task_id] then
                 list[task.task_id] = task.task_id
             end
+            ply.branch_list = list
         end
 
-        print("finish task ", task.task_id)
+        if get_table_valid_count(ply.branch_list or {}) == 8 and ply.trunk_id == 130011548 then
+            return "ok"
+        end
+
+        print("finish task ", task.task_id,  get_table_valid_count(ply.branch_list or {}))
         finish_task(ply, task)
     end
 end
@@ -170,11 +173,11 @@ function gen_next_task(ply, task)
     end
 
     table.insert(task_id_array, 130020101)
-    --table.insert(task_id_array, 130020201)
+    table.insert(task_id_array, 130020201)
     table.insert(task_id_array, 130020301)
     table.insert(task_id_array, 130020401)
     table.insert(task_id_array, 130020501)
-    --table.insert(task_id_array, 130020601)
+    table.insert(task_id_array, 130020601)
     table.insert(task_id_array, 130020701)
     table.insert(task_id_array, 130020801)
     --table.insert(task_id_array, 130020901)
@@ -235,11 +238,11 @@ do_action[TASK_ACTION.RECRUIT_SOLDIER] = function(ply, task_id, con_type, con_le
     if con_type == 0 then
         con_type = 1
     end
-    chat( ply, "@set_val=gold=100000000" )
     local arm_id = get_arm_id_by_mode_lv(con_type, con_level, ply.culture)
     chat(ply, "@buildall")
     local b = get_build(ply, 2, con_type)
     chat(ply, "@all")
+    chat( ply, "@set_val=gold=100000000" )
     for i = 1 , math.ceil(con_num / 1000), 1 do
         local train_num =  1000
         if con_num < 1000 then
@@ -306,28 +309,38 @@ do_action[TASK_ACTION.OPEN_RES_BUILD] = function(ply, task_id, num )
 end
 
 do_action[TASK_ACTION.ATTACK_LEVEL_MONSTER] = function(ply, task_id, con_type, con_level, con_num)
+    chat( ply, "@addscore=999999999" )
     if con_level >= 30 and con_level < 200 then
-        chat( ply, "@addscore=9999999" )
+        chat( ply, "@addscore=999999999" )
         chat( ply, "@daypass" )
     end
 
     if con_level == 200 then
+        atk_king(ply, 1)
+        chat( ply, "@addscore=100000005" )
         chat( ply, "@endkw" )
     end
 
     local cmd = "@genboss" .. "=" .. tostring(con_type) .. "=" ..tostring(con_level)
     Rpc:chat( ply, 0, cmd, 0 )
     wait_for_ack(ply, "gen_boss_eid_ack")
-    chat( ply, "@initarm" )
-    local arms = {}
-    for id, num in pairs(ply._arm) do
-        arms[id] = num
-    end
-    chat( ply, "@addbuf=1=-1" )
-    Rpc:siege( ply, ply.boss_eid, { live_soldier=arms } )
-    sync(ply)
-    acc_troop(ply, ply.boss_eid)
+    --for i = 1, con_level, 30 do
+      --  chat( ply, "@initarm" )
+        chat( ply, "@all" )
+        local arms = {}
+        for id, num in pairs(ply._arm) do
+            arms[id] = num
+        end
+        chat( ply, "@addsinew=10" )
+        chat( ply, "@debug1" )
+        chat( ply, "@addbuf=1=-1" )
+        Rpc:siege( ply, ply.boss_eid, { live_soldier=arms } )
+        sync(ply)
+        acc_troop(ply, ply.boss_eid)
+        acc_troop(ply, ply.boss_eid)
+    --end
     ply.boss_eid = nil
+    print("atk monster ", con_level)
 end
 
 function acc_troop(ply, eid)
@@ -431,14 +444,21 @@ do_action[TASK_ACTION.HERO_LEVEL_UP] = function(ply, task_id, level)
 end
 
 do_action[TASK_ACTION.LEARN_HERO_SKILL] = function(ply, task_id, con_pos)
-    local hero = get_hero( ply, 1 )
+    local item_list = 
+    {
+        5001101,
+        5001102,
+        5001103,
+        5001104,
+        5001105,
+        5001106,
+    }
+    local hero = get_hero( ply, 21 )
     if not hero then return "nohero" end 
-    local item = get_item(ply, 5001206)
-    if not item then return "no item" end
-    use_hero_skill_item( ply, hero, con_pos, item[1], 1 )
-    local item = get_item(ply, 5001206)
-    if not item then return "no item" end
-    use_hero_skill_item( ply, hero, con_pos, item[1], 1 )
+    for i= 1, con_pos, 1 do
+        hero_star_up( ply, hero, i )
+        use_hero_skill_item( ply, hero, item_list[i], 100 , i)
+    end
 end
 
 do_action[TASK_ACTION.GET_EQUIP] = function(ply, task_id, con_grade, con_num)
@@ -509,6 +529,9 @@ do_action[TASK_ACTION.SPY_PLAYER_CITY] = function(ply, task_id, con_num, con_acc
 end
 
 do_action[TASK_ACTION.ATTACK_PLAYER_CITY] = function(ply, task_id, con_num, con_win, con_acc)
+    if con_num >= 50 then
+        con_num = 50
+    end
     for i = 1, con_num , 1 do
         chat( ply, "@all" )
         chat( ply, "@addbuf=1=-1" )
@@ -528,10 +551,13 @@ do_action[TASK_ACTION.GATHER] = function(ply, task_id, con_type, con_num, con_ac
 end
 
 do_action[TASK_ACTION.LOOT_RES] = function(ply, task_id, con_type, con_num, con_acc)
-    if con_acc == 1 then
-        local ach_index = "ACH_TASK_ATK_RES"..con_type
-        local cmd = "@addcount=" .. tostring(resmng[ach_index]) .. "=" .. tostring(con_num)
-        chat(ply, cmd)
+    --if con_acc == 1 then
+    --    local ach_index = "ACH_TASK_ATK_RES"..con_type
+    --    local cmd = "@addcount=" .. tostring(resmng[ach_index]) .. "=" .. tostring(con_num)
+    --    chat(ply, cmd)
+    --end
+    for i = 1, 5, 1 do
+        atk_ply(ply)
     end
 end
 

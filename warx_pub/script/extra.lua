@@ -1,26 +1,1 @@
-
-
-if true then
-    for m, v in pairs( player_t._sns ) do
-        print( "test, timer", v.what )
-    end
-end
-a=1
-b=2
-
-resmng.prop_buff.[1].Value = { SpeedRes_R = 1000 }
-resmng.prop_buff.[1].Value = { SpeedRes_R = 1000 }
-resmng.prop_buff.[1].Value = { SpeedRes_R = 1000 }
-resmng.prop_buff.[1].Value = { SpeedRes_R = 1000 }
-resmng.prop_buff.[1].Value = { SpeedRes_R = 1000 }
-
-
-
-function start_action( idx )
-    local node = resmng.prop_action[ idx ]
-
-end
-
-function stop_action( idx )
-
-end
+function chat(self, channel, word, sn)    --gm    if gTime < (self.nospeak_time or 0 ) then        print("ply not allowd speak", self.pid , self.nospeak_time or 0)        return    end    local lvip = nil    if self:is_vip_enable() then lvip = self.vip_lv end    local officer = self.officer    local speaker = { pid = self.pid, photo = self.photo, name = self.name, vip = lvip , officer = officer, title = self.title}    --print("is valid string ", is_valid_name(word))    if config.IsEnableGm == 1 then        local ctr = string.sub(word, 1, 1)        if ctr == "@" then            self:gm_user(string.sub(word, 2, -1))            return        end    else        if not is_valid_name(word) then            ack(self, "chat", resmng.E_DISALLOWED, 0)        end    end    local u = self:union()    if u then speaker.uname = u.alias end    --if officer == KING then     --    word = string.format( "<color=#ffb804ff>%s</color>", word )    --end    if channel == resmng.ChatChanelEnum.World then        add_chat({pid=-1,gid=_G.GateSid}, channel, 0, speaker, word, 0, {} )    elseif channel == resmng.ChatChanelEnum.Union then        local u = self:union()        if not u then return end        local pids = {}        local _members = u:get_members()        for pid, v in pairs(_members or {}) do            if v:is_online() then                table.insert(pids, pid)            end        end        add_chat(pids, channel, u.uid, speaker,  word, 0, {} )    elseif channel == resmng.ChatChanelEnum.Culture then        local pids = {}        local culture = self.culture        for pid, v in pairs(gPlys) do            if v.culture == culture and v:is_online() then                table.insert(pids, pid)            end        end        player_t.add_chat(pids, channel, culture, speaker, word, 0, {})    elseif channel == resmng.ChatChanelEnum.Notice then        if not self:dec_item_by_item_id( resmng.ITEM_NOTICE, 1, VALUE_CHANGE_REASON.USE_ITEM ) then return end        player_t.add_chat({pid=-1,gid=_G.GateSid}, channel, 0, speaker, word, 0, {} )    end    reply_ok(self, "chat", sn)end

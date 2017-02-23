@@ -216,7 +216,6 @@ function construct(self, x, y, build_propid)
 
     if node and node.Lv == 1 then
         if self:condCheck(node.Cond) and self:consCheck(node.Cons) then
-            if not self:check_build_queue( node.Dura ) then return end
             local id = string.format("_%d", self.pid)
             local idx = self:get_new_idx(node.Class, node.Mode)
             if idx then
@@ -233,9 +232,10 @@ function construct(self, x, y, build_propid)
                     end
                 end
 
-                self:consume(node.Cons, 1, VALUE_CHANGE_REASON.BUILD_CONSTRUCT)
-
                 local dura = math.ceil( node.Dura / ( 1 + self:get_num( "SpeedBuild_R" ) * 0.0001 ) )
+                if not self:check_build_queue( dura ) then return end
+
+                self:consume(node.Cons, 1, VALUE_CHANGE_REASON.BUILD_CONSTRUCT)
                 local t = build_t.create(idx, self.pid, node.ID, x, y, BUILD_STATE.CREATE, gTime, gTime+dura)
                 t.tmSn = timer.new("build", dura, self.pid, idx)
                 self:set_build(idx, t)
@@ -275,11 +275,12 @@ function upgrade(self, idx)
             local dst = resmng.prop_build[ id ]
             if dst then
                 if self:condCheck(dst.Cond) and self:consCheck(dst.Cons) then
-                    if not self:check_build_queue( dst.Dura ) then return end
 
                     if dst.Class == BUILD_CLASS.RESOURCE then self:reap( idx ) end
 
                     local dura = math.ceil( dst.Dura / ( 1 + self:get_num( "SpeedBuild_R" ) * 0.0001 ) )
+                    if not self:check_build_queue( dura ) then return end
+
                     self:consume(dst.Cons, 1, VALUE_CHANGE_REASON.BUILD_UPGRADE)
                     build.state = BUILD_STATE.UPGRADE
                     build.tmStart = gTime
@@ -315,6 +316,7 @@ function do_upgrade(self, build_idx)
     if node then
         local id = node.ID + 1
         local dst = resmng.get_conf("prop_build", id)
+        self:add_to_do( "notify_build_upgrade", id)
         if dst then
             self:ef_chg(node.Effect or {}, dst.Effect or {})
             build.propid = dst.ID
@@ -323,6 +325,8 @@ function do_upgrade(self, build_idx)
                 local delta = dst.Pow - ( node.Pow or 0 )
                 self.pow_build = self.pow_build + delta
                 self:inc_pow( delta )
+                --周限时活动
+                weekly_activity.process_weekly_activity(WEEKLY_ACTIVITY_ACTION.POWER_UP, 1, delta)
             end
 
             if dst.Class == BUILD_CLASS.RESOURCE then
@@ -346,18 +350,21 @@ function do_upgrade(self, build_idx)
 
                     self:try_add_tit_point(resmng.ACH_LEVEL_CASTLE)
 
+
                     if dst.Lv >= 6 then self:rem_buf( resmng.BUFF_SHELL_ROOKIE ) end
 
                     --开启建筑
                     for k, v in pairs(resmng.prop_citybuildview) do
                         if v.OpenCastleLv ~= nil then
                             if dst.Lv >= v.OpenCastleLv then
-                                local build_id = v.ID * 1000 + 1
+                                --local build_id = v.ID * 1000 + 1
+                                local build_id = v.PropId
                                 local bs = self:get_build()
                                 local conf = resmng.get_conf("prop_build", build_id)
                                 local idx_new = self:calc_build_idx(conf.Class, conf.Mode, 1)
                                 if bs[ idx_new ] == nil then
                                     local build_new = build_t.create(idx_new, self.pid, build_id, 0, 0, BUILD_STATE.CREATE)
+                                    self:add_to_do( "notify_build_upgrade", build_id)
                                     bs[ idx_new ] = build_new
                                     if build_id == 21001 then
                                         --self:open_online_award()
@@ -385,7 +392,7 @@ function do_upgrade(self, build_idx)
                         local src = resmng.get_conf( "prop_build", dst.ID - 1)
                         local offset = dst.Param.Defence - src.Param.Defence
                         build:set_extra( "hp", hp + offset )
-                        build:wall_fire( 0 )
+                        self:wall_fire( 0 )
                     end
                 end
             end
@@ -495,6 +502,8 @@ function doTimerBuild(self, tsn, build_idx, arg_1, arg_2, arg_3, arg_4)
                 if node.Pow then
                     self.pow_build = (self.pow_build or 0) + node.Pow
                     self:inc_pow(node.Pow or 0)
+                    --周限时活动
+                    weekly_activity.process_weekly_activity(WEEKLY_ACTIVITY_ACTION.POWER_UP, 1, node.Pow)
                 end
                 if node.Effect then self:ef_add(node.Effect) end
                 if node.Class == BUILD_CLASS.RESOURCE then
@@ -507,7 +516,7 @@ function doTimerBuild(self, tsn, build_idx, arg_1, arg_2, arg_3, arg_4)
 
                 if build.propid == resmng.BUILD_BLACKMARKET_1 then self:refresh_black_marcket() end
                 if build.propid == resmng.BUILD_MANOR_1 or build.propid == resmng.BUILD_MONSTER_1 or build.propid == resmng.BUILD_RELIC_1 then self:refresh_mall() end
-                if build.propid == resmng.BUILD_RESOURCESMARKET_1 then self:refresh_res_market() end
+                if build.propid == resmng.BUILD_RESOURCESMARKET_7 then self:refresh_res_market() end
 
             end
         elseif state == BUILD_STATE.UPGRADE then
@@ -595,6 +604,9 @@ function doTimerBuild(self, tsn, build_idx, arg_1, arg_2, arg_3, arg_4)
                     --任务
                     task_logic_t.process_task(self, TASK_ACTION.RECRUIT_SOLDIER, conf.Mode, conf.Lv, extra.num)
                     task_logic_t.process_task(self, TASK_ACTION.GET_RES, conf.Mode)
+
+                    --周限时活动
+                    weekly_activity.process_weekly_activity(WEEKLY_ACTIVITY_ACTION.TRAIN_ARM, conf.Lv, extra.num)
 
                     build.extra = {}
                 end
@@ -791,7 +803,7 @@ function reap(self, idx)
     local n = self:get_build(idx)
     if n then
         if n.state ~= BUILD_STATE.WORK then return end
-        if gTime - n.tmStart < 60 then
+        if gTime - n.tmStart < 20 then
             --WARN(n.tmStart..":时间没到gTime:"..gTime)
             return
         end
@@ -924,6 +936,9 @@ function train(self, idx, armid, num, quick)
             local soldier_type = anode.Mode
             local soldier_level = anode.Lv
             task_logic_t.process_task(self, TASK_ACTION.RECRUIT_SOLDIER, soldier_type, soldier_level, num)
+
+            --周限时活动
+            weekly_activity.process_weekly_activity(WEEKLY_ACTIVITY_ACTION.TRAIN_ARM, soldier_level, num)
         end
     end
 end
@@ -950,6 +965,9 @@ function draft(self, idx)
         --任务
         task_logic_t.process_task(self, TASK_ACTION.RECRUIT_SOLDIER, conf.Mode, conf.Lv, extra.num)
         task_logic_t.process_task(self, TASK_ACTION.GET_RES, conf.Mode)
+
+        --周限时活动
+        weekly_activity.process_weekly_activity(WEEKLY_ACTIVITY_ACTION.TRAIN_ARM, conf.Lv, extra.num)
 
         build.extra = {}
     end
@@ -1121,6 +1139,7 @@ function do_learn_tech(self, academy, tech_id)
 
     local tech = self.tech
     -- remove old tech
+    local delta = conf.Pow or 0
     if conf.Lv > 1 then
         local old_tech_id = tech_id - 1
         local old_conf = resmng.get_conf("prop_tech", old_tech_id)
@@ -1133,6 +1152,8 @@ function do_learn_tech(self, academy, tech_id)
                 table.remove(tech, idx)
                 self:ef_chg(old_conf.Effect, conf.Effect )
                 self:dec_pow(old_conf.Pow or 0)
+
+                delta = delta - old_conf.Pow
             else
                 return
             end
@@ -1151,6 +1172,8 @@ function do_learn_tech(self, academy, tech_id)
     task_logic_t.process_task(self, TASK_ACTION.STUDY_TECH_MUB, 1)
     task_logic_t.process_task(self, TASK_ACTION.STUDY_TECH)
     task_logic_t.process_task(self, TASK_ACTION.PROMOTE_POWER, 2, conf.Pow)
+    --周限时活动
+    weekly_activity.process_weekly_activity(WEEKLY_ACTIVITY_ACTION.POWER_UP, 2, delta)
 end
 
 
@@ -1648,6 +1671,8 @@ function black_market_buy(self, idx)
                 end
                 --任务
                 task_logic_t.process_task(self, TASK_ACTION.MARKET_BUY_NUM, 1, 1)
+                --周限时活动
+                weekly_activity.process_weekly_activity(WEEKLY_ACTIVITY_ACTION.BLACK_MARKET, 1, conf.Point)
             end
         end
         dumpTab(build.extra, "black_market")
@@ -1662,7 +1687,8 @@ function black_market_buy(self, idx)
                     self:add_bonus("mutex_award", conf.Buy, VALUE_CHANGE_REASON.BLACK_MARKET_BUY)
                     --任务
                     task_logic_t.process_task(self, TASK_ACTION.MARKET_BUY_NUM, 1, 1)
-
+                    --周限时活动
+                    weekly_activity.process_weekly_activity(WEEKLY_ACTIVITY_ACTION.BLACK_MARKET, 1, conf.Point)
                     local rate = math.random(1, TOTAL_RATE)
                     local cur = 0
                     for k, v in pairs(resmng.prop_black_market) do

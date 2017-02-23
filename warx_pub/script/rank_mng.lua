@@ -48,8 +48,6 @@ function load_rank( which )
         node.ranks = ranks      -- key to index
         node.time = gTime
 
-        print( "load_rank, refresh", which )
-
         return node.time, node.tops
     end
     return gTime, {}
@@ -75,6 +73,20 @@ function get_info( is_person, id, init )
             return info
         end
 
+        db = dbmng:getGlobal()
+        local info = db.unions:findOne( {_id=id} )
+        if info then
+            local map = info.map
+            if map then
+                local info =  remote_func(map, "get_rank_detail", {"union", id})
+                if info then
+                    gRankInfoUnion[ id ] = info
+                    if not init then gPendingInsert.rank_info_union[ id ] = info end
+                    return info
+                end
+            end
+        end
+
     elseif is_person == 1 then
         local info = gRankInfoPlayer[ id ]
         if info then return info end
@@ -92,6 +104,20 @@ function get_info( is_person, id, init )
             info._id = nil
             gRankInfoPlayer[ id ] = info
             return info
+        end
+
+        db = dbmng:getGlobal()
+        local info = db.players:findOne( {_id=id} )
+        if info then
+            local map = info.map
+            if map then
+                local info = remote_func(map, "get_rank_detail", {"player", id})
+                if info then
+                    gRankInfoPlayer[ id ] = info
+                    if not init then gPendingInsert.rank_info_player[ id ] = info end
+                    return info
+                end
+            end
         end
     end
     return {}
@@ -118,12 +144,24 @@ function add_data( idx, key, data, init )
     end
 
     if rank then
-        if rank == 0 then
-            node.time = gTime
+        if rank == 0 and node.ranks and node.tops then
+            rank = node.ranks[ key ]
+            if rank then
+                node.time = gTime
+                local info = node.tops[ rank ]
+                if info then
+                    if info[2][1] == key then
+                        info[1] = data[1]
+                    end
+                end
+            end
+
         elseif rank <= node.ntop then
             node.tops = nil
         end
     end
+
+
 end
 
 function rem_data( idx, key )

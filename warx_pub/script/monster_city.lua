@@ -122,6 +122,7 @@ function declare_atk_mc(self, ply)
     local be_atk_list = self.be_atk_list or {}
     be_atk_list[ply.pid] = ply.pid
     self.be_atk_list = be_atk_list
+    etypipe.add(self)
 end
 
 function rem_mc_by_npc(npc_id)
@@ -155,6 +156,7 @@ function gen_monster_city(atkEid)
             print("debug  city x y", x, y)
             m.x = x
             m.y = y
+            m.uid = npcCity.uid
             m.endTime = gTime + 30 * 60
             m.atk_eid = npcCity.eid
             citys[m.atk_eid] = m.eid
@@ -237,6 +239,7 @@ function gen_defense_city(city, prop)
     m.startTime = gTime
     m.endTime = gTime + 30 * 60
     m.band_eid = city.eid
+    m.uid = city.uid
     city.defend_id = m.eid
     local band_citys = citys[m.band_eid] or {}
     band_citys[eid] = eid
@@ -266,7 +269,11 @@ end
 
 function gen_monster_prop(city)
     if city.class == MC_TYPE.ATK_NPC then
-        local armId = city.propid % (1000 * 1000) * 1000 + (city.state or 1)
+        local idx = city.state or 1
+        if idx == 0 then
+            idx = 1
+        end
+        local armId = city.propid % (1000 * 1000) * 1000 + idx
         local prop = resmng.prop_monster_city[armId]
         return prop
     end
@@ -452,6 +459,9 @@ function gen_monster_and_atk(city, prop)
         local union = unionmng.get_union(destCity.uid)
         if union then
             tr.mcStage = union.monster_city_stage
+            local mc_trs = union.mc_trs or {}
+            mc_trs[tr._id] = tr._id
+            union.mc_trs = mc_trs
         end
         tr.mcid = prop.ID
         tr.owner_id = city.eid
@@ -582,9 +592,20 @@ function after_been_atk(atkTroop, defenseTroop)
             end
         end
         rem_ety(mc.eid)  -- 打赢消失
+    else
+        etypipe.add(mc)
     end
     if is_ply(atkTroop.owner_eid) then
         atkTroop:back()
+    end
+end
+
+function send_union_act_award(union)
+    for k, v in pairs(union.mc_act_ply or {}) do
+        local ply = getPlayer(k)
+        if ply then
+            ply:send_system_notice(10006, {}, {}, union.mc_reward_pool or {})
+        end
     end
 end
 
@@ -627,9 +648,9 @@ function after_fight(atkTroop, defenseTroop)
            -- timer.del(union.mc_timer)
        end
 
-       if mc then
-           send_act_award(mc)
-       end
+       --if mc then
+           --send_act_award(mc)
+       --end
 
        if is_ply(defenseTroop.owner_eid) then
            defenseTroop:back()
@@ -666,7 +687,7 @@ end
 
 
 function add_mc_reward(self, union, rewards) 
-    local pool = self.mc_reward_pool or {}
+    local pool = union.mc_reward_pool or {}
     for k, v in pairs(rewards) do
         if v[2] then
             if v[2] == 11 then
@@ -681,19 +702,26 @@ function add_mc_reward(self, union, rewards)
             pool[v[2]] = award
         end
     end
-    self.mc_reward_pool = pool
+    union.mc_reward_pool = pool
 end
 
 
 --增加活跃玩家列表
 function add_act_plys(mc, troop)
-    local acts = mc.act_plys or {}
-    if troop then
-        for pid, v in pairs(troop.arms) do
-            acts[pid] = pid
+    local union = unionmng.get_union(troop.owner_uid)
+    if union then
+        --local acts = mc.act_plys or {}
+        local acts = union.mc_act_ply or {}
+        if troop then
+            for pid, v in pairs(troop.arms) do
+                if not acts[pid] then
+                    acts[pid] = pid
+                end
+            end
         end
+        union.mc_act_ply = acts
     end
-    mc.act_plys = acts
+    --mc.act_plys = acts
 end
 
 function after_atk_ply(atkTroop, defenseTroop)

@@ -24,7 +24,8 @@ end
 
 function new(what, sec, ...)
     --if what == "tlog" then pause() end
-    if sec >= 0 and _funs[ what ] then
+    if _funs[ what ] then
+        if sec < 0 then sec = 0 end
         sec = math.ceil( sec )
         local id = false
         while true do

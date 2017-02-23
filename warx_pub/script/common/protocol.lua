@@ -483,6 +483,12 @@ Server = {
     get_world_event_award = "int event_id",
     get_world_event_process = "",
 
+
+    query_troop_coming = "",
+    query_log_support_arm = "",
+
+    on_pay = "int propduct_id",
+
 }
 
 
@@ -815,6 +821,7 @@ Client = {
     target_task_list_resp = "",
 
     notify_buf = "int bufid, int start, int over",
+    notify_build_upgrade = "int build_idx",
 
     support_notify = "pack infos",
     sync = "int sn",
@@ -823,6 +830,10 @@ Client = {
     test_struct = "int id, Array Struct UnionMember member",    
     get_world_event_process_resp = "pack info",
     ety_info_ack = "pack info", --测试使用
+
+    query_troop_coming = "pack info",
+    query_log_support_arm = "pack info",
+
 
 }
 

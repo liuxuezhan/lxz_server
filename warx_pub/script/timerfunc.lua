@@ -10,6 +10,7 @@ _funs["toMongo"] = function( host, port, db, tips)
 end
 
 _funs["cron"] = function(sn)
+    INFO( "crontab_timer, sn = %d, %s", sn, os.date("%c", gTime) )
     timer.cron_base_func()
 
     set_sys_status( "tick", gTime )
@@ -328,6 +329,9 @@ _funs["union_build_construct"] = function(sn, eid)
         dest.tmOver_b = 0
         union_build_t.recalc_build( dest )
     end
+end
+_funs["union_mission"] = function(sn, uid)
+    union_mission.add(uid)
 end
 
 

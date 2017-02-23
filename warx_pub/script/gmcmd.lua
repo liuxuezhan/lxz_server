@@ -209,6 +209,7 @@ function genboss(pids, mode, lv)
         while true
             do
                 local propid, x, y, eid = monster.force_born(math.floor(ply.x/16), math.floor(ply.y/16), tonumber(lv))
+                print("boss info ", propid, eid)
                 if eid then
                     Rpc:gen_boss_eid_ack(ply, eid)
                     break
@@ -246,7 +247,43 @@ function ety_info(pids, eid)
     end
 end
 
+function add_sinew(pids, num)
+    num = tonumber(num)
+    local ply = getPlayer(pids[1])
+    if ply then
+        ply:inc_sinew(num)
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
+function on_pay(pids, num)
+    num = tonumber(num)
+    local ply = getPlayer(pids[1])
+    if ply then
+        ply:on_pay(num)
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
+function update_title(pids, num)
+    num = tonumber(num)
+    local ply = getPlayer(pids[1])
+    if ply then
+        ply:try_upgrade_titles()
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
 function addcount(pids, s_id, s_num)
+    if not s_id or not s_num then
+        return {code = 0, msg = "param error"}
+    end
     local id = tonumber(s_id)
     local num = tonumber(s_num)
     local ply = getPlayer(pids[1])
@@ -321,5 +358,8 @@ gmcmd_table = {
     ["resetcity"] = {4, reset_city, "重置城市", "resetcity=mode"},
     ["occcitynum"] = {4, occ_city_num, "占领npc数量", "occcitynum"},
     ["etyinfo"] = {4, ety_info, "ety 信息", "etyinfo=eid"},
+    ["addsinew"] = {4, add_sinew, "加体力", "addsinew=num"},
+    ["updatetit"] = {4, update_title, "更新称号", "updatetit"},
+    ["onpay"] = {4, on_pay, "充值", "onpay=id"},
 
 }

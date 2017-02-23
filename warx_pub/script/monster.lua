@@ -291,6 +291,7 @@ function gen_task_boss(tx, ty, propid)
     local prop = resmng.prop_world_unit[propid] 
     if prop then
         local x, y = get_boss_pos_in_zone(tx, ty, prop, BOSS_TYPE.NORMAL)
+        print("boss pos", x, y)
         if x then
             local eid = get_eid_monster()
             if eid then
@@ -696,12 +697,12 @@ end
 
 function loop()
     local idx = scan_id
-    for i = 1, 80, 1 do
+    for i = 1, 320, 1 do
         if idx >= 6400 then idx = 0 end
+        scan_id = idx
         if distrib[ idx ] then
             local zx = idx % 80
             local zy = math.floor(idx / 80)
-            scan_id = idx
             do_check(zx, zy, true)
         end
         idx = idx + 1
@@ -867,6 +868,8 @@ function increase_kill_score(m)
     local score = resmng.prop_world_unit[m.propid].Boss_point or 0
     bossKillScore.score = (bossKillScore.score or 0 ) + score
     gPendingSave.status[ "bossKillScore" ].score =  bossKillScore.score
+    --世界事件
+    world_event.process_world_event(WORLD_EVENT_ACTION.MONSTER_POINT, score)
 end
 
 function troop_home(m, dt)
@@ -1033,10 +1036,11 @@ end
 
 function make_reward_num(key, rewards, factor, pid, monster)
     if factor == 0 then 
-        factor = 0.01
+        factor = 0.000001
     end
     local newFactor = 1
-    if key == "base" then
+    local cp_rewards = copyTab(rewards)
+    if key == "base" or key == "extra" or key == "extra_single" then
         local ply = getPlayer(pid)
         local prop = resmng.prop_world_unit[monster.propid]
         if ply and prop then
@@ -1044,9 +1048,32 @@ function make_reward_num(key, rewards, factor, pid, monster)
         end
 
     end
-    for k, v in pairs(rewards or {}) do
-        v[3] =  math.floor( v[3] * factor * newFactor)
+    for k, v in pairs(cp_rewards or {}) do
+        local num = v[3] * factor * newFactor
+        local num1 = math.floor(num)
+        if math.random(100) < ((num - num1) * 100) then
+            num1 = num1 + 1
+        end
+        if num1 == 0 then
+            cp_rewards[k] = nil
+        else
+            v[3] =  num1
+        end
     end
+    local pool =  {}
+    for k, v in pairs(cp_rewards or {}) do
+        if v[2] then
+            local award = pool[v[2]]
+            if not award then
+                award = v
+            else
+                award[3] = award[3] + v[3]
+            end
+            pool[v[2]] = award
+        end
+    end
+    return pool
+
 end
 
 function trans_num(reward, rate)
@@ -1105,19 +1132,21 @@ function get_jungle_reward(self, pid, mkdmg, totalDmg , hp_lost, is_mass)
         if k == "fix" then  -- fix award
             rewards[ k ] = trans_num(val , rate)
         elseif k == "base"  then  -- base  extra award
-            make_reward_num(k, val, mkdmg / totalDmg * hp_lost, pid, self )
+            local value = make_reward_num(k, val, mkdmg / totalDmg * hp_lost, pid, self )
             if totalDmg == 0 then
-                rewards[ k ] = trans_num(val , rate)
+                rewards[ k ] = trans_num(value , rate)
             else
-                rewards[ k ] = trans_num(val , rate)
+                rewards[ k ] = trans_num(value , rate)
             end
         elseif k == "extra" then
             if is_mass == 1 then
-                rewards[ k ] = val
+                local value = make_reward_num(k, val, mkdmg / totalDmg * hp_lost, pid, self )
+                rewards[ k ] = value
             end
         elseif k == "extra_single" then
             if not is_mass  or is_mass == 0 then
-                rewards[ k ] = val
+                local value  = make_reward_num(k, val, mkdmg / totalDmg * hp_lost, pid, self )
+                rewards[ k ] = value
             end
         elseif k == "final" and self.hp <= 0 then
             rewards[k] = {}
@@ -1126,6 +1155,7 @@ function get_jungle_reward(self, pid, mkdmg, totalDmg , hp_lost, is_mass)
             end
         end
     end
+
     return rewards
 end
 

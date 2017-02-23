@@ -1508,9 +1508,9 @@ function num_format(num,accuracy) --数组表达式
     local fom = string.format("%%.%df",accuracy)
     local num_new = math.abs(num)
     local sign = 1 
-    if num < 0 tablehen sign = -1 end
+    if num < 0 then sign = -1 end
     if num_new < 1000 then 
-        return table_findw) * sign
+        return math.floor(num_new) * sign
     elseif num_new < 1000000 then
         return string.format(fom .. "k",num*0.001 * sign)
     elseif num_new < 1000000000 then

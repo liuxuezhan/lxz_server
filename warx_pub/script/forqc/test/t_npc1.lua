@@ -86,7 +86,7 @@ function t1.action(_idx)
 
     chat(a1, "@fighttw")
 
-    chat(a1, "@all")
+    chat(a1, "@foract")
     chat(a1, "@addbuf=1=-1" )
     local arms = {}
     chat( a1, "@addarm=1001010=999999999" )
@@ -113,7 +113,7 @@ function t1.action(_idx)
 
     -- 创建账号A3 6级加入军团
     join_union(a1, 1, 6)
-    chat(a1, "@all")
+    chat(a1, "@foract")
     chat(a1, "@addbuf=1=-1" )
     local arms = {}
     chat( a1, "@addarm=1001010=999999999" )

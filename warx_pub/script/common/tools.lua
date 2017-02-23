@@ -185,6 +185,13 @@ function math.round(num)
         return math.floor(num - 0.5)
     end
 end
+-- 保留小数点后N位
+function math.round_decimal(src_num,decimal)
+    local _ret = src_num
+    local _dig_pow = math.pow(10,decimal)
+    _ret = math.round(src_num*_dig_pow)/_dig_pow
+    return _ret
+end
 
 function basename(path)
     if type(path) ~= "string" then
@@ -197,6 +204,7 @@ end
 
 --清理table数据
 function table.clear(tb)
+    if type(tb) ~= "table" then return end
     for k,v in pairs(tb) do
         tb[k] = nil
     end
@@ -479,7 +487,7 @@ etypipe[EidType.Monster]=       {"propid", "eid", "x", "y", "hp", "level","born"
 etypipe[EidType.UnionBuild] =   {"propid", "eid", "x", "y", "uid","alias", "sn","idx","hp","state","name","val","culture","holding","speed_b","speed_f","tmStart_b","tmStart_f","speed_g","tmStart_g" }
 etypipe[EidType.NpcCity]=       {"propid", "eid", "x", "y", "state", "startTime","endTime", "unions", "randomAward", "declareUnions", "getAwardMember"}
 etypipe[EidType.KingCity]=      {"propid", "eid", "x", "y", "state", "status","startTime", "endTime", "occuTime","uid", "uname", "uflag", "ualias"}
-etypipe[EidType.MonsterCity]=   {"propid", "eid", "x", "y", "state", "class", "startTime", "endTime"}
+etypipe[EidType.MonsterCity]=   {"propid", "eid", "x", "y", "state", "class", "startTime", "endTime", "uid", "be_atked_list"}
 etypipe[EidType.Camp]    =      {"propid", "eid", "x", "y", "pid", "uid", "name", "uname", "uflag"}
 etypipe[EidType.LostTemple]=    {"propid", "eid", "x", "y", "state", "startTime", "endTime", "uid", "uname", "born", "uflag", "ualias"}
 etypipe[EidType.CLOWN]=         {"propid", "eid", "x", "y" }

@@ -13,6 +13,15 @@ function OnRpc.onLogin( p, pid, name )
     p.name = name
     p.online = gTime
     gPlys[ pid ] = p
+
+    Rpc:getTime(p,1)
+
+    if type( idx ) == "number" then
+        local chg_name = string.format("R_%s", idx )
+        if name ~= chg_name then
+            change_name( p, chg_name )
+        end
+    end
 end
 
 function OnRpc.getTime( p,tag,tm,sm)
@@ -27,6 +36,7 @@ function OnRpc.loadData( p, info )
         for k, v in pairs( val ) do
             p[ k ] = v
         end
+        print( string.format( "pid=%d, x=%d, y=%d, name=%s", p.pid, p.x, p.y, p.name ) )
     elseif key == "build" then
         local bs = {}
         for k, v in pairs( val ) do
@@ -40,7 +50,6 @@ function OnRpc.loadData( p, info )
             p._troop[ v._id] = v
         end
     else
-        dumpTab( info, "loadData" )
         p[ "_" .. key ] = val
     end
 end
@@ -164,21 +173,23 @@ function OnRpc.union_load(p,pack)
     elseif pack.key == "mass" then
     elseif pack.key == "aid" then
     elseif pack.key == "tech" then
-        u.tech = pack.val.info 
+        p.utech = pack.val.info 
     elseif pack.key == "donate" then
         p.donate = pack.val
     elseif pack.key == "union_donate" then
-        u.donate = pack.val
+        p.union_donate = pack.val
     elseif pack.key == "fight" then--room
     elseif pack.key == "build" then
-        for _, v in pairs(pack.val.build or {} ) do
-            if not u.build then u.build = {} end 
-            u.build[v.idx] = v 
-        end
-    elseif pack.key =="buildlv" then--军团建筑捐献
-        if not u.buildlv then u.buildlv = {} end
+        p.buildlv = {} 
         for k, v in pairs(pack.val) do
-            u.buildlv[v.class]=v
+            if k == "build" then
+                for _, v in pairs(pack.val.build or {} ) do
+                    if not u.build then u.build = {} end 
+                    u.build[v.idx] = v 
+                end
+            else
+                p.buildlv[k]=v
+            end
         end
 
     elseif pack.key == "mall" then
@@ -254,6 +265,20 @@ end
 
 function OnRpc.ety_info_ack(p, info)
     p.ety_info = info
+end
+
+function OnRpc.union_tech_info(p, info)
+    p.union_tech_info = info
+end
+
+function OnRpc.union_donate_info(p, info)
+    p.union_donate_info = info
+end
+function OnRpc.union_buildlv_donate(p, info)
+    p.union_buildlv_donate = info
+end
+function OnRpc.union_tech_info(p, pack)
+    p.union_tech_info = pack 
 end
 
 return OnRpc

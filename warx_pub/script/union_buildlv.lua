@@ -155,7 +155,7 @@ function add_buildlv_donate(ply, mode)
     for _, v in pairs(c.BonusID) do
         ply:add_bonus(v[1], v[2], VALUE_CHANGE_REASON.UNION_BUILDLV )
     end
-    union_tech_t.add_techexp(ply,c.DonateExp,VALUE_CHANGE_REASON.UNION_BUILDLV)
+    union_member_t.add_donate_rank(ply,c.DonateExp,2)
 
     ply._union.buildlv[mode].tm = gTime
     gPendingSave.union_member[ply.pid].buildlv = ply._union.buildlv

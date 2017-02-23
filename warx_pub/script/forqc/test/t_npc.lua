@@ -96,7 +96,7 @@ function t1.action(_idx)
 
     chat(p, "@fighttw")
 
-    chat(p, "@all")
+    chat(p, "@foract")
     local arms = {}
     chat( p, "@addarm=1001010=999999999" )
     for id, num in pairs(p._arm) do
@@ -208,7 +208,7 @@ function t1.action(_idx)
     chat(p1, "@fighttw")
 
     arms = {}
-    chat(p1, "@all")
+    chat(p1, "@foract")
     chat( p1, "@addarm=1001010=999999999" )
     for id, num in pairs(p1._arm) do
         if num >  force_tb[city_lv][1] then

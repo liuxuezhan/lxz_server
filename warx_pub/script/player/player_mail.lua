@@ -1,41 +1,51 @@
 module("player_t")
 
 function mail_read_by_class( self, class, mode, lv )
-    local db = self:getDb()
-    local sel = {}
-    sel.to = self.pid
-    sel.tm_read = 0
-    sel.class = class
-    if mode ~= -1 then 
-        sel.mode = mode 
-        if lv ~= -1 then sel.lv = lv end
+    local ms = self:get_mail()
+    if ms then
+        for id, m in pairs( ms ) do
+            if m.class == class then
+                if mode == -1 or m.mode == mode then
+                    if lv == -1 or m.lv == lv then
+                        if m.tm_drop == 0 and m.tm_read == 0 then
+                            m.tm_read = gTime
+                            gPendingSave.mail[ id ].tm_read = gTime
+                            INFO("[mail], read, pid=%d, id=%s", self.pid, m._id)
+                        end
+                    end
+                end
+            end
+        end
     end
-    db.mail:update( sel, { ["$set"] = { tm_read = gTime} } )
     self:reply_ok("mail_read_by_class", 0)
 end
 
-function mail_drop_by_class( self, class, mode, lv )
-    local db = self:getDb()
-    local sel = {}
-    sel.to = self.pid
-    sel.tm_drop = 0
-    sel.tm_lock = 0
-    sel.class = class
-    sel[ "$or" ] = { { its=0 }, { tm_fetch = { [ "$gt" ] = 0 } } }
-    if mode ~= -1 then 
-        sel.mode = mode 
-        if lv ~= -1 then sel.lv = lv end
-    end
-    db.mail:update( sel, { ["$set"] = { tm_drop = gTime} } )
 
-    local info = db:runCommand("getLastError")
+function mail_drop_by_class( self, class, mode, lv )
+    local ms = self:get_mail()
+    if ms then
+        for id, m in pairs( ms ) do
+            if m.class == class then
+                if mode == -1 or m.mode == mode then
+                    if lv == -1 or m.lv == lv then
+                        if m.tm_drop == 0 and m.tm_lock == 0 then
+                            if m.its == 0  or m.tm_fetch > 0 then
+                                m.tm_drop = gTime
+                                gPendingSave.mail[ id ].tm_drop = gTime
+                                INFO("[mail], drop, pid=%d, id=%s", self.pid, m._id)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
     self:reply_ok("mail_drop_by_class", 0)
 end
 
 function mail_lock_by_sn(self,sns)
     local ms = self:get_mail()
     if ms then
-        local db = self:getDb(self.pid)
         for _, sn in pairs(sns) do
             local m = ms[ sn ]
             if m and m.tm_lock == 0 then
@@ -65,14 +75,13 @@ end
 function mail_drop_by_sn(self,sns)
     local ms = self:get_mail()
     if ms then
-        local db = self:getDb(self.pid)
         for _, sn in pairs(sns) do
             local m = ms[ sn ]
             if m and m.tm_lock == 0 and (m.tm_fetch > 0 or m.its == 0) then
                 m.tm_drop = gTime
                 gPendingSave.mail[ m._id ].tm_drop = gTime
                 self:reply_ok("mail_drop_by_sn", m.idx)
-                INFO("[mail], drop, pid=%d, id=%s", self.pid, m._id)
+                INFO("[mail], drop, pid=%d, id=%s", self.pid, sn )
             end
         end
     end
@@ -85,7 +94,7 @@ function mail_read_by_sn(self, sns)
         for _, sn in pairs(sns) do
             local m = ms[ sn ]
             if m then
-                if m.tm_read == 0 then
+                if m.tm_read == 0 and m.tm_drop == 0 then
                     m.tm_read = gTime
                     gPendingSave.mail[ m._id ].tm_read = gTime
                     self:reply_ok("mail_read_by_sn", m.idx)
@@ -114,14 +123,13 @@ end
 
 function get_mail(self)
     if not self._mail then
-        INFO("load mail from db, pid=%d", self.pid)
         local ms = {}
         local db = self:getDb()
         local info = db.mail:find({to=self.pid})
         if info then
             while info:hasNext() do
                 local m = info:next()
-                if m.tm_drop and m.tm_drop == 0 then ms[ m.idx ] = m end
+                if m.tm_drop and m.tm_drop == 0 then ms[ m._id ] = m end
             end
         end
         self._mail = ms
@@ -155,12 +163,14 @@ function mail_load( self, sn )
     local num = 0
     while info:hasNext() do
         local m = info:next()
-        table.insert( ms, m )
-        num = num + 1
-        if num >= 100 then
-            Rpc:mail_load(self, ms)
-            num = 0
-            ms = {}
+        if m.tm_drop == 0 then
+            table.insert( ms, m )
+            num = num + 1
+            if num >= 100 then
+                Rpc:mail_load(self, ms)
+                num = 0
+                ms = {}
+            end
         end
     end
     if num > 0 then Rpc:mail_load( self, ms ) end
@@ -205,14 +215,14 @@ function mail_new(self, v, isload)
     local db = self:getDb()
     db.mail:insert(v)
     if self._mail then
-        self._mail[ v.idx ] = v
+        self._mail[ v._id ] = v
     end
 
     if self:is_online() then
         Rpc:mail_notify( self, {v} )
     end
 
-    local got = its
+    local got = v.its
     if got ~= 0 then got = 1 end
     local sys = v.from
     if sys == 0 then sys = 1 end
@@ -566,5 +576,24 @@ function send_system_city_move(self, mail_id, sender_pid, extra, text_parm)
 
     self:mail_new({from=0, name="", class=MAIL_CLASS.SYSTEM, mode=MAIL_SYSTEM_MODE.MOVE_CITY, title="", content=content, its={}})
     return true
+end
+
+function send_system_support_res( self, from, res )
+    local idx = #res
+    local mail_id = resmng.MAIL_SUPPORT_RES_1 + idx - 1
+    local param = {}
+    for _, v in pairs( res ) do
+        local resid = v[2]
+        local conf = resmng.get_conf( "prop_resource", resid )
+        if conf then
+            table.insert( param, conf.Name )
+            table.insert( param, v[3] )
+        end
+    end
+    local count = #param / 2
+    local mail_id = resmng.MAIL_SUPPORT_RES_1 + count - 1
+    table.insert( param, 1, from.name )
+
+    send_system_notice(self, mail_id, {}, param)
 end
 

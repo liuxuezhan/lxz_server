@@ -11,6 +11,7 @@ task_info.task_daily_num = 0
 --]]
 
 function process_task(player, task_action, ...)
+    print( "process_task", player.pid, task_action )
     if player == nil then
         return
     end
@@ -389,9 +390,6 @@ do_task[TASK_ACTION.HERO_LEVEL_UP] = function(player, task_data, con_level)
         if v.lv > highest then
             highest = v.lv
         end
-    end
-    if highest > con_level then
-        highest = con_level
     end
     if highest > 0 then
         return update_task_process(task_data, con_level, highest)

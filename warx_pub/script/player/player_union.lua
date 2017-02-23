@@ -107,8 +107,8 @@ function union_select(self, uid,what)
         end
         result.val = {info=l, mark=union.tech_mark}
     elseif what == "donate" then
-        if can_date(self._union.CD_doante_tm)  then self._union.CD_doante_num  = 0 end
-        result.val = {donate=self._union.donate,tmOver=self._union.tmDonate,CD_num = self._union.CD_doante_num or 0, flag=union_member_t.get_donate_flag(self)}
+        if can_date(self._union.CD_doante_tm)  then self._union.CD_donate_num  = 0 end
+        result.val = {donate=self._union.donate,tmOver=self._union.tmDonate,CD_num = self._union.CD_donate_num or 0, flag=union_member_t.get_donate_flag(self)}
     elseif what == "mars" then --膜拜
         local god = union:get_god()
         result.val = {mars=god,log = self._union.god_log,}
@@ -246,6 +246,8 @@ function union_create(self, name, alias, language, mars)
     if not self:condCheck(CREATEUNION.condition) then
         ack(self, "union_create", resmng.E_CONDITION_FAIL) return
     end
+    
+    if string.len(alias) > 3 then WARN("简称大于3") return end 
 
     for _, v in pairs(unionmng.get_all()) do
         if v.name == name then
@@ -255,6 +257,7 @@ function union_create(self, name, alias, language, mars)
             ack(self, "union_create", resmng.E_DUP_ALIAS) return
         end
     end
+
 
     if self:get_castle_lv() < resmng.CREATEUNION.lv   then
         if not self:do_dec_res(resmng.DEF_RES_GOLD, resmng.CREATEUNION.cost, VALUE_CHANGE_REASON.UNION_CREATE ) then
@@ -363,7 +366,7 @@ function union_rm_member(self, pid)
     end
 
     local union = unionmng.get_union(self:get_uid())
-    if not union then
+    if (not union) or union:is_new() then
         ack(self, "union_rm_member", resmng.E_NO_UNION) return
     end
 
@@ -720,7 +723,7 @@ function union_member_rank(self, pid, r)
     end
 
     local u = unionmng.get_union(self:get_uid())
-    if not u then
+    if (not u) or u:is_new() then
         ack(self, "union_member_rank", resmng.E_NO_UNION) return
     end
 
@@ -1126,7 +1129,6 @@ function union_task_get (self )--发布悬赏任务
 end
 
 function union_mission_log (self,type,id )--获取定时任务日志
-
     local union = unionmng.get_union(self.uid)
     if check_union_cross(union) then
         remote_cast(union.map_id, "union_mission_log", {"player", self.pid, type, id})
@@ -1214,8 +1216,9 @@ function union_task_add(self, type, eid, hero,task_num, mode, res,res_num, x, y 
 
     local dp = get_ety(eid)
     if not dp then WARN("没有npc城市") return end
-    union_task.add(self,type,eid,hero,task_num,mode,res,res_num,x,y)
-    union:add_log(resmng.UNION_EVENT.TASK,resmng.UNION_MODE.ADD,{ name=self.name,type=type,mode=mode })
+    if union_task.add(self,type,eid,hero,task_num,mode,res,res_num,x,y) then
+        union:add_log(resmng.UNION_EVENT.TASK,resmng.UNION_MODE.ADD,{ name=self.name,type=type,mode=mode })
+    end
 end
 --{{{ build
 

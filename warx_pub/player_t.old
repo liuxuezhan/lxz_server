@@ -456,7 +456,6 @@ function pre_tlog(self,name,...)
 end
 
 function firstPacket2(self, sockid, from_map, cival, pid, signature, time, open_id, token)
-    pause()
     pid = -1
 
     if _G.white_list.active == "true" then

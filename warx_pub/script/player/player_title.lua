@@ -5,7 +5,7 @@ title_list = title_list or {}
 function gen_title_list()
     for _, v in pairs(resmng.prop_title or {}) do
         if not title_list[v.Mode] then
-            title_list[v.Mode] = v.Mode
+            title_list[v.Mode] = 0
         end
     end
 end
@@ -36,6 +36,9 @@ function title_info_req(self)
     if titles then
         pack.titles = titles
     end
+
+    self:get_tit_point()
+
     Rpc:title_info_ack(self, pack)
 end
 
@@ -47,7 +50,7 @@ function try_upgrade_titles(self)
 end
 
 function try_upgrade(self, idx)
-    if check_tit(self, idx) then
+    if check_tit_add(self, idx) then
         local lv = self:get_title(idx) or 0
         if type(lv) == "table" then
             lv = 0
@@ -82,6 +85,32 @@ function try_use_title(self)
             self:add_buf(conf.Buff, -1)
         end
     end
+end
+
+function check_tit_add(self, idx)
+    local lv = self:get_title(idx) or 0
+    if type(lv) == "table" then
+        lv = 0
+    end
+    local propid = idx * 10 + lv + 1
+    local conf = resmng.get_conf("prop_title", propid)
+    if not conf then return end
+
+    local result = false
+    INFO("tit indx and score ", propid, self.ache_pint)
+
+    result =  (conf.Point or 0) <= self.ache_point
+
+    if not result then return end
+
+    for k, v in pairs(conf.Achievement or {}) do
+        --result = self:check_ache(v)
+        result = self:check_ache(v)
+        INFO("ache result ", result)
+        if result  == false then return false end
+    end
+
+    return result
 end
 
 function check_tit(self, idx)

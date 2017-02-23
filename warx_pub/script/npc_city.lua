@@ -71,6 +71,8 @@ function get_defender_info(data)
         local union = unionmng.get_union(data.uid)
         if union then
             return {union.uid, union.name, union.flag, union.alias}
+        else
+            return {data.propid}
         end
     end
 end
@@ -938,7 +940,7 @@ function make_new_defender(ackTroop, defenseTroop, npcCity)
         if union_t.is_npc_city_full(maxUnion) then
             npcCity.uid = 0
             --npcCity.pid = 0
-            deal_npc_new_defender(npcCity.propid, npcCity)
+            deal_npc_new_defender(npcCity.uid, npcCity)
         else
             if maxHurtUnion == ackTroop.owner_uid then
                 deal_npc_new_defender(maxHurtUnion, npcCity, ackTroop)

@@ -131,10 +131,30 @@ end
 
 
 
-function calc_hero_pow( self )
-    local imm = calc_imm(self)
-    return math.floor(math.sqrt(self.max_hp * self.atk / (1 - imm)) / math.sqrt(2550))
+function calc_hero_pow_body( self )
+    local conf = resmng.get_conf("prop_hero_basic", self.propid)
+    local imm = self.def / (self.def + self.lv * conf.LevelParam1 + conf.LevelParam2)
+    --return math.floor(math.sqrt(self.max_hp * self.atk / (1 - imm)) / math.sqrt(2550))
+    return math.sqrt(self.max_hp * self.atk / (1 - imm)) / math.sqrt(2550)
 end
+
+function calc_hero_pow_skill( self )
+    local pow_skill = 0
+    local pskill = resmng.prop_skill
+    local conf = pskill[ self.talent_skill ]
+    if conf then pow_skill = ( conf.Pow or 0 ) end
+
+    for _, v in pairs( self.basic_skill ) do
+        if v[1] ~= 0 then
+            conf = pskill[ v[1] ]
+            if conf then
+                pow_skill = pow_skill + ( conf.Pow or 0 )
+            end
+        end
+    end
+    return math.floor( pow_skill )
+end
+
 
 --------------------------------------------------------------------------------
 -- Function : 计算 hero 的战力，并修改 fight_power 字段
@@ -142,41 +162,9 @@ end
 -- Return   : number
 -- Others   : 英雄战斗力 = 开方[英雄最大生命*英雄攻击力/(1-英雄免伤率)] / 开方[2550]
 --------------------------------------------------------------------------------
-function do_calc_fight_power(self)
-    if self.hp == 0 or self.status >= HERO_STATUS_TYPE.BEING_CAPTURED then
-        return 0, 0
-
-    else
-        local imm = calc_imm(self)
-        local pow_body = math.floor(math.sqrt(self.max_hp * self.atk / (1 - imm)) / math.sqrt(2550))
-
-        local pow_skill = 0
-        local pskill = resmng.prop_skill
-        local conf = pskill[ self.talent_skill ]
-        if conf then pow_skill = ( conf.Pow or 0 ) end
-
-        for _, v in pairs( self.basic_skill ) do
-            if v[1] ~= 0 then
-                conf = pskill[ v[1] ]
-                if conf then
-                    pow_skill = pow_skill + ( conf.Pow or 0 )
-                end
-            end
-        end
-        return pow_body, pow_skill
-    end
-end
-
-
 function calc_fight_power(self)
-    local pow_body, pow_skill = do_calc_fight_power( self )
-    pow_body = pow_body * self.hp / self.max_hp
-
-    local percent = self.hp / self.max_hp
-    if percent < 0 then percent = 0 end
-    if percent > 1 then percent = 1 end
-    pow_body = pow_body * percent
-
+    local pow_body = calc_hero_pow_body( self ) * self.hp / self.max_hp
+    local pow_skill = calc_hero_pow_skill( self )
     local pow = math.floor( pow_body + pow_skill )
     if pow ~= self.fight_power then self.fight_power = pow end
     return self.fight_power
@@ -198,6 +186,21 @@ function recalc_pow_hero( self )
                     owner:dec_pow( old - new )
                 end
             end
+        end
+
+        local build = get_build( self )
+        if build then
+            build_t.recalc( build )
+        end
+    end
+end
+
+function get_build( self )
+    if self.status == HERO_STATUS_TYPE.BUILDING then
+        local owner = getPlayer( self.pid )
+        if owner then
+            local build = owner:get_build( self.build_idx )
+            if build and build.hero_idx == self.idx  then return build end
         end
     end
 end
@@ -454,6 +457,12 @@ function reset_skill(self, skill_idx)
 
             self:change_basic_skill(skill_idx, 0, 0)
 
+            local prop = resmng.prop_skill[skill_id]
+            local ori_exp = 0
+            if prop then
+                ori_exp = prop.ReturnExp or 0
+            end
+
             -- 统计经验值
             local curr_skill_lv = heromng.get_skill_lv( skill_id ) or -1
             for lv = 2, curr_skill_lv do
@@ -464,7 +473,7 @@ function reset_skill(self, skill_idx)
                     ERROR("reset_skill: hero.pid = %d, hero._id = %d, lv = %d", self.pid, self._id, lv)
                 end
             end
-            local exp_return = math.floor(skill_exp * RESET_SKILL_RETURN_RATIO)
+            local exp_return = math.floor(skill_exp * RESET_SKILL_RETURN_RATIO) + ori_exp
             LOG("reset_skill: hero.pid = %d, hero._id = %s, skill_idx = %d, skill_id = %d, skill_exp = %d, exp_return = %d", self.pid, self._id, skill_idx, skill_id, skill_exp, exp_return)
 
             local player = getPlayer(self.pid)
@@ -958,6 +967,7 @@ end
 --------------------------------------------------------------------------------
 function is_valid(self)
     if self.status == HERO_STATUS_TYPE.FREE then return true end
+    if self.status == HERO_STATUS_TYPE.BUILDING then return true end
     WARN( "hero_is_not_valid, pid = %d, _id = %s, name = %s, status = %d", self.pid, self._id, self.name, self.status )
 
     return false

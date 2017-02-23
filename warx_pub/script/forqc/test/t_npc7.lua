@@ -60,7 +60,7 @@ function t1.action(_idx)
     print("create ply a2 ", a2.pid)
     chat( a2, "@lvbuild=0=0=10" )
     chat( a2, "@set_val=gold=100000000" )
-    chat(a1, "@addbuf=1=-1" ) 
+    chat(a2, "@addbuf=1=-1" ) 
     u = u + 1
     Rpc:union_quit( a2 ) 
     sync(a2)
@@ -111,7 +111,7 @@ function t1.action(_idx)
         reutn "atk error"
     end
 
-    chat(a1, "@all")
+    chat(a1, "@foract")
     chat(a1, "@addbuf=1=-1" )
     local arms = {}
     chat( a1, "@addarm=1001010=999999999" )

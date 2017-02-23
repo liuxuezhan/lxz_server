@@ -1,6 +1,6 @@
 module("player_t")
 
-function get_can_buy_list_req(self)
+function get_can_buy_list_req(self, force)
     local pack = {}
     local pay_state = self.pay_state or {}
     local can_buy_list = pay_state.can_buy_list or {}
@@ -15,13 +15,32 @@ function get_can_buy_list_req(self)
         pay_state.last_refresh_time = pay_mall.refresh_time
     end
 
-    if player_t.debug_tag then
-        self:gen_can_buy_list(pay_state)
-    end
     self.pay_state = pay_state
 
-    pack.normal_buy_list = pay_state.normal_buy_list or {}
-    pack.gift_buy_list = pay_state.gift_buy_list or {}
+    local normal_buy_list = {}
+    for k, v in pairs( pay_state.normal_buy_list or {}) do
+        local prop = resmng.prop_buy[v]
+        if prop then
+            normal_buy_list[k] = prop
+        end
+    end
+
+    local gift_buy_list = {}
+    for k, v in pairs( pay_state.gift_buy_list or {}) do
+        local gift = copyTab(v)
+        local list = {}
+        for id, _ in pairs(v.list or {}) do
+            local prop = resmng.prop_buy[id] or {}
+            list[id] = prop
+        end
+        gift.list = list
+        local prop = resmng.prop_buy_group[v.prop] or {}
+        gift.prop = prop
+        gift_buy_list[k] = gift
+    end
+
+    pack.normal_buy_list = normal_buy_list or {}
+    pack.gift_buy_list = gift_buy_list or {}
 
     Rpc:get_can_buy_list_ack(self, pack)
 end
@@ -72,7 +91,7 @@ function gen_group_list(self, group, pay_state)
         local list = {}
         local prop = resmng.prop_buy_group[v.idx]
         if prop then
-            info.prop = prop
+            info.prop = v.idx
             info.end_time = v.end_time
             for _, id in pairs(prop.GiftList or {}) do
                 self:add_can_buy_id(id, list)
@@ -90,7 +109,7 @@ function add_can_buy_id( self, product_id, buy_list) --查看是否有高优先�
         if prop.pre_id then
             if not self:add_can_buy_id(prop.pre_id, buy_list) then
                 if self:check_cond(prop.Limited) then
-                    buy_list[product_id] = prop
+                    buy_list[product_id] = product_id
                 else
                     for _, id in pairs(prop.Next or {}) do
                         self:add_can_buy_id(id, buy_list)
@@ -98,8 +117,8 @@ function add_can_buy_id( self, product_id, buy_list) --查看是否有高优先�
                 end
             end
         else
-            if self:check_cond(Limited) then
-                buy_list[product_id] = prop
+            if self:check_cond(prop.Limited) then
+                buy_list[product_id] = product_id
             else
                 for _, id in pairs(prop.Next or {}) do
                     self:add_can_buy_id(id, buy_list)
@@ -137,7 +156,7 @@ function gen_normal_buy_list(self, pay_state)
     for k, v in pairs(resmng.prop_buy or {}) do
         if v.Class == 0 then
             if self:check_can_buy( k) then
-                normal_buy_list[k] = v
+                normal_buy_list[k] = k
             end
         end
     end
@@ -163,7 +182,7 @@ end
 function check_cond(self, conditions)
     local ret = true
     for k, condition in pairs(conditions or {}) do
-        if check_each_cond[condition] then
+        if check_each_cond[condition[1]] then
             ret = ret and check_each_cond[condition[1]](self, unpack(condition))
             if ret == false then
                 return flase
@@ -196,20 +215,20 @@ end
 
 check_each_cond = {}
 
-check_each_cond["peruser"] = function(ply, mode, action, id, num)
-    local pay_state = self.pay_state or {} 
+check_each_cond["buy_peruser"] = function(ply, mode, action, id, num)
+    local pay_state = ply.pay_state or {} 
     local buy_history = pay_state.buy_history or {}
     local history = buy_history[id] or {}
-    local count = get_table_valid_count(history[id] or {} )
-    return compare(count, action, num)
+    local count = get_table_valid_count(history or {} )
+    return compare(count, num, action)
 end
 
-check_each_cond["perday"] = function(ply, mode, action, id, num)
-    local pay_state = self.pay_state or {} 
+check_each_cond["buy_perday"] = function(ply, mode, action, id, num)
+    local pay_state = ply.pay_state or {} 
     local buy_history = pay_state.daily_buy_history or {}
     local history = buy_history[id] or {}
-    local count = get_table_valid_count(history[id] or {} )
-    return compare(count, action, num)
+    local count = get_table_valid_count(history or {} )
+    return compare(count, num, action)
 end
 
 check_each_cond["buildlevel"] = function(ply, mode, action, id,  num)
@@ -225,15 +244,19 @@ function is_in_can_buy_list(self, product_id)
     end
 
     for _, group in pairs(pay_state.gift_buy_list or {}) do
-        if group[product_id] then
+        local list = group.list or {}
+        if list[product_id] then
             return true
         end
     end
+
 
     return false
 end
 
 function process_order(self, product_id)
+    local pay_state = self.pay_state or {}
+    pay_state.last_refresh_time = 0 --强制刷新标记
     local prop = resmng.prop_buy[product_id]
     if prop then
         for k, v in pairs(prop.Limited or {}) do
@@ -244,7 +267,45 @@ function process_order(self, product_id)
     end
 end
 
-do_record["peruser"] = function(ply, product_id)
+function on_pay( self, product_id, real )
+    if real or ( not config.Release ) then
+        local prop = resmng.prop_buy[product_id]
+        if prop then
+            if product_id == 50 or product_id == 51 then
+                self:set_yueka()
+            else
+                if not self:check_can_buy(product_id) then
+                    LOG("GM CMD PAY product id buy limited")
+                    return {code = 0, msg = "product buy limited"}
+                end
+
+                if not self:is_in_can_buy_list(product_id) then
+                    LOG("GM CMD PAY product did not in buy list")
+                    return {code = 0, msg = "product did not in buy list"}
+                end
+
+                
+                if prop.Gold and prop.Gold > 0 then
+                    self:do_inc_res_normal(6, prop.Gold, VALUE_CHANGE_REASON.GM_PAY)
+                end
+
+                if prop.ExtraGold and prop.ExtraGold > 0 then
+                    self:do_inc_res_normal(6, prop.ExtraGold, VALUE_CHANGE_REASON.GM_PAY)
+                end
+
+                if prop.Item_ExtraGift and prop.Item_ExtraGift > 0 then
+                    agent_t.gm_add_ply_item(self, {{"item", prop.Item_ExtraGift, 1, 10000}}, VALUE_CHANGE_REASON.GM_PAY)
+                end
+            end
+
+            self:process_order(product_id)
+            self:get_can_buy_list_req()
+            return {code = 1, msg = "success"}
+        end
+    end
+end
+
+do_record["buy_peruser"] = function(ply, product_id)
     local pay_state = ply.pay_state or {}
     local buy_history = pay_state.buy_history or {}
     local history = buy_history[product_id] or {}
@@ -254,7 +315,7 @@ do_record["peruser"] = function(ply, product_id)
     ply.pay_state = pay_state
 end
 
-do_record["perday"] = function(ply, product_id)
+do_record["buy_perday"] = function(ply, product_id)
     local pay_state = ply.pay_state or {}
     local buy_history = pay_state.daily_buy_history or {}
     local history = buy_history[product_id] or {}

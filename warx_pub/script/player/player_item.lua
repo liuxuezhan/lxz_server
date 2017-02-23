@@ -441,6 +441,22 @@ function buy_item(self, id, num, use)
     if conf then
         local cost = math.ceil(conf.NewPrice * num)
         if self:doCondCheck(resmng.CLASS_RES, resmng.DEF_RES_GOLD, cost) then
+            if use == 1 then
+                if conf.CheckUse == 1 then
+                    for k, v in pairs( conf.Item ) do
+                        if v[1] == "item" then
+                            local itemid = v[2]
+                            local itemp = resmng.get_conf( "prop_item", itemid )
+                            if itemp then
+                                if not self:do_item_check( itemp ) then 
+                                    return
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+
             self:doConsume(resmng.CLASS_RES, resmng.DEF_RES_GOLD, cost, VALUE_CHANGE_REASON.MALL_PAY)
             INFO( "buy_item, pid=%d, id=%d, num=%d, use=%d", self.pid, id, num, use )
             if use == 1 then

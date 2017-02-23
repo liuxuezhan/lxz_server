@@ -15,7 +15,7 @@ function load()
             u.build[data.idx] = data
             if data.state ~= BUILD_STATE.DESTROY then
                 gEtys[ data.eid ] = data
-                data.holding = is_hold(data)
+                --data.holding = is_hold(data)
                 data.culture = data.culture or 1
                 etypipe.add(data)
             end
@@ -226,7 +226,7 @@ function remove(e)
                     local tid = e.my_troop_id[ i ]
                     local troop = troop_mng.get_troop( tid )
                     if troop then
-                        troop:gather_gain()
+                        troop:gather_gain(e)
                         troop:back()
                     end
                 end
@@ -375,6 +375,8 @@ function can_troop(action, p, eid, res)--行军队列发出前判断
         for _, id in pairs(p.busy_troop_ids or {} ) do
             local t = troop_mng.get_troop(id)
             local e = get_ety(t.target_eid)
+            if not t then return false end
+            if not e then return false end
             if is_union_superres(e.propid) and t:get_base_action() == action then return false end
         end
         return true

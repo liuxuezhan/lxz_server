@@ -118,7 +118,7 @@ function t1.action(_idx)
 
     chat(a1, "@fighttw")
 
-    chat(a1, "@all")
+    chat(a1, "@foract")
     chat(a1, "@addbuf=1=-1" )
     local arms = {}
     chat( a1, "@addarm=1001010=25000" )
@@ -135,7 +135,7 @@ function t1.action(_idx)
         return "atk error"
     end
 
-    chat(a2, "@all")
+    chat(a2, "@foract")
     chat(a2, "@addbuf=1=-1" )
     arms = {}
     chat( a2, "@addarm=1001010=25000" )
@@ -160,7 +160,7 @@ function t1.action(_idx)
         return "atk error"
     end
 
-    chat(a3, "@all")
+    chat(a3, "@foract")
     chat(a3, "@addbuf=1=-1" )
     arms = {}
     chat( a3, "@addarm=1001010=25000" )

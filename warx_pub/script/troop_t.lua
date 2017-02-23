@@ -1351,81 +1351,6 @@ function get_gather_power(self, mode)
 end
 
 
-function recalc(self)
-    if self:is_action(TroopAction.Gather) then
-        local start = self:get_extra("start") or gTime
-        local speed = self:get_extra("speed") or 0
-        local cache = self:get_extra("cache") or 0
-
-        local gain = ( gTime - start ) * speed
-        local cache = cache + gain
-
-        local mode = self:get_extra("mode") or 1
-        local speed, count, speedb = self:get_gather_power( mode )
-
-        self:set_extra("count", count) -- 负重
-        self:set_extra("start", gTime)
-        self:set_extra("cache", cache)
-        self:set_extra("speed", speed)
-        self:set_extra("speedb", speedb)
-    end
-end
-
-
-function recalc_gather( troop )
-    local dest = get_ety( troop.target_eid )
-    if not dest then return end
-
-    if is_union_building(dest) then
-        troop:recalc()
-        local dura = math.ceil( (troop:get_extra("count") - troop:get_extra("cache")) / troop:get_extra("speed") )
-        troop.tmOver = gTime + dura
-        troop.tmSn = timer.new("troop_action", dura, troop._id)
-        troop:notify_owner()
-        union_build_t.recalc_gather( dest )
-
-    else
-        local speed = troop:get_extra("speed")
-        local start = troop:get_extra("start")
-        local gain = math.floor( (gTime - start) * speed )
-        dest.val = math.floor( dest.val - gain )
-
-        if dest.val > gain then
-            dest.val = math.floor( dest.val - gain )
-            troop:recalc()
-            local speed = troop:get_extra("speed")
-            local turbo = troop:get_extra("turbo")
-            local dura = math.min(dest.val, troop:get_extra("count") - troop:get_extra("cache")) / speed
-            dura = math.ceil(dura)
-            troop.tmOver = gTime + dura
-            troop.tmSn = timer.new("troop_action", dura, troop._id)
-            dest.extra = {speed=speed, start=gTime, count=dest.val, tm=gTime, tid=troop._id, turbo=turbo}
-            farm.mark( dest )
-
-
-            turbo = turbo or 0
-            local nturbo = 0
-            local ply = getPlayer( troop.owner_pid )
-            if ply then
-                for _, bufid in pairs( { resmng.BUFF_SPEED_RES_1, resmng.BUFF_SPEED_RES_2, resmng.BUFF_SPEED_RES_3, resmng.BUFF_SPEED_RES_4 } ) do
-                    if ply:get_buf( bufid ) then
-                        nturbo = 1
-                        break
-                    end
-                end
-            end
-            if turbo ~= nturbo then dest.extra.turbo = nturbo end
-
-            etypipe.add(dest)
-            troop:notify_owner()
-
-        else
-            troop:back()
-            troop:gather_stop( troop )
-        end
-    end
-end
-
 
 function add_goods(self, goods, reason)
     self.goods = goods
@@ -1852,6 +1777,7 @@ function back_mass_power(self)
     end
 end
 
+
 function is_no_live_arm(self)
     local ret = true
     for pid, arm in pairs(self.arms or {}) do
@@ -1864,37 +1790,113 @@ function is_no_live_arm(self)
     return ret
 end
 
+function recalc(self)
+    if self:is_action(TroopAction.Gather) then
+        local start = self:get_extra("start") or gTime
+        local speed = self:get_extra("speed") or 0
+        local cache = self:get_extra("cache") or 0
 
-function gather_gain( troop )
-    local count = math.floor((troop:get_extra("speed") or 0) * (gTime - (troop:get_extra("start") or gTime)))
-    count = count + (troop:get_extra("cache") or 0)
+        local gain = math.floor( ( gTime - start ) * speed )
+        local cache = cache + gain
 
-    if count > troop:get_extra("count") then count = troop:get_extra("count") end
+        local mode = self:get_extra("mode") or 1
+        local speed, count, speedb = self:get_gather_power( mode )
+
+        self:set_extra("count", count) -- 负重
+        self:set_extra("start", gTime)
+        self:set_extra("cache", cache)
+        self:set_extra("speed", speed)
+        self:set_extra("speedb", speedb)
+        --return gain
+        return cache
+    end
+end
+
+
+function recalc_gather( troop )
+    local dest = get_ety( troop.target_eid )
+    if not dest then return end
+
+    if is_union_building(dest) then
+        troop:recalc()
+        local dura = math.ceil( (troop:get_extra("count") - troop:get_extra("cache")) / troop:get_extra("speed") )
+        troop.tmOver = gTime + dura
+        troop.tmSn = timer.new("troop_action", dura, troop._id)
+        troop:notify_owner()
+        union_build_t.recalc_gather( dest )
+
+    else
+        local gain = troop:recalc()
+        if dest.val > gain then
+            local speed = troop:get_extra("speed")
+            local turbo = troop:get_extra("turbo")
+            local dura = math.min(dest.val - gain, troop:get_extra("count") - gain) / speed
+            if dura < 0 then dura = 0 end
+            dura = math.ceil(dura)
+            troop.tmOver = gTime + dura
+            troop.tmSn = timer.new("troop_action", dura, troop._id)
+            dest.extra = {speed=speed, start=gTime, count=dest.val-gain, tm=gTime, tid=troop._id, turbo=turbo}
+            farm.mark( dest )
+
+            turbo = turbo or 0
+            local nturbo = 0
+            local ply = getPlayer( troop.owner_pid )
+            if ply then
+                for _, bufid in pairs( { resmng.BUFF_SPEED_RES_1, resmng.BUFF_SPEED_RES_2, resmng.BUFF_SPEED_RES_3, resmng.BUFF_SPEED_RES_4 } ) do
+                    if ply:get_buf( bufid ) then
+                        nturbo = 1
+                        break
+                    end
+                end
+            end
+            if turbo ~= nturbo then dest.extra.turbo = nturbo end
+
+            etypipe.add(dest)
+            troop:notify_owner()
+        else
+            troop:back()
+            troop:gather_stop( troop )
+        end
+    end
+end
+
+
+function gather_gain( troop, dest )
+    local gain = math.ceil( (troop:get_extra("speed") or 0) * (gTime - (troop:get_extra("start") or gTime) ) )
+    gain = gain + troop:get_extra( "cache" )
+
+    if is_res( dest ) then
+        if gain > dest.val then gain = dest.val end
+        dest.val = dest.val - gain
+    end
+
     local mode = troop:get_extra("mode") or 1
     local gains = {}
-    table.insert(gains, { "res", mode, math.ceil(count) })
+    table.insert(gains, { "res", mode, gain} )
     troop.extra = {}
     troop:add_goods(gains, VALUE_CHANGE_REASON.GATHER)
-    return count
+    return gain
 end
 
 function gather_stop(troop)
     local mode = troop:get_extra("mode") or 1
-    local count = troop:gather_gain()
+    local count = troop:get_extra("cache") or 0
     local dp = get_ety( troop.target_eid )
     if dp then
+        count = troop:gather_gain( dp )
         if is_union_building(dp) then
             setRem( dp.my_troop_id, troop._id )
             union_build_t.recalc_gather(dp)
 
         else
-            dp.val = math.floor( dp.val - count )
             if dp.val < 2 then
                 rem_ety(dp.eid)
+                farm.respawn(math.ceil(dp.x / 16), math.ceil(dp.y / 16), mode)
             else
                 dp.pid = 0
                 dp.uid = 0
                 dp.my_troop_id = 0
+                dp.extra = {}
                 etypipe.add(dp)
                 farm.mark(dp)
             end
@@ -1903,6 +1905,7 @@ function gather_stop(troop)
 
     local owner = getPlayer(troop.owner_pid)
     if owner then
+
         local content = {x=dp.x, y=dp.y, carry = {{"res", mode, math.ceil(count)}}, buildid=dp.propid }
         owner:report_new( MAIL_REPORT_MODE.GATHER, content )
 
@@ -1915,6 +1918,8 @@ function gather_stop(troop)
         task_logic_t.process_task(owner, TASK_ACTION.GATHER, mode, count)
         --世界事件
         world_event.process_world_event(WORLD_EVENT_ACTION.GATHER_NUM, mode, count)
+        --周限时活动
+        weekly_activity.process_weekly_activity(WEEKLY_ACTIVITY_ACTION.GATHER, mode, count)
     end
 end
 

@@ -824,7 +824,7 @@ fight.pvp = function(action, A0, D0)
     if lostA <= lostD then win = 1 else win = 2 end
     if liveA == 0 then win = 2 elseif liveD == 0 then win = 1 end
 
-    table.insert(report, {round, -2, win=win})
+    table.insert(report, { round, -2, win=win } )
 
     if win==1 then
         A0.win = 1

@@ -4,7 +4,7 @@
 local mod = {}
 
 function mod.action( _idx )
-    local p = get_one(true)
+    local p = get_one2()
     chat( p, "@set_val=gold=100000000" )
     chat( p, "@buildtop" )
     chat( p, "@addbuf=1=-1" )
