@@ -1798,7 +1798,7 @@ PLAYER_INIT = {
     month_award_cur = 0,    --玩家月登录最后一次时间,
     month_award_mark = 0,   --玩家月登陆签到次数,
     month_award_count = 0,  --玩家补签次数,
-    month_award_round = 1,    --玩家月登陆第N轮,
+    month_award_round = 1,  --玩家月登陆第N轮,
 
     hurts = {},     -- soldiers who are waiting for cure,
     lives = {},

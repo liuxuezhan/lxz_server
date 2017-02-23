@@ -131,14 +131,14 @@ function check_troop( tm_shutdown )
 
             if action == TroopAction.DefultFollow then
                 for pid, _ in pairs( troop.arms or {} ) do
-                    if pid >= 10000 and pid ~= owner.pid then
+                    if type(pid) == "number" and pid >= 10000 and pid ~= owner.pid then
                         local ply = getPlayer( pid )
                         if ply then ply:add_busy_troop( tid ) end
                     end
                 end
             else
                 for pid, _ in pairs( troop.arms or {} ) do
-                    if pid >= 10000 then
+                    if type(pid)=="number" and pid >= 10000 then
                         local ply = getPlayer( pid )
                         if ply then ply:add_busy_troop( tid ) end
                     end
@@ -150,7 +150,7 @@ function check_troop( tm_shutdown )
     for tid, troop in pairs( dels ) do
         delete_troop( troop )
         for pid, arm in pairs(troop.arms or {}) do
-            if pid >= 10000 then
+            if type(pid)=="number" and pid >= 10000 then
                 local p = getPlayer(pid)
                 if p then
                     p:add_soldiers( arm.live_soldier or {} )
@@ -272,7 +272,7 @@ function delete_troop( info )
     troop:notify_owner()
 
     for pid, _ in pairs(troop.arms) do
-        if pid >= 10000 then
+        if type(pid)=="number" and pid >= 10000 then
             local ply = getPlayer(pid)
             if ply then
                 ply:rem_busy_troop(troop_id)
