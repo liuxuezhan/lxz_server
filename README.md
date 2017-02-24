@@ -54,11 +54,11 @@ git clone https://github.com/gmarik/vundle.git ~/.vim/bundle/vundle
 [Solarized Dark]
 text=839496
 cyan(bold)=93a1a1
-text(bold)=839496
+text(bold)=586e75
 magenta=dd3682
 green=859900
 green(bold)=586e75
-background=042028
+background=fdf6e3
 cyan=2aa198
 red(bold)=cb4b16
 yellow=b58900
