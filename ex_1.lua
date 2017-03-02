@@ -1,16 +1,16 @@
 
-package.path =package.path..";/root/skynet/lualib/?.lua"
+package.path =package.path..";lualib/?.lua"
 package.cpath =package.cpath..";/root/skynet/lualib/?.so"
-require("_base")
+require("base")
 require("account")
 json = require("json")
 require("debugger")
 local a = account.new({acc="1",1,1})
 a.data.b = 1 
 a.b = 2
-lxz(_base)
+lxz(base)
 a:del()
-lxz(_base)
+lxz(base)
 a = a:get()
 lxz(a)
 

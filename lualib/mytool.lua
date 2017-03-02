@@ -1,13 +1,5 @@
 -- warx项目common/tool.lua 移植
 
-_mt_auto = { --自动赋值
-    __index = function (t, k)
-        local new = { }
-        setmetatable(new, _mt_auto)
-        rawset( t, k, new )
-        return new
-    end,
-}
 
 function guid()
     local seed = { '1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'} 
