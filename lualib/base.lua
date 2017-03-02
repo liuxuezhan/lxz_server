@@ -29,13 +29,13 @@ local __mt_tab = {
 
 }
 
-function self.new_tab(tab)--自动表
+function self.auto(tab)--自动表
 	_mt_auto = { __index = function (t, k) local new = { } setmetatable(new, _mt_auto) rawset( t, k, new ) return new end, }
 	setmetatable(tab, _mt_auto)
 end 
 
 self.main = {}      --存库数据 
-self.new_tab(self.main)      --存库数据 
+self.auto(self.main)      --存库数据 
 self.save = {}    --修改的数据 
 setmetatable(self.save, __mt_tab)
 
