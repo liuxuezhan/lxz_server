@@ -29,19 +29,18 @@ local __mt_tab = {
 
 }
 
-function self.tab(tab)--自动表
-    local tab =  tab or {} 
+function self.new_tab(tab)--自动表
 	_mt_auto = { __index = function (t, k) local new = { } setmetatable(new, _mt_auto) rawset( t, k, new ) return new end, }
 	setmetatable(tab, _mt_auto)
-	return tab
 end 
 
-self.main = self.tab({})      --存库数据 
+self.main = {}      --存库数据 
+self.new_tab(self.main)      --存库数据 
 self.save = {}    --修改的数据 
 setmetatable(self.save, __mt_tab)
 
 
-function self.new(module,tab)
+function self.new(module,tab) --只有一层子元素能保存
 
     if not module then lxz1("没模块名") end
     if not tab then lxz1("没数据") end
