@@ -130,4 +130,14 @@ function upload_gs_info()
     Rpc:callAgent(center_id, "upload_gs_info", pack)
 end
 
+function prepare_boss_attack_city()
+    npc_city.prepare_boss_attack_city()
+end
 
+function start_boss_attack_city()
+    npc_city.start_boss_attack_city()
+end
+
+function stop_boss_attack_city()
+    npc_city.stop_boss_attack_city()
+end

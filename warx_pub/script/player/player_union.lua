@@ -107,7 +107,7 @@ function union_select(self, uid,what)
         end
         result.val = {info=l, mark=union.tech_mark}
     elseif what == "donate" then
-        if can_date(self._union.CD_doante_tm)  then self._union.CD_donate_num  = 0 end
+        if can_date(self._union.CD_doante_tm,gTime)  then self._union.CD_donate_num  = 0 end
         result.val = {donate=self._union.donate,tmOver=self._union.tmDonate,CD_num = self._union.CD_donate_num or 0, flag=union_member_t.get_donate_flag(self)}
     elseif what == "mars" then --膜拜
         local god = union:get_god()
@@ -798,6 +798,8 @@ function union_leader_auto(self )--自动移交军团长,返回是否删除军�
     self:set_rank(resmng.UNION_RANK_4)
     B:set_rank(resmng.UNION_RANK_5)
     u.leader = pid
+    rank_mng.update_info_union( u.uid )
+
     return false
 end
 
@@ -828,6 +830,7 @@ function union_leader_update(self, pid)--手工移交军团长
         leader:set_rank(resmng.UNION_RANK_4)
         B:set_rank(resmng.UNION_RANK_5)
         u.leader = pid
+        rank_mng.update_info_union( u.uid )
     end
 
     if u:has_member(B) and B:get_rank()== resmng.UNION_RANK_4 and  (not leader:is_online()) and leader.tm_logout + 5*24*60*60 <  gTime then
@@ -839,6 +842,7 @@ function union_leader_update(self, pid)--手工移交军团长
         leader:set_rank(resmng.UNION_RANK_4)
         B:set_rank(resmng.UNION_RANK_5)
         u.leader = pid
+        rank_mng.update_info_union( u.uid )
     end
 end
 
@@ -1066,10 +1070,7 @@ function union_donate_rank(self, what)
         return
     end
 
-    local result = { what = what, val = {} }
-    local rank = u:get_donate_rank(what)
-    result.val = rank
-    Rpc:union_donate_rank(self, result)
+    Rpc:union_donate_rank(self, { what = what, val = u:get_donate_rank(what)})
 end
 
 --}}}
@@ -1150,8 +1151,12 @@ function union_mission_get (self )--获取定时任务
         return
     end
 
-    local inf = union_mission.get(self.pid,self:get_uid())
+    local inf = union_mission.get(union,self.pid)
     Rpc:union_mission_get(self,inf)
+end
+
+function union_mission_add (self )--领取奖励
+    union_mission.add(self)
 end
 
 function union_mission_update (self )--刷新定时任务
@@ -1186,7 +1191,7 @@ function union_mission_set (self )--领取定时任务
         return
     end
 
-    if union_mission.set(self.uid) then
+    if union_mission.set(self) then
         union:add_log(resmng.UNION_EVENT.MISSION,resmng.UNION_MODE.GET,{ name=self.name,propid=union_mission._d[union.uid].propid })
         Rpc:union_mission_set(self)
     end
@@ -2001,7 +2006,7 @@ function get_union( self )
 end
 
 function date_add(ply, what)--加日清记录
-    if can_date(ply._union.date.tm)  then
+    if can_date(ply._union.date.tm,gTime)  then
         ply._union.date.tm = gTime
         ply._union.date.val = {}
     end
@@ -2098,7 +2103,7 @@ function restore_add_res( ply, res )--存储资源
         udata.restore_day = dnode
     end
 
-    if can_date( dnode[ 1 ] ) then
+    if can_date( dnode[ 1 ],gTime ) then
         dnode[1] = gTime
         dnode[2] = total
     else
@@ -2132,7 +2137,7 @@ function get_res_day( ply )
     local node = udata.restore_day
     if not node then return 0 end
 
-    if can_date( node[ 1 ] )  then return 0 end
+    if can_date( node[ 1 ],gTime )  then return 0 end
 
     local sum = node[ 2 ] or 0
     for _, v in pairs(ply.busy_troop_ids) do

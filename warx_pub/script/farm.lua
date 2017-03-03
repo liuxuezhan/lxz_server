@@ -100,7 +100,7 @@ function respawn(tx, ty, mode)
         if eid then
             local x, y = c_get_pos_in_zone(tx, ty, prop.Size, prop.Size)
             if x then
-                local obj = {_id=eid, eid=eid, x=x, y=y, propid=prop.ID, size=prop.Size, born=gTime, val=prop.Count, pid=0, uid=0, extra={} }
+                local obj = {_id=eid, eid=eid, x=x, y=y, propid=prop.ID, size=prop.Size, born=gTime, val=prop.Count, mode=prop.Mode, pid=0, uid=0, extra={} }
                 gEtys[ eid ] = obj
                 etypipe.add(obj)
                 checkin(obj)

@@ -14,7 +14,7 @@ function new()--创建新手军团
     unionmng.add_union(union)
     gPendingSave.union_log[id] = {_id=id}
 
-    union_mission.get(id)
+    union_mission.get(union)
     return union
 end
 

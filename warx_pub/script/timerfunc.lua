@@ -14,6 +14,8 @@ _funs["cron"] = function(sn)
     timer.cron_base_func()
 
     set_sys_status( "tick", gTime )
+    set_sys_status( "cron", gTime )
+
     monster.loop()
     farm.loop()
     refugee.loop()
@@ -97,6 +99,7 @@ _funs["monster_city"] = function(sn, uid, stage)
     local union = unionmng.get_union(uid)
     if union then
         union_t.set_mc_state(union, stage)
+        monster_city.update_mc_ntf()
     end
 end
 

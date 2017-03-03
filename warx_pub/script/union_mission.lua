@@ -3,13 +3,6 @@ module(..., package.seeall)
 _d={}--数据
 _m ={0,5,10,20,20,30,30,40,40,50}--刷新次数对应消耗金币
 _q ={--幸运度对应提升任务品质的概率
---{},
---{{20,0},{40,10},{60,30},{80,60},{100,100}},
---{{30,0},{60,10},{90,30},{120,60},{150,100}},
---{{40,0},{80,10},{120,30},{160,60},{200,100}},
---{{50,0},{100,10},{150,30},{200,60},{250,100}},
---}
-
 {},
 {{20,0},{40,3},{60,8},{80,15},{95,25},{100,100}},
 {{30,0},{60,2},{90,5},{120,10},{145,20},{150,100}},
@@ -37,6 +30,7 @@ _rr= {--任务抽取概率
 1,1,1,1,1,1,1,1,
 }
 
+
 function load()--启动加载
     local db = dbmng:getOne()
     local info = db.union_mission:find({})
@@ -46,15 +40,16 @@ function load()--启动加载
     end
 end
 
-function clear(uid)--删除军团时清除数据
-    _d[uid]=nil
-    gPendingDelete.union_mission[uid] = 0
+function clear(u)--删除军团时清除数据
+    _d[u.uid]=nil
+    u.task = nil
+    gPendingDelete.union_mission[u.uid] = 0
 end
 
 function get_propid(uid)
 
     local u = unionmng.get_union(uid)
-    local class = union_mission.get_class(_rr,u:is_new())
+    local class = get_class(_rr,u:is_new())
     local lv = 0
     if not u:is_new() then
         lv =_ce[u:get_memberlimit()]
@@ -93,12 +88,11 @@ function get_class(r,new)--任务类型
     return t_random(r)
 end
 
-function get(pid,uid)--获取军团定时任务
-    local u = unionmng.get_union(uid)
-    if not u then return end
+function get(u,pid)--获取军团定时任务
+    uid = u.uid
     if (not _d[uid]) then _d[uid]= { tm  = 0, } end
 
-    if (not u:is_new() and can_date(_d[uid].tm) ) or ( u:is_new() and (gTime-_d[uid].tm)>_tm_newlimit+30*60 ) then
+    if (not u:is_new() and can_date(_d[uid].tm,gTime) ) or ( u:is_new() and (gTime-_d[uid].tm)>_tm_newlimit+30*60 ) then
         local state  = TASK_STATUS.TASK_STATUS_CAN_ACCEPT
         local class  = t_random({20,30,30,20,10})
         if u:is_new() then
@@ -227,19 +221,21 @@ function update(uid,ply,exp)--刷新军团定时任务品质
     end
 end
 
-function set(uid)--领取军团任务
-    if _d[uid].state == TASK_STATUS.TASK_STATUS_ACCEPTED then return end
-    _d[uid].state  =  TASK_STATUS.TASK_STATUS_ACCEPTED
-    _d[uid].tm  =  gTime
-    gPendingSave.union_mission[uid].state = _d[uid].state
+function set(p)--领取军团任务
+    local u = unionmng.get_union(p.uid)
+    if not u then return end
+    if _d[u.uid].state == TASK_STATUS.TASK_STATUS_ACCEPTED then return end
+    _d[u.uid].state  =  TASK_STATUS.TASK_STATUS_ACCEPTED
+    _d[u.uid].tm  =  gTime
+    gPendingSave.union_mission[u.uid].state = _d[u.uid].state
 
-    local d = _d[uid]
+    local d = _d[u.uid]
     if not d then return end
     local c = resmng.get_conf("prop_union_task",d.propid)
     if not c then WARN("没有任务:"..d.propid) return end
 
     if c.Class == UNION_MISSION_CLASS.ACTIVE then
-        local u = unionmng.get_union(uid)
+        local u = unionmng.get_union(u.uid)
         if not u then return end 
         for k,v in pairs (u:get_members() or {}) do
             if get_diff_days(gTime, v.cross_time) > 0 then
@@ -249,6 +245,7 @@ function set(uid)--领取军团任务
     end
     return true
 end
+
 
 function ok(ply,cond,num)--完成军团任务
     local d = _d[ply.uid]
@@ -326,3 +323,4 @@ function add(uid)--领取军团任务奖励
         end
     end
 end
+

@@ -472,7 +472,8 @@ end
 
 function get_build( p, class, mode )
     for _, build in pairs( p._build or {} ) do
-        local conf = resmng.get_conf( "prop_build", build.propid )
+        --local conf = resmng.get_conf( "prop_build", build.propid )
+        local conf = resmng.prop_build[build.propid]
         if conf then
             if conf.Class == class and conf.Mode == mode then return build end
         end
@@ -702,7 +703,7 @@ function atk_lt(p, city_lv)
     sync(p)
 
     local tid = 0
-    for k, v in pairs(p._troop) do
+    for k, v in pairs(p._troop or {}) do
         if v.target == eid then
             tid = k
             break
@@ -719,7 +720,7 @@ function atk_lt(p, city_lv)
         local flag = false
         local t = ts[tid]
         if t then
-            print(t.tmOver,get_tm(p))
+            --print(t.tmOver,get_tm(p))
             if t.tmOver > get_tm(p) + 1 then
                  Rpc:troop_acc( p, tid, 7014001 )
                  sync(p)
@@ -786,7 +787,7 @@ function atk_king(p, city_lv)
     sync(p)
 
     local tid = 0
-    for k, v in pairs(p._troop) do
+    for k, v in pairs(p._troop or {}) do
         if v.target == eid then
             tid = k
             break
@@ -803,7 +804,7 @@ function atk_king(p, city_lv)
         local flag = false
         local t = ts[tid]
         if t then
-            print(t.tmOver,get_tm(p))
+            --print(t.tmOver,get_tm(p))
             if t.tmOver > get_tm(p) + 1 then
                  Rpc:troop_acc( p, tid, 7014001 )
                  sync(p)
@@ -907,7 +908,7 @@ function atk_npc(p, city_lv)
     buy_item(p, 39, 100)
 
     local tid = 0
-    for k, v in pairs(p._troop) do
+    for k, v in pairs(p._troop or {}) do
         if v.target == eid then
             tid = k
             break
@@ -924,7 +925,7 @@ function atk_npc(p, city_lv)
         local flag = false
         local t = ts[tid]
         if t then
-            print(t.tmOver,get_tm(p))
+            --print(t.tmOver,get_tm(p))
             if t.tmOver > get_tm(p) + 1 then
                  Rpc:troop_acc( p, tid, 7014001 )
                  sync(p)
@@ -952,7 +953,7 @@ function atk_npc(p, city_lv)
     sync(p)
 
     local tid = 0
-    for k, v in pairs(p._troop) do
+    for k, v in pairs(p._troop or {}) do
         if v.target == eid then
             tid = k
             break
@@ -993,7 +994,7 @@ function spy_ply(p)
     print("spy ply from to ", p.pid, s_p.pid)
 
     local tid = 0
-    for k, v in pairs(p._troop) do
+    for k, v in pairs(p._troop or {}) do
         if v.target == s_p.eid then
             tid = k
             break
@@ -1050,7 +1051,7 @@ function atk_ply(p)
 
 
     local tid = 0
-    for k, v in pairs(p._troop) do
+    for k, v in pairs(p._troop or {}) do
         if v.target == s_p.eid then
             tid = k
             break

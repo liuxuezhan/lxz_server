@@ -326,7 +326,7 @@ function do_upgrade(self, build_idx)
                 self.pow_build = self.pow_build + delta
                 self:inc_pow( delta )
                 --周限时活动
-                weekly_activity.process_weekly_activity(WEEKLY_ACTIVITY_ACTION.POWER_UP, 1, delta)
+                weekly_activity.process_weekly_activity(self, WEEKLY_ACTIVITY_ACTION.POWER_UP, 1, delta)
             end
 
             if dst.Class == BUILD_CLASS.RESOURCE then
@@ -357,7 +357,6 @@ function do_upgrade(self, build_idx)
                     for k, v in pairs(resmng.prop_citybuildview) do
                         if v.OpenCastleLv ~= nil then
                             if dst.Lv >= v.OpenCastleLv then
-                                --local build_id = v.ID * 1000 + 1
                                 local build_id = v.PropId
                                 local bs = self:get_build()
                                 local conf = resmng.get_conf("prop_build", build_id)
@@ -366,10 +365,6 @@ function do_upgrade(self, build_idx)
                                     local build_new = build_t.create(idx_new, self.pid, build_id, 0, 0, BUILD_STATE.CREATE)
                                     self:add_to_do( "notify_build_upgrade", build_id)
                                     bs[ idx_new ] = build_new
-                                    if build_id == 21001 then
-                                        --self:open_online_award()
-                                        build_new.extra.next_time = self:get_online_award_next_time()
-                                    end
                                     build_new.tmSn = 0
                                     self:doTimerBuild( 0, idx_new )
                                 end
@@ -503,7 +498,7 @@ function doTimerBuild(self, tsn, build_idx, arg_1, arg_2, arg_3, arg_4)
                     self.pow_build = (self.pow_build or 0) + node.Pow
                     self:inc_pow(node.Pow or 0)
                     --周限时活动
-                    weekly_activity.process_weekly_activity(WEEKLY_ACTIVITY_ACTION.POWER_UP, 1, node.Pow)
+                    weekly_activity.process_weekly_activity(self, WEEKLY_ACTIVITY_ACTION.POWER_UP, 1, node.Pow)
                 end
                 if node.Effect then self:ef_add(node.Effect) end
                 if node.Class == BUILD_CLASS.RESOURCE then
@@ -517,12 +512,15 @@ function doTimerBuild(self, tsn, build_idx, arg_1, arg_2, arg_3, arg_4)
                 if build.propid == resmng.BUILD_BLACKMARKET_1 then self:refresh_black_marcket() end
                 if build.propid == resmng.BUILD_MANOR_1 or build.propid == resmng.BUILD_MONSTER_1 or build.propid == resmng.BUILD_RELIC_1 then self:refresh_mall() end
                 if build.propid == resmng.BUILD_RESOURCESMARKET_7 then self:refresh_res_market() end
-
+                if build.propid == resmng.BUILD_SHIPYARD_1 then 
+                    build.extra.next_time = self:get_online_award_next_time()
+                    build.extra = build.extra
+                end
             end
+
         elseif state == BUILD_STATE.UPGRADE then
             self:clear_build_queue( build.idx )
             self:do_upgrade(build_idx)
-
 
         elseif state == BUILD_STATE.DESTROY then
             local conf = resmng.get_conf("prop_build", build.propid)
@@ -606,7 +604,7 @@ function doTimerBuild(self, tsn, build_idx, arg_1, arg_2, arg_3, arg_4)
                     task_logic_t.process_task(self, TASK_ACTION.GET_RES, conf.Mode)
 
                     --周限时活动
-                    weekly_activity.process_weekly_activity(WEEKLY_ACTIVITY_ACTION.TRAIN_ARM, conf.Lv, extra.num)
+                    weekly_activity.process_weekly_activity(self, WEEKLY_ACTIVITY_ACTION.TRAIN_ARM, conf.Lv, extra.num)
 
                     build.extra = {}
                 end
@@ -938,7 +936,7 @@ function train(self, idx, armid, num, quick)
             task_logic_t.process_task(self, TASK_ACTION.RECRUIT_SOLDIER, soldier_type, soldier_level, num)
 
             --周限时活动
-            weekly_activity.process_weekly_activity(WEEKLY_ACTIVITY_ACTION.TRAIN_ARM, soldier_level, num)
+            weekly_activity.process_weekly_activity(self, WEEKLY_ACTIVITY_ACTION.TRAIN_ARM, soldier_level, num)
         end
     end
 end
@@ -967,7 +965,7 @@ function draft(self, idx)
         task_logic_t.process_task(self, TASK_ACTION.GET_RES, conf.Mode)
 
         --周限时活动
-        weekly_activity.process_weekly_activity(WEEKLY_ACTIVITY_ACTION.TRAIN_ARM, conf.Lv, extra.num)
+        weekly_activity.process_weekly_activity(self, WEEKLY_ACTIVITY_ACTION.TRAIN_ARM, conf.Lv, extra.num)
 
         build.extra = {}
     end
@@ -1173,7 +1171,7 @@ function do_learn_tech(self, academy, tech_id)
     task_logic_t.process_task(self, TASK_ACTION.STUDY_TECH)
     task_logic_t.process_task(self, TASK_ACTION.PROMOTE_POWER, 2, conf.Pow)
     --周限时活动
-    weekly_activity.process_weekly_activity(WEEKLY_ACTIVITY_ACTION.POWER_UP, 2, delta)
+    weekly_activity.process_weekly_activity(self, WEEKLY_ACTIVITY_ACTION.POWER_UP, 2, delta)
 end
 
 
@@ -1672,7 +1670,7 @@ function black_market_buy(self, idx)
                 --任务
                 task_logic_t.process_task(self, TASK_ACTION.MARKET_BUY_NUM, 1, 1)
                 --周限时活动
-                weekly_activity.process_weekly_activity(WEEKLY_ACTIVITY_ACTION.BLACK_MARKET, 1, conf.Point)
+                weekly_activity.process_weekly_activity(self, WEEKLY_ACTIVITY_ACTION.BLACK_MARKET, 1, conf.Point)
             end
         end
         dumpTab(build.extra, "black_market")
@@ -1688,7 +1686,7 @@ function black_market_buy(self, idx)
                     --任务
                     task_logic_t.process_task(self, TASK_ACTION.MARKET_BUY_NUM, 1, 1)
                     --周限时活动
-                    weekly_activity.process_weekly_activity(WEEKLY_ACTIVITY_ACTION.BLACK_MARKET, 1, conf.Point)
+                    weekly_activity.process_weekly_activity(self, WEEKLY_ACTIVITY_ACTION.BLACK_MARKET, 1, conf.Point)
                     local rate = math.random(1, TOTAL_RATE)
                     local cur = 0
                     for k, v in pairs(resmng.prop_black_market) do
@@ -2149,6 +2147,161 @@ function is_wall_fire( self, wall )
     return tmOver_f and tmOver_f > gTime 
 end
 
+function calc_fire_speed( self )
+    if is_in_black_land( self.x, self.y ) then
+        speed_f = WALL_FIRE_IN_BLACK_LAND
+    else
+        speed_f = 1/18
+    end
+
+    local ef = self:get_castle_ef()
+    if ef.SpeedBurn_R then speed_f = speed_f * ( 1 + ef.SpeedBurn_R * 0.0001 ) end
+    return speed_f
+end
+
+function wall_fire2( self, dura )
+    local wall = self:get_wall()
+    if not wall then return end
+    if dura < 0 then return end
+
+    --todo test
+    --if dura > 10 then dura = 10 end
+    --hp = hp - speed_f * ( gTime - tmStart_f )
+    --
+    local prop = resmng.get_conf( "prop_build", wall.propid )
+    if not prop then return end
+    local max = prop.Param.Defence
+
+    local hp = wall:get_extra( "hp" )
+    if not hp then
+        hp = max
+        wall:set_extra( "hp", hp )
+    end
+
+    local speed_f = wall:get_extra( "speed_f" )
+    if not speed_f or speed_f == 0 then
+        if dura <= 0 then return end
+
+        speed_f = calc_fire_speed( self )
+
+        dura = math.ceil( math.min( dura, hp / speed_f ) ) + 1
+        local tmSn_f = timer.new( "city_fire", dura, self.pid )
+
+        wall:set_extra( "speed_f", speed_f )
+        wall:set_extra( "tmStart_f", gTime )
+        wall:set_extra( "tmOver_f", gTime + dura )
+        wall:set_extra( "tmSn_f", tmSn_f )
+        self:add_state( CastleState.DeFire )
+
+        return
+    end
+
+    hp = hp - speed_f * ( gTime - ( wall:get_extra( "tmStart_f" ) or gTime ) )
+    if hp <= 0 then
+        wall:clr_extras( { "hp", "speed_f", "tmStart_f", "tmOver_f", "tmSn_f", "last" } )
+        self:rem_state( CastleState.DeFire )
+        local x, y = c_get_pos_by_lv(1,4,4)
+        if x then
+            self:recall_all()
+            c_rem_ety(self.eid)
+            self.x = x
+            self.y = y
+            etypipe.add(self)
+        end
+        return 
+    end
+
+    if hp > max then hp = max end
+    wall:set_extra( "hp", hp )
+
+    dura = dura + ( wall:get_extra( "tmOver_f" ) or gTime ) - gTime
+
+    speed_f = calc_fire_speed( self )
+    dura = math.ceil( math.min( dura, hp / speed_f ) ) + 1
+    wall:set_extra( "speed_f", speed_f )
+    wall:set_extra( "tmOver_f", gTime + dura )
+
+    local tmSn = wall:get_extra( "tmSn_f" )
+    if timer.is_valid( tmSn, self.pid ) then
+        timer.adjust( tmSn, gTime + dura )
+    else
+        tmSn = timer.new( "city_fire", dura, self.pid )
+        wall:set_extra( "tmSn_f", tmSn )
+    end
+
+
+
+    local tmStart_f = wall:get_extra( "tmStart_f" )
+    if not tmStart_f or tmStart_f == 0 then
+        tmStart_f = gTime
+        wall:set_extra( "tmStart_f", tmStart_f )
+    end
+
+    local tmOver_f = wall:get_extra( "tmOver_f" )
+    if not tmOver_f or tmOver_f < gTime then
+        tmOver_f = gTime
+    end
+    tmOver_f = tmOver_f + dura
+    wall:set_extra( "tmOver_f", tmOver_f )
+
+    hp = hp - speed_f * ( gTime - tmStart_f )
+    if hp > max then hp = max end
+    if hp < 0 then
+        self:rem_state( CastleState.DeFire )
+        local x, y = c_get_pos_by_lv(1,4,4)
+        if x then
+            --todo
+            --call back all troop
+            self:recall_all()
+            c_rem_ety(self.eid)
+            self.x = x
+            self.y = y
+            etypipe.add(self)
+        end
+        wall:clr_extras( { "hp", "speed_f", "tmStart_f", "tmOver_f", "tmSn_f", "last" } )
+        return 
+    end
+    wall:set_extra( "hp", hp )
+
+    local remain = tmOver_f - gTime
+    if remain > 0 then
+        self:add_state( CastleState.DeFire )
+        if is_in_black_land( self.x, self.y ) then
+            speed_f = WALL_FIRE_IN_BLACK_LAND
+        else
+            speed_f = 1/18
+        end
+
+        local ef = self:get_castle_ef()
+        if ef.SpeedBurn_R then speed_f = speed_f * ( 1 + ef.SpeedBurn_R * 0.0001 ) end
+
+        print( "burn_speed", speed_f )
+
+        wall:set_extra( "speed_f", speed_f )
+        wall:set_extra( "tmStart_f", gTime )
+
+        local need = math.ceil( hp / speed_f )
+        remain = math.min( remain, need ) + 1
+
+        local tmSn_f = wall:get_extra( "tmSn_f" )
+        if timer.is_valid( tmSn_f, self.pid ) then
+            timer.adjust( tmSn_f, gTime + remain )
+        else
+            tmSn_f = timer.new( "city_fire", remain, self.pid )
+            wall:set_extra( "tmSn_f", tmSn_f )
+        end
+    else
+        self:rem_state( CastleState.DeFire )
+        wall:clr_extras( { "speed_f", "tmStart_f", "tmOver_f", "tmSn_f" } )
+        if hp == max then
+            wall:clr_extras( { "hp", "last" } )
+        end
+    end
+    dumpTab( wall.extra, "wall_fire" )
+end
+
+
+
 function wall_fire( self, dura )
     local wall = self:get_wall()
     if not wall then return end
@@ -2177,6 +2330,9 @@ function wall_fire( self, dura )
         end
         wall:set_extra( "speed_f", speed_f )
         wall:set_extra( "tmStart_f", gTime )
+
+        local ef = self:get_castle_ef()
+        if ef.SpeedBurn_R then speed_f = speed_f * ( 1 + ef.SpeedBurn_R * 0.0001 ) end
     end
 
     local tmStart_f = wall:get_extra( "tmStart_f" )
@@ -2219,7 +2375,12 @@ function wall_fire( self, dura )
         else
             speed_f = 1/18
         end
-        --speed_f = speed_f * 100
+
+        local ef = self:get_castle_ef()
+        if ef.SpeedBurn_R then speed_f = speed_f * ( 1 + ef.SpeedBurn_R * 0.0001 ) end
+
+        print( "burn_speed", speed_f )
+
         wall:set_extra( "speed_f", speed_f )
         wall:set_extra( "tmStart_f", gTime )
 

@@ -270,6 +270,105 @@ function siege(self, dest_eid, arm)
     end
 end
 
+function task_visit(self, task_id, dest_eid, x, y, arm)  --任务中拜访npc 拜访英雄
+    local task_data = self:get_task_by_id(task_id)
+    if task_data == nil or task_data.task_status ~= TASK_STATUS.TASK_STATUS_ACCEPTED then
+        WARN("任务不存在")
+        return
+    end
+
+    local prop_task = resmng.prop_task_detail[task_id]
+    if prop_task == nil then
+        return
+    end
+    local key, dest_id = unpack(prop_task.FinishCondition)
+
+    local action = 0
+    local dest = get_ety(dest_eid)
+    if not dest then
+        dest = self
+    end
+    if dest then
+        if is_wander(dest) then
+            action = TroopAction.VisitHero
+        elseif is_npc_city(dest) then
+            action = TroopAction.VisitNpc
+        end
+
+        if key == "visit_npc" then
+            action = TroopAction.VisitNpc
+        elseif key == "visit_hero" then
+            action = TroopAction.VisitHero
+        end
+
+        --if not self:check_arm(arm, action) then return end
+        local troop = troop_mng.create_troop(action, self, dest, {})
+        troop.target_propid = dest.propid
+        troop.dx = x
+        troop.dy = y
+        troop:set_extra("visit_task_id", task_id)
+
+        troop:go()
+    end
+end
+
+function spy_task_ply(self, task_id, dest_eid, x, y)
+    local task_data = self:get_task_by_id(task_id)
+    if task_data == nil or task_data.task_status ~= TASK_STATUS.TASK_STATUS_ACCEPTED then
+        WARN("任务不存在")
+        return
+    end
+
+    local action = TroopAction.TaskSpyPly
+    if self:is_troop_full(action) then return self:add_debug("CountTroop") end
+
+    local prop_task = resmng.prop_task_detail[task_id]
+    if prop_task == nil then
+        return
+    end
+    local key, fake_ply_id = unpack(prop_task.FinishCondition)
+
+    local prop = resmng.prop_fake_ply[fake_ply_id]
+    if prop then
+        local troop = troop_mng.create_troop(action, self, self, {})
+        troop.target_eid = dest_eid
+        troop.target_propid = prop.Propid
+        troop.dx = x
+        troop.dy = y
+        troop:set_extra("spy_ply_task_id", task_id)
+        troop:go()
+    end
+end
+
+function siege_task_ply(self, task_id, dest_eid, x, y ,arm)
+    local task_data = self:get_task_by_id(task_id)
+    if task_data == nil or task_data.task_status ~= TASK_STATUS.TASK_STATUS_ACCEPTED then
+        WARN("任务不存在")
+        return
+    end
+
+    local action = TroopAction.TaskAtkPly
+    if self:is_troop_full(action) then return self:add_debug("CountTroop") end
+    if not self:check_arm(arm, action) then return end
+
+    local prop_task = resmng.prop_task_detail[task_id]
+    if prop_task == nil then
+        return
+    end
+    local key, fake_ply_id = unpack(prop_task.FinishCondition)
+
+    local prop = resmng.prop_fake_ply[fake_ply_id]
+    if prop then
+        local troop = troop_mng.create_troop(action, self, self, arm)
+        troop.target_eid = dest_eid
+        troop.target_propid = prop.Propid
+        troop.dx = x
+        troop.dy = y
+        troop:set_extra("atk_ply_task_id", task_id)
+        troop:go()
+    end
+end
+
 --攻击任务npc怪物
 function siege_task_npc(self, task_id, dest_eid, x, y, arm)
     local task_data = self:get_task_by_id(task_id)
@@ -712,6 +811,12 @@ end
 function declare_tw_req(self, dest_eid)
     local dest = get_ety(dest_eid)
     if not dest then return end
+
+    local state, startTime, endTime = npc_city.get_npc_state()
+    if state == TW_STATE.PACE then
+        self:add_debug("活动没有开启")
+        return
+    end
 
     if self:is_troop_full(TroopAction.Declare) then
         self:add_debug("出征队列达到上限")
@@ -1254,7 +1359,6 @@ function troop_recall(self, dest_troop_id, force)
             action == TroopAction.HoldDefenseLT or
             action == TroopAction.HoldDefenseKING
             then
-            local camp = get_ety(troop.target_eid)
             union_hall_t.battle_room_update_ety(OPERATOR.UPDATE, dest)
             local one = troop:split_pid(self.pid)
             if not one then
@@ -1263,16 +1367,20 @@ function troop_recall(self, dest_troop_id, force)
             end
             one:back()
             if get_table_valid_count(troop.arms) == 0  and dest then
-                if is_lost_temple(camp) then
-                    camp:reset_lt()
+                if is_lost_temple(dest) then
+                    dest:reset_lt()
                     local citys = self.lt_citys
                     if  citys then
                         citys[ dest.eid ] = nil
                     end
                 end
                 dest.my_troop_id = nil
-                dest.holding = union_build_t.is_hold(dest)
-                etypipe.add(dest)
+
+                if is_union_building( dest ) then
+                    dest.holding = 0
+                    gPendingSave.union_build[dest._id].holding = 0
+                    etypipe.add(dest)
+                end
             end
             return one
 
@@ -1817,6 +1925,13 @@ function is_troop_full(self, action)
         if cur == max then
             local conf = resmng.get_conf( "prop_troop_action", math.floor( action % 100 ) )
             if conf and conf.CanSpecial == 1 then return false end
+            for _, tid in pairs( self.busy_troop_ids ) do
+                local troop = troop_mng.get_troop( tid )
+                if troop then
+                    local conf = resmng.get_conf( "prop_troop_action", math.floor( troop.action % 100 ) )
+                    if conf and conf.CanSpecial == 1 then return false end
+                end
+            end
         end
     end
     return true
@@ -1882,8 +1997,10 @@ function query_log_support_arm( self )
     local db = dbmng:getOne()
     local info = db.log_support_arm:findOne( {_id=self.pid} )
     if info then
+        dumpTab( info, "query_log_support_arm" )
         Rpc:query_log_support_arm( self, info.log or {} )
         return
     end
+    Rpc:query_log_support_arm( self, {} )
 end
 

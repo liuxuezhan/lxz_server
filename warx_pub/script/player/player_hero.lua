@@ -1154,7 +1154,11 @@ function release(self, hero)
         troop:back()
         hero_t.mark_recalc( hero )
     end
+
+    self.nprison = self:get_prison_count()
+    etypipe.add( self )
 end
+
 
 function get_prisoners_info(self)
     local infos = {}

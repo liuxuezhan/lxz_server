@@ -17,9 +17,12 @@ function init()
         gRanks[ k ] = t
         local tab = string.format("rank%d", k )
         local info = db[tab]:find( {} )
+        local is_person = v.IsPerson
         while info:hasNext() do
             local data = info:next()
-            skiplist.insert( k, data._id, table.unpack( data.v ) )
+            if data._id >= 10000 then
+                skiplist.insert( k, data._id, table.unpack( data.v ) )
+            end
         end
         load_rank(k)
     end
@@ -130,7 +133,7 @@ function add_data( idx, key, data, init )
 
     key = tonumber( key )
 
-    if node.is_persion == 0 then
+    if node.is_person == 0 then
         local union = unionmng.get_union( key )
         if not union then return end
         if union:is_new() then return end
@@ -160,9 +163,8 @@ function add_data( idx, key, data, init )
             node.tops = nil
         end
     end
-
-
 end
+
 
 function rem_data( idx, key )
     local node = gRanks[ idx ]

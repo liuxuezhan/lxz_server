@@ -150,7 +150,7 @@ end
 function clear_tmdonate(ply)
     if ply._union.tmDonate > gTime then
         ply._union.CD_donate_num  = ply._union.CD_donate_num or 0
-        if can_date(ply._union.CD_doante_tm)  then ply._union.CD_doante_tm  = gTime end
+        if can_date(ply._union.CD_doante_tm,gTime)  then ply._union.CD_doante_tm  = gTime end
 
         local g =  0
         if ply._union.CD_donate_num < #resmng.CLEAR_DONATE_COST then
@@ -211,7 +211,7 @@ function donate(self, idx, mode)
     if not self:do_dec_res(cost[1], cost[2], VALUE_CHANGE_REASON.UNION_DONATE) then return end
 
     self:add_donate(reward[1], VALUE_CHANGE_REASON.REASON_UNION_DONATE)
-    union_member_t.add_donate_rank(self,reward[3],1)
+    union_member_t.add_donate_rank(self,reward[3],reward[1],1)
     union_mission.ok(self,UNION_MISSION_CLASS.DONATE,1)
 
     local c = resmng.get_conf("prop_union_tech", tech.id + 1)

@@ -27,7 +27,7 @@ module_class("union_t", {
     mc_timer = 0, -- 怪物攻城定时器
     mc_ntf_timer = 0, -- 怪物攻城定时器
     set_mc_time = 999, -- 设置mc 开始的时间
-    mc_start_time = {}, -- 设置mc 开始的时间
+    mc_start_time = {2, 30}, -- 设置mc 开始的时间
     mc_reward_pool = {}, -- 怪物攻城的奖励池
     enlist = {}, --招募信息
     rank_alias = {"","","","","",""}, --军阶称谓
@@ -133,11 +133,11 @@ end
 -- 设置军团在怪物攻城中的状态
 
 function set_mc_start(self, time, ply)
-    --if os.date("%d", self.set_mc_time) ~= os.date("%d", gTime) and self.monster_city_stage == 0 then
     local state, npc_startTime, npc_endTime = npc_city.get_npc_state()
-    --if state ~= TW_STATE.PACE then
-    --    return
-    --end
+
+    if state ~= TW_STATE.PACE then  
+        npc_endTime = npc_startTime + 86400
+    end
 
     if self.set_mc_time < gTime and self.monster_city_stage == 0 then
         local now = os.date("*t", gTime)
@@ -150,7 +150,7 @@ function set_mc_start(self, time, ply)
         timer.del(self.mc_ntf_timer)
         local leftTime = get_left_time({time, 30})
         self.mc_start_time = {time, 30}
-        self.set_mc_time = npc_endTime - 50000
+        self.set_mc_time = npc_endTime - 5400
         -- to do
         --
         local prop = resmng.get_conf("prop_act_notify", resmng.MC_TIMESET)
@@ -194,7 +194,7 @@ end
 
 function get_default_time(self)
     -- base on language
-    return {10, 30}
+    return {2, 30}
 end
 
 function get_left_time(time)
@@ -229,13 +229,9 @@ function set_default_start(self)
     self.mc_act_ply = {}
     self.mc_reward_pool = {}
 
-    --if self.set_mc_time == 999 then
-        self.mc_start_time =  get_default_time(self)
-    --end
-
     timer.del(self.mc_timer)
     timer.del(self.mc_ntf_timer)
-    local time = get_left_time(self.mc_start_time)
+    local time = get_left_time(self.mc_start_time or self:get_default_time())
     if player_t.debug_tag then
         time = 10
     end
@@ -309,9 +305,9 @@ function set_mc_state(self, stage)
 
     if get_table_valid_count(self.npc_citys or {})  == 0 then
         monster_city.send_union_act_award(self)
+        self.monster_city_stage = 0
         return
     end
-
 
     for k, v in pairs(self.npc_citys) do
         local city = get_monster_city(v)
@@ -325,9 +321,9 @@ function set_mc_state(self, stage)
         set_mc_timer(self, time, prop.NextStage)
     end
 
-    if prop.NextStage == stage then
-        self.monster_city_stage = 0
-    end
+    --if prop.NextStage == stage then
+    --    self.monster_city_stage = 0
+    --end
 
 end
 
@@ -516,13 +512,13 @@ end
 function union_can_atk_citys(self)
     local citys = {}
     local citysPropid = {}
-    for k, v in pairs(self.npc_citys) do
+    for k, v in pairs(self.npc_citys or {}) do
         local city = get_ety(v)
         if city then
             citysPropid[city.propid] = city.propid
         end
     end
-    for k, v in pairs(self.npc_citys) do
+    for k, v in pairs(self.npc_citys or {}) do
         local city = get_ety(v)
         if city then
             local prop = resmng.prop_world_unit[city.propid]
@@ -538,8 +534,7 @@ function union_can_atk_citys(self)
     if get_table_valid_count(self.npc_citys or {}) == 0 then
         local leader = getPlayer(self.leader)
         if leader then
-           local propid =  leader:player_nearly_citys()
-           citys[propid] = propid
+           citys =  leader:player_nearly_citys()
         end
     end
     self.can_atk_citys = citys
@@ -828,7 +823,7 @@ function destory(self)
     union_word.clear(self.uid)
     union_mall.clear(self.uid)
     union_buildlv.clear(self.uid)
-    union_mission.clear(self.uid)
+    union_mission.clear(self)
     union_task.clear(self.uid)
     union_tech_t.clear(self.uid)
     union_help.clear(self.uid)
@@ -1272,7 +1267,7 @@ function donate_summary_week(self)
     if t[3] and ( t[3].donate >= UNION_DONATE_LIMIT  or player_t.debug_tag) then three =  t[3].name end
 
     for _, v in pairs(t or {}) do
-        local val = {}
+        local val = nil
         local p = getPlayer(v.pid)
         if p then
             if v.name == one then
@@ -1298,7 +1293,7 @@ function donate_summary_week(self)
     local three =  resmng.HERO_ALTAR_NO_VALUE
     if t[3] and ( t[3].donate >= UNION_DONATE_B_LIMIT  or player_t.debug_tag) then three =  t[3].name end
     for _, v in pairs(t or {} ) do
-        local val = {}
+        local val = nil
         local p = getPlayer(v.pid)
         if p then
             if v.name == one then

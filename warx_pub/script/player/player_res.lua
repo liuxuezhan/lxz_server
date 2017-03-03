@@ -1,27 +1,17 @@
 module("player_t")
 
 function refresh_res_market(self)
-    local t = {
-        200, 0,    -- count total, count free,
-        {
-            {1,0,0,0}, -- resource id,  count fresh, count buy, combo
-            {2,0,0,0}, -- resource id,  count fresh, count buy, combo
-            {3,0,0,0}, -- resource id,  count fresh, count buy, combo
-            {4,0,0,0}, -- resource id,  count fresh, count buy, combo
-            {8,0,0,0}, -- resource id,  count fresh, count buy, combo
-        }
-    }
     local market = self:get_resource_market()
     if not market then return end
 
     local t = {
         200, 0,    -- count total, count free,
         {
-            {1,0,0,0}, -- resource id,  count fresh, count buy, combo
-            {2,0,0,0}, -- resource id,  count fresh, count buy, combo
-            {3,0,0,0}, -- resource id,  count fresh, count buy, combo
-            {4,0,0,0}, -- resource id,  count fresh, count buy, combo
-            {8,0,0,0}, -- resource id,  count fresh, count buy, combo
+            {1,0,0,1}, -- resource id,  count fresh, count buy, combo
+            {2,0,0,1}, -- resource id,  count fresh, count buy, combo
+            {3,0,0,1}, -- resource id,  count fresh, count buy, combo
+            {4,0,0,1}, -- resource id,  count fresh, count buy, combo
+            {8,0,0,1}, -- resource id,  count fresh, count buy, combo
         }
     }
 
@@ -82,11 +72,12 @@ function buy_res(self, id)
     nfresh = nfresh + 1
 
     self:add_bonus("mutex_award", {{"res", mode, nres}}, VALUE_CHANGE_REASON.BLACK_MARKET_BUY)
+    reply_ok(self, "buy_res", combo )
 
     --任务
     task_logic_t.process_task(self, TASK_ACTION.MARKET_BUY_NUM, 2, 1)
     --周限时活动
-    weekly_activity.process_weekly_activity(WEEKLY_ACTIVITY_ACTION.RES_MARKET, mode, nres)
+    weekly_activity.process_weekly_activity(self, WEEKLY_ACTIVITY_ACTION.RES_MARKET, mode, nres)
 
     extra[1] = total
     extra[2] = free
@@ -116,6 +107,5 @@ function buy_res(self, id)
     dumpTab(extra, "resource_buy")
     market.extra = extra
 
-    reply_ok(self, "buy_res", combo )
 end
 

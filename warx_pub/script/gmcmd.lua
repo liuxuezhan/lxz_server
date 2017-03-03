@@ -268,6 +268,56 @@ function on_pay(pids, num)
         return {code = 0, msg = "no ply"}
     end
 end
+function prepare_boss_atk_city(pids)
+    local ply = getPlayer(pids[1])
+    if ply then
+        npc_city.prepare_boss_attack_city()
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
+function start_boss_atk_city(pids)
+    local ply = getPlayer(pids[1])
+    if ply then
+        npc_city.start_boss_attack_city()
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
+function stop_boss_atk_city(pids)
+    local ply = getPlayer(pids[1])
+    if ply then
+        npc_city.stop_boss_attack_city()
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
+function spy_task_ply(pids)
+    local ply = getPlayer(pids[1])
+    if ply then
+        ply:spy_task_ply(130021002, ply.eid, ply.x + 10 , ply.y + 10 )
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
+function siege_task_ply(pids)
+    num = tonumber(num)
+    local ply = getPlayer(pids[1])
+    if ply then
+        ply:siege_task_ply(130021003, ply.eid, ply.x + 1 , ply.y, {})
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
 
 function update_title(pids, num)
     num = tonumber(num)
@@ -287,6 +337,9 @@ function addcount(pids, s_id, s_num)
     local id = tonumber(s_id)
     local num = tonumber(s_num)
     local ply = getPlayer(pids[1])
+    if not id then
+        return {code = 0, msg = "no key"}
+    end
     if ply then
         ply:add_count(id, num)
         if id ==  resmng.ACH_TASK_SPY_PLAYER then
@@ -361,5 +414,10 @@ gmcmd_table = {
     ["addsinew"] = {4, add_sinew, "加体力", "addsinew=num"},
     ["updatetit"] = {4, update_title, "更新称号", "updatetit"},
     ["onpay"] = {4, on_pay, "充值", "onpay=id"},
+    ["stbac"] = {4, start_boss_atk_city, "boss 攻打 npc", "stbac"},
+    ["spbac"] = {4, stop_boss_atk_city, "boss 结束攻打 npc", "spbac"},
+    ["prebac"] = {4, prepare_boss_atk_city, "boss 准备攻打 npc", "prebac"},
+    ["spyply"] = {4, spy_task_ply, "侦查任务玩家", "spy_ply"},
+    ["siegeply"] = {4, siege_task_ply, "攻打任务玩家", "atk_task_ply"},
 
 }

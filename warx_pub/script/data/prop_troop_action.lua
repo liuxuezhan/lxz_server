@@ -48,4 +48,8 @@ prop_troop_action = {
 	[HoldDefenseNPC] = { TroopAction = HoldDefenseNPC, SpeedMarch = 1, SpeedMarchPvE = 1, SpeedRally = 0, SpeedCavaran = 0, Default = nil, IsPvp = 1, CanSpecial = 0,},
 	[HoldDefenseKING] = { TroopAction = HoldDefenseKING, SpeedMarch = 1, SpeedMarchPvE = 0, SpeedRally = 0, SpeedCavaran = 0, Default = nil, IsPvp = 1, CanSpecial = 0,},
 	[HoldDefenseLT] = { TroopAction = HoldDefenseLT, SpeedMarch = 1, SpeedMarchPvE = 1, SpeedRally = 0, SpeedCavaran = 0, Default = nil, IsPvp = 1, CanSpecial = 0,},
+	[VisitHero] = { TroopAction = VisitHero, SpeedMarch = 0, SpeedMarchPvE = 0, SpeedRally = 0, SpeedCavaran = 0, Default = 100, IsPvp = 0, CanSpecial = 1,},
+	[VisitNpc] = { TroopAction = VisitNpc, SpeedMarch = 0, SpeedMarchPvE = 0, SpeedRally = 0, SpeedCavaran = 0, Default = 100, IsPvp = 0, CanSpecial = 1,},
+	[TaskSpyPly] = { TroopAction = TaskSpyPly, SpeedMarch = 0, SpeedMarchPvE = 0, SpeedRally = 0, SpeedCavaran = 0, Default = 100, IsPvp = 0, CanSpecial = 1,},
+	[TaskAtkPly] = { TroopAction = TaskAtkPly, SpeedMarch = 1, SpeedMarchPvE = 0, SpeedRally = 0, SpeedCavaran = 0, Default = nil, IsPvp = 0, CanSpecial = 0,},
 }

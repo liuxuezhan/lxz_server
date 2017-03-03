@@ -133,6 +133,7 @@ function add_count( self, key, val )
     gPendingSave.count[ self.pid ][key] = counts[ key ]
     try_add_tit_point(self, key)
     Rpc:set_count( self, key, counts[ key ] )
+    if key == resmng.ACH_COUNT_KILL_POW then union_mission.ok(self,UNION_MISSION_CLASS.KILL,val) end
 end
 
 local func_ache = {}

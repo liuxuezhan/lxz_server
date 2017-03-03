@@ -75,38 +75,28 @@ end
 function add_donate(ply, num,r)
     if num < 0 then WARN("") return end
     ply._union.donate = ply._union.donate + num
-	if r== VALUE_CHANGE_REASON.REASON_UNION_DONATE then
-		for i = DONATE_RANKING_TYPE.DAY, DONATE_RANKING_TYPE.UNION do
-			ply._union.donate_data[i] = ply._union.donate_data[i] + num
-		end
-	elseif r== VALUE_CHANGE_REASON.UNION_BUILDLV then
-		for i = DONATE_RANKING_TYPE.DAY_B, DONATE_RANKING_TYPE.UNION_B do
-			ply._union.donate_data[i] = ply._union.donate_data[i] + num
-		end
-	end
-
     gPendingSave.union_member[ply.pid].donate = ply._union.donate
-    gPendingSave.union_member[ply.pid].donate_data = ply._union.donate_data
 
-    local union = unionmng.get_union(ply:get_uid())
-    if union then
-        union.donate_rank = {} --清除捐献排行
-    end
 end
 
-function add_donate_rank(ply, num,r)
+function add_donate_rank(ply, exp,num,r)
     if num < 0 then WARN("") return end
 
 	if r== 1 then
 		for i = DONATE_RANKING_TYPE.DAY, DONATE_RANKING_TYPE.UNION do
-			ply._union.techexp_data[i] = ply._union.techexp_data[i] + num
+			ply._union.techexp_data[i] = ply._union.techexp_data[i] + exp
+			ply._union.donate_data[i] = ply._union.donate_data[i] + num
 		end
 	elseif r== 2 then
 		for i = DONATE_RANKING_TYPE.DAY_B, DONATE_RANKING_TYPE.UNION_B do
-			ply._union.techexp_data[i] = ply._union.techexp_data[i] + 1
+			ply._union.techexp_data[i] = ply._union.techexp_data[i] + exp
+			ply._union.donate_data[i] = ply._union.donate_data[i] + 1
 		end
 	end
     gPendingSave.union_member[ply.pid].techexp_data = ply._union.techexp_data
+    gPendingSave.union_member[ply.pid].donate_data = ply._union.donate_data
+    local union = unionmng.get_union(ply:get_uid())
+    if union then union.donate_rank = {} end
 end
 
 function clear_donate_data(ply, what)

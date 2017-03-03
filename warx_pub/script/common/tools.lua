@@ -354,7 +354,7 @@ end
 function tojson(tbl,indent)
     assert(tal==nil)
     if not indent then indent = 0 end
-
+    if indent > 5 then return "" end
     local tab=string.rep("  ",indent)
     local havetable=false
     local str="{"
@@ -455,7 +455,7 @@ end
 -- Others   : timestamp 为空则取当前时间
 --------------------------------------------------------------------------------
 function timestamp_to_str(timestamp)
-    return os.date("%Y-%m-%d %X", timestamp or 0)
+    return os.date("%Y-%m-%d %X", timestamp or gTime)
 end
 
 function tab_to_timestamp(tab)
@@ -809,25 +809,25 @@ function get_next_time()
     return os.time(temp) + 24 * 3600
 end
 
-function can_date(time)--是否跨天
+function can_date(time,cur)--是否跨天
 
-    if (not time) or (time == 0)  then
-        return true
-    end
+    if (not time) or (time == 0)  then return true end
+    if (cur == 0) then return true end
 
-    if os.date("%d", gTime)~=os.date("%d",time) then
+    if os.date("%d", cur )~=os.date("%d",time) then
         return true
     end
     return false
 end
 
-function can_month(time)--是否跨月
+function can_month(time,cur)--是否跨月
 
     if (not time) or (time == 0)  then
         return true
     end
+    if (cur == 0) then return true end
 
-    if os.date("%m", gTime)~=os.date("%m",time) then
+    if os.date("%m", cur)~=os.date("%m",time) then
         return true
     end
     return false
@@ -925,7 +925,7 @@ end
 
 function calc_acc_gold(total)
     local orig = total
-    if total < 1 then return 0 end
+    if total <= 0 then return 0 end
     local cost = 0
     for k, v in ipairs(CLEAR_CD_COST) do
         if total >= v[1] then
@@ -938,7 +938,7 @@ function calc_acc_gold(total)
         end
     end
     if total > 0 then
-        local v = BUY_RES_COST[ #CLEAR_CD_COST ]
+        local v = CLEAR_CD_COST[ #CLEAR_CD_COST ]
         cost = cost + total * v[2] / v[1]
     end
     -- print("time_to_gold", orig, cost)
@@ -1484,3 +1484,46 @@ function check_valid_input(s)
     end
     return rst
 end
+
+--洗牌算法，用于将一组数据等概率随机打乱。等概率算法。
+function shuffle(t)
+    if not t then return end
+    local cnt = #t
+    for i=1,cnt do
+        local j = math.random(i,cnt)
+        t[i],t[j] = t[j],t[i]
+    end
+end
+
+--分红包算法
+function split(m,n)
+    --构造m-1个可用的分割标记位
+    local mark = {}
+    for i=1,m-1 do
+        mark[i] = i
+    end
+
+    --打乱标所有记位
+    shuffle(mark)
+    --构建一个新的表，并从mark表中取前n-1个位置作为有效标记位
+    local validMark = {}
+    for i=1,n-1 do
+        validMark[i] = mark[i]
+    end
+
+    --重新按从小到大排序有效标记
+    table.sort(validMark,function (a,b)
+        return a<b
+    end)
+
+    --设置有效标记表的头、尾分别为0和m
+    validMark[0] = 0
+    validMark[n] = m
+    --构建输出数组
+    local out = {}
+    for i=1,n do
+        out[i] = validMark[i] - validMark[i-1]
+    end
+    return out
+end
+

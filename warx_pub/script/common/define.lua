@@ -160,6 +160,7 @@ VALUE_CHANGE_REASON = {
     REASON_GACHA_HUNXIA_TEN         = 2009,          --魂匣十连抽
     REASON_DEC_RES_RESET_SKILL      = 2010,          --重置技能
     REASON_DEC_RES_CHANGE_HEAD      = 2011,          --改变头像
+    REASON_DEC_RES_TASK             = 2012,          --任务上缴
 
     --增加资源
     REASON_ADD_RES = 3000,
@@ -704,6 +705,11 @@ TroopAction = {
     HoldDefenseNPC = 39, -- 驻守NPC
     HoldDefenseKING = 40, --驻守王城
     HoldDefenseLT = 41, --驻守遗迹塔
+    VisitHero = 42, --拜访大地图英雄
+    VisitNpc = 43, --拜访大地图Npc 城市
+    TaskSpyPly = 44, --侦查任务fake 玩家
+    TaskAtkPly = 45, --攻打任务fake 玩家
+
 }
 
 WatchTowerAction = {
@@ -1312,18 +1318,26 @@ TASK_STATUS = {
     TASK_STATUS_ACCEPTED            = 3,    --已接收(正在进行)
     TASK_STATUS_CAN_FINISH          = 4,    --可以领取
     TASK_STATUS_FINISHED            = 5,    --已完成（已领取）
+    TASK_STATUS_UPDATE              = 6,    --重置
 }
 
 UNION_MISSION_TM = 180
 UNION_MISSION_CLASS = {
+    NPC_CITY    =9,
+    ACT_PLY     =10,
+    KILL        =11,
+    ACT_AI     =12,
+
     BUILD       =1,
-    HELP        =2,
     DONATE      =3,
-    ACTIVE      =4, --积分
-    GATHER      =5,
     POW         =6,
     GOD         =7,
+
+    HELP        =2,
+    ACTIVE      =4, --积分
+    GATHER      =5,
     COST        =8,
+
 }
 
 TASK_ACTION = {
@@ -1386,6 +1400,12 @@ TASK_ACTION = {
     PANJUN_SCORE                    = 56,    --叛军突袭活动获得积分
     LOSTTEMPLE_SCORE                = 57,    --遗迹塔获得贤者之石
     TROOP_TO_KING_CITY              = 58,    --向王城行军
+    ATTACK_SPECIAL_PLY              = 59,    --攻击任务玩家
+    SPY_SPECIAL_PLY                 = 60,    --侦查任务玩家
+    VISIT_HERO                      = 61,    --拜访英雄
+    GET_TASK_ITEM                   = 62,    --任务上缴物品
+    WORSHIP_GOD                     = 63,    --任务上缴物品
+
 }
 -- 打开UI任务
 TASK_UI_ID = {
@@ -1397,6 +1417,8 @@ TASK_UI_ID = {
     DAILY_TASK = 6, --日常任务
     BALCK_MARKET = 7, --黑市
     ACHIEVE = 8, --成就
+    EQUIP_FORGE = 9, --锻造装备
+    UNION_MISSION = 10, --军团任务
 }
 
 g_task_func_relation = {
@@ -1437,7 +1459,6 @@ g_task_func_relation = {
 ["month_award"] = TASK_ACTION.MONTH_AWARD,                         --签到
 ["day_award"] = TASK_ACTION.DAY_AWARD,                             --飞艇（码头）领取
 ["open_ui"] = TASK_ACTION.OPEN_UI,                                 --打开界面
-["visit_npc"] = TASK_ACTION.VISIT_NPC,                             --拜访NPC
 ["get_res"] = TASK_ACTION.GET_RES,                                 --收获士兵/资源
 ["role_lv"] = TASK_ACTION.ROLE_LEVEL_UP,                           --提升领主等级
 ["gacha_mub"] = TASK_ACTION.GACHA_MUB,                             --抽卡次数
@@ -1458,6 +1479,12 @@ g_task_func_relation = {
 ["panjun_score"] = TASK_ACTION.PANJUN_SCORE,                       --叛军突袭活动获得积分
 ["losttemple_score"] = TASK_ACTION.LOSTTEMPLE_SCORE,               --遗迹塔获得贤者之石
 ["troop_to_king_city"] = TASK_ACTION.TROOP_TO_KING_CITY,           --向王城行军
+["visit_hero"] = TASK_ACTION.VISIT_HERO,                           --拜访英雄
+["visit_npc"] = TASK_ACTION.VISIT_NPC,                             --拜访npc 城市
+["attack_special_ply"] = TASK_ACTION.ATTACK_SPECIAL_PLY,           --攻击特定玩家
+["spy_special_ply"] = TASK_ACTION.SPY_SPECIAL_PLY,                 --侦查特定玩家
+["worship_god"] = TASK_ACTION.WORSHIP_GOD,                         --膜拜战神
+["get_task_item"] = TASK_ACTION.GET_TASK_ITEM,                     --收集任务道具
 }
 -------------------------------------------------------------
 --奖励
@@ -1555,7 +1582,7 @@ WEEKLY_ACTIVITY_ACTION = {
     GACHA             = 5,         --抽卡
     RES_MARKET        = 6,         --物资市场
     BLACK_MARKET      = 7,         --黑市
-    KILL_ARM          = 8,         --攻击玩家击杀士兵
+    KILL_ARM          = 100,         --攻击玩家击杀士兵
 }
 
 -------------------------------------------------------------------------------------
@@ -1705,6 +1732,8 @@ SEARCH_RANGE = {
 
 OFFLINE_UNIT_TYPE = {
     NPC_MONSTER = 1,
+    TASK_PLAYER = 4,
+    TASK_HERO = 3,
 }
 
 --月卡总天数
@@ -1897,4 +1926,10 @@ map_city_zone = {
     [38] = 3039004,
     [39] = 3040004,
     [40] = 4001001
+}
+
+Sub_Func = 
+{
+    LT_POP = 1,
+    MC_POP = 2,
 }

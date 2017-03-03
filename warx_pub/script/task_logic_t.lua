@@ -72,6 +72,15 @@ function add_task_process(player, task_data, con_num, num)
     end
 end
 
+function update_get_task_item_process(task_data, con_num, num)
+    task_data.task_current_num = num
+    if task_data.task_current_num >= con_num then
+        task_data.task_status = TASK_STATUS.TASK_STATUS_CAN_FINISH
+        return true
+    end
+    return false
+end
+
 function update_task_process(task_data, con_num, num)
     if task_data.task_current_num > num then
         return false
@@ -116,6 +125,33 @@ do_task[TASK_ACTION.ATTACK_SPECIAL_MONSTER] = function(player, task_data, con_mi
         task_data.task_status = TASK_STATUS.TASK_STATUS_CAN_FINISH
         Rpc:rm_npc_monster(player, real_eid)
     end
+    return true
+end
+
+--攻击特定ID的fake ply
+do_task[TASK_ACTION.ATTACK_SPECIAL_PLY] = function(player, task_data, con_id, con_num, real_id, num)
+    if real_id == nil then
+        return false
+    end
+
+    if con_id ~= real_id then
+        return false
+    end
+    Rpc:rm_fake_ply(player, real_id)
+    task_data.task_status = TASK_STATUS.TASK_STATUS_CAN_FINISH
+    return true
+end
+
+--侦查特定ID的fake ply
+do_task[TASK_ACTION.SPY_SPECIAL_PLY] = function(player, task_data, con_id, con_num, real_id, num)
+    if real_id == nil then
+        return false
+    end
+
+    if con_id ~= real_id then
+        return false
+    end
+    task_data.task_status = TASK_STATUS.TASK_STATUS_CAN_FINISH
     return true
 end
 
@@ -545,6 +581,19 @@ do_task[TASK_ACTION.GET_ITEM] = function(player, task_data, con_id, con_num, rea
     return false
 end
 
+--收集上缴任务物品
+do_task[TASK_ACTION.GET_TASK_ITEM] = function(player, task_data, con_id, con_num, real_id, real_num)
+    if con_id ~= real_id then
+        return
+    end
+    if update_get_task_item_process(task_data, con_num, player:get_item_num(con_id)) then
+        player:dec_item_by_item_id(con_id, con_num, VALUE_CHANGE_REASON.REASON_DEC_RES_TASK)
+        return true
+    else
+        return false
+    end
+end
+
 --收集品质装备
 do_task[TASK_ACTION.GET_EQUIP] = function(player, task_data, con_grade, con_num, equip_id, real_num)
 
@@ -833,22 +882,41 @@ do_task[TASK_ACTION.OPEN_UI] = function(player, task_data, con_id, real_id)
     return true
 end
 
---拜访NPC
-do_task[TASK_ACTION.VISIT_NPC] = function(player, task_data, con_id, real_id)
+--拜访HERO
+do_task[TASK_ACTION.VISIT_HERO] = function(player, task_data, con_id, real_id, real_num)
     if real_id == nil then
         return false
     end
 
-    --临时通过
-    if task_warning("do_task[TASK_ACTION.VISIT_NPC]") == false then
-        add_task_process(player, task_data, 1, 1)
-    end
+--临时通过
+--    if task_warning("do_task[TASK_ACTION.VISIT_NPC]") == false then
+--      add_task_process(player, task_data, 1, 1)
+--   end
     --------------
 
     if con_id ~= real_id then
         return false
     end
     add_task_process(player, task_data, 1, 1)
+    return true
+end
+
+--拜访HERO
+do_task[TASK_ACTION.VISIT_NPC] = function(player, task_data, con_id, con_num, real_id, real_num)
+    if real_id == nil then
+        return false
+    end
+
+--临时通过
+--    if task_warning("do_task[TASK_ACTION.VISIT_NPC]") == false then
+--      add_task_process(player, task_data, 1, 1)
+--   end
+    --------------
+
+    if con_id ~= real_id then
+        return false
+    end
+    add_task_process(player, task_data, con_num, 1)
     return true
 end
 
@@ -947,6 +1015,16 @@ do_task[TASK_ACTION.KILL_SOLDIER] = function(player, task_data, con_level, con_n
     end
 
     if con_level ~= 0 and con_level ~= real_level then
+        return false
+    end
+
+    add_task_process(player, task_data, con_num, real_num)
+    return true
+end
+
+--膜拜战神
+do_task[TASK_ACTION.WORSHIP_GOD] = function(player, task_data, con_num, real_num)
+    if real_num == nil then
         return false
     end
 

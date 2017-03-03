@@ -242,10 +242,8 @@ function restore_timer()
     local info = db.timer:find({})
     local maxSn = 0
 
-    local tm_shutdown = (gSysStatus.tick or gTime) - 1
+    local tm_shutdown = gSysStatus.tick or gTime
     print( "tm_shutdown", tm_shutdown, gTime - tm_shutdown, os.date( "%c", tm_shutdown ) )
-
-    local sec_idx = tm_shutdown % 60
 
     _G.gTime = tm_shutdown
     _G.gMsec = 0
@@ -254,8 +252,8 @@ function restore_timer()
 
     while info:hasNext() do
         local t = info:next()
-        if t.over < tm_shutdown then
-            WARN( "timer error, id = %d", t._id )
+        if t.over < tm_shutdown - 10 then
+            WARN( "timer error, id = %d, over=%d, now=%d", t._id, t.over, tm_shutdown )
         else
             local sn = t._id
             timer._sns[ sn ] = t
@@ -263,14 +261,11 @@ function restore_timer()
             if sn > maxSn then maxSn = sn end
         end
     end
-
     _G.gSns[ "timer" ] = maxSn + 1
 
-    if sec_idx <= 30 then
-        timer.new( "cron", 30 - sec_idx )
-    else
-        timer.new( "cron", 60 - sec_idx + 30 )
-    end
+    local next_cron = gSysStatus.cron or tm_shutdown
+    next_cron = next_cron - ( next_cron % 60 ) + 90
+    timer.new( "cron", next_cron - tm_shutdown )
 
     for eid, ety in pairs( gEtys or {} ) do
         if not is_troop( ety ) then

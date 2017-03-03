@@ -247,6 +247,15 @@ function start_lt()
     clear_timer()
     -- debug
     set_timer(LT_STATE.DOWN)
+
+    update_lt_ntf()  -- 推送更新通知
+end
+
+function update_lt_ntf()
+    local lts = player_t.get_lt_map_info()
+    if lts then
+        subscribe_ntf.send_sub_ntf( "map_info", "lt_map_info_req", lts)
+    end
 end
 
 function gen_lost_temples()
@@ -320,7 +329,7 @@ end
 function get_pos_by_grade(tx, ty, prop,  grade)
     local x, y
     local r = prop.Size or 1
-    x, y = monster_city.get_pos_in_range(tx, ty, 3, 3, r)
+    x, y = monster_city.get_pos_in_range(tx, ty, 2, 2, r)
 
     return x, y
 
@@ -437,6 +446,7 @@ function end_lt()
     send_score_reward()
     -- debug
     --set_timer(LT_STATE.ACTIVE)
+    update_lt_ntf()  -- 推送更新通知
 end
 
 function close_temple(city)

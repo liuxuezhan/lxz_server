@@ -65,17 +65,44 @@ function get_atk_info(unions, data)
 end
 
 function get_defender_info(data)
-    if data.uid == 0 or data.uid == data.propid then
-        return {data.propid}
-    else
+    --if data.uid == 0 or data.uid == data.propid then
+    --    return {data.propid}
+    --else
+    --    local union = unionmng.get_union(data.uid)
+    --    if union then
+    --        return {union.uid, union.name, union.flag, union.alias}
+    --    else
+    --        return {data.propid}
+    --    end
+    --end
+
+    if data.uid > 0 then
         local union = unionmng.get_union(data.uid)
         if union then
             return {union.uid, union.name, union.flag, union.alias}
-        else
-            return {data.propid}
+        end
+        return { data.eid % 5 + 1 }
+    end
+
+    local occupys = npc_city.monster_occupys
+    if occupys then
+        local uid = occupys[ data.propid ]
+        if uid then
+            return { uid }
         end
     end
+
+    if data.last_uid == 0 then
+        local conf = resmng.get_conf( "prop_world_unit", data.propid )
+        if conf then
+            local uid = conf.Flag and conf.Flag[ 4 ]
+            if uid then return { uid } end
+        end
+    end
+
+    return { data.eid % 5 + 1 }
 end
+
 
 function load_npc_city()
     local db = dbmng:getOne()
@@ -291,6 +318,25 @@ function fight_state(npcCity)
     --mark(npcCity)
 end
 
+function fight_state(npcCity)
+    local level = get_npc_city_lv(npcCity.propid)
+    npcCity.state = TW_STATE.FIGHT
+
+    local pro = resmng.prop_world_unit[npcCity.propid]
+    if pro then
+        king_city.common_ntf(resmng.TW_FIGHT, {pro.Name})
+    end
+
+    npcCity.startTime =  gTime 
+    npcCity.endTime = gTime + resmng.prop_tw_stage[npcCity.state].Spantime[level]
+    set_timer(npcCity)
+    format_union(npcCity)
+    etypipe.add(npcCity)
+    update_act_tag()
+    --mark(npcCity)
+end
+
+
 function set_timer(npcCity, state)
     if state == nil then state = npcCity.state end
     local level = get_npc_city_lv(npcCity.propid)
@@ -424,7 +470,8 @@ function each_union_award(union)
         if city then
             local prop = resmng.prop_world_unit[city.propid]
             if prop then
-                for _, rewards in pairs(prop.Fix_award or {}) do
+                local rewards = prop.Fix_award
+                if rewards then
                     local award = player_t.bonus_func[ rewards[1] ](prop, rewards[2])
                     add_reward_pool(pool, award)
                 end
@@ -1213,13 +1260,14 @@ end
 function hold_limit(self, ply)
     ply = ply or {}
     if not self then return end
-    local num ,limit=0,0
+    local num ,limit, pow =0,0 ,0
     local u = unionmng.get_union(self.uid)
-    if not u then return  0, 0 end
+    if not u then return  0, 0 , 0 end
 
     local tr = troop_mng.get_troop(self.my_troop_id)
     if tr then 
         num = tr:get_troop_total_soldier()
+        pow = tr:get_tr_pow()
     end 
 
     local c = resmng.get_conf("prop_world_unit",self.propid)
@@ -1231,7 +1279,7 @@ function hold_limit(self, ply)
         end
     end
     limit = limit or 100
-    return num,limit
+    return num,limit, pow
 end
 
 function hold_num_limit(self, ply) --已驻守和将要驻守数量
@@ -1408,4 +1456,95 @@ function post_change(propid, map_id, tag)
     center_id = 999
      Rpc:callAgent(center_id, "post_npc_change", propid, map_id, tag)
 end
+
+function prepare_boss_attack_city( )
+    local cs = {}
+    for k, v in pairs( citys ) do
+        local city = get_ety( k )
+        if city then
+            if city.uid == 0 then
+                table.insert( cs, {city.propid, city.eid} )
+            end
+        end
+    end
+    if #cs < 3 then return end
+
+    local gs = {}
+    for k, v in pairs( resmng.prop_default_union ) do
+        if k >= 100 then
+            table.insert( gs, k )
+        end
+    end
+
+    local infos = {}
+    for i = 1, 3, 1 do
+        local count = #cs
+
+        local idx = math.random( 1, count )
+        local ct = table.remove( cs, idx )
+        local ety = get_ety(ct[2])
+        if ety then
+            infos[ ct[1] ] = { table.remove( gs ) }
+            prepare_state(ety)
+        end
+    end
+
+    for i = 2, 3, 1 do
+        if #gs == 0 then break end
+        for k, v in pairs( infos ) do
+            if #gs == 0 then break end
+            table.insert( v, table.remove( gs ) )
+        end
+    end
+
+    npc_city.monster_declares = infos
+
+    --Rpc:monster_declare( {pid=-1, gid=_G.GateSid}, infos )
+
+    dumpTab( infos, "prepare_boss_attack_city" )
+end
+
+function start_boss_attack_city( )
+    local infos = npc_city.monster_declares or {}
+    for k, v in pairs(infos ) do
+        local eid = get_npc_eid_by_propid(k)
+        local ety = get_ety(eid)
+        if ety then
+            fight_state(ety)
+        end
+    end
+
+    Rpc:monster_declare( {pid=-1, gid=_G.GateSid}, infos )
+end
+
+function stop_boss_attack_city( )
+    local infos = npc_city.monster_declares
+    if not infos then return end
+    npc_city.monster_declares = nil
+
+    local occupys = {}
+    for k, v in pairs( infos ) do
+        local count = #v
+        if count > 0 then
+            occupys[ k ] = table.remove( v, math.random( 1, count ) )
+        end
+    end
+    npc_city.monster_occupys = occupys
+
+    for k, v in pairs( citys ) do
+        local npc = get_ety(v)
+        if npc then
+            if npc.uid == 0 then
+                if occupys[ npc.propid ] then
+                    --format_union( npc )
+                    --etypipe.add( npc )
+                    pace_state(npc)
+                end
+            end
+        end
+    end
+
+    Rpc:monster_declare( {pid=-1, gid=_G.GateSid}, {} )
+end
+
 

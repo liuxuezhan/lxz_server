@@ -73,7 +73,7 @@ function loop()
                 if check(t, v) then
                     local fun = crontab[ v.action ]
                     if fun then
-                        INFO("[CRONTAB]:%s", v.action)
+                        INFO("[CRONTAB], %s", v.action)
                         action(fun, unpack(v.arg or {}))
                     end
                 end
@@ -83,7 +83,7 @@ function loop()
 end
 
 function setDayStart()
-    local now = os.date("*t")
+    local now = os.date("*t", gTime)
     local flag = false
 
     local hour = 5
@@ -109,7 +109,7 @@ end
 --------------------
 --
 function cronTest(i, s)
-    LOG("crontab.cronTest, i=%d, s=%s, gTime=%d, real=%d", i, s, gTime, real_gTime or 0)
+    LOG("crontab.cronTest, i=%d, s=%s, gTime=%d, real=%d", i, s, gTime, c_time_real() or 0)
 end
 
 function clean()

@@ -129,9 +129,9 @@ function do_save_task(self)
             gPendingInsert.task[_id] = save
             dumpTab( save, "do_save_task" )
             
-            if data.task_status == TASK_STATUS.TASK_STATUS_CAN_FINISH then
-                self:open_build_by_task(data.task_id)
-            end
+            -- if data.task_status == TASK_STATUS.TASK_STATUS_CAN_FINISH then
+            --     self:open_build_by_task(data.task_id)
+            -- end
             self:notify_task_change(data) 
         end
         
@@ -310,6 +310,9 @@ function get_task_award(self, task_id)
     local bonus_policy = resmng.prop_task_detail[task_id].BonusPolicy
     local bonus = resmng.prop_task_detail[task_id].Bonus
     self:add_bonus(bonus_policy, bonus, VALUE_CHANGE_REASON.REASON_TASK)
+
+    --开启建筑
+    self:open_build_by_task(info.task_id)
 
     self:pre_tlog("QuestComplete",task_id )
     return true
@@ -748,19 +751,13 @@ function open_build_by_task(self, task_id)
     for k, v in pairs(resmng.prop_citybuildview) do
         if v.OpenCond ~= nil then
             if task_id == v.OpenCond[2] then
-                local build_id = v.ID * 1000 + 1
+                local build_id = v.PropId
                 local bs = self:get_build()
                 local conf = resmng.get_conf("prop_build", build_id)
                 local build_idx = self:calc_build_idx(conf.Class, conf.Mode, 1)
                 if bs[ build_idx ] == nil then
                     local build = build_t.create(build_idx, self.pid, build_id, 0, 0, BUILD_STATE.CREATE)
                     bs[ build_idx ] = build
-                    if build_id == 21001 then
-                        --self:open_online_award()
-                        build.extra.next_time = self:get_online_award_next_time()
-                        build.extra = build.extra
-                    end
-
                     build.tmSn = 0
                     self:doTimerBuild( 0, build_idx )
                 end

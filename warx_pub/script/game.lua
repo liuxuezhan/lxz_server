@@ -111,6 +111,7 @@ function do_reload()
     do_load("world_event")
     --do_load("operate_activity")
     do_load("weekly_activity")
+    do_load("subscribe_ntf")
 
     --gTimeReload = c_get_time()
 end
@@ -441,14 +442,36 @@ end
 
 
 function test()
-    --local info = rank_mng.get_info( 1, 4251386 )
-    --local info = rank_mng.get_info( 0, 4400036 )
-    --dumpTab( info, "rank_info" )
+    --weekly_activity.init_data()
 
+    for i = 1, 100, 1 do
+        farm.respawn( math.floor(918/16),math.floor(776/16),1 )
+    end
 
-    local ply = getPlayer( 580020 )
-    ply:query_log_support_arm()
-    ply:on_pay( 52 )
+   --local p, m, r
+    --for k, v in pairs( gEtys ) do
+    --    if is_ply( v ) then
+    --        p = v
+    --    elseif is_monster( v ) then
+    --        m = v
+    --    elseif is_res( v ) then
+    --        r = v
+    --    end
+    --    if p and m and r then
+    --        p:boss_gather( m.eid, r.eid )
+    --        return
+    --    end
+    --end
+
+    --npc_city.start_boss_attack_city( )
+    ----npc_city.stop_boss_attack_city( )
+
+    --local ply = getPlayer( 590001 )
+    --ply:query_log_support_arm()
+    --ply:on_pay( 52 )
+
+    --local ply = getPlayer( 580005 )
+    --ply:query_log_support_arm()
 
 
     --local p = getPlayer( 4250018 )

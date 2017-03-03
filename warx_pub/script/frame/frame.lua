@@ -492,19 +492,32 @@ function main_loop(sec, msec, fpk, ftimer, froi, signal)
         elseif gInit == "InitFrameDone" then
             gInit = "InitGameAction"
             lxz(gInit)
-            perfmon.init()
             action(restore_game_data)
 
         elseif gInit == "InitCompensate" then
-            local real = os.time()
+            local real = c_time_real()
             if gCompensation < real then
                 local offset = real - gCompensation
-                if offset % 3600 == 0 then
-                    print( "Compensate, offset =", offset )
+                if offset % 3600 == 0 then print( "Compensate, offset =", offset ) end
+
+                if c_get_troop_count() < 1 then
+                    local recent = timer.get_recently()
+                    if recent and recent < real then
+                        if recent > gCompensation then
+                            gCompensation = recent + 1
+                            c_time_step(gCompensation)
+                        else
+                            gCompensation = gCompensation + 1
+                            c_time_step(gCompensation)
+                        end
+                    else
+                        gCompensation = real
+                        c_time_step(gCompensation)
+                    end
+                else
+                    gCompensation = gCompensation + 1
+                    c_time_step(gCompensation)
                 end
-                gCompensation = gCompensation + 1
-                c_time_step(gCompensation)
-                --WARN("Compensation, real=%d, now=%d, diff=%d", real, gCompensation, real - gCompensation)
             else
                 set_sys_status( "tick", real )
                 gCompensation = nil
@@ -515,6 +528,7 @@ function main_loop(sec, msec, fpk, ftimer, froi, signal)
             end
 
         elseif gInit == "InitGameDone" then
+            perfmon.init()
             gInit = "InitCronBoot"
             action( crontab.initBoot )
 
@@ -638,8 +652,8 @@ function main_loop(sec, msec, fpk, ftimer, froi, signal)
 
     if gCompensation then
         if ftimer == 1 or froi == 1 then
-            local real = os.time()
-            print(string.format("Compensation, %s, -> %s, diff=%d", os.date("%c",gTime), os.date("%c"), real-gTime))
+            local real = c_time_real()
+            WARN("Compensation, %s, -> %s, diff=%d", os.date("%c",gTime), os.date("%c", real), real-gTime)
             check_pending()
             global_save()
             check_tool_ack()
@@ -1368,4 +1382,25 @@ function coro_info()
         if status == "dead" then print( "coro dead", k ) end
     end
 end
+
+
+
+function take_over_os_time()
+    if c_time_real and not g_real_os_time then
+        g_real_os_time = os.time
+        os.time = my_os_time
+    end
+end
+
+
+function my_os_time( info )
+    if not info then
+        return c_time_real()
+    else
+        return g_real_os_time( info )
+    end
+end
+
+take_over_os_time()
+
 

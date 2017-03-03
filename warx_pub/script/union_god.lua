@@ -25,7 +25,7 @@ end
 
 function add(p,mode)--膜拜
     if mode > 3  then return end
-    if not can_date(p._union.god_log.tm)  then return end
+    if not can_date(p._union.god_log.tm or 0, gTime) then return end
     local u = unionmng.get_union(p:get_uid())
     if not u  then return end
 
@@ -39,6 +39,8 @@ function add(p,mode)--膜拜
     p:add_bonus(c.WorshipItem[mode][1], c.WorshipItem[mode][2],VALUE_CHANGE_REASON.UNION_GOD)
     union_mission.ok(p,UNION_MISSION_CLASS.GOD,1)
     p:union_load("mars")
+
+    task_logic_t.process_task(p, TASK_ACTION.WORSHIP_GOD, 1)
 end
 
 function add_exp(p,num)--战神经验

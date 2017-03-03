@@ -46,3 +46,7 @@ Refugee = 38
 HoldDefenseNPC = 39
 HoldDefenseKING = 40
 HoldDefenseLT = 41
+VisitHero = 42
+VisitNpc = 43
+TaskSpyPly = 44
+TaskAtkPly = 45

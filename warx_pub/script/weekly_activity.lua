@@ -1,11 +1,12 @@
 module("weekly_activity", package.seeall)
 
 function get_relative_start()
-	return _G._G.gSysStatus.start
+	return _G.gSysStatus.start
 end
 
-Circulation = 0	--活动间隔周期
-OpenTime = 2	--开放时间
+CIRCULATION = 0	--活动间隔周数
+OPEN_TIME = 1 --开放时间
+
 Day2Index = {
 	[0] = 1,
 	[1] = 2,
@@ -52,7 +53,6 @@ function init_data()
 			break
 		end
 	end
-	--周末
 	list[count] = 100
 	return list
 end
@@ -78,17 +78,23 @@ function init_activity()
 
     local open_time = get_relative_start()
     local time_table = os.date("*t", open_time)
-    g_weekly_activity_data.unlock_time = os.time({year = time_table.year, month = time_table.month, day = time_table.day + OpenTime, hour = 0, min = 0, sec = 0})
+    g_weekly_activity_data.unlock_time = os.time({year = time_table.year, month = time_table.month, day = time_table.day + OPEN_TIME, hour = 0, min = 0, sec = 0})
 
     --lua的wday1是从星期天开始的,要换算回来
-    local unlock_wday = (time_table.wday + OpenTime) % 7 - 1
+    local start_time_table
+    if gTime > g_weekly_activity_data.unlock_time then
+    	start_time_table = os.date("*t", gTime)
+    else
+    	start_time_table = os.date("*t", g_weekly_activity_data.unlock_time)
+    end
+    local unlock_wday = start_time_table.wday % 7 - 1
     if unlock_wday == -1 then
         unlock_wday = 6
     end
     if unlock_wday == 0 then
         unlock_wday = 7
     end
-    g_weekly_activity_data.start_time = os.time({year = time_table.year, month = time_table.month, day = (time_table.day + OpenTime - unlock_wday + 1), hour = 0, min = 0, sec = 0})
+    g_weekly_activity_data.start_time = os.time({year = start_time_table.year, month = start_time_table.month, day = (start_time_table.day - unlock_wday + 1), hour = 0, min = 0, sec = 0})
     g_weekly_activity_data.is_started = 0 --把进行标记重置
 
     --判断活动开启
@@ -105,9 +111,16 @@ function on_day_pass()
 	end
 	local diff = get_diff_days(g_weekly_activity_data.start_time, gTime)
 	if diff >= 7 then
-		--活动结束
-		local end_time = start_time + 7 * 86400
-		g_weekly_activity_data.start_time = end_time + Circulation * 7 * 86400	--算出新的开始时间
+        --排行榜发奖
+        local aid = g_weekly_activity_data.data_list[g_weekly_activity_data.current_index]
+        send_rank_award(aid)
+        
+        --总榜发奖
+        send_rank_award(resmng.WEEKLY_ACTIVITY_1000) --总榜id是1000
+		
+        --活动结束
+		local end_time = g_weekly_activity_data.start_time + 7 * 86400
+		g_weekly_activity_data.start_time = end_time + CIRCULATION * 7 * 86400	--算出新的开始时间
 		g_weekly_activity_data.is_started = 0 --把进行标记重置
 		--判断活动开启
 		if gTime >= g_weekly_activity_data.start_time then
@@ -116,10 +129,16 @@ function on_day_pass()
 	else
 		if g_weekly_activity_data.is_started == 0 then
 			refresh_data()
-		end
-		g_weekly_activity_data.current_index = Day2Index[diff]
-	end
-	save_weekly_activity()
+        else
+            if g_weekly_activity_data.current_index < 6 then
+                --排行榜发奖
+                local aid = g_weekly_activity_data.data_list[g_weekly_activity_data.current_index]
+                send_rank_award(aid)
+            end
+            g_weekly_activity_data.current_index = Day2Index[diff]
+        end
+    end
+    save_weekly_activity()
 end
 
 
@@ -153,7 +172,7 @@ function process_weekly_activity(player, activity_id, class, num)
 		player:clear_weekly_activity()
 		player.weekly_activitiy_num = g_weekly_activity_data.activity_num
 	end
-	player.weekly_activity_score[cur_idx] = player.weekly_activity_score[cur_idx] + prop_score.Score * num
+	player.weekly_activity_score[cur_idx] = player.weekly_activity_score[cur_idx] + math.floor(prop_score.Score * num)
 	player.weekly_activity_score = player.weekly_activity_score
 	--判断阶段奖励
 	send_score_award(player, cur_idx, activity_id)
@@ -163,7 +182,7 @@ function process_weekly_activity(player, activity_id, class, num)
 	if prop_tab1 == nil then
 		return
 	end
-	rank_mng.add_data(prop_tab1.RankID, player.pid, {player.weekly_activity[cur_idx]})
+	rank_mng.add_data(prop_tab1.RankID, player.pid, {player.weekly_activity_score[cur_idx]})
 	--更新总榜
 	local total_score = player:get_weekly_activity_total()
 	local prop_tab2 = resmng.get_conf("prop_weekly_activity", 1000)
@@ -186,19 +205,14 @@ function pack_award(prop_tab)
 	end
 	for k, v in pairs(prop_tab.Award2 or {}) do
 		local new_unit = copyTab(v)
-		new_unit[3] = new_unit * get_ratio()
+		new_unit[3] = new_unit[3] * get_ratio()
 		table.insert(tab, new_unit)
 	end
 	return tab
 end
 
 --邮件发奖
-function send_rank_award(index)
-	local aid = g_weekly_activity_data.data_list[index]
-	if aid == nil then
-		ERROR("weekly activity can't find id, index:%d", index)
-		return
-	end
+function send_rank_award(aid)
 	local prop_tab = resmng.get_conf("prop_weekly_activity", aid)
 	if prop_tab == nil then
 		ERROR("weekly activity can't find rank, aid:%d", aid)
@@ -216,15 +230,17 @@ function send_rank_award(index)
 		local award_tab = pack_award(prop_tab)
 
 		--发邮件
-		local pids = rank_mng.get_range(key, v.RankZone[1], v.RankZone[2])
+		local pids = rank_mng.get_range(key, prop_tab.RankZone[1], prop_tab.RankZone[2])
+        local temp_rank = prop_tab.RankZone[1]
 		for idx, pid in pairs(pids or {}) do
 			local ply = getPlayer(pid)
 			if ply ~= nil then
 				local total_score = ply:get_weekly_activity_total()
 				if total_score >= prop_tab.Cond then
-					ply:send_system_notice(prop_tab.MailId, {}, {}, award_tab)
+					ply:send_system_notice(prop_tab.MailId, {}, {temp_rank, g_weekly_activity_data.current_index}, award_tab)
 				end
 			end
+            temp_rank = temp_rank + 1
 		end
 	end
 end
@@ -242,22 +258,74 @@ function send_score_award(ply, index, aid)
 	if ply.weekly_activity_score[index] > prop_tab.Cond1 and ply.weekly_activity_award[index] < 1 then
 		ply.weekly_activity_award[index] = 1
 		ply.weekly_activity_award = ply.weekly_activity_award
-		ply:send_system_notice(prop_tab.MailId, {}, {}, prop_tab.Award1)
+		ply:send_system_notice(prop_tab.Mail, {}, {g_weekly_activity_data.current_index}, prop_tab.Award1)
 	end
 	--第二档
 	if ply.weekly_activity_score[index] > prop_tab.Cond2 and ply.weekly_activity_award[index] < 2 then
 		ply.weekly_activity_award[index]= 2
 		ply.weekly_activity_award = ply.weekly_activity_award
-		ply:send_system_notice(prop_tab.MailId, {}, {}, prop_tab.Award2)
+		ply:send_system_notice(prop_tab.Mail, {}, {g_weekly_activity_data.current_index}, prop_tab.Award2)
 	end
 	--第三档
 	if ply.weekly_activity_score[index] > prop_tab.Cond3 and ply.weekly_activity_award[index] < 3 then
 		ply.weekly_activity_award[index]= 3
 		ply.weekly_activity_award = ply.weekly_activity_award
-		ply:send_system_notice(prop_tab.MailId, {}, {}, prop_tab.Award3)
+		ply:send_system_notice(prop_tab.Mail, {}, {g_weekly_activity_data.current_index}, prop_tab.Award3)
 	end
+end
+
+function pack_activity()
+    local msg = {}
+    msg.cur_day = g_weekly_activity_data.current_index
+    msg.activity_id = g_weekly_activity_data.data_list[msg.cur_day]
+    msg.start_time = g_weekly_activity_data.start_time
+    msg.unlock_time = g_weekly_activity_data.unlock_time
+    msg.award_ratio = get_ratio()
+    msg.activity_num = g_weekly_activity_data.activity_num
+    return msg
 end
 
 
 
+
+
+function gm_on_day_pass()
+    --local aid = g_weekly_activity_data.data_list[g_weekly_activity_data.current_index]
+    --send_rank_award(1000)
+    --if true then return end
+    local cur_time = get_next_day_stamp(gTime) + 30
+	if cur_time < g_weekly_activity_data.start_time then
+		return
+	end
+	local diff = get_diff_days(g_weekly_activity_data.start_time, cur_time)
+	if diff >= 7 then
+        --排行榜发奖
+        local aid = g_weekly_activity_data.data_list[g_weekly_activity_data.current_index]
+        send_rank_award(aid)
+        
+        --总榜发奖
+        send_rank_award(resmng.WEEKLY_ACTIVITY_1000) --总榜id是1000
+		
+        --活动结束
+		local end_time = g_weekly_activity_data.start_time + 7 * 86400
+		g_weekly_activity_data.start_time = end_time + CIRCULATION * 7 * 86400	--算出新的开始时间
+		g_weekly_activity_data.is_started = 0 --把进行标记重置
+		--判断活动开启
+		if cur_time >= g_weekly_activity_data.start_time then
+			refresh_data()
+		end
+	else
+		if g_weekly_activity_data.is_started == 0 then
+			refresh_data()
+        else
+            if g_weekly_activity_data.current_index < 6 then
+                --排行榜发奖
+                local aid = g_weekly_activity_data.data_list[g_weekly_activity_data.current_index]
+                send_rank_award(aid)
+            end
+            g_weekly_activity_data.current_index = Day2Index[diff]
+        end
+    end
+    save_weekly_activity()
+end
 

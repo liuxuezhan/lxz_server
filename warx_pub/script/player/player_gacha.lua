@@ -134,7 +134,7 @@ function do_gacha(self, type)
     self:add_count( resmng.ACH_COUNT_GACHA, task_num )
 
     --周限时活动
-    weekly_activity.process_weekly_activity(WEEKLY_ACTIVITY_ACTION.GACHA, task_type, task_num)
+    weekly_activity.process_weekly_activity(self, WEEKLY_ACTIVITY_ACTION.GACHA, task_type, task_num)
 
 	msg_send.gift = self.gacha_gift
 	msg_send.type = type

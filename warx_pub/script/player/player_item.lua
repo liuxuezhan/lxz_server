@@ -51,6 +51,7 @@ function inc_item(self, id, num, reason)
     self:add_item_pend(idx)
     --任务
     task_logic_t.process_task(self, TASK_ACTION.GET_ITEM, id, num)
+    task_logic_t.process_task(self, TASK_ACTION.GET_TASK_ITEM, id, num)
 
     self:pre_tlog("ItemFlow",0,0,id,num,its[idx][3],reason,0,2,0)
     reason = reason or VALUE_CHANGE_REASON.DEFAULT
@@ -101,6 +102,7 @@ function dec_item(self, idx, num, reason)
         LOG("[ITEM] dec_item: pid = %d, idx = %d, item_id = %d, num = %d, total = %d, reason = %d.", self.pid, idx, item[2], num, item[3], reason)
         --任务
         task_logic_t.process_task(self, TASK_ACTION.USE_ITEM, propid, num)
+        task_logic_t.process_task(self, TASK_ACTION.GET_TASK_ITEM, propid, -num)
         self:pre_tlog("ItemFlow",0,0,propid,num,item[3],reason,0,2,1)
         return true
     else

@@ -50,7 +50,7 @@ function get_cons(ply,mode)
         ply._union.buildlv[mode] ={ mode=mode,tm=0,open_tm =0 }
     end
 
-    if can_date(ply._union.buildlv[mode].open_tm) then
+    if can_date(ply._union.buildlv[mode].open_tm,gTime) then
         ply._union.buildlv[mode].open_tm =gTime
         if not  u.god then WARN("") return end
 
@@ -103,7 +103,7 @@ function can(ply, mode)
     if not v then return false end
 
     if not player_t.debug_tag then
-        if v and not can_date(v.tm) then INFO("冷却中") return  end
+        if v and not can_date(v.tm,gTime) then INFO("冷却中") return  end
 
         local cons = ply._union.buildlv[mode].cons
         for _, item in pairs(cons) do
@@ -155,7 +155,7 @@ function add_buildlv_donate(ply, mode)
     for _, v in pairs(c.BonusID) do
         ply:add_bonus(v[1], v[2], VALUE_CHANGE_REASON.UNION_BUILDLV )
     end
-    union_member_t.add_donate_rank(ply,c.DonateExp,2)
+    union_member_t.add_donate_rank(ply,c.DonateExp,1,2)
 
     ply._union.buildlv[mode].tm = gTime
     gPendingSave.union_member[ply.pid].buildlv = ply._union.buildlv

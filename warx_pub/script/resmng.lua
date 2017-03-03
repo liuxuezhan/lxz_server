@@ -104,10 +104,12 @@ do_load(BasePath .. "define_month_card")
 do_load(BasePath .. "define_default_union")
 do_load(BasePath .. "define_world_events")
 do_load(BasePath .. "define_hero_build")
+do_load(BasePath .. "define_default_union")
 do_load(BasePath .. "define_weekly_activity")
 do_load(BasePath .. "define_weekly_activity_award")
 do_load(BasePath .. "define_weekly_activity_rank")
 do_load(BasePath .. "define_weekly_activity_score")
+do_load(BasePath .. "define_fake_ply")
 
 do_load(BasePath .. "prop_buy_group")
 do_load(BasePath .. "prop_buy")
@@ -212,10 +214,12 @@ do_load(BasePath .. "prop_month_card")
 do_load(BasePath .. "prop_default_union")
 do_load(BasePath .. "prop_world_events")
 do_load(BasePath .. "prop_hero_build")
+do_load(BasePath .. "prop_default_union")
 do_load(BasePath .. "prop_weekly_activity")
 do_load(BasePath .. "prop_weekly_activity_award")
 do_load(BasePath .. "prop_weekly_activity_rank")
 do_load(BasePath .. "prop_weekly_activity_score")
+do_load(BasePath .. "prop_fake_ply")
 
 
 do_check("prop_arm")
@@ -245,6 +249,8 @@ do_check("prop_gacha_gacha")
 do_check("prop_gacha_world_limit")
 do_check("prop_mail")
 do_check("prop_sacrifice_hero")
+
+
 --------------------------------------------------------------------------------
 do_load("common/define")
 

@@ -140,7 +140,7 @@ function callback(id, tag)
         mark(t)
 
         local fun = _funs[ t.what ]
-        LOG("_timer_,  do, %s, %d, over:%s ", t.what, gTime, os.date("%y-%m-%d %H:%M:%S", t.over or 0 ))
+        LOG("[timer], %s, %d, over:%s ", t.what, gTime, os.date("%y-%m-%d %H:%M:%S", t.over or 0 ))
         if fun then
             local rt =  fun(id, unpack(t.param))
             if rt == 1 and t.cycle then
@@ -210,3 +210,14 @@ function cron_base_func()
         end
     end
 end
+
+function get_recently()
+    local t = -1
+    for k, v in pairs( _sns or {} ) do
+        if t == -1 or v.over < t then
+            t = v.over
+        end
+    end
+    if t ~= -1 then return t end
+end
+

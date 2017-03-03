@@ -222,7 +222,6 @@ function force_born(tx, ty, clv)
                 local tar_x, tar_y = tx, ty
                 if pos_lv then
                     tar_x, tar_y = get_near_lv_pos(tx, ty, pos_lv)
-
                     local idx = tar_y * 80 + tar_x
                     local node = distrib[ idx ]
                     if node then
@@ -291,14 +290,10 @@ function gen_task_boss(tx, ty, propid)
     local prop = resmng.prop_world_unit[propid] 
     if prop then
         local x, y = get_boss_pos_in_zone(tx, ty, prop, BOSS_TYPE.NORMAL)
-        print("boss pos", x, y)
         if x then
             local eid = get_eid_monster()
             if eid then
                 local m = create_monster(prop)
-                --local tr= debug.traceback()
-                --LOG( "CREATE_MONSTER, eid=%d, x=%d, y=%d, propid=%d, grade= %d %d", eid, x, y, bossPropid, grade, ty * 80 + tx)
-
                 m._id = eid
                 m.eid = eid
                 m.x = x
@@ -315,6 +310,7 @@ function gen_task_boss(tx, ty, propid)
                 setmetatable(m, _mt)
                 gEtys[ eid ] = m
                 etypipe.add(m)
+                checkin( m )
                 return propid, x, y, eid
             end
         end
@@ -625,13 +621,11 @@ function load_from_db()
 end
 
 function gen_all_boss()
-    print("start gen all boss ", os.date())
     for i = 1, 80, 1 do
         for j = 1, 80, 1 do
             do_check(i, j)
         end
     end
-    print("end gen all boss ", os.date())
 end
 
 function do_check(zx, zy, isloop)
@@ -913,7 +907,6 @@ function troop_back(troop)
                 backTroop:add_arm(v.pid, v)
                 backTroop.speed = backTroop:calc_troop_speed()
                 backTroop:start_march()
-                print(string.format("mass, return, pid=%d, back_troop=%d", mine.pid, backTroop._id))
                 mine:add_busy_troop(backTroop._id)
             end
         end
@@ -1253,10 +1246,10 @@ function send_score_reward()
             local plys = rank_mng.get_range(11, v.Rank[1], v.Rank[2])
             for idx, pid in pairs(plys or {}) do
                 local score = rank_mng.get_score(11, tonumber(pid)) or 0
-                    local ply = getPlayer(tonumber(pid))
-                    if ply then
-                        ply:send_system_notice(10015, {idx}, v.Award)
-                    end
+                local ply = getPlayer(tonumber(pid))
+                if ply then
+                    ply:send_system_notice(10015, {idx}, v.Award)
+                end
             end
         end
     end

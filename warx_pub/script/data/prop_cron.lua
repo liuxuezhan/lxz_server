@@ -16,5 +16,8 @@ prop_cron = {
     [14] = {game="*", boot=nil, min="0", hour="0", day="*", month="*", wday="7", action="send_lt_award", arg={}},
     [15] = {game="*", boot=nil, min="0", hour="0", day="*", month="*", wday="5", action="cross_act_prepare", arg={}},
     [16] = {game="*", boot=nil, min="0", hour="0", day="*", month="*", wday="1", action="union_donate_week", arg={}},
+    [17] = {game="*", boot=nil, min="30", hour="21", day="*", month="*", wday="*", action="prepare_boss_attack_city", arg={}},
+    [18] = {game="*", boot=nil, min="0", hour="22", day="*", month="*", wday="*", action="start_boss_attack_city", arg={}},
+    [19] = {game="*", boot=nil, min="0", hour="23", day="*", month="*", wday="*", action="stop_boss_attack_city", arg={}},
     --[16] = {game="*", boot=true, min="30", hour="23", day="*", month="*", wday="*", action="upload_gs_info", arg={}},
 }

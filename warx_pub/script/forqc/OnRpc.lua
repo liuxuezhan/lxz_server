@@ -281,5 +281,9 @@ function OnRpc.union_tech_info(p, pack)
     p.union_tech_info = pack 
 end
 
+function OnRpc.union_mission_get(p,info)
+    p.utask = info
+end
+
 return OnRpc
 

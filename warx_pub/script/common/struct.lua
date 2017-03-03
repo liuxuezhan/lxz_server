@@ -8,6 +8,7 @@ Struct.UnionInfo = "int uid,int new_union_sn, string name, string alias, int mar
                     int memberlimit, int language, int flag, string note_in, string leader, int pow, int tm_buf_over,\
                     Struct UnionEnlist enlist, int state, int range, Array string rank_alias"
 Struct.PlayerInfo = "int pid, string name,int language,int photo,int pow"
-
+Struct.UnionRank = "int what, Array  Struct UnionRank1 val"
+Struct.UnionRank1 = "int rank, string name,int techexp,int pid, int donate,int photo "
 
 RpcType._struct = Struct

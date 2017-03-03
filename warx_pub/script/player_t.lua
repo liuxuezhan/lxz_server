@@ -591,6 +591,8 @@ function login(self, pid)
         else self.tm_check = timer.new( "check", tmcheck, pid ) end
 
         g_online_num = (g_online_num  or 0) + 1
+
+
         return
     end
     LOG("player:login, pid=%d, gid=%d, not found player", pid, gid)
@@ -738,6 +740,26 @@ function set_uid(self, u)
                     local target = get_ety( troop.target_eid )
                     if target and target.uid and target.uid > 0 then
                         self:troop_recall( tid, true )
+                    end
+                end
+            end
+        end
+    end
+
+    local uid = 0
+    if u then uid = u.uid end
+    for _, tid in pairs( self.busy_troop_ids or {} ) do
+        local troop = troop_mng.get_troop( tid )
+        if troop then
+            troop.owner_uid = uid
+            troop_t.flush_data( troop )
+
+            if troop:is_settle() then
+                if troop_t.get_base_action( troop ) == TroopAction.Gather then
+                    local target = get_ety( troop.target_eid )
+                    if target and is_res( target ) then
+                        target.uid = uid
+                        etypipe.add( target )
                     end
                 end
             end
@@ -2326,8 +2348,6 @@ function gm_user(self, cmd)
                 self:add_debug( string.format( "ARMY %d, diff = %d", mode, -1) )
             end
         end
-    elseif choose == "yueka" then
-        self:set_yueka()
 
     elseif choose == "lvbuild" then
         local class = tonumber(get_parm(1))
@@ -2369,6 +2389,15 @@ function gm_user(self, cmd)
                 timer.adjust( tr.tmSn, gTime )
             end
         end
+    elseif choose == "wa" then
+        local id = tonumber(get_parm(1))
+        local class = tonumber(get_parm(2))
+        local num = tonumber(get_parm(3))
+        weekly_activity.process_weekly_activity(self, id, class, num)
+    elseif choose == "wapass" then
+        weekly_activity.gm_on_day_pass()
+
+
     end
 end
 
@@ -2471,6 +2500,9 @@ function loadData(self, what)--本函数严禁加日志
     Rpc:loadData(self, t)
 
     if what == "done" then
+
+        if npc_city.monster_declares then Rpc:monster_declare( self, npc_city.monster_declares or {} ) end
+
         --todo
         --if not self.ntodo or self.ntodo > 0 then
             local db = self:getDb()
@@ -3095,10 +3127,10 @@ function add_chat( to, channel, id, speaker, word, lang, args )
     local sn = node.sn + 1
     node.sn = sn
     local list = node.list
-    table.insert( list, { sn, gTime, speaker, word, lang, args } )
+    table.insert( list, { sn, gTime, speaker, word, lang, args, id, channel } )
 
     if #list > 100 then table.remove( list, 1 ) end
-    Rpc:chat( to, channel, sn, speaker, word, lang, args)
+    Rpc:chat( to, channel, sn, speaker, word, lang, args, id, channel)
 end
 
 function fetch_chat( self, channel, sn, count )
@@ -3542,7 +3574,7 @@ function do_migrate(self, x, y)
     reply_ok(self, "migrate", y*65536+x)
     union_build_t.ply_move(self)
 
-    --if self:is_wall_fire() then self:wall_fire( 0 ) end
+    if self:is_wall_fire() then self:wall_fire( 0 ) end
 
     --任务
     local zone_lv = get_pos_lv(x, y)
@@ -3658,6 +3690,7 @@ function change_name(self, name)
     local u  = unionmng.get_union(self.uid)
     if u then
         u:notifyall(resmng.UNION_EVENT.MEMBER, resmng.UNION_MODE.UPDATE, {pid=self.pid,uid=self.uid,name=self.name})
+        u.donate_rank={}
     end
 end
 
@@ -3807,12 +3840,42 @@ function get_lt_award(self, idx)
     self:lt_info_req()
 end
 
+function lt_map_info_req(self)
+    local lts = get_lt_map_info()
+    if lts then
+        Rpc:lt_map_info_ack(self, lts)
+    end
+end
+
+function get_lt_map_info()
+    local lts = {}
+    for k, v in pairs(lost_temple.seq_citys[3] or {}) do
+        local lt = get_ety(v)
+        if not lt then
+            table.remove(lost_temple.seq_citys[3], k)
+        else
+            table.insert(lts, {lt.eid, lt.propid, lt.x, lt.y})
+        end
+    end
+    for k, v in pairs(lost_temple.seq_citys[2] or {}) do
+        local lt = get_ety(v)
+        if not lt then
+            table.remove(lost_temple.seq_citys[2], k)
+        else
+            table.insert(lts, {lt.eid, lt.propid, lt.x, lt.y})
+        end
+    end
+    return lts
+end
+
 function lt_info_req(self)
     if self.lt_time < lost_temple.start_time then
         self.lt_time = gTime
         self.lt_award_st = {}
     end
     local pack = {}
+    pack.state = lost_temple.actState
+    pack.end_time = lost_temple.end_time
     pack.lt_award_st = self.lt_award_st
     local pointType = POINT_MALL_TYPE[POINT_MALL.RELIC]
     pack.point = rank_mng.get_score(10, self.pid) or 0
@@ -3985,11 +4048,12 @@ function npc_act_info_req(self)
             local npc = get_ety(eid)
             local city = {}
             if npc and not union.declare_wars[eid] then
-                local num, max = npc:hold_limit(self)
+                local num, max , pow = npc:hold_limit(self)
                 local def_union = unionmng.get_union(npc.uid)
                 npc_city.format_union(npc)
                 city.unions = npc.unions
                 city.armsNum = num
+                city.armsPow = pow
                 city.propid = npc.propid
                 city.state = npc.state
                 city.startTime = npc.startTime
@@ -4013,11 +4077,12 @@ function npc_act_info_req(self)
             local npc = get_ety(v)
             local city = {}
             if npc then
-                local num, max = npc:hold_limit(self)
+                local num, max, pow= npc:hold_limit(self)
                 local def_union = unionmng.get_union(npc.uid)
                 npc_city.format_union(npc)
                 city.unions = npc.unions
                 city.armsNum = num
+                city.armsPow = pow
                 city.propid = npc.propid
                 city.state = npc.state
                 city.startTime = npc.startTime
@@ -4103,10 +4168,15 @@ function acc_tower_recover_req(eid)
     end
 end
 
+
 function get_npc_map_req(self)
+
+    subscribe_ntf.add_sub_group("map_info", self.pid)
+
     local pack = {}
     local map = {}
     pack.s_id = gMapID
+    local occupys = npc_city.monster_occupys
     for k, v in pairs(npc_city.citys) do
         local city = get_ety(k)
         if city then
@@ -4125,14 +4195,30 @@ function get_npc_map_req(self)
                 if city.last_uid == 0 then
                     local conf = resmng.get_conf( "prop_world_unit", city.propid )
                     local flag = conf and conf.Flag
+                    --{"AT","ATLANTIS",6,5}
                     if flag and flag[4] ~= 0 then
                         info[2] = flag[4]
                         info[3] = flag[2]
                         local uinfo = { flag[4], flag[2], flag[3], flag[1] }
+                        -- id, name, flag, alise
                         info[5][1] = uinfo
                     end
                 end
             end
+
+            if occupys then
+            local t = occupys[ city.propid ]
+                if t and city.uid == 0 then
+                    local conf = resmng.get_conf( "prop_default_union", t )
+                    if conf then
+                        info[2] = conf.ID
+                        info[3] = conf.Fullname
+                        local uinfo = { conf.ID, conf.Fullname,  conf.Flag, conf.Shortname }
+                        info[5][1] = uinfo
+                    end
+                end
+            end
+
             table.insert( map, info )
         end
     end
@@ -4149,6 +4235,8 @@ function get_npc_map_req(self)
         pack.def = union.def_id
     end
     Rpc:get_npc_map_ack(self, pack)
+    self:get_do_mc_npc_req()
+    self:lt_map_info_req()
 end
 
 function get_city_for_robot_req(self, mode, lv)
@@ -4250,14 +4338,21 @@ function get_union_npc_rank_req(self)
 
     local points = {}
     local prop_world_unit = resmng.prop_world_unit
+    local occupys = npc_city.monster_occupys
     for k, v in pairs( npc_city.citys ) do
         local city = get_ety( k )
         if city then
             if not city.uid or city.uid == 0 then
-                local conf = prop_world_unit[ city.propid ]
-                local uid = conf and conf.Flag and conf.Flag[4]
-                if uid then
+                if occupys and occupys[ city.propid ] then
+                    local uid = occupys[ city.propid ]
+                    local conf = prop_world_unit[ city.propid ]
                     points[ uid ] = ( points[ uid ] or 0 ) + conf.Boss_point
+                else
+                    local conf = prop_world_unit[ city.propid ]
+                    local uid = conf and conf.Flag and conf.Flag[4]
+                    if uid then
+                        points[ uid ] = ( points[ uid ] or 0 ) + conf.Boss_point
+                    end
                 end
             end
         end
@@ -4284,6 +4379,7 @@ function npc_info_req(self, eid)
         pack.endTime = npc.endTime
         pack.eid = npc.eid
         pack.propid = npc.propid
+        pack.troop = npc:get_my_troop()
         Rpc:npc_info_ack(self, pack)
     end
 end
@@ -4374,6 +4470,11 @@ function act_info_req(self)
         end
         pack[v] = act
     end
+
+    --周限时活动,这个是后面设计加在这个地方的，所以比较特殊
+    pack["weekly_activity"] = weekly_activity.pack_activity()
+
+
     Rpc:act_info_ack(self, pack)
 end
 
@@ -5126,7 +5227,7 @@ end
 
 function get_buf( self, bufid )
     local bufs = self.bufs
-    for k, v in pairs(bufs) do
+    for k, v in pairs(bufs or {}) do
         --v = {bufid, tmStart, tmOver}
         if v[1] == bufid then
             return v
@@ -5135,13 +5236,35 @@ function get_buf( self, bufid )
 end
 
 function get_buf_remain( self, bufid )
-    local b = self:get_buf( bufid )
+    local b = player_t.get_buf( self, bufid )
     if b then
         return b[3] - gTime
     end
     return 0
 end
 
+function get_do_mc_npc_req(self)  --正在进行mc 活动的npc城市
+    local citys = get_do_mc_npc_info()
+    if citys then
+        Rpc:get_do_mc_npc_ack(self, citys)
+    end
+end
+
+function get_do_mc_npc_info()
+    local citys = {}
+    for k, v in pairs(npc_city.citys or {}) do
+        local city = get_ety(k)
+        if city then
+            local union = unionmng.get_union(city.uid)
+            if union then
+                if union.monster_city_stage ~= 0 then
+                    table.insert(citys, {city.propid, city.eid})
+                end
+            end
+        end
+    end
+    return citys
+end
 
 --- 怪物攻城
 function mc_info_req(self)
@@ -5151,8 +5274,9 @@ function mc_info_req(self)
     pack.credit = self[pointType]
     pack.point = 0
     if union then
-        pack.startTm = union.mc_start_time
-        pack.canSetTime = ( os.date("%d", union.set_mc_time) ~= os.date("%d", gTime) and union.monster_city_stage == 0)
+        pack.startTm = union.mc_start_time or union:get_default_time()
+        --pack.canSetTime = ( os.date("%d", union.set_mc_time) ~= os.date("%d", gTime) and union.monster_city_stage == 0)
+        pack.canSetTime = (union.set_mc_time < gTime) and union.monster_city_stage == 0
         pack.stage = union.monster_city_stage
         pack.maxStage = 20
         pack.point = union.mc_point
@@ -5163,6 +5287,7 @@ function mc_info_req(self)
         end
         pack.point = point--]]
         pack.reward = self[pointType]
+        pack.award = union.mc_reward_pool
         local citys = {}
         for k, v in pairs (union.npc_citys) do
             local city = {}
@@ -5175,11 +5300,13 @@ function mc_info_req(self)
                     pack.def_num = def_tr:get_troop_total_soldier()
                 end
                 local troop = monster_city.get_fast_troop(npc, ETY_TROOP.ATK)
-                if troop then
+                if troop and troop._id then
                     --city.armId =  mc.propid % (1000 * 1000) * 1000 + union.monster_city_stage
                     city.armId = troop.mcid
                     city.troopId = troop._id
                     city.tmOver = troop.tmOver
+                else
+                    city.armId = mc.propid % (1000000) * 1000 + pack.stage + 1
                 end
                 city.propid = npc.propid
                 if mc.defend_id then
@@ -5714,16 +5841,28 @@ end
 function player_nearly_citys(self)
     local shot = 0
     local propid = 0
+    local shot1 = 0
+    local propid1 = 0
     for k, v in pairs(resmng.prop_world_unit) do
         if v.Class == CLASS_UNIT.NPC_CITY then
             local dis = math.pow((self.x - v.X),2) + math.pow((self.y - v.Y), 2)
-            if dis < shot or shot == 0 then
+            if shot == 0 then
+                propid = v.ID
+                shot = dis
+            elseif dis < shot then
+                if shot1 == 0 then
+                    propid1 = propid
+                    shot1 = shot
+                elseif shot < shot1 then
+                    propid1 = propid
+                    shot1 = shot
+                end
                 propid = v.ID
                 shot = dis
             end
         end
     end
-    return propid
+    return {propid, propid1}
 end
 
 function is_rookie( self )
@@ -6040,6 +6179,9 @@ function get_yueka_award(self)
     self:add_bonus(prop_yueka.Item[1], prop_yueka.Item[2], VALUE_CHANGE_REASON.REASON_YUEKA)
 end
 
+function buy_yueka(self)
+    self:set_yueka()
+end
 
 function get_world_event_award(self, event_id)
     world_event.get_world_event_award(self, event_id)
@@ -6067,9 +6209,7 @@ end
 
 function clear_weekly_activity(self)
     self.weekly_activity_score = {0,0,0,0,0,0}
-    self.weekly_activity_score = self.weekly_activity_score
     self.weekly_activity_award = {0,0,0,0,0,0}
-    self.weekly_activity_award = self.weekly_activity_award
 end
 
 function get_weekly_activity_total(self)
@@ -6078,6 +6218,40 @@ function get_weekly_activity_total(self)
         total_score = total_score + v
     end
     return total_score
+end
+
+function pack_activity_info(self)
+end
+
+function boss_gather( self, eid_boss, eid_res )
+    local res = get_ety( eid_res )
+    if not res then return end
+    if not is_res( res ) then return end
+    if res.pid and res.pid > 0 then return end
+    if res.tm_boss and gTime - res.tm_boss < 120 then return end
+
+    local boss = get_ety( eid_boss )
+    if not boss then return end
+    local prop = resmng.get_conf( "prop_world_unit", boss.propid )
+    if not prop then return end
+
+    local clv = prop.Clv
+    if not clv then return end
+
+    res.val = res.val - math.floor(  clv * 20 / RES_RATE[ res.mode or 1 ] )
+    if res.val < 0 then
+        rem_ety( res.eid )
+        farm.respawn(math.ceil(res.x / 16), math.ceil(res.y / 16))
+
+    else
+        res.tm_boss = gTime
+        etypipe.add(res)
+    end
+end
+
+function pack_weekly_activity_info(self)
+    local msg = weekly_activity.pack_activity()
+    Rpc:pack_weekly_activity_info_resp(self, msg)
 end
 
 

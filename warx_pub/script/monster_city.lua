@@ -31,6 +31,13 @@ module_class(
 }
 )
 
+function update_mc_ntf()
+    local citys = player_t.get_do_mc_npc_info()
+    if citys then
+        subscribe_ntf.send_sub_ntf( "map_info", "get_do_mc_npc_req", citys)
+    end
+end
+
 function try_update_ply_hurt(key, score)
     local org_score = rank_mng.get_score(8, key) or 0
     score = score + org_score
@@ -456,6 +463,7 @@ function gen_monster_and_atk(city, prop)
         
         --tr = troop_mng.create_troop(city.eid, destCity.eid, action, sx, sy, dx, dy)
         tr = troop_mng.create_troop(action, city, destCity) 
+        tr.owner_uid = 0
         local union = unionmng.get_union(destCity.uid)
         if union then
             tr.mcStage = union.monster_city_stage

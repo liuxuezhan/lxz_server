@@ -252,9 +252,10 @@ Server = {
     union_task_get = "",     --获取军团悬赏任务
     union_mission_get = "",     --获取军团定时任务
     union_mission_update = "",     --刷新军团定时任务
-    union_mission_set = "",     --领取军团定时任务
     union_mission_chat = "",     --刷新邀请时间
+    union_mission_set = "",     --领取军团定时任务
     union_mission_log = "string type,int id",     --获取军团定时任务日志
+    union_mission_add = "",     --领取奖励 
     union_word_add = "int uid,string title,string word, int flag",--军团留言
     union_word_update = "int wid,string title,string word",--军团内部留言修改
     union_word_top = "int wid,int flag",--军团内部留言置顶 1:置顶 0：取消
@@ -349,6 +350,10 @@ Server = {
     get_activity_box = "int id",  --活跃度领奖
     get_daily_refresh_time = "", --得到下次刷新的时间
     daily_task_done = "int task_id",  --直接完成任务
+
+    task_visit = "int task_id, int dest_eid, int x, int y, pack arm",  --task 侦查
+    spy_task_ply = "int task_id, int dest_eid, int x, int y", --任务侦查伪玩家
+    siege_task_ply = "int task_id, int dest_eid, int x, int y, pack arm", --攻击任务伪玩家
 
     ---------------------------------------------------------------------------
     --在线奖励
@@ -489,6 +494,10 @@ Server = {
 
     on_pay = "int propduct_id",
 
+    buy_yueka = "", --临时接口
+    pack_weekly_activity_info = "",   --限时活动信息
+    boss_gather = "int eid_boss, int eid_res",
+
 }
 
 
@@ -509,7 +518,7 @@ Client = {
 
     -- 聊天
    --chat = "int chanelID, pack speaker, string word, int language, pack args",    --chanelId: enum in common/define/ChatChanelEnum;   pid==-1 means system;   word:the word somebody say
-    chat = "int chanelID,int sn, pack speaker, string word, int language, pack args",
+    chat = "int chanelID,int sn, pack speaker, string word, int language, pack args, int id, int channel",
     --{sn,gTime,speaker,word,lang,args}
     fetch_chat="int chanel,pack infos",
     --chatWithAudio         --TODO
@@ -618,7 +627,8 @@ Client = {
     union_tech_info = "pack info",      --科技详细信息{idx,id,exp,tmOver,donate={2,0,0}}
     union_donate_info = "pack info",    --更新捐献状态
     union_log = "pack info",            --获取联盟日志
-    union_donate_rank = "pack info",  --捐献排名
+    --union_donate_rank = "pack info",  --捐献排名
+    union_donate_rank = "Struct UnionRank pack", --捐献排名
     union_member_mark = "int pid, string mark", --联盟标记
     union_buildlv_donate = "pack info",       --更新建筑捐献
     union_mall_buy = "int propid,int num",     --军团成员买道具
@@ -725,9 +735,11 @@ Client = {
     boss_rank_ack = "pack info",
 
     act_info_ack = "pack info",
+    get_npc_map_ack = "pack info",
+    get_do_mc_npc_ack = "pack info",
+    lt_map_info_ack = "pack info",
     -- npc city
     get_can_atk_citys_ack = "pack info", -- 军团可以攻击的npc城市
-    get_npc_map_ack = "pack info",
     get_union_npc_rank_ack = "pack info",
     tag_npc_ack = "pack info",
     npc_info_ack = "pack info",
@@ -737,6 +749,7 @@ Client = {
     declare_tw_status_ack = "int eid, pack info", --- 宣战 
     abd_npc_cond_ack = "pack info", -- 弃城条件
     get_city_for_robot_ack = "int mode, int eid", -- robot get a npc eid
+    npc_ft_result_ntf = "pack info",  --npc战斗结果通知
 
     --kingcity war
     officers_info_ack = "pack info",
@@ -779,6 +792,7 @@ Client = {
     send_invite = "string room, pack pids",
 
     rm_npc_monster = "int eid",
+    rm_fake_ply = "int ply_id",
 
 
     testCross = "int a1, string a2",
@@ -833,7 +847,8 @@ Client = {
 
     query_troop_coming = "pack info",
     query_log_support_arm = "pack info",
-
+    monster_declare = "pack info",
+    pack_weekly_activity_info_resp = "pack info",  --限时活动信息
 
 }
 

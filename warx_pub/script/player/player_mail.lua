@@ -326,6 +326,14 @@ function generate_fight_mail(ack_troop, def_troop, is_win, catch_hero, rages, to
         else unit.amend = { dead = arm.dead_soldier } end
 
         ack_mail.arms[pid] = unit
+
+        --周限时活动
+        for k, v in pairs(arm.kill_soldier or {}) do
+            if k >= 1000000 then
+                local level = (k % 1000000) % 1000
+                weekly_activity.process_weekly_activity(tmp_ply, WEEKLY_ACTIVITY_ACTION.KILL_ARM, level, v)
+            end
+        end
     end
 
 
@@ -402,6 +410,14 @@ function generate_fight_mail(ack_troop, def_troop, is_win, catch_hero, rages, to
             else unit.amend = { dead = arm.dead_soldier } end
 
             def_mail.arms[pid] = unit
+
+            --周限时活动
+            for k, v in pairs(arm.kill_soldier or {}) do
+                if k >= 1000000 then
+                    local level = (k % 1000000) % 1000
+                    weekly_activity.process_weekly_activity(tmp_ply, WEEKLY_ACTIVITY_ACTION.KILL_ARM, level, v)
+                end
+            end
         end
     end
 

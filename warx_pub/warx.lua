@@ -73,6 +73,9 @@ local function accept(fd, addr)
                     d.args[1]=fd
                     local p = player_t.firstPacket2(_G.gAgent, unpack(d.args)  ) 
                     if p  then plys[fd] = p end
+                    monster.loop()
+                    farm.loop()
+                    refugee.loop()
                 elseif player_t[d.f] then 
                     if plys[fd] then
                         player_t[d.f](plys[fd], unpack(d.args)  ) 
