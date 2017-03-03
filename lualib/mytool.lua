@@ -1,5 +1,9 @@
 -- warx项目common/tool.lua 移植
 
+local function tm_zone() --取本地时区差
+    local now = os.time()
+    return os.difftime(now, os.time(os.date("*t", now)))
+end
 
 function guid()
     local seed = { '1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'} 
@@ -1511,3 +1515,4 @@ function num_format(num,accuracy) --数组表达式
          return string.format(fom .. "G",num*0.000000001 * sign) 
     end
 end
+
