@@ -45,9 +45,9 @@ setmetatable(self.save, __mt_tab)
 
 function self.new(module,tab)
 
-    if not module then lxz1("没模块名") end
-    if not tab then lxz1("没数据") end
-    if type(tab)~= "table" then lxz1("数据无效") end
+    if not module then lxz1("没模块名") return end
+    if not tab then lxz1("没数据") return end
+    if type(tab)~= "table" then lxz1("数据无效") return end
 
     local _mt_save = { --自动保存
         __index = function (t, k)
