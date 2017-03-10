@@ -20,13 +20,13 @@ function self.new(t)
     if type(t)~="table" then return end
     if not t.acc then lxz1("没帐号名") end
     local one = base.new(_name,t)
-    self.accs[one.data.acc] = one 
+    self.accs[one.save.acc] = one 
     return one 
 end
 
 function self.del(one)
-    self.accs[one.data.acc] = nil 
-    base.del(_name,one.data._id)
+    self.accs[one.save.acc] = nil 
+    base.del(_name,one.save._id)
 end
 
 function self.get( _id )

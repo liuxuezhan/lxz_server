@@ -60,14 +60,11 @@ function self.new(module,tab)
             end
         end,
         __newindex = function(t, k, v)
-            t.M[k] = v     -- 修改时保存
-            if v then
-                if type(v) == "table" then 
-                    setmetatable(v, _mt_save) 
-                end
-                self.save[ module ][ t._id ][ k ] = v
-            else
+            if type(v) == "table" then 
+                setmetatable(v, _mt_save) 
             end
+            t.M[k] = v     -- 修改时保存
+            self.save[ module ][ t._id ][ k ] = v
         end,
     }
     local one = { M = copyTab(tab) }
@@ -78,7 +75,7 @@ function self.new(module,tab)
             return rawget(_G[module], k)-- 指向对象方法
         end,
     }
-    local ret = { data=one,}
+    local ret = { save=one,}
     setmetatable(ret, _mt_obj)
 
     if not one._id then 
