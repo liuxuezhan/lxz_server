@@ -34,6 +34,7 @@ function self.auto(tab)--自动表
                  __newindex = function (t, k,v) if type(v) == "table" then setmetatable(v, _mt_auto) end rawset( t, k, v ) end,
     }
 	setmetatable(tab, _mt_auto)
+    return tab
 end 
 
 self.main = {}      --存库数据 
@@ -42,7 +43,7 @@ self.save = {}    --修改的数据
 setmetatable(self.save, __mt_tab)
 
 
-function self.new(module,tab) --只有一层子元素能保存
+function self.new(module,tab)
 
     if not module then lxz1("没模块名") end
     if not tab then lxz1("没数据") end
@@ -50,12 +51,24 @@ function self.new(module,tab) --只有一层子元素能保存
 
     local _mt_save = { --自动保存
         __index = function (t, k)
-            if t.M[ k ] then return t.M[ k ] end
+            if t.M[ k ] then 
+                return t.M[ k ] 
+            else
+                local new = self.auto({}) 
+                rawset( t.M, k, new ) 
+                return new  
+            end
         end,
         __newindex = function(t, k, v)
             t.M[k] = v     -- 修改时保存
-            self.save[ module ][ t._id ][ k ] = v
-        end
+            if v then
+                if type(v) == "table" then 
+                    setmetatable(v, _mt_save) 
+                end
+                self.save[ module ][ t._id ][ k ] = v
+            else
+            end
+        end,
     }
     local one = { M = copyTab(tab) }
     setmetatable(one, _mt_save)
