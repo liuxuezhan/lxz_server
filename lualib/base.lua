@@ -30,7 +30,9 @@ local __mt_tab = {
 }
 
 function self.auto(tab)--自动表
-	_mt_auto = { __index = function (t, k) local new = { } setmetatable(new, _mt_auto) rawset( t, k, new ) return new end, }
+	_mt_auto = { __index = function (t, k) local new = { } setmetatable(new, _mt_auto) rawset( t, k, new ) return new end, 
+                 __newindex = function (t, k,v) if type(v) == "table" then setmetatable(v, _mt_auto) end rawset( t, k, v ) end,
+    }
 	setmetatable(tab, _mt_auto)
 end 
 
