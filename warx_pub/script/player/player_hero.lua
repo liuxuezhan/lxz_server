@@ -315,12 +315,36 @@ function destroy_hero(self, hero_idx)
         Rpc:on_destroy_hero(self, hero_idx)
         -- 返还技能经验卡
         self:return_skill_exp_item(hero, VALUE_CHANGE_REASON.DESTROY_HERO)
+
         -- 返还英雄经验
         local base_exp = 0
         local conf = resmng.get_conf( "prop_hero_basic", hero.propid )
         if conf then base_exp = conf.DestroyExp end
         self:return_exp_item(exp * DESTROY_HERO_RETURN_RATIO + base_exp, VALUE_CHANGE_REASON.DESTROY_HERO)
 
+        -- return piece
+        if conf then
+            local itemid = conf.PieceID
+            local conf = resmng.get_conf( "prop_hero_star_up", hero.star )
+            if conf then
+                local itemnum = conf.Dicompose
+                self:add_bonus( "mutex_award", { {"item", itemid, itemnum} }, VALUE_CHANGE_REASON.DESTROY_HERO )
+            end
+        end
+
+        local wall = self:get_wall()
+        if wall then
+            local hs = wall:get_extra( "hero" )
+            if hs then
+                for k, v in pairs( hs ) do
+                    if v == hero_idx then
+                        hs[ k ] = 0
+                        wall:set_extra( "hero", hs )
+                        break
+                    end
+                end
+            end
+        end
     end
 end
 
@@ -668,6 +692,8 @@ function hero_cure( self, hidx, tohp )
         self:do_dec_res( mode, math.ceil( num ), VALUE_CHANGE_REASON.CURE )
     end
 
+
+    self:hero_offduty( hero )
     hero.status = HERO_STATUS_TYPE.BEING_CURED
     hero.tmSn = timer.new( "hero_cure", dura, self.pid, hidx, tohp )
     hero.tmStart = gTime
@@ -832,39 +858,39 @@ end
 -- Return   : NULL
 -- Others   : hero_idx = 0 表示取消该类兵种英雄设置
 --------------------------------------------------------------------------------
-function set_def_hero(self, def_heros)
-    -- check params.
-    local count = {}
-    for i = 1, 4 do
-        local hero_idx = def_heros[i]
-        if hero_idx ~= 0 then
-            count[hero_idx] = (count[hero_idx] or 0) + 1
-            if count[hero_idx] > 1 then
-                ERROR("set_def_hero: repeated hero_idx. pid = %d, hero_idx = %d.", self.pid, hero_idx)
-                dumpTab(def_heros, string.format("set_def_hero[%d]", self.pid))
-                return
-            end
-
-            local hero = self:get_hero(hero_idx)
-            if not hero or not hero:can_def() then
-                ERROR("set_def_hero: pid = %d, hero_idx = %d, hero.status = %d.", self.pid, hero_idx, hero and hero.status or -1)
-                return
-            end
-        end
-    end
-
-    local flag = false
-    local tmp = self.def_heros
-    for i = 1, 4 do
-        if tmp[i] ~= def_heros[i] then
-            tmp[i] = def_heros[i]
-            flag = true
-        end
-    end
-    if flag then
-        self.def_heros = tmp
-    end
-end
+--function set_def_hero(self, def_heros)
+--    -- check params.
+--    local count = {}
+--    for i = 1, 4 do
+--        local hero_idx = def_heros[i]
+--        if hero_idx ~= 0 then
+--            count[hero_idx] = (count[hero_idx] or 0) + 1
+--            if count[hero_idx] > 1 then
+--                ERROR("set_def_hero: repeated hero_idx. pid = %d, hero_idx = %d.", self.pid, hero_idx)
+--                dumpTab(def_heros, string.format("set_def_hero[%d]", self.pid))
+--                return
+--            end
+--
+--            local hero = self:get_hero(hero_idx)
+--            if not hero or not hero:can_def() then
+--                ERROR("set_def_hero: pid = %d, hero_idx = %d, hero.status = %d.", self.pid, hero_idx, hero and hero.status or -1)
+--                return
+--            end
+--        end
+--    end
+--
+--    local flag = false
+--    local tmp = self.def_heros
+--    for i = 1, 4 do
+--        if tmp[i] ~= def_heros[i] then
+--            tmp[i] = def_heros[i]
+--            flag = true
+--        end
+--    end
+--    if flag then
+--        self.def_heros = tmp
+--    end
+--end
 
 
 
@@ -1299,6 +1325,7 @@ function kill_hero(self, hero_id, buff_idx)
         -- self:chat(resmng.ChatChanelEnum.World, msg)
         local prop_hero = resmng.get_conf("prop_hero_basic", hero.propid)
         Rpc:tips({pid = -1, gid = _G.GateSid}, 2, resmng.HERO_ALTAR_NOTIFY_EXECUTE, {hero_owner.name, prop_hero.Name, self.name}) 
+        player_t.add_chat({pid=-1,gid=_G.GateSid}, 0, 0, {pid=0}, "", resmng.HERO_ALTAR_NOTIFY_EXECUTE, {hero_owner.name, prop_hero.Name, self.name}) 
     end
 end
 
@@ -1522,4 +1549,27 @@ function reset_skill_primary(self, hero_idx, skill_idx)
     hero:reset_skill( skill_idx )
 end
 
+
+function reset_nature( self, hero_idx )
+    local hero = self:get_hero( hero_idx )
+    if not hero then return end
+
+    if not hero:is_valid() then return end
+
+    local itemid = RESET_HERO_NATURE_ITEM
+    if not self:dec_item_by_item_id( itemid, 1, VALUE_CHANGE_REASON.HERO_NATURE_RESET ) then 
+        local gold = get_item_price( itemid )
+        if not ( gold and gold > 0 ) then return end
+        if not self:dec_gold( gold, VALUE_CHANGE_REASON.HERO_NATURE_RESET ) then return end
+    end
+
+    local nature_type = {
+        HERO_NATURE_TYPE.STRICT,
+        HERO_NATURE_TYPE.FEARLESS,
+        HERO_NATURE_TYPE.CALM,
+        HERO_NATURE_TYPE.BOLD,
+    }
+    table.remove(nature_type, hero.personality)
+    hero.personality = nature_type[math.random(1, 3)]
+end
 

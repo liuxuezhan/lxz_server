@@ -211,6 +211,9 @@ g_no_arm_troop = {
     [ TroopAction.SupportRes ] = 1,
     [ TroopAction.VisitHero ] = 1,
     [ TroopAction.VisitNpc ] = 1,
+    [ TroopAction.TaskSpyPly ] = 1,
+    [ TroopAction.Dig ] = 1,
+    [ TroopAction.Exchange ] = 1,
 }
 
 function back( self )
@@ -308,6 +311,12 @@ function home(self)
     if self.goods then
         dumpTab(self.goods, "troop_goods")
         owner:add_bonus("mutex_award", self.goods, self.goods_reason)
+    end
+
+    --offline ntf
+    local base_action = self:get_base_action()
+    if base_action == TroopAction.Gather or  base_action == TroopAction.LostTemple then
+        offline_ntf.post(resmng.OFFLINE_NOTIFY_GATHER, owner)
     end
 
     local arm = self.arms and self.arms[ pid ]
@@ -856,6 +865,7 @@ function do_notify_owner(self, chgs)
         if self.owner_pid >= 10000 then table.insert(pids, self.owner_pid) end
     else
         for pid, _ in pairs(self.arms) do
+            pid = tonumber(pid)
             if pid >= 10000 then table.insert(pids, pid) end
         end
     end
@@ -1029,6 +1039,16 @@ function get_info(self)
         end
     else
         WARN( "troop_no_onwer, id=%d, action=%d, owner_eid=%d, owner_pid=%d, ", self._id, self.action, self.owner_eid, self.owner_pid )
+    end
+
+    if self.target_propid then
+        info.target_propid = self.target_propid
+    else
+        local target = get_ety( self.target_eid )
+        if target then
+            self.target_propid = target.propid
+            info.target_propid = target.propid
+        end
     end
 
     if self:is_go() or self:is_back() then
@@ -1806,13 +1826,14 @@ function gather_stop(troop)
     if dp then
         count = troop:gather_gain( dp )
         if is_union_building(dp) then
+            if type( dp.my_troop_id ) == "number" then dp.my_troop_id = { dp.my_troop_id } end
             setRem( dp.my_troop_id, troop._id )
             union_build_t.recalc_gather(dp)
 
         else
             if dp.val < 2 then
                 rem_ety(dp.eid)
-                farm.respawn(math.ceil(dp.x / 16), math.ceil(dp.y / 16), mode)
+                farm.respawn(math.floor(dp.x / 16), math.floor(dp.y / 16) )
             else
                 dp.pid = 0
                 dp.uid = 0
@@ -1848,6 +1869,32 @@ function flush_data( troop )
     if troop:is_go() or troop:is_back() then
         local node = etypipe[ EidType.Troop ]
         c_troop_set_data( troop.eid, etypipe.pack( node, troop ) )
+    end
+end
+
+function back_no_arm_support_troop(self)
+    for pid, arm in pairs(self.arms or {}) do
+        if pid ~= self.owner_pid then
+            local ret = false
+            for mode, id in pairs(arm.heros or {}) do
+                if id ~= 0 then
+                    ret = true
+                end
+            end
+
+            if ret == false then
+                local tag = false
+                for id, num in pairs(arm.live_soldier or {}) do
+                    if num > 0 then
+                        tag = true
+                    end
+                end
+                if tag == false then
+                    local tr = self:split_pid(pid)
+                    tr:back()
+                end
+            end
+        end
     end
 end
 

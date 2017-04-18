@@ -1,5 +1,10 @@
 
 function load_game_module()
+    if config.Version == nil or type(config.Version) ~= "number" then
+        _G.gInit = "Shutdown"
+        WARN("shutdown, because Version is error")
+        --return
+    end
     gMapID = getMap()
     gMapNew = 1
     c_roi_init()
@@ -29,14 +34,11 @@ function do_reload()
     do_load("resmng")
     do_load("game")
     do_load("mem_monitor")
+    do_load("constant/constant")
     do_load("common/define")
     do_load("common/tools")
     do_load("common/protocol")
     do_load("common/struct")
-    for k, v in pairs( RpcType._struct ) do
-        pause()
-        RpcType._struct[ k ] = Rpc.parseFunction( v ).args
-    end
 
     do_load("timerfunc")
     do_load("public_t")
@@ -55,6 +57,7 @@ function do_reload()
     do_load("player/player_ache")
     do_load("player/player_title")
     do_load("player/player_pay_mall")
+    do_load("player/player_operate")
     do_load("agent_t")
     do_load("build_t")
     do_load("player/player_troop")
@@ -89,6 +92,7 @@ function do_reload()
     do_load("union_buildlv")
     do_load("new_union")
     do_load("triggers")
+    do_load("daily_task_filter")
     do_load("task_logic_t")
     do_load("msglist")
     do_load("lost_temple")
@@ -112,6 +116,15 @@ function do_reload()
     --do_load("operate_activity")
     do_load("weekly_activity")
     do_load("subscribe_ntf")
+    do_load("tribute_exchange")
+
+    do_load("operate_activity/operate_activity")
+    do_load("operate_activity/operate_base")
+    do_load("operate_activity/operate_normal")
+    do_load("operate_activity/operate_lord_rank")
+    do_load("operate_activity/operate_occupy_rank")
+
+    do_load("offline_ntf")
 
     --gTimeReload = c_get_time()
 end
@@ -352,8 +365,13 @@ function do_rem_ety(eid)
 
         elseif is_monster(e) then
             if e.grade >= BOSS_TYPE.ELITE and e.grade < BOSS_TYPE.SUPER then
-                if monster.boss[e.eid] then
-                    monster.boss[e.eid] = nil
+                if monster.boss_grade[e.grade] then
+                    local boss = monster.boss_grade[e.grade] or {}
+                    local idx = e.zy * 80 + e.zx
+                    if boss[idx] then
+                        boss[idx] = nil
+                        monster.boss_grade[e.grade] = boss
+                    end
                 end
             elseif e.grade == BOSS_TYPE.SPECIAL then
                 local lv =  c_get_zone_lv(e.zx, e.zy)
@@ -441,64 +459,25 @@ function send_invite()
 end
 
 
-function test()
-    --weekly_activity.init_data()
+function test(id)
+    gPendingSave.test[ "hello" ] = { _id="hello", foo="bar" }
 
-    for i = 1, 100, 1 do
-        farm.respawn( math.floor(918/16),math.floor(776/16),1 )
-    end
 
-   --local p, m, r
-    --for k, v in pairs( gEtys ) do
-    --    if is_ply( v ) then
-    --        p = v
-    --    elseif is_monster( v ) then
-    --        m = v
-    --    elseif is_res( v ) then
-    --        r = v
-    --    end
-    --    if p and m and r then
-    --        p:boss_gather( m.eid, r.eid )
-    --        return
+    --for r = 1, 78, 1 do
+    --    for c = 1, 78, 1 do
+    --        farm.do_check( r, c, true )
+    --        monster.do_check( r, c, true )
     --    end
     --end
 
-    --npc_city.start_boss_attack_city( )
-    ----npc_city.stop_boss_attack_city( )
-
-    --local ply = getPlayer( 590001 )
-    --ply:query_log_support_arm()
-    --ply:on_pay( 52 )
-
-    --local ply = getPlayer( 580005 )
-    --ply:query_log_support_arm()
-
-
-    --local p = getPlayer( 4250018 )
-    --if p then
-    --    --union_mission._d[ p.uid ] = nil
-    --    union_mission.add( p.uid )
+    --local t = debug.tablemark()
+    --for k, v in pairs( t ) do
+    --    INFO( "MarkTable, %s", v )
     --end
 
-    --local t1 = c_msec()
-    --local count = 0
-    --for i = 1, 100, 1 do
-    --    for k, v in pairs( resmng.prop_task_detail ) do
-    --        count = count + 1
-    --        copyTab( v.FinishCondition)
-    --    end
-    --end
-    --local t2 = c_msec()
-    --print( count, t2 - t1 )
-
-
-    --for pid, ply in pairs( gPlys ) do
-    --    if not ply:is_online() and ply._build then
-    --        print( "remove player", ply.pid )
-    --        ply._mail = nil
-    --        ply._build = nil
-    --        ply.tm_check = nil
-    --    end
+    --local s1 = snapshot()
+    --for k, v in pairs( s1 ) do
+    --    print( k, v )
     --end
 end
 
@@ -669,7 +648,14 @@ end
 
 function init_game_data()
     msglist.new("black_market", 100, true)
+
+    local tm_drop = gTime - 3600 * 24 * 7
+    local tm_delete = gTime - 3600 * 24 * 30
+    local db = dbmng:getOne()
+    db.mail:delete( { tm_drop = { [ "$gt" ] = 0, [ "$lt" ] = tm_drop } } )
+    db.mail:delete( { tm = { [ "$lt" ] = tm_delete } } )
 end
+
 
 function remove_id(tab, id)
     for k, v in pairs(tab or {}) do
@@ -762,8 +748,8 @@ function arm_id( culture, id )
 end
 
 
-gGlobalPending = gGlobalPending or nil
-gGlobalWaiting = gGlobalWaiting or nil
+gGlobalPending = gGlobalPending or false
+gGlobalWaiting = gGlobalWaiting or false
 gGlobalSaveThread = gGlobalSaveThread or { nil, 1, 0 }
 
 function make_sure_save( )
@@ -779,7 +765,7 @@ function make_sure_save( )
             if not infos then
                 infos = gGlobalPending
                 gGlobalWaiting = infos
-                gGlobalPending = nil
+                gGlobalPending = false
             end
 
             for tab, recs in pairs( infos ) do
@@ -793,18 +779,26 @@ function make_sure_save( )
                     end
                 end
             end
+
             local info = db:runCommand("getLastError")
             local flag = false
             if info and info.ok then
                 if node[1] == co then
                     node[2] = 0
-                    gGlobalWaiting = nil 
+                    gGlobalWaiting = false 
                     flag = true
                 end
             end
-            if not flag then return end
+
+            if not flag then 
+                INFO( "make_sure_save, flag = false, %d, %s", gFrame, co )
+                return 
+            end
         end
-        if node[1] ~= co then return end
+        if node[1] ~= co then 
+            INFO( "make_sure_save, node[1] ~= co, %d, %s", gFrame, co )
+            return 
+        end
         node[2] = 0
     end
 end
@@ -815,10 +809,11 @@ function warxG_check_save()
         if node[2] == 1 then
             if gTime - node[3] < 5 then return end
             local co = coroutine.create( make_sure_save )
-            coroutine.resume( co )
+            INFO( "make_sure_save, new co, %d, %s", gFrame, co )
             node[1] = co
             node[2] = 0
             node[3] = 0
+            coroutine.resume( co )
         end
         coroutine.resume( node[1] )
     end

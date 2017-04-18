@@ -17,7 +17,8 @@ function OnRpc.onLogin( p, pid, name )
     Rpc:getTime(p,1)
 
     if type( idx ) == "number" then
-        local chg_name = string.format("R_%s", idx )
+        --local chg_name = string.format("R_%s", idx )
+        local chg_name = make_name.make_name()
         if name ~= chg_name then
             change_name( p, chg_name )
         end

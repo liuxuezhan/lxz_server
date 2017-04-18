@@ -140,7 +140,9 @@ function callback(id, tag)
         mark(t)
 
         local fun = _funs[ t.what ]
-        LOG("[timer], %s, %d, over:%s ", t.what, gTime, os.date("%y-%m-%d %H:%M:%S", t.over or 0 ))
+        INFO("[TIMER], %d, %s, now:%d, over:%d ", id, t.what, gTime, t.over or 0 )
+        perfmon.start("timer_func", 0)
+        perfmon.start(t.what, id)
         if fun then
             local rt =  fun(id, unpack(t.param))
             if rt == 1 and t.cycle then
@@ -159,6 +161,8 @@ function callback(id, tag)
                 end
             end
         end
+        perfmon.stop(t.what, id)
+        perfmon.stop("timer_func", 0)
     end
 end
 
@@ -197,11 +201,15 @@ end
 
 -- 应该被各自项目的cron调用，在这里利用cron的timer执行一些框架级别的定时工作
 function cron_base_func()
-    local nextCron = 60 - (gTime % 60) + 30
-    local newsn, node = timer.new("cron", nextCron)
+    --local nextCron = 60 - (gTime % 60) + 30
+    --local newsn, node = timer.new("cron", nextCron)
+
+    local next_cron = gTime + 90
+    next_cron = next_cron - ( next_cron % 60 )
+    timer.new( "cron", next_cron - gTime )
     
-    c_mem_info()
     crontab.loop()
+    c_mem_info()
 
     -- 协程退出时(不管是正常还是异常）都应该删除自己可能在gCoroBad中的引用
     for k, v in pairs(gCoroBad) do

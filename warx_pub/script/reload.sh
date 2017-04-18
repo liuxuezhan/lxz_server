@@ -1,2 +1,2 @@
 #!/bin/bash
-svn up data/
+svn up

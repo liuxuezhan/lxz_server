@@ -51,7 +51,7 @@ function set_one(p,cur)
     if not u then return end
     if not u.help then return end
     if not u.help[cur] then return end
-    if  u.help[cur].log[p.pid] then LOG("已帮助") return end
+    if  u.help[cur].log[p.pid] then LOG("have helped, pid=%d", p.pid) return end
 
     local num = tabNum(u.help[cur].log or {} )
 

@@ -26,4 +26,5 @@ GameHost = "192.168.100.12"
 APP_ID= "warx_test" 
 SERVER_ID = Map
 PLAT_ID = 1 
+Version = 1000
 

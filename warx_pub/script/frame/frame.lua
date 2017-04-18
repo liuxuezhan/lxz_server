@@ -81,11 +81,7 @@ gDbNum = 1
 function loadMod()
     require("frame/tools")
 
-    dofile( c_get_conf() )
-
-    if not config.Release then require("frame/debugger") end
-
-    require("frame/socket")
+--  require("frame/socket")
 
     if config.NO_DB then
         require("nodb/_conn")
@@ -93,8 +89,7 @@ function loadMod()
         _G.mongo = require("nodb/_mongo")
     else
         require("frame/conn")
-        require("frame/dbmng")
-        _G.mongo = require("frame/mongo")
+        require("warx_pub/dbmng")
     end
 
     require("frame/crontab")
@@ -107,16 +102,17 @@ function loadMod()
 
     doLoadMod("packet", "frame/rpc/packet")
     doLoadMod("MsgPack", "frame/MessagePack")
-    doLoadMod("Array", "frame/rpc/array")
-    doLoadMod("Struct", "frame/rpc/struct")
-    doLoadMod("RpcType", "frame/rpc/rpctype")
-    doLoadMod("Rpc", "frame/rpc/rpc")
+    doLoadMod("Array", "warx_pub/rpc/array")
 
+    doLoadMod("Struct", "warx_pub/rpc/struct")
+    doLoadMod("RpcType", "warx_pub/rpc/rpctype")
+    doLoadMod("Rpc", "warx_pub/rpc/rpc")
 
     require("frame/player_t")
     require("frame/perfmon")
     require("frame/snapshot")
     require("frame/snapshot_diff")
+    require("frame/mongo_save_mng")
 end
 
 function handle_dbg(sid)
@@ -129,6 +125,7 @@ end
 
 function handle_network(sid)
     local pktype = pullInt()
+    pktype = gNetPt.NET_MSG_CONN_COMP 
     local p = gConns[ sid ]
     if p then
         if pktype ==  gNetPt.NET_MSG_CLOSE then
@@ -242,6 +239,7 @@ function do_threadPK()
         local gateid, tag
         while true do
             gateid, tag = pullNext()
+            gateid, tag = 1,1 
             if gateid then
                 break
             else
@@ -260,7 +258,7 @@ function do_threadPK()
                             while #as > 0 do
                                 local v = table.remove(as, 1)
                                 gActionCur[ pid ] = gTime
-                                LOG("RpcR, pid=%d, func=%s", pid, v[1])
+                                lxz("RpcR, pid=%d, func=%s", pid, v[1])
                                 local p = getPlayer(pid)
                                 if p then player_t[ v[1] ](p, unpack(v[2]) ) end
                                 gActionCur[ pid ] = nil
@@ -275,13 +273,19 @@ function do_threadPK()
         end
 
         if tag then
+            --[[
             if gTagFun[ tag ] then
                 gTagFun[ tag ](gateid)
+            end
+            --]]
+            for sid, _ in pairs(gConns) do
+                gTagFun[ 1 ](sid)
+                gTagFun[ 2 ](sid)
             end
         else
             local pid = pullInt()
             local pktype = pullInt()
-            --print(Rpc.localF[pktype].name)
+            --print(rpc.localF[pktype].type)
             local fname, args = Rpc:parseRpc(packet, pktype)
             if fname then
                 if pid == 0 then
@@ -309,12 +313,6 @@ function do_threadPK()
                             gActionCur[ pid ] = nil
                         end
                     else
-                        if pid >= 10000 then
-                            if Protocol.CrossQuery[ fname ] then
-                                player_t[ fname ]( {pid=pid, uid=0, gid=_G.GateSid}, unpack( args ) )
-                                print( "cross_server, call", pid, fname )
-                            end
-                        end
                         LOG("RpcR, pid=%d, func=%s, no player", pid, Rpc.localF[pktype].name)
                     end
                 end
@@ -323,7 +321,6 @@ function do_threadPK()
 
         if gCoroBad[ co ] then
             gCoroBad[ co ] = nil
-            --LOG("Coro, threadPk, i should go away, %s", co)
             return
         end
     end
@@ -384,14 +381,33 @@ function check_db_connect()
     return true
 end
 
-function wait_db_connect()
-    while not check_db_connect() do
-        wait(1)
+function wait_connect_complete()
+    while true do
+        local ok = true
+        for k, v in pairs( gConns ) do
+            if v.state ~= 1 then
+                ok = false
+                break
+            end
+        end
+        if not ok then 
+            wait(1)
+        end
     end
 end
 
 function frame_init()
-    wait_db_connect()
+    while true do
+        local ok = true
+        for k, v in pairs( gConns ) do
+            if v.state ~= 1 then
+                ok = false
+                break
+            end
+        end
+        if ok then break end
+        wait(1)
+    end
 
     INFO("$$$ done load_sys_config")
     load_uniq()
@@ -403,8 +419,9 @@ function frame_init()
     gInit = "InitFrameDone"
     begJob()
 
-    c_tlog_start( "../etc/tlog.xml" )
-
+    if config.TlogSwitch then 
+        c_tlog_start( "../etc/tlog.xml" )
+    end
 end
 
 function clean_replay()
@@ -451,11 +468,26 @@ local SignalDefine = {
 
 gTimeDebugOffset = 0
 
+function is_db_ready()
+    for k, v in pairs( gConns ) do
+        if v.action == "db" then
+            if v.state ~= 1 then return false end
+        end
+    end
+    return true
+end
+
+
 function main_loop(sec, msec, fpk, ftimer, froi, signal)
     gFrame = gFrame + 1
     --LOG("gFrame = %d, fpk=%d, ftimer=%d, froi=%d, deb=%d, gInit=%s", gFrame, fpk, ftimer, froi, deb, gInit or "unknown")
-
-    local t1 = c_msec()
+    if signal > 0 then
+        if pause then
+            pause("debug in main_loop")
+        else
+            os.exit(-1)
+        end
+    end
 
     if signal > 0 then
         if signal == SignalDefine.SIGINT then
@@ -474,6 +506,8 @@ function main_loop(sec, msec, fpk, ftimer, froi, signal)
         elseif signal == SignalDefine.SIGUSR2 then
             dofile( "extra.lua" )
 
+        else
+            WARN( "SIGNAL, %d", signal )
         end
     end
 
@@ -486,58 +520,38 @@ function main_loop(sec, msec, fpk, ftimer, froi, signal)
 
         if gInit == "StateBeginInit" then
             gInit = "InitFrameAction"
-            lxz(gInit)
-            action(frame_init)
+            frame_init()
 
         elseif gInit == "InitFrameDone" then
-            gInit = "InitGameAction"
-            lxz(gInit)
-            action(restore_game_data)
-
+            gInit = "InitGameData"
+            action( restore_game_data )
+        
         elseif gInit == "InitCompensate" then
-            local real = c_time_real()
+            local real = gCompensation
             if gCompensation < real then
                 local offset = real - gCompensation
-                if offset % 3600 == 0 then print( "Compensate, offset =", offset ) end
-
-                if c_get_troop_count() < 1 then
-                    local recent = timer.get_recently()
-                    if recent and recent < real then
-                        if recent > gCompensation then
-                            gCompensation = recent + 1
-                            c_time_step(gCompensation)
-                        else
-                            gCompensation = gCompensation + 1
-                            c_time_step(gCompensation)
-                        end
-                    else
-                        gCompensation = real
-                        c_time_step(gCompensation)
-                    end
-                else
-                    gCompensation = gCompensation + 1
-                    c_time_step(gCompensation)
+                if offset % 3600 == 0 then
+                    print( "Compensate, offset =", offset )
                 end
+                gCompensation = gCompensation + 1
+                c_time_step(gCompensation)
+                --WARN("Compensation, real=%d, now=%d, diff=%d", real, gCompensation, real - gCompensation)
             else
-                set_sys_status( "tick", real )
                 gCompensation = nil
                 c_time_release()
                 WARN("Compensation, real=%d, finish", real)
                 gInit = "InitGameDone"
-                print( "Compensate Done" )
             end
 
         elseif gInit == "InitGameDone" then
-            perfmon.init()
             gInit = "InitCronBoot"
             action( crontab.initBoot )
 
         elseif gInit == "InitCronBootDone" then
-            lxz(gInit)
-            WARN( "connecting to Gate, %s:%d", config.GateHost, config.GatePort )
-            conn.toGate(config.GateHost, config.GatePort)
             crontab.initBoot()
             clean_replay() --清理战斗录像
+
+            if config.GatePort == 8002 then _G.g_warx = true end
 
             local hit = false
             for k, v in pairs(timer._sns) do
@@ -548,42 +562,38 @@ function main_loop(sec, msec, fpk, ftimer, froi, signal)
             end
 
             if not hit then
-                local nextCron = 60 - (gTime % 60) + 30
-                timer.new("cron", nextCron)
-                timer.new("monitor", 1, 1)
+                local next_cron = gTime + 90
+                next_cron = next_cron - ( next_cron % 60 )
+                timer.new( "cron", next_cron - gTime )
             end
 
             if init_game_data then init_game_data() end
+            --c_set_init( 0 )
+            thanks()
+            gInit = nil
 
-            gInit = "InitConnectGate"
-
-        elseif gInit == "InitConnectGate" then
-            if GateSid then
-                lxz(gInit)
-                thanks()
-                gInit = nil
+            --[[
+            local t = debug.tablemark(10)
+            for k, v in pairs( t ) do
+                INFO( "MarkTable, Start, %s", v )
             end
+            --]]
 
-        elseif gInit == "Shutdown" then
-            set_sys_status( "tick", gTime )
-            if on_shutdown then
-                action( on_shutdown )
-                gInit = "GameSaving"
-            else
-                gInit = "SystemSaving"
-            end
+           -- gInit = "InitConnectGate"
 
         elseif gInit == "SystemSaving" then
             WARN( "shutdown, frame = %d", gFrame )
             if not check_pending_before_shutdown or not check_pending_before_shutdown() then
                 local have = is_remain_db_action()
                 if not have then
+                    c_tlog_stop()
                     WARN( "save done" )
                     os.exit( 0 )
                 end
             end
         end
         begJob()
+
     end
 
     if fpk == 1 then
@@ -623,11 +633,14 @@ function main_loop(sec, msec, fpk, ftimer, froi, signal)
     end
 
     if #gActions > 0 then
-        while true do
-            local co = getCoroPool("action")
-            local flag, what = coroutine.resume(co)
-            if flag then
-                if what == "ok" then break end
+        --[[
+        local co = getCoroPool("action")
+        local flag = coroutine.resume(co)
+        --]]
+        while #gActions > 0 do
+            local node = table.remove(gActions, 1)
+            if node[2] then
+                node[1](unpack(node[2]))
             else
                 LOG("ERROR %s", what)
             end
@@ -642,26 +655,16 @@ function main_loop(sec, msec, fpk, ftimer, froi, signal)
         coroutine.resume(t[1])
     end
 
-    -- zhoujy 20161117 在主协程中reload
-    if gInit == nil and type(gReloadFunc) == "function" then
-        gReloadFunc()
-        gReloadFunc = false
-    end
-
-    local t2 = c_msec()
-
     if gCompensation then
         if ftimer == 1 or froi == 1 then
             local real = c_time_real()
             WARN("Compensation, %s, -> %s, diff=%d", os.date("%c",gTime), os.date("%c", real), real-gTime)
             check_pending()
             global_save()
-            check_tool_ack()
         end
     else
         check_pending()
         global_save()
-        check_tool_ack()
     end
 
     --local t3 = c_msec()
@@ -672,6 +675,10 @@ end
 
 
 function is_remain_db_action()
+    if mongo_save_mng._switch then
+        return mongo_save_mng.is_remain_db_action(false)
+    end
+
     local have = false
     for tab, doc in pairs( gPendingSave ) do
         local cache = doc.__cache
@@ -694,7 +701,25 @@ end
 function set_sys_status(_type, tms)
 end
 
+function ack_tool(pid, sn, data)
+    if sn then
+        --print("receive tool ack ", sn)
+        gPendingToolAck[sn] = nil
+    end
 
+    if data.api then
+        player_t[data.api](data)
+    end
+end
+
+function to_tool( sn, info )
+    if sn == 0 then sn = getSn("to_tool")  end
+    local val = {}
+    val._t_ = gTime
+    val.info = info
+    gPendingToolAck[sn] = val
+    Rpc:qry_tool( gAgent, sn ,info )
+end
 
 function check_tool_ack()
     local dels = {}
@@ -721,7 +746,12 @@ end
 --so when you want to save data, just write down like
 --gPendingSave.mail[ "1_270130" ].tm_lock = gTime
 gUpdateCallBack = {}
-function global_save( )
+function global_save()
+    if mongo_save_mng._switch then
+        mongo_save_mng.by_pid_save_update(gPendingSave, false)
+        return
+    end
+
     local db = dbmng:tryOne(1)
     if not db then
         WARN( "no db" )
@@ -832,7 +862,6 @@ function global_save_checker()
 
         local info = db:runCommand("getLastError")
         if info.ok then
-            INFO( "global_save_checker, checked frame %d, now=%d, diff=%d", frame, gFrame, gFrame - frame )
             local code = info.code
             local check_table = {}
             local check_fails = {}
@@ -957,6 +986,11 @@ function init_pending()
     }
     __mt_tab = {
         __index = function (self, tab)
+            if mongo_save_mng._switch then
+                local t = mongo_save_mng.get_collection_table(tab, false)
+                self[ tab ] = t
+                return t
+            end
             local t = { __cache={} }
             setmetatable(t, __mt_rec)
             self[ tab ] = t
@@ -1057,6 +1091,7 @@ end
 
 
 function init(sec, msec)
+    require("warx_pub/etc/config")
     gTime = math.floor(sec)
     gMsec = math.floor(msec)
     gMapID = getMap()
@@ -1094,13 +1129,6 @@ function init(sec, msec)
     gPendingInsert = {}
     init_pending()
 
-    gPendingGlobalSave = {}
-    gPendingGlobalDelete = {}
-    gPendingGlobalInsert = {}
-    init_global_database_pending()
-
-    gPendingToolAck = {}
-
     gInit = "StateBeginInit"
     loadMod()
 
@@ -1111,23 +1139,11 @@ function init(sec, msec)
     LOG("start: gTime = %d, gMsec = %d", gTime, gMsec)
 
     Rpc:init("server")
-    Rpc.localF[ 6 ] = Rpc.localF[ hashStr("onBreak") ]
+    --Rpc.localF[ 6 ] = Rpc.localF[ hashStr("onBreak") ]
 
 
     if config.Tips then
         c_init_log(config.Tips)
-    end
-
-    --local dbname = string.format("warx_%d", gMapID)
-    local name = config.Game or "warx"
-    local dbname = string.format("%s_%d", name, gMapID)
-    for i = 1, gDbNum, 1 do
-        conn.toMongo(config.DbHost, config.DbPort, dbname)
-    end
-
-    local dbnameG = string.format("%sG", name)
-    if config.DbHostG then
-        conn.toMongo(config.DbHostG, config.DbPortG, dbnameG, "Global")
     end
 
     begJob()
@@ -1225,7 +1241,10 @@ function getPlayer(pid)
 end
 
 function load_sys_config()
-    local db = dbmng:getByTips("Global")
+    local db = dbmng:getGlobal()
+    if not db then
+        return ERROR("zhoujy_error: can not find global db!")
+    end
     local info = db.config:findOne({_id=gMapID})
     if info then
         gSysConfig = info
@@ -1295,7 +1314,7 @@ end
 
 function getAutoInc(what)
     --local db = dbmng:getOne(0)
-    local db = dbmng:getByTips("Global")
+    local db = dbmng:getGlobal()
     LOG("getAutoInc, getdb after")
     local r = db:runCommand("findAndModify", "uniq", "query", {_id=what}, "update", {["$inc"]={sn=1}}, "new", true, "upsert", true)
     LOG("getAutoInc, runCommand after")
@@ -1403,4 +1422,6 @@ end
 
 take_over_os_time()
 
-
+function is_system_db_field(id)
+    return id == "__cache" or id == "__app_data" or id == "__cmd_data"
+end

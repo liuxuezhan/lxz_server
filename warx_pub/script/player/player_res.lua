@@ -78,7 +78,9 @@ function buy_res(self, id)
     task_logic_t.process_task(self, TASK_ACTION.MARKET_BUY_NUM, 2, 1)
     --周限时活动
     weekly_activity.process_weekly_activity(self, WEEKLY_ACTIVITY_ACTION.RES_MARKET, mode, nres)
-
+    --运营活动
+    operate_activity.process_operate_activity(self, OPERATE_ACTIVITY_ACTION.RESOURCE_MARKET, 1)
+                
     extra[1] = total
     extra[2] = free
 

@@ -181,8 +181,8 @@ function mc_notify(self, notify_id)
 
     self.set_mc_time = gTime  -- when default timer set do set 
 
-    for k, v in pairs(self.npc_citys) do
-        local city = get_monster_city(v)
+    for k, v in pairs(self.npc_citys or {}) do
+        local city = monster_city.gen_monster_city(v)
     end
     local prop = resmng.get_conf("prop_act_notify", notify_id)
     if prop then
@@ -190,6 +190,25 @@ function mc_notify(self, notify_id)
             self:union_chat("", prop.Chat2, {})
         end
     end
+end
+
+function add_mc_reward(self, rewards) 
+    local pool = self.mc_reward_pool or {}
+    for k, v in pairs(rewards) do
+        if v[2] then
+            if v[2] == 11 then
+                self.mc_point = self.mc_point + v[3]
+            end
+            local award = pool[v[2]]
+            if not award then
+                award = v
+            else
+                award[3] = award[3] + v[3]
+            end
+            pool[v[2]] = award
+        end
+    end
+    self.mc_reward_pool = pool
 end
 
 function get_default_time(self)
@@ -266,11 +285,11 @@ function get_monster_city(eid)
         local city = get_ety(cityId)
         if city then return city end
     end
-    local city = monster_city.gen_monster_city(eid)
-    if city then
-        return city
-    end
-    return
+ --   local city = monster_city.gen_monster_city(eid)
+  --  if city then
+  --      return city
+  --  end
+  --  return
 end
 
 function get_live_mc(eid)
@@ -279,6 +298,24 @@ function get_live_mc(eid)
         local city = get_ety(cityId)
         if city then return city end
     end
+end
+
+function get_mc_rank(self, version)
+    local mc_act_ply = self.mc_act_ply or {}
+    local mc_rank_info = {}
+    if version == 0 or (mc_act_ply.version or 1 )> version then
+        for k, v in pairs(mc_act_ply) do
+            if k ~= "version" then
+                local info =  rank_mng.rank_function[1](k)  
+                local rank = {}
+                rank[1] = v
+                rank[2] = info
+                mc_rank_info[k] = rank
+            end
+        end
+        self.mc_rank_info = mc_rank_info
+    end
+    return mc_act_ply.version or 0, mc_rank_info
 end
 
 function set_mc_state(self, stage)
@@ -295,6 +332,8 @@ function set_mc_state(self, stage)
                 self:union_chat("", prop.Chat2, {})
             end
         end
+        --offline ntf
+        offline_ntf.post(resmng.OFFLINE_NOTIFY_REBEL, self)
     end
 
     prop = resmng.prop_mc_stage[stage]
@@ -578,8 +617,10 @@ function create(A, name, alias, language, propid)
 
     local union = new(data)
     if not union_god.set(union,propid) then return end
-    union.flag = propid%4  
-    if union.flag==0 then union.flag=4 end 
+
+    union.flag = 1
+    local conf = resmng.get_conf( "prop_union_god", propid )
+    if conf then union.flag = conf.Mode end
 
     unionmng.add_union(union)
 
@@ -941,11 +982,11 @@ function rm_member(self, A,kicker)
             local u = unionmng.get_union(uid)
             if u and (not u:is_new()) and u:check() then 
                 if A.language == u.language then
-                    if not u1  and A:union_enlist_check(u.uid) then
+                    if not u1  and u.enlist.check == 0  then
                         u1 = u 
                     end
                 else
-                    if not u3  and A:union_enlist_check(u.uid) then
+                    if not u3  and u.enlist.check == 0  then
                         u3 = u 
                     end
                 end
@@ -1304,7 +1345,7 @@ function donate_summary_week(self)
                 val = resmng.prop_item[UNION_DONATE_WEEK.B_THREE].Param[1][2] 
             end
             p:send_system_notice(10025, {}, {one,two,three}, val)
-            union_member_t.clear_donate_data(p,resmng.DONATE_RANKING_TYPE.WEEK)
+            union_member_t.clear_donate_data(p,resmng.DONATE_RANKING_TYPE.WEEK_B)
         end
     end
     self.donate_rank[resmng.DONATE_RANKING_TYPE.WEEK_B] = nil
@@ -1667,5 +1708,9 @@ end
 
 function get_rank_detail( self )
     return rank_mng.rank_function[0]( self.uid )
+end
+
+function clear_battle_room(self, room_id)
+    self.battle_list = nil
 end
 

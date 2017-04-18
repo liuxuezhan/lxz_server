@@ -66,31 +66,39 @@ end
 
 -- WARNING!!! this function should be call just before create_troop, because here will deduct arm
 function check_arm(self, arm, action)
-    if self:is_troop_full(action) then
-        self:add_debug("CountTroop")
-        return
+    if self:is_troop_full(action) then 
+        Rpc:tips(self, 3, resmng.COMMON_TIPS_COUNTTROOP_FULL, {})
+        INFO( "[CheckArm], full, pid=%d, name=%s, action=%s", self.pid, self.name, action )
+        return 
     end
+
 
     local my_troop = troop_mng.get_troop(self.my_troop_id)
     if my_troop == nil then
-        LOG("没部队")
+        INFO( "[CheckArm], no_home_troop, pid=%d, name=%s, action=%s", self.pid, self.name, action )
         return false
     end
     local live = my_troop:get_live()
 
     local total_num = 0
     local valid_pos = {false, false, false, false} --步骑弓车，对应英雄的位置判断能不能有英雄
-    for k, v in pairs(arm.live_soldier or {}) do
+
+    local soldiers = arm.live_soldier
+    if not soldiers then return end
+
+    for k, v in pairs(soldiers) do
+        v = math.floor(v)
+        soldiers[ k ] = v
         if v <= 0 then
-            WARN("人数不足1")
+            INFO( "[CheckArm], v<=0, pid=%d, name=%s, action=%s, k=%s, v=%s", self.pid, self.name, action, k, v )
             return
         end
+
         if live[k] == nil or live[k] < v then
-            WARN("人数不足2")
-            if player_t.debug_tag == 1 then
-                return false
-            end
+            INFO( "[CheckArm], live<v, pid=%d, name=%s, action=%s, k=%s, v=%s, live=%s", self.pid, self.name, action, k, v, live[k] or 0 )
+            return
         end
+
         total_num = total_num + v
         local pos = math.floor( ( k % 1000000 ) / 1000 )
         valid_pos[pos] = true
@@ -98,7 +106,8 @@ function check_arm(self, arm, action)
 
     local count_soldier = self:get_val("CountSoldier")
     if total_num < 1 or total_num > count_soldier then
-        self:add_debug(string.format( "CountSoldier, %d, %d", total_num, count_soldier))
+        --self:add_debug(string.format( "CountSoldier, %d, %d", total_num, count_soldier))
+        INFO( "[CheckArm], total<count, pid=%d, name=%s, action=%s, count=%s, total=%s", self.pid, self.name, action, count_soldier, total_num )
         return
     end
 
@@ -153,12 +162,13 @@ end
 function siege(self, dest_eid, arm)
     local dest = get_ety(dest_eid)
     if not dest then
-        self:add_debug("not ety:"..dest_eid)
+        --self:add_debug("not ety:"..dest_eid)
+        Rpc:tips(self, 1, resmng.TARGET_DISAPPEAR, {})
         return
     end
 
     if not self:can_move_to(dest.x, dest.y)  then
-        self:add_debug("can not move by castle lv")
+       -- self:add_debug("can not move by castle lv")
         if not player_t.debug_tag then
             return
         end
@@ -167,8 +177,8 @@ function siege(self, dest_eid, arm)
     local action = 0
     if is_monster(dest) then
         if not monster.can_atk_monster[dest.grade](self, dest) then
-            self:add_debug( "no npc occupy" )
-
+            --    self:add_debug( "no npc occupy" )
+            --Rpc:tips(self, 1, resmng.TIPS_NO_KINGCITY, {})
             if not player_t.debug_tag then
                 return
             end
@@ -185,7 +195,7 @@ function siege(self, dest_eid, arm)
         action = TroopAction.SiegeMonster
         if self:get_sinew() < 5 then
             WARN("没体力")
-            self:add_debug( "not enough sinew" )
+           -- self:add_debug( "not enough sinew" )
             return
         end
 
@@ -198,7 +208,7 @@ function siege(self, dest_eid, arm)
 
     elseif is_lost_temple(dest)  then
         if not can_ply_join_act[ACT_TYPE.LT](self) then
-            self:add_debug( "can not play level limit" )
+         --   self:add_debug( "can not play level limit" )
             if not debug_tag then
                 return
             end
@@ -210,7 +220,7 @@ function siege(self, dest_eid, arm)
 
     elseif is_king_city(dest) then
         if not can_ply_join_act[ACT_TYPE.KING](self) then
-            self:add_debug( "can not play level limit" )
+          --  self:add_debug( "can not play level limit" )
             if not debug_tag then
                 return
             end
@@ -222,14 +232,14 @@ function siege(self, dest_eid, arm)
     elseif is_monster_city(dest) then
         action = TroopAction.AtkMC
         if not can_ply_join_act[ACT_TYPE.MC](self) then
-            self:add_debug( "can not play level limit" )
+          --  self:add_debug( "can not play level limit" )
             if not debug_tag then
                 return
             end
         end
 
         if not monster_city.can_atk_def_mc(dest, self.pid) then
-            self:add_debug( "already atk or no right" )
+      --      self:add_debug( "already atk or no right" )
             if not debug_tag then
                 return
             end
@@ -249,6 +259,15 @@ function siege(self, dest_eid, arm)
     elseif is_refugee(dest) then
         action = TroopAction.Refugee
 
+    elseif is_dig(dest ) then
+        local robber = dest.robber
+        if #robber >= 2 then return end
+        if dest.uid == self.uid and self.uid ~= 0 then return end
+        if dest.tmStart == 0 then return end
+        for _, v in pairs( robber ) do if v == self.pid then return end end
+        
+        action = TroopAction.SiegeDig
+
     end
 
     if action == 0 then return end
@@ -262,6 +281,40 @@ function siege(self, dest_eid, arm)
     end
 
     troop:go()
+
+    --jpush 
+    if is_ply(dest) then
+        local union = unionmng.get_union(self.uid)
+        offline_ntf.post(resmng.OFFLINE_NOTIFY_ATTACK, dest, self, union)
+    elseif is_res(dest) then
+        if dest.pid and dest.pid >= 10000 then
+            if ( self.uid ~= dest.uid) or (self.uid == 0 and dest.uid == 0) then
+                local union = unionmng.get_union(self.uid)
+                local ply = getPlayer(dest.pid)
+                if ply then
+                    offline_ntf.post(resmng.OFFLINE_NOTIFY_ATTACK, ply, self, union)
+                end
+            end
+        end
+    elseif is_camp(dest) then
+        local union = unionmng.get_union(self.uid)
+        local ply = getPlayer(dest.pid)
+        if ply then
+            offline_ntf.post(resmng.OFFLINE_NOTIFY_ATTACK, ply, self, union)
+        end
+    elseif is_lost_temple(dest)  then
+        if self.uid ~= dest.uid then
+            local tr = dest:get_my_troop()
+            local union = unionmng.get_union(self.uid)
+            for pid, _ in pairs(tr.arms or {}) do
+                local ply = getPlayer(pid)
+                if ply then
+                     offline_ntf.post(resmng.OFFLINE_NOTIFY_ATTACK, ply, ply, union)
+                end
+            end
+        end
+    end
+
     if action ~= TroopAction.SiegeMonster then union_hall_t.battle_room_create(troop) end
 
     if is_monster(dest) then
@@ -271,44 +324,73 @@ function siege(self, dest_eid, arm)
 end
 
 function task_visit(self, task_id, dest_eid, x, y, arm)  --任务中拜访npc 拜访英雄
-    local task_data = self:get_task_by_id(task_id)
-    if task_data == nil or task_data.task_status ~= TASK_STATUS.TASK_STATUS_ACCEPTED then
-        WARN("任务不存在")
-        return
+    local key, dest_id = nil, nil
+    if task_id ~= 0 then
+        local task_data = self:get_task_by_id(task_id)
+        if task_data == nil or task_data.task_status ~= TASK_STATUS.TASK_STATUS_ACCEPTED then
+            WARN("任务不存在")
+            return
+        end
+        local prop_task = resmng.prop_task_detail[task_id]
+        if prop_task == nil then
+            return
+        end
+        key, dest_id = unpack(prop_task.FinishCondition)
     end
-
-    local prop_task = resmng.prop_task_detail[task_id]
-    if prop_task == nil then
-        return
-    end
-    local key, dest_id = unpack(prop_task.FinishCondition)
 
     local action = 0
     local dest = get_ety(dest_eid)
-    if not dest then
+    if not dest and task_id ~= 0 then
         dest = self
+    elseif not dest then
+        return
     end
-    if dest then
-        if is_wander(dest) then
-            action = TroopAction.VisitHero
-        elseif is_npc_city(dest) then
-            action = TroopAction.VisitNpc
-        end
 
-        if key == "visit_npc" then
-            action = TroopAction.VisitNpc
-        elseif key == "visit_hero" then
-            action = TroopAction.VisitHero
+    if dest then
+        if key then
+            if key == "visit_npc" then
+                action = TroopAction.VisitNpc
+            elseif key == "visit_hero" then
+                action = TroopAction.VisitHero
+            end
+        else
+            if is_wander(dest) then
+                action = TroopAction.VisitHero
+            elseif is_npc_city(dest) then
+                action = TroopAction.VisitNpc
+            end
+        end
+        if self:is_troop_full(action) then 
+            return 
+       --     self:add_debug("CountTroop") 
         end
 
         --if not self:check_arm(arm, action) then return end
         local troop = troop_mng.create_troop(action, self, dest, {})
         troop.target_propid = dest.propid
-        troop.dx = x
-        troop.dy = y
-        troop:set_extra("visit_task_id", task_id)
-
+        if task_id ~= 0 then
+            for k, v in pairs(resmng.prop_world_unit or {}) do
+                if v.Class == EidType.Wander and v.Mode == dest_id then
+                    troop.target_propid = v.ID
+                    break
+                end
+            end
+            troop.target_eid = dest_eid
+            if key == "visit_hero" then
+                troop.dx = x
+                troop.dy = y
+            end
+            troop:set_extra("visit_task_id", task_id)
+        end
+        self:add_busy_troop(troop._id)
         troop:go()
+
+        if key == "visit_npc" then
+            local prop = resmng.prop_world_unit[dest.propid]
+            if prop then
+                task_logic_t.process_task(self, TASK_ACTION.VISIT_NPC, prop.ID, 1)
+            end
+        end
     end
 end
 
@@ -320,7 +402,10 @@ function spy_task_ply(self, task_id, dest_eid, x, y)
     end
 
     local action = TroopAction.TaskSpyPly
-    if self:is_troop_full(action) then return self:add_debug("CountTroop") end
+    if self:is_troop_full(action) then 
+        return 
+        --self:add_debug("CountTroop") 
+    end
 
     local prop_task = resmng.prop_task_detail[task_id]
     if prop_task == nil then
@@ -336,6 +421,7 @@ function spy_task_ply(self, task_id, dest_eid, x, y)
         troop.dx = x
         troop.dy = y
         troop:set_extra("spy_ply_task_id", task_id)
+        self:add_busy_troop(troop._id)
         troop:go()
     end
 end
@@ -348,7 +434,10 @@ function siege_task_ply(self, task_id, dest_eid, x, y ,arm)
     end
 
     local action = TroopAction.TaskAtkPly
-    if self:is_troop_full(action) then return self:add_debug("CountTroop") end
+    if self:is_troop_full(action) then 
+        return
+        --self:add_debug("CountTroop") 
+    end
     if not self:check_arm(arm, action) then return end
 
     local prop_task = resmng.prop_task_detail[task_id]
@@ -365,6 +454,7 @@ function siege_task_ply(self, task_id, dest_eid, x, y ,arm)
         troop.dx = x
         troop.dy = y
         troop:set_extra("atk_ply_task_id", task_id)
+        self:add_busy_troop(troop._id)
         troop:go()
     end
 end
@@ -406,7 +496,10 @@ function gather(self, dest_eid, arm)
     if is_union_superres(dest.propid) then
         if not union_build_t.can_troop( action, self, dest_eid ) then return end
     end
-    if not self:can_move_to(dest.x, dest.y)  then return self:add_debug("can not move by castle lv") end
+    if not self:can_move_to(dest.x, dest.y)  then 
+        return 
+    --    self:add_debug("can not move by castle lv") 
+    end
 
     local conf = resmng.get_conf("prop_world_unit", dest.propid)
     if not conf then return end
@@ -414,7 +507,10 @@ function gather(self, dest_eid, arm)
 
     local mode = conf.ResMode
     if not mode then return end
-    if self:get_castle_lv() < Gather_Level[ mode ] then return self:add_debug("can not gather by castle level") end
+    if self:get_castle_lv() < Gather_Level[ mode ] then 
+        return 
+       -- self:add_debug("can not gather by castle level") 
+    end
 
     if self:check_troop_action( dest, action) then return end
 
@@ -429,8 +525,14 @@ end
 function spy(self, dest_eid)
     local dest = get_ety(dest_eid)
     if not dest then return end
-    if not self:can_move_to(dest.x, dest.y)  then return self:add_debug("can not move by castle lv") end
-    if self:is_troop_full(TroopAction.Spy) then return self:add_debug("CountTroop") end
+    if not self:can_move_to(dest.x, dest.y)  then 
+        return 
+    --    self:add_debug("can not move by castle lv") 
+    end
+    if self:is_troop_full(TroopAction.Spy) then 
+        return 
+    --    self:add_debug("CountTroop") 
+    end
 
     if self:check_troop_action( dest, TroopAction.Spy ) then return end
 
@@ -441,12 +543,49 @@ function spy(self, dest_eid)
         if dest.pid >= 10000 then
             if dest.uid == self.uid and self.uid ~= 0 then return end
         end
+    elseif is_dig(dest) then
+        if dest.tmStart == 0 then return end
+
     elseif is_king_city(dest) then
         --任务
         task_logic_t.process_task(self, TASK_ACTION.TROOP_TO_KING_CITY, 1)
     end
     local troop = troop_mng.create_troop(TroopAction.Spy, self, dest)
     troop:go()
+
+    -- jpush
+    if is_ply(dest) then
+        local union = unionmng.get_union(self.uid)
+        offline_ntf.post(resmng.OFFLINE_NOTIFY_SCOUT, dest, self, union) 
+    elseif is_res(dest) then
+        if dest.pid and dest.pid >= 10000 then
+         --   if dest.uid ~= 0 and self.uid ~= dest.uid then
+                local union = unionmng.get_union(self.uid)
+                local ply = getPlayer(dest.pid)
+                if ply then
+                    offline_ntf.post(resmng.OFFLINE_NOTIFY_SCOUT, ply, self, union)
+                end
+         --   end
+        end
+    elseif is_camp(dest) then
+        local union = unionmng.get_union(self.uid)
+        local ply = getPlayer(dest.pid)
+        if ply then
+            offline_ntf.post(resmng.OFFLINE_NOTIFY_SCOUT, ply, self, union)
+        end
+    elseif is_lost_temple(dest)  then
+        if  self.uid ~= dest.uid then
+            local tr = dest:get_my_troop()
+            local union = unionmng.get_union(self.uid)
+            for pid, _ in pairs(tr.arms or {}) do
+                local ply = getPlayer(pid)
+                if ply then
+                     offline_ntf.post(resmng.OFFLINE_NOTIFY_SCOUT, ply, self, union)
+                end
+            end
+        end
+    end
+
     self:add_count( resmng.ACH_COUNT_SCOUT, 1 )
 end
 
@@ -495,7 +634,7 @@ function union_mass_create(self, dest_eid, wait_time, arm)
     local action = 0
     if is_monster(D) then
         if not monster.can_atk_monster[D.grade](self, D) then
-            self:add_debug( "no npc occupy" )
+           -- self:add_debug( "no npc occupy" )
 
             if not player_t.debug_tag then
                 return
@@ -521,7 +660,7 @@ function union_mass_create(self, dest_eid, wait_time, arm)
         end
     elseif is_lost_temple(D)  then
         if not can_ply_join_act[ACT_TYPE.LT](self) then
-            self:add_debug( "can not play level limit" )
+         --   self:add_debug( "can not play level limit" )
             if not debug_tag then
                 return
             end
@@ -529,7 +668,7 @@ function union_mass_create(self, dest_eid, wait_time, arm)
         action = TroopAction.LostTemple
     elseif is_king_city(D) then
         if not can_ply_join_act[ACT_TYPE.KING](self) then
-            self:add_debug( "can not play level limit" )
+            --self:add_debug( "can not play level limit" )
             if not debug_tag then
                 return
             end
@@ -540,13 +679,13 @@ function union_mass_create(self, dest_eid, wait_time, arm)
     elseif is_monster_city(D) then
         action = TroopAction.AtkMC
         if not can_ply_join_act[ACT_TYPE.MC](self) then
-            self:add_debug( "can not play level limit" )
+          --  self:add_debug( "can not play level limit" )
             if not debug_tag then
                 return
             end
         end
         if not monster_city.can_atk_def_mc(D, self.pid) then
-            self:add_debug( "already atk or no right" )
+          --  self:add_debug( "already atk or no right" )
             if not debug_tag then
                 return
             end
@@ -555,6 +694,10 @@ function union_mass_create(self, dest_eid, wait_time, arm)
     elseif is_ply(D) then
         if D.uid == self.uid then return end
         action = TroopAction.SiegePlayer
+
+        local union = unionmng.get_union(self.uid)
+        offline_ntf.post(resmng.OFFLINE_NOTIFY_MASS, D, self, union)
+
     elseif is_union_building( D ) then
         if not union_build_t.can_troop( TroopAction.SiegeUnion, self, dest_eid ) then return end
         action = TroopAction.SiegeUnion
@@ -659,7 +802,7 @@ function union_mass_join(self, dest_eid, dest_troop_id, arm)
     end
 
     if not self:can_move_to(dest_tr_target.x, dest_tr_target.y) then
-        self:add_debug("can not move by castle lv")
+      --  self:add_debug("can not move by castle lv")
         if not player_t.debug_tag then
             return
         end
@@ -668,8 +811,7 @@ function union_mass_join(self, dest_eid, dest_troop_id, arm)
 
     if is_monster(dest_tr_target) then
         if not monster.can_atk_monster[dest_tr_target.grade](self, dest_tr_target) then
-            self:add_debug( "no npc occupy" )
-
+         --   self:add_debug( "no npc occupy" )
             if not player_t.debug_tag then
                 return
             end
@@ -680,14 +822,14 @@ function union_mass_join(self, dest_eid, dest_troop_id, arm)
         end
     elseif is_lost_temple(dest_tr_target)  then
         if not can_ply_join_act[ACT_TYPE.LT](self) then
-            self:add_debug( "can not play level limit" )
+         --   self:add_debug( "can not play level limit" )
             if not debug_tag then
                 return
             end
         end
     elseif is_king_city(dest_tr_target) then
         if not can_ply_join_act[ACT_TYPE.KING](self) then
-            self:add_debug( "can not play level limit" )
+          --  self:add_debug( "can not play level limit" )
             if not debug_tag then
                 return
             end
@@ -697,13 +839,13 @@ function union_mass_join(self, dest_eid, dest_troop_id, arm)
     elseif is_monster_city(dest_tr_target) then
         action = TroopAction.AtkMC
         if not can_ply_join_act[ACT_TYPE.MC](self) then
-            self:add_debug( "can not play level limit" )
+          --  self:add_debug( "can not play level limit" )
             if not debug_tag then
                 return
             end
         end
         if not monster_city.can_atk_def_mc(dest_tr_target, self.pid) then
-            self:add_debug( "already atk or no right" )
+          --  self:add_debug( "already atk or no right" )
             if not debug_tag then
                 return
             end
@@ -749,12 +891,12 @@ function union_mass_join(self, dest_eid, dest_troop_id, arm)
         self:dec_sinew( 10 )
     end
 
-    if is_monster_city(dest) then
-        if not dest:can_atk_def_mc(self.pid) then
-            self:add_debug( "already atk" )
-            return
-        end
-    end
+   -- if is_monster_city(dest) then
+   --     if not dest:can_atk_def_mc(self.pid) then
+   --         self:add_debug( "already atk" )
+   --         return
+   --     end
+   -- end
 
     union_hall_t.battle_room_update(OPERATOR.UPDATE, troopT )
 end
@@ -815,11 +957,14 @@ function declare_tw_req(self, dest_eid)
     local state, startTime, endTime = npc_city.get_npc_state()
     if state == TW_STATE.PACE then
         self:add_debug("活动没有开启")
-        return
+        if not debug_tag then
+            return
+        end
     end
 
     if self:is_troop_full(TroopAction.Declare) then
-        self:add_debug("出征队列达到上限")
+        Rpc:tips(self, 3, resmng.COMMON_TIPS_COUNTTROOP_FULL, {})
+        --self:add_debug("出征队列达到上限")
         return
     end
 
@@ -868,7 +1013,7 @@ function declare_tw_req(self, dest_eid)
     end
 
     if not union:can_declare_war(dest_eid) then
-        add_debug(self, "宣战失败")
+       -- add_debug(self, "宣战失败")
         if not debug_tag then
             return
         end
@@ -879,7 +1024,7 @@ function declare_tw_req(self, dest_eid)
     local troop = troop_mng.create_troop(TroopAction.Declare, self, target)
 
     troop:go()
-    add_debug(self, "宣战部队已出发")
+    Rpc:tips(self, 1, resmng.ACTIVITIES_TW_DECLARE_ON_THE_WAY , {}) 
 end
 
 function declare_atk_mc(self, dest_eid)
@@ -1332,7 +1477,11 @@ function troop_recall(self, dest_troop_id, force)
             local dest = getPlayer( troop.target_pid )
             if dest then dest:support_notify( troop ) end
 
+        elseif action == TroopAction.Dig then
+            rem_ety( troop.target_eid )
+
         end
+
         return troop
 
     elseif troop:is_settle() then
@@ -1354,12 +1503,16 @@ function troop_recall(self, dest_troop_id, force)
             troop:back()
             return troop
 
+        elseif action == TroopAction.Dig then
+            rem_ety( troop.target_eid )
+            troop:back()
+            return troop
+
         elseif action == TroopAction.HoldDefense or 
             action == TroopAction.HoldDefenseNPC or 
             action == TroopAction.HoldDefenseLT or
             action == TroopAction.HoldDefenseKING
             then
-            union_hall_t.battle_room_update_ety(OPERATOR.UPDATE, dest)
             local one = troop:split_pid(self.pid)
             if not one then
                 WARN("["..self.pid..":"..troop._id.."]")
@@ -1382,6 +1535,7 @@ function troop_recall(self, dest_troop_id, force)
                     etypipe.add(dest)
                 end
             end
+            union_hall_t.battle_room_update_ety(OPERATOR.UPDATE, dest)
             return one
 
         else
@@ -1451,6 +1605,16 @@ function troop_acc(self, troopid, itemid)
                     if troop.dest_troop_id then
                         local troopT = troop_mng.get_troop( troop.dest_troop_id )
                         if troopT then
+                            union_hall_t.battle_room_update(OPERATOR.UPDATE, troopT )
+                        end
+                    end
+                end
+
+                local target = get_ety( troop.target_eid )
+                if target then
+                    for tid, action in pairs( target.troop_comings or {} ) do
+                        local troopT = troop_mng.get_troop( tid )
+                        if troopT and troopT.action < 200 then
                             union_hall_t.battle_room_update(OPERATOR.UPDATE, troopT )
                         end
                     end
@@ -2002,5 +2166,96 @@ function query_log_support_arm( self )
         return
     end
     Rpc:query_log_support_arm( self, {} )
+end
+
+
+function dig( self, x, y, itemid, arm )
+    if not self:can_move_to(x, y) then return ack( self, "dig", resmng.E_DISALLOWED, 0 ) end
+    if self.count_dig >= 5 then return end
+
+    print( "dig", x, y )
+
+    local sx = math.floor( self.x / 16 )
+    local sy = math.floor( self.y / 16 )
+
+    local dx = math.floor( x / 16 )
+    local dy = math.floor( y / 16 )
+
+    if not ( math.abs( sx - dx ) == 2 or math.abs( sy - dy ) == 2 ) then return ack( self, "dig", resmng.E_POS_OCCUPY, 0) end
+    if c_map_test_pos_for_ply(x, y, 2) ~= 0 then return ack( self, "dig", resmng.E_POS_OCCUPY, 0) end
+    
+    local itemp = resmng.get_conf( "prop_item", itemid )
+    if not itemp then return ack( self, "dig", E_NO_CONF, 0 ) end
+    if itemp.Class ~= ITEM_CLASS.DIG then return ack( self, "dig", E_NO_CONF, 0 ) end 
+
+    if self:get_item_num( itemid ) < 1 then return end
+    local action = TroopAction.Dig
+    if not self:check_arm( arm, action ) then return end
+
+    self:dec_item_by_item_id( itemid, 1, VALUE_CHANGE_REASON.USE_ITEM )
+
+    local propid = itemp.Param.camp
+    local pcamp = resmng.get_conf( "prop_world_unit", propid )
+
+    local eid = get_eid( EidType.Dig )
+    local dest = { propid=propid, size=pcamp.Size, eid=eid, x=x, y=y, pid=self.pid, uid=self.uid, tmStart=0, tmOver=0, robber={}, itemid=itemid }
+
+    gEtys[ eid ] = dest
+    gPendingInsert.unit[ eid ] = dest
+    etypipe.add( dest )
+
+    local troop = troop_mng.create_troop( action, self, dest, arm )
+    troop:go()
+    self.count_dig = self.count_dig + 1
+
+    dest.tid = troop._id
+end
+
+function exchange( self, eid, res, tribute )
+    local dest = get_ety( eid )
+    if not dest then return end
+    if not is_npc_city( dest ) then return end
+
+    local state = npc_city.get_npc_state()
+    if state ~= TW_STATE.PACE then return end
+
+    if self:is_troop_full(TroopAction.Exchange) then return end
+
+    local rs = {}
+    for k, v in pairs( res ) do
+        if v > 0 then
+            rs[ k ] = v
+        end
+    end
+    res = rs
+
+    local goods = {}
+    local pitem = resmng.prop_item
+    for id, num in pairs( tribute ) do
+        if num > 0 then
+            if self:get_item_num( id ) < num then return end
+            local conf = pitem[ id ]
+            if not conf then return end
+            if conf.Class ~= ITEM_CLASS.TRIBUTE then return end
+            table.insert( goods, { "item", id, num } )
+        end
+    end
+    if not tribute_exchange.check_exchange( dest, res, tribute ) then return end
+
+    for _, v in pairs( goods ) do
+        self:dec_item_by_item_id( v[2], v[3], VALUE_CHANGE_REASON.EXCHANGE )
+    end
+
+    local troop = troop_mng.create_troop( TroopAction.Exchange, self, dest )
+    troop:add_goods( goods, VALUE_CHANGE_REASON.EXCHANGE )
+    troop.exchgs = res
+    troop:go()
+end
+
+function massgo( self, tid )
+    local troop = troop_mng.get_troop( tid )
+    if troop and troop.is_mass == 1 and troop.owner_pid == self.pid and troop.action < 100 then
+        timer.adjust( troop.tmSn, gTime )
+    end
 end
 

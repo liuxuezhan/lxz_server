@@ -29,10 +29,10 @@ module_class("hero_t",
     exp          = 0,
     star         = 1,
     personality  = HERO_NATURE_TYPE.STRICT,
+    nature       = HERO_NATURE_TYPE.STRICT,
     basic_skill  = {},
     talent_skill = 0,
     quality      = HERO_QUALITY_TYPE.ORDINARY,
-    nature       = HERO_NATURE_TYPE.STRICT,
     status       = HERO_STATUS_TYPE.FREE,
     culture      = CULTURE_TYPE.EAST,
     build_idx    = 0,    -- 所派遣建筑的idx
@@ -390,8 +390,8 @@ function gain_exp(self, exp_num)
             self:up_attr()
             --任务
             task_logic_t.process_task(owner, TASK_ACTION.HERO_LEVEL_UP)
-            task_logic_t.process_task(owner, TASK_ACTION.HERO_EXP, exp_num)
         end
+        task_logic_t.process_task(owner, TASK_ACTION.HERO_EXP, exp_num)
         return true
     end
 end
@@ -804,33 +804,6 @@ function is_best_personality(self)
     return (self.personality == conf.Nature)
 end
 
-
---------------------------------------------------------------------------------
--- Function : 重置个性
--- Argument : self
--- Return   : NULL
--- Others   : 调用处需要做道具校验和扣除
---------------------------------------------------------------------------------
-function change_personality(self)
-    if not self:is_valid() then
-        ERROR("change_personality: hero_id(%s) isn't valid.", self._id)
-        return
-    end
-
-    if not self then
-        ERROR("change_personality: no self.")
-        return
-    end
-
-    local nature_type = {
-        HERO_NATURE_TYPE.STRICT,
-        HERO_NATURE_TYPE.FEARLESS,
-        HERO_NATURE_TYPE.CALM,
-        HERO_NATURE_TYPE.BOLD,
-    }
-    table.remove(nature_type, self.personality)
-    self.personality = nature_type[math.random(1, 3)]
-end
 
 
 --------------------------------------------------------------------------------

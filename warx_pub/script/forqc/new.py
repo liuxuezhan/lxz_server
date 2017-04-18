@@ -34,5 +34,5 @@ d2 = r.json()["server_info"]
 for k in d2:
     ret = ret + '_pids["%s"].pid[%d] = { map=%d,culture=%d,tm=%d}\n'%(name,int(k["pid"]),int(k["logic"]),int(k["custom"]),int(k["time"]))
 print ret
-os.system("cp /tmp/new.lua /tmp/new_%s.lua "%(cur))
+#os.system("cp /tmp/new.lua /tmp/new_%s.lua "%(cur))
 open("/tmp/new_%s.lua"%(cur),'w').write(ret)

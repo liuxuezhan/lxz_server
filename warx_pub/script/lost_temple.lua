@@ -248,6 +248,9 @@ function start_lt()
     -- debug
     set_timer(LT_STATE.DOWN)
 
+    --offline ntf
+    offline_ntf.post(resmng.OFFLINE_NOTIFY_TOWER)
+
     update_lt_ntf()  -- 推送更新通知
 end
 
@@ -264,6 +267,10 @@ function gen_lost_temples()
 end
 
 function gen_temple_by_propid(propid)
+    if actState ~= LT_STATE.ACTIVE then
+        return
+    end
+
     local prop = resmng.prop_world_unit[propid]
 
     if not prop then
@@ -274,7 +281,7 @@ function gen_temple_by_propid(propid)
     local bandId = get_band_city(lv)
     local lt_prop = resmng.prop_world_unit[bandId]
     local grade = 1
-    if lv <= 3 then grade = 2 else grade = 3 end
+    if lv > 1 then grade = 2 else grade = 3 end
     if lt_prop then
         respawn(math.floor(lt_prop.X/16), math.floor(lt_prop.Y/16), grade, bandId)
     else
@@ -410,7 +417,7 @@ function new_lt_notify(self)
 end
 
 function reset_lt(city)
-    city.uid = 0
+    npc_city.change_city_uid(city, 0)
     --city.pid = 0
     city.uname = ""
     city.ualias = ""
@@ -465,7 +472,7 @@ function after_fight(ackTroop, defenseTroop)
     local city = get_ety(ackTroop.target_eid) 
 
     if check_atk_win(defenseTroop) then
-        city.uid = ackTroop.owner_uid
+        npc_city.change_city_uid(city, ackTroop.owner_uid)
         --city.pid = ackTroop.owner_pid
         city.my_troop_id = nil
         local union = unionmng.get_union(city.uid)
@@ -686,7 +693,7 @@ function get_my_troop(self)
         end
         self.my_troop_id = tr._id
     else
-        tr = troop_mng.create_troop(TroopAction.HoldDefenseiLT, self, self)
+        tr = troop_mng.create_troop(TroopAction.HoldDefenseLT, self, self)
         troop_mng.delete_troop(tr)
     end
 

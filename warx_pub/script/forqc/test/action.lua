@@ -323,6 +323,35 @@ function do_get_new_one()
     end
 end
 
+function get_random_one()
+    local idx = math.random(20 or {})
+   -- local idx = 1
+    local num = 1
+    local node = gHavePlayers[idx]
+    if node.pid then
+        if gPlys[ node.pid ] then
+            return gPlys[ node.pid ]
+        end
+    end
+    if idx then
+        local node = gHavePlayers[ idx ]
+        if node then
+            if not node.token then
+                local openid, token, signature, time = make_login( node.account )
+                node.token = token
+                node.time = time
+            end
+            local sid = connect(config.GateHost, config.GatePort, 0, 0 )
+            if sid then
+                local t = { action= "login", gid = sid, idx = idx }
+                if is_new then t.culture = culture end
+                gConns[ sid ] = t
+                wait_for_ack( t, "onLogin" )
+                return t
+            end
+        end
+    end
+end
 
 function get_one( is_new, culture )
     local idx 
@@ -404,6 +433,7 @@ function loadData( p )
     Rpc:loadData( p, "hero" )
     Rpc:loadData( p, "troop" )
     Rpc:loadData( p, "arm" )
+    Rpc:loadData( p, "ef" )
     sync( p )
     if p.uid and p.uid ~= 0  then 
         Rpc:union_load( p, "info" )
@@ -442,7 +472,7 @@ function get_eye( p, range )
     end
 
     while true do
-        wait_for_time( 2 )
+        wait_for_time( 10 )
         print( "wait_for_time, back", c_msec(), p._tick_add_ety )
         if c_msec() - p._tick_add_ety > 2000 then 
             return p._etys
@@ -514,8 +544,8 @@ function get_hero( p, id )
     local itemid = conf.PieceID
     local itemnum = conf.CallPrice
 
-    chat( p, "@clearitem" )
-    chat( p, string.format("@additem=%d=%d", itemid, itemnum ) )
+    --chat( p, "@clearitem" )
+    --chat( p, string.format("@additem=%d=%d", itemid, itemnum ) )
 
     local item = get_item( p, itemid )
     if not item then return end
@@ -542,8 +572,8 @@ function hero_star_up( p, h, star )
     end
     itemnum = itemnum + 500
 
-    chat( p, "@clearitem" )
-    chat( p, string.format("@additem=%d=%d", itemid, itemnum ) )
+    --chat( p, "@clearitem" )
+    --chat( p, string.format("@additem=%d=%d", itemid, itemnum ) )
 
     for i = 2, star, 1 do
         Rpc:hero_star_up( p, h.idx )
@@ -564,12 +594,13 @@ function hero_lv_up(p, h, lv)
         total = total + need
     end
     local num = math.ceil(total/ 1000)
-    local cmd = "@additem=" .. "4003003=" .. tostring(num)
-    chat(p, cmd)
-    loadData(p)
-    local idx = item_idx(p, 4003003)
-    Rpc:hero_lv_up(p, h.idx, idx, num)
-    sync(p)
+    Rpc:loadData(p, "item")
+    wait_for_ack(p, "loadData")
+    local idx = item_idx(p, 4003001)
+    if idx then
+        Rpc:hero_lv_up(p, h.idx, idx, num)
+        sync(p)
+    end
 end
 
 function item_idx(p, item_id)
@@ -582,7 +613,7 @@ end
 
 
 function use_hero_skill_item( p, hero, itemid, itemnum, skill_idx )
-    local item = create_item( p, itemid, itemnum )
+    --local item = create_item( p, itemid, itemnum )
     Rpc:use_hero_skill_item( p, hero.idx, skill_idx, item[1], itemnum )
     sync( p )
 end
@@ -650,6 +681,138 @@ timer._funs[ "wait_for_time" ] = function( tsn, sn )
     end
 end
 
+function condCheck(p, tab, num)
+    if tab then
+        num = num or 1
+        for _, v in pairs(tab) do
+            local class, mode, lv = unpack(v)
+             if class == "OR" or class == "AND" then
+                 if not doCondCheck(p, unpack(v) ) then 
+                     return false 
+                 end
+             elseif not doCondCheck(p, class, mode, math.ceil( (lv or 0)* num ) ) then 
+                 return false
+             end
+         end
+     end
+    return true
+end
+
+function doCondCheck(p, class, mode, lv, ...)
+    if class == "OR" then
+        for _, v in pairs({mode, lv, ...}) do
+            if doCondCheck(p, unpack(v)) then return true end
+        end
+        return false
+    elseif class == resmng.CLASS_BUILD then
+        local t = resmng.prop_build[ mode ]
+        if t then
+            local c = t.Class
+            local m = t.Mode
+            local l = t.Lv
+            for _, v in pairs(p._build or {}) do
+                local n = resmng.prop_build[ v.propid ]
+                if n and n.Class == c and n.Mode == m and n.Lv >= l then return true end
+            end
+        end
+    end
+    return false
+end
+
+local no_need_build_list = {
+    [resmng.BUILD_MANOR_1] = 1,
+    [resmng.BUILD_MONSTER_1] = 1,
+    [resmng.BUILD_RELIC_1] = 1,
+}
+
+function find_enabled_pos(p)
+    local x = 100
+    while true do
+        local tag = true
+        for k, v in pairs(p._build or {}) do
+            if v.x == x then
+                tag = false
+            end
+        end
+        if tag == true then
+            return x
+        end
+        x = x + 1
+    end
+end
+
+function upgrade(p, idx, propid)
+
+    local node = resmng.prop_build[ propid ]
+    if not node.Dura then
+        return
+    end
+
+    if node then
+        if condCheck(p, node.Cond) then
+            print("upgrade", node.ID)
+            Rpc:upgrade(p, idx)
+        else
+            for _, v in pairs(node.Cond or {}) do
+                if v[1] == 2 then
+                    build_or_upgrade(p, v[2])
+                end
+            end
+        end
+    end
+end
+
+function construct(p, propid)
+    if no_need_build_list[propid] then
+        return
+    end
+
+    local node = resmng.prop_build[ propid ]
+    if not node then
+        return
+    end
+
+    if node.Lv ~= 1 then
+        for k, v in pairs(resmng.prop_build or {}) do
+            if v.Class == node.Class and v.Mode == node.Mode and v.Lv == 1 then
+                node = v
+            end
+        end
+    end
+
+    if node and node.Lv == 1 then
+        if condCheck(p, node.Cond) then
+            local max_seq = (BUILD_MAX_NUM[node.Class] and BUILD_MAX_NUM[node.Class][node.Mode]) or 1
+            local x = 0
+            if max_seq > 1 then
+                x = find_enabled_pos(p)
+            end
+            print("ply and idx ", p.pid, x, node.ID)
+            Rpc:construct(p, x, 0, node.ID)
+        else
+            for _, v in pairs(node.Cond or {}) do
+                if v[1] == 2 then
+                    build_or_upgrade(p, v[2])
+                end
+            end
+        end
+    end
+end
+
+function is_already_build(p, propid)
+    local prop = resmng.prop_build[propid]
+    for _, v in pairs(p._build or {}) do
+        if v.propid == propid then
+            return true
+        end
+        local build_prop =  resmng.prop_build[v.propid]
+        if build_prop.Class == prop.Class and build_prop.Mode == prop.Mode and build_prop.Lv > prop.Lv then
+            return true
+        end
+    end
+    return false
+end
+
 function atk_lt(p, city_lv)
     city_lv = city_lv or 1
     if city_lv == 0 then
@@ -674,7 +837,7 @@ function atk_lt(p, city_lv)
     chat(p, "@startlt")
     WARN("startlt")
 
-    Rpc:get_city_for_robot_req(p, ACT_NAME.LOST_TEMPLE, city_lv)
+    Rpc:get_city_for_robot_req(p, ACT_NAME.LOST_TEMPLE, {lv = city_lv})
     wait_for_ack(p, "get_city_for_robot_ack")
     local eid = p.lt_eid
     WARN("get lt %d", eid)
@@ -758,7 +921,7 @@ function atk_king(p, city_lv)
     chat(p, "@fightkw")
     WARN("fightkw")
 
-    Rpc:get_city_for_robot_req(p, ACT_NAME.KING, city_lv)
+    Rpc:get_city_for_robot_req(p, ACT_NAME.KING, {lv = city_lv})
     wait_for_ack(p, "get_city_for_robot_ack")
     local eid = p.king_eid
     WARN("get king %d", eid)
@@ -886,7 +1049,7 @@ function atk_npc(p, city_lv)
     chat(p, "@starttw")
     WARN("starttw")
 
-    Rpc:get_city_for_robot_req(p, ACT_NAME.NPC_CITY, city_lv)
+    Rpc:get_city_for_robot_req(p, ACT_NAME.NPC_CITY, {lv = city_lv})
     wait_for_ack(p, "get_city_for_robot_ack")
     local eid = p.npc_eid
     WARN("get npc %d", eid)
@@ -1099,3 +1262,10 @@ function change_name( p, name )
     Rpc:change_name( p, name )
 end
 
+function get_arm_id_by_mode_lv(mode, lv, class)
+    for k, v in pairs(resmng.prop_arm or {}) do
+        if v.Class == class and v.Mode == mode and v.Lv == lv then
+            return k
+        end
+    end
+end

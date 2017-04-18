@@ -121,9 +121,23 @@ function output(module_name)
 
     _output_one_node(_show_data, module_name)
 
-    local out_done = "--------------------perfmon output done!"
-    print(out_done)
-    LOG(out_done)
+    _print_and_log("--------------------perfmon output done!")
+end
+
+function output_in_order(module_name, order_mode)
+    if _show_data.dirty then
+        _merge_data()
+    end
+
+    local node = _find_node_by_name(_show_data, module_name)
+    if node then
+        _output_one_node_in_order(node, order_mode)
+    else
+        _print_and_log(string.format("--------------------can not find module[%s]!", module_name))
+        return
+    end
+
+    _print_and_log("--------------------perfmon output done!")
 end
 
 function clear(module_name)
@@ -136,9 +150,7 @@ function clear(module_name)
         _clear_one_node(co_root_node, module_name)
     end
 
-    local clear_done = "--------------------perfmon clear done!"
-    print(clear_done)
-    LOG(clear_done)
+    _print_and_log("--------------------perfmon clear done!")
 end
 
 -- 需要在xpcall的异常处理函数里面调用此接口， 默认只在服务器端的STACK函数里面调用了
@@ -289,27 +301,73 @@ function _merge_data()
     end
 end
 
+-- 递归查找某个名字的node
+function _find_node_by_name(node, module_name)
+    if node.name and node.name == module_name then
+        return node
+    end
+
+    for k, v in pairs(node.sons) do
+        if v.name and v.name == module_name then
+            return v
+        end
+    end
+
+    for k, v in pairs(node.sons) do
+        if _find_node_by_name(v, module_name) then
+            return v
+        end
+    end
+
+    return nil
+end
+
+function _print_log_str(node)
+    local path_str = string.format("[path:%s]", node.path)
+    local count_str = string.format("[at:%.1f, tc:%d, tt:%.1f][max_t:%.1f, max_k:%s, min_t:%.1f, min_k:%s]",
+        node.avg_time, node.total_count, node.total_time,
+        node.max.time, node.max.key, node.min.time, node.min.key)
+    local split_str = "-------------------------------------------------------------------"
+
+    _print_and_log(path_str)
+    _print_and_log(count_str)
+    _print_and_log(split_str)
+end
+
 function _output_one_node(node, module_name)
     if node.name then
         if not module_name or _is_self_or_son_of(node, module_name) then
-            local path_str = string.format("[path:%s]", node.path)
-            local count_str = string.format("[at:%.1f, tc:%d, tt:%.1f][max_t:%.1f, max_k:%s, min_t:%.1f, min_k:%s]",
-                                            node.avg_time, node.total_count, node.total_time,
-                                            node.max.time, node.max.key, node.min.time, node.min.key)
-            local split_str = "-------------------------------------------------------------------"
-
-            print(path_str)
-            print(count_str)
-            print(split_str)
-
-            LOG(path_str)
-            LOG(count_str)
-            LOG(split_str)
+            _print_log_str(node)
         end
     end
 
     for k, v in pairs(node.sons) do
         _output_one_node(v, module_name)
+    end
+end
+
+-- 只输出一层内的，按照时间来进行排序
+-- order_mode: 1-avg_time; 2-max_time; 3-total_count
+_output_sort_func = {}
+_output_sort_func[1] = function(node_a, node_b)
+    return node_a.avg_time < node_b.avg_time
+end
+_output_sort_func[2] = function(node_a, node_b)
+    return node_a.max.time < node_b.max.time
+end
+_output_sort_func[3] = function(node_a, node_b)
+    return node_a.total_count < node_b.total_count
+end
+
+function _output_one_node_in_order(node, order_mode)
+    local order_array = {}
+    for k, v in pairs(node.sons) do
+        order_array[#order_array + 1] = v
+    end
+
+    table.sort(order_array, _output_sort_func[order_mode])
+    for i, v in ipairs(order_array) do
+        _print_log_str(v)
     end
 end
 
@@ -337,4 +395,9 @@ function _clear_one_node(node, module_name)
     for k, v in pairs(node.sons) do
         _clear_one_node(v, module_name)
     end
+end
+
+function _print_and_log(str)
+    print(str)
+    LOG(str)
 end

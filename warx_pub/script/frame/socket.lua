@@ -5,7 +5,7 @@ function open(host, port)
 end
 
 function close(fd)
-    pushOver()
+    --pushOver()
     pushHead(0, 5, fd)
     pushOver()
 end

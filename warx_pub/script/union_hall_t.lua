@@ -53,7 +53,14 @@ function battle_room_update(mode, troop)
     if A then
         local union = unionmng.get_union(A.uid)
         if union then
-            if union then union:notifyall("battle_room", mode, {["room_id"]=id}) end
+            if setIns( union.battle_room_ids, id ) then
+                local info = player_t.make_room_list( troop )
+                info.id = troop._id
+                union.battle_list = nil
+                union:notifyall("battle_room", OPERATOR.ADD, {room_id=id, list=info})
+            else
+                union:notifyall("battle_room", mode, {["room_id"]=id})
+            end
         end
     end
 
@@ -61,7 +68,14 @@ function battle_room_update(mode, troop)
     if A then
         local union = unionmng.get_union(A.uid)
         if union then
-           if union then union:notifyall("battle_room", mode, {["room_id"]=id}) end
+            if setIns( union.battle_room_ids, id ) then
+                local info = player_t.make_room_list( troop )
+                info.id = troop._id
+                union.battle_list = nil
+                union:notifyall("battle_room", OPERATOR.ADD, {room_id=id, list=info})
+            else
+                union:notifyall("battle_room", mode, {room_id=id, action=troop.action })
+            end
         end
     end
 end
@@ -152,3 +166,32 @@ function battle_room_remove(troopA)
     end
 end
 
+function ety_rem_def(dest)
+    local union = unionmng.get_union(dest.uid)
+    if not union then
+        return
+    end
+
+    for k, v in pairs(dest.rooms or {}) do
+        if setRem( union.battle_room_ids, v ) then
+            union.battle_list = nil
+            union:notifyall("battle_room", OPERATOR.DELETE, {room_id=v}) 
+        end
+    end
+end
+
+function ety_add_def(dest)
+    for k, v in pairs(dest.rooms or {}) do
+        local tr = troop_mng.get_troop(v)
+        tr.target_uid = dest.uid
+        if tr then
+            local atk_u = unionmng.get_union(tr.owner_uid)
+            if atk_u then 
+                if is_in_table( atk_u.battle_room_ids, v ) then
+                    atk_u.battle_list = nil
+                end
+            end
+            battle_room_update(OPERATOR.UPDATE, tr)
+        end
+    end
+end

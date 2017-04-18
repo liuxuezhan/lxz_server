@@ -105,9 +105,14 @@ function check_tit_add(self, idx)
 
     for k, v in pairs(conf.Achievement or {}) do
         --result = self:check_ache(v)
-        result = self:check_ache(v)
-        INFO("ache result ", result)
-        if result  == false then return false end
+        if self:check_ache(v) then
+            result = true
+        else
+            result = self:check_ach(v)
+        end
+        if result == false then
+            return false
+        end
     end
 
     return result
@@ -138,7 +143,7 @@ function check_tit(self, idx)
 end
 
 function check_ach(self, idx)
-    local ach = self:get_ache(idx)
+    local ach = self:get_ache(idx) or 0
     return ach > 0
 end
 

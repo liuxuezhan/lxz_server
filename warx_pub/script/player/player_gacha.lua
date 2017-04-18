@@ -130,11 +130,15 @@ function do_gacha(self, type)
 		task_num = 10
 	end
 
-	task_logic_t.process_task(self, TASK_ACTION.GACHA_MUB, task_type, task_num)
-    self:add_count( resmng.ACH_COUNT_GACHA, task_num )
+	if msg_send.result == 0 then
+		task_logic_t.process_task(self, TASK_ACTION.GACHA_MUB, task_type, task_num)
+	    self:add_count( resmng.ACH_COUNT_GACHA, task_num )
 
-    --周限时活动
-    weekly_activity.process_weekly_activity(self, WEEKLY_ACTIVITY_ACTION.GACHA, task_type, task_num)
+	    --周限时活动
+	    weekly_activity.process_weekly_activity(self, WEEKLY_ACTIVITY_ACTION.GACHA, task_type, task_num)
+	    --运营活动
+	    operate_activity.process_operate_activity(self, OPERATE_ACTIVITY_ACTION.GACHA, task_type, task_num)
+	end
 
 	msg_send.gift = self.gacha_gift
 	msg_send.type = type
@@ -155,7 +159,8 @@ end
 function random_gacha(self, group_id)
 	local sid = group_id * 1000
 	local eid = (group_id + 1) * 1000 - 1
-	local prop_tab = resmng.prop_gacha_group[sid]
+    local prop_gacha_group = resmng.prop_gacha_group
+	local prop_tab = prop_gacha_group[sid]
 	if prop_tab == nil then
 		return nil
 	end
@@ -163,7 +168,7 @@ function random_gacha(self, group_id)
 	local p = math.random(prop_tab.TotWeight)
 	local cur_p = 0
 	for i = sid, eid, 1 do
-		local prop_tmp = resmng.prop_gacha_group[i]
+		local prop_tmp = prop_gacha_group[i]
 		if prop_tmp ~= nil then
 			cur_p = cur_p + prop_tmp.Weight
 			if cur_p >= p then
@@ -194,6 +199,7 @@ function do_yinbi_one(self, msg_send)
 	else
 		if self.silver < prop_yinbi.Price then
             msg_send.result = 3
+            msg_send.silver = prop_yinbi.Price - self.silver
             return
         end
         local con = {{resmng.CLASS_RES, resmng.DEF_RES_SILVER, prop_yinbi.Price}}
@@ -236,6 +242,7 @@ function do_yinbi_ten(self, msg_send)
 
 	if self.silver < prop_yinbi.ComboPrice then
         msg_send.result = 3
+        msg_send.silver = prop_yinbi.ComboPrice - self.silver
         return
     end
     local con = {{resmng.CLASS_RES, resmng.DEF_RES_SILVER, prop_yinbi.ComboPrice}}
@@ -286,6 +293,7 @@ function do_jinbi_one(self, msg_send)
 	else
 		if self.gold < prop_jinbi.Price then
             msg_send.result = 3
+            msg_send.gold = prop_jinbi.Price
             return
         end
         local con = {{resmng.CLASS_RES, resmng.DEF_RES_GOLD, prop_jinbi.Price}}
@@ -330,6 +338,7 @@ function do_jinbi_ten(self, msg_send)
 
 	if self.gold < prop_jinbi.ComboPrice then
         msg_send.result = 3
+        msg_send.gold = prop_jinbi.ComboPrice
         return
     end
     local con = {{resmng.CLASS_RES, resmng.DEF_RES_GOLD, prop_jinbi.ComboPrice}}
@@ -350,7 +359,6 @@ function do_jinbi_ten(self, msg_send)
             is_chip = true
         end
 	    local res = self:add_bonus_not_notify(bonus_policy, bonus, VALUE_CHANGE_REASON.REASON_GACHA_AWARD_JINBI_TEN)
-	    --local res = self:add_bonus(bonus_policy, bonus, VALUE_CHANGE_REASON.REASON_GACHA_AWARD_JINBI_TEN)
 	    if res == true then
 		    table.insert(msg_send.award, {bonus[1], focus, is_chip})
 		    gacha_limit_t.set_gacha_world_limit(bonus)
@@ -382,6 +390,7 @@ function do_hunxia_one(self, msg_send)
 
 		if self.gold < prop_hunxia.Price then
 	        msg_send.result = 3
+	        msg_send.gold = prop_hunxia.Price
 	        return
 	    end
 	    local con = {{resmng.CLASS_RES, resmng.DEF_RES_GOLD, prop_hunxia.Price}}
@@ -438,6 +447,7 @@ function do_hunxia_ten(self, msg_send)
 
 	if self.gold < prop_hunxia.ComboPrice then
         msg_send.result = 3
+        msg_send.gold = prop_hunxia.ComboPrice
         return
     end
 

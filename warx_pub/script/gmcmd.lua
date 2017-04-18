@@ -268,10 +268,31 @@ function on_pay(pids, num)
         return {code = 0, msg = "no ply"}
     end
 end
+
+function first_pre_boss_atk_city(pids)
+    local ply = getPlayer(pids[1])
+    if ply then
+        npc_city.first_pre_boss_atk_city()
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
 function prepare_boss_atk_city(pids)
     local ply = getPlayer(pids[1])
     if ply then
         npc_city.prepare_boss_attack_city()
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
+function tmp_stop_boss_atk_city(pids)
+    local ply = getPlayer(pids[1])
+    if ply then
+        npc_city.tmp_stop_boss_attack_city()
         return {code = 1, msg = "success"}
     else
         return {code = 0, msg = "no ply"}
@@ -330,6 +351,46 @@ function update_title(pids, num)
     end
 end
 
+function union_mission_add(pids, num)
+    num = tonumber(num)
+    local ply = getPlayer(pids[1])
+    if ply then
+        ply:union_mission_add(num)
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
+function push_ntf(pids, string)
+    local ply = getPlayer(pids[1])
+    if ply then
+        --local audience = "all"
+        local audience = {
+               ["registration_id"] = {ply.jpush_id or "170976fa8ab2a7a1663"}
+                --["registration_id"] = {"170976fa8ab2a7a1663"}
+            --    ["registration_id"] = {}
+        }
+        push_offline_ntf(audience, string)
+        --offline_ntf.post(resmng.OFFLINE_NOTIFY_TIME_ACTIVITY)
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
+function jpush_all_ntf(pids, string)
+    local ply = getPlayer(pids[1])
+    if ply then
+        local audience = "all"
+        push_offline_ntf(audience, string)
+        --offline_ntf.post(resmng.OFFLINE_NOTIFY_TIME_ACTIVITY)
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
 function addcount(pids, s_id, s_num)
     if not s_id or not s_num then
         return {code = 0, msg = "param error"}
@@ -368,6 +429,16 @@ function addcount(pids, s_id, s_num)
     end
 end
 
+function ply(pids)
+    local p = getPlayer(tonumber(pids[1]))
+    if p then
+        local param = {pid = tostring(p.pid)  }
+        return agent_t.do_gm_cmd["ply"](param)
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
 
 gmcmd_table = {
     --     -- 权限越大,数字越大
@@ -384,6 +455,7 @@ gmcmd_table = {
     ["nologin"]         = { 4,              nologin,         "禁止登录",                     "nologin=time=pid" },
     ["addexp"]         = { 4,              addexp,         "加经验",                     "addexp=num=pid" },
     ["build_exp"]         = { 4,              build_exp,         "加军团建筑经验",                     "build_exp=mode=num=pid" },
+    ["ply"]         = { 4,              ply,         "查询玩家数据",                     "ply=pid" },
 ------活动相关
     ["refreshboss"]         = { 4,              refreshboss,         "刷玩家周边boss",                     "refreshboss" },
     ["starttw"]         = { 4,              start_tw,         "攻城掠地开启",                     "starttw" },
@@ -417,7 +489,12 @@ gmcmd_table = {
     ["stbac"] = {4, start_boss_atk_city, "boss 攻打 npc", "stbac"},
     ["spbac"] = {4, stop_boss_atk_city, "boss 结束攻打 npc", "spbac"},
     ["prebac"] = {4, prepare_boss_atk_city, "boss 准备攻打 npc", "prebac"},
+    ["tspbac"] = {4, tmp_stop_boss_atk_city, "boss 结束攻打 npc", "spbac"},
+    ["fprebac"] = {4, first_pre_boss_atk_city, "boss 准备攻打 npc", "prebac"},
     ["spyply"] = {4, spy_task_ply, "侦查任务玩家", "spy_ply"},
     ["siegeply"] = {4, siege_task_ply, "攻打任务玩家", "atk_task_ply"},
+    ["umisadd"] = {4, union_mission_add, "领取军团奖励", "umisadd=idx"},
+    ["jpushntf"] = {4, push_ntf, "推送通知", "pushntf=idx"},
+    ["jpushall1"] = {4, jpush_all_ntf, "推送所以用户通知", "pushntf=idx"},
 
 }

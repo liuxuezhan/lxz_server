@@ -459,16 +459,6 @@ function agent_migrate_back( self, pid, x, y, data , task, timers, union_pro, tr
 end
 
 
-function ack_tool(pid, sn, data)
-    if sn then
-        --print("receive tool ack ", sn)
-        gPendingToolAck[sn] = nil
-    end
-
-    if data.api then
-        player_t[data.api](data)
-    end
-end
 
 ---cross act
 
@@ -656,6 +646,15 @@ function gm_add_union_item(ply, awards)
              union_item.add(mem, awards, UNION_ITEM.CITY, 0)
         end
     end
+end
+
+do_gm_cmd["ply"] = function(param)
+    local p = getPlayer(tonumber(param.pid))
+    if not p then
+        INFO( "[ply], error, pid=%d,  no player", p.pid  )
+        return {code = 0, msg = "no this ply"}
+    end
+    return {code = 0, msg = p._pro}
 end
 
 do_gm_cmd["senditem"] = function(param)

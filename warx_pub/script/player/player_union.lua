@@ -259,7 +259,7 @@ function union_create(self, name, alias, language, mars)
     end
 
 
-    if self:get_castle_lv() < resmng.CREATEUNION.lv   then
+    if self:get_castle_lv() <= resmng.CREATEUNION.lv   then
         if not self:do_dec_res(resmng.DEF_RES_GOLD, resmng.CREATEUNION.cost, VALUE_CHANGE_REASON.UNION_CREATE ) then
             WARN("金钱不足")
             return
@@ -333,6 +333,13 @@ function union_set_info(self, info)
             for _, v in pairs(u._members) do
                 v.uflag = u.flag
                 etypipe.add(v)
+            end
+
+            local bs = self:get_build()
+            for _, v in pairs( bs ) do
+                if v.state ~= BUILD_STATE.DESTROY then
+                    etypipe.add( v )
+                end
             end
         end
     end
@@ -1115,7 +1122,7 @@ function union_set_note_in(self, what)
 
 end
 
-function union_task_get (self )--发布悬赏任务
+function union_task_get(self )--发布悬赏任务
 
     local union = unionmng.get_union(self.uid)
     if check_union_cross(union) then
@@ -1129,18 +1136,10 @@ function union_task_get (self )--发布悬赏任务
     end
 end
 
-function union_mission_log (self,type,id )--获取定时任务日志
-    local union = unionmng.get_union(self.uid)
-    if check_union_cross(union) then
-        remote_cast(union.map_id, "union_mission_log", {"player", self.pid, type, id})
-        return
-    end
-
-    local list =union_mission.get_log(self:get_uid(),type,id)
-    Rpc:union_mission_log(self,list)
+function union_mission_log(self,type,id )--获取定时任务日志
 end
 
-function union_mission_get (self )--获取定时任务
+function union_mission_get(self )--获取定时任务
     local union = unionmng.get_union(self:get_uid())
     if not union then
         ack(self, "union_mission_get", resmng.E_NO_UNION) return
@@ -1151,15 +1150,18 @@ function union_mission_get (self )--获取定时任务
         return
     end
 
-    local inf = union_mission.get(union,self.pid)
-    Rpc:union_mission_get(self,inf)
+    local info = copyTab(union_mission.get(union))
+    --dumpTab(info, "union mission")
+    info.cur_item = self._union.cur_item 
+    info.tm_mission = self._union.tm_mission
+    Rpc:union_mission_get(self,info)
 end
 
-function union_mission_add (self )--领取奖励
-    union_mission.add(self)
+function union_mission_add(self, idx )--领取奖励
+    union_mission.add(self, idx)
 end
 
-function union_mission_update (self )--刷新定时任务
+function union_mission_update(self )--刷新定时任务
     if check_ply_cross(self) then
         ack(self, "union_mission_update", resmng.E_DISALLOWED) return
     end
@@ -1167,7 +1169,7 @@ function union_mission_update (self )--刷新定时任务
     union_mission.update(self.uid,self)
 end
 
-function union_mission_chat (self )
+function union_mission_chat(self )
     if check_ply_cross(self) then
         ack(self, "union_mission_chat", resmng.E_DISALLOWED) return
     end
@@ -1178,32 +1180,35 @@ function union_mission_chat (self )
     union_mission.update_chat(self)
 end
 
-function union_mission_set (self )--领取定时任务
+function union_mission_set(self,idx )--领取定时任务
 
     if check_ply_cross(self) then
         ack(self, "union_mission_set", resmng.E_DISALLOWED) return
     end
 
-    local union = unionmng.get_union(self:get_uid())
-    if not union then WARN() return end
+    local u = unionmng.get_union(self:get_uid())
+    if not u then WARN() return end
 
     if not union_t.is_legal(self, "Mission") then
         return
     end
 
-    if union_mission.set(self) then
-        union:add_log(resmng.UNION_EVENT.MISSION,resmng.UNION_MODE.GET,{ name=self.name,propid=union_mission._d[union.uid].propid })
+    if union_mission.set(self,idx) then
+        local cur = u.task.cur[idx]
+        u:add_log(resmng.UNION_EVENT.MISSION,resmng.UNION_MODE.GET,{ name=self.name, propid = cur.class*1000 +  u.task.lv  })
         Rpc:union_mission_set(self)
+        union_mission_get(self )--获取定时任务
     end
 end
 
-function union_word_update (self,... )
+function union_word_update(self,... )
     if check_ply_cross(self) then
         ack(self, "union_word_update", resmng.E_DISALLOWED) return
     end
     union_word.update(self.pid,...)
 end
-function union_word_del (self,... )
+
+function union_word_del(self,... )
     if check_ply_cross(self) then
         ack(self, "union_word_del", resmng.E_DISALLOWED) return
     end
@@ -1612,19 +1617,20 @@ function union_battle_room_info(self, room_id)
         info.pos = { { A.x, A.y }, { D.x, D.y } }
         info.ack = {}
         info.def = {}
+        local tid = troop._id
 
         for pid, arm in pairs( troop.arms or {} ) do
             if pid >= 10000 then
                 local ply = getPlayer( pid )
                 if ply then
                     if pid == troop.owner_pid then
-                        table.insert( info.ack, 1, { propid=ply.propid, pid=ply.pid, photo=ply.photo } )
+                        table.insert( info.ack, 1, { propid=ply.propid, pid=ply.pid, photo=ply.photo, tid=tid } )
                     else
-                        table.insert( info.ack, { propid=ply.propid, pid=ply.pid, photo=ply.photo } )
+                        table.insert( info.ack, { propid=ply.propid, pid=ply.pid, photo=ply.photo, tid=tid } )
                     end
                 end
             else
-                table.insert( info.ack, { propid=A.propid } )
+                table.insert( info.ack, { propid=A.propid, tid=tid } )
                 break
             end
         end
@@ -1636,7 +1642,7 @@ function union_battle_room_info(self, room_id)
                     if join.owner_pid >= 10000 then
                         local ply = getPlayer( join.owner_pid )
                         if ply then
-                            table.insert( info.ack, { propid=ply.propid, pid=ply.pid, photo=ply.photo } )
+                            table.insert( info.ack, { propid=ply.propid, pid=ply.pid, photo=ply.photo, tid=tid } )
                         end
                     end
                 end
@@ -1645,18 +1651,19 @@ function union_battle_room_info(self, room_id)
 
         local troopD = get_home_troop( D )
         if troopD then
+            local tid = troopD._id
             for pid, arm in pairs( troopD.arms or {} ) do
                 if pid >= 10000 then
                     local ply = getPlayer( pid )
                     if ply then
                         if pid == troopD.owner_pid then
-                            table.insert( info.def, 1, { propid=ply.propid, pid=ply.pid, photo=ply.photo } )
+                            table.insert( info.def, 1, { propid=ply.propid, pid=ply.pid, photo=ply.photo, tid=tid } )
                         else
-                            table.insert( info.def, { propid=ply.propid, pid=ply.pid, photo=ply.photo } )
+                            table.insert( info.def, { propid=ply.propid, pid=ply.pid, photo=ply.photo, tid=tid } )
                         end
                     end
                 else
-                    table.insert( info.def, { propid=D.propid } )
+                    table.insert( info.def, { propid=D.propid, tid=tid } )
                     break
                 end
             end
@@ -1672,7 +1679,7 @@ function union_battle_room_info(self, room_id)
                         if join.owner_pid >= 10000 then
                             local ply = getPlayer( join.owner_pid )
                             if ply then
-                                table.insert( info.def, { propid=ply.propid, pid=ply.pid, photo=ply.photo } )
+                                table.insert( info.def, { propid=ply.propid, pid=ply.pid, photo=ply.photo, tid=tid } )
                             end
                         end
                     end
@@ -1814,6 +1821,7 @@ function get_troop_detail( troop )
             local ply = getPlayer( pid )
             if ply then
                 local info = {}
+                info.pid = pid
                 info.name = ply.name
                 info.tid = troop._id
                 info.action = troop.action
@@ -1848,23 +1856,26 @@ function get_troop_detail( troop )
                         end
                     end
                 end
-                infos[ pid ] = info
+                --infos[ pid ] = info
+                table.insert( infos, info )
             end
         else
             local owner = get_ety( troop.owner_eid )
             if owner then
                 if is_monster_city( owner ) then
-                    local info = {}
+                    local info = { pid=0 }
                     local soldier = {}
                     for id, num in pairs( arm.live_soldier or {} ) do
                         table.insert( soldier, { id=id, num=num} )
                     end
                     info.soldier = soldier
                     info.heros = arm.heros or {}
-                    infos[ 0 ] = info
+                    --infos[ 0 ] = info
+                    table.insert( infos, info )
 
                 elseif is_monster( owner ) then
-                    infos[ 0 ] = { hp = owner.hp }
+                    --infos[ 0 ] = { hp = owner.hp }
+                    table.insert( infos, { pid=0, hp=owner.hp } )
                 end
             end
             break
@@ -1881,8 +1892,11 @@ function union_battle_room_detail(self, room_id)
     local troop = troop_mng.get_troop(room_id)
     if not troop then return end
 
-    local infoA = get_troop_detail( troop )
+    local infoA = {}
+    local armya = get_troop_detail( troop )
     infoA.troop_id = troop._id
+    infoA.armys = armya
+
     local A = get_ety( troop.owner_eid )
     if A  then
         for tid, action in pairs( A.troop_comings or {} ) do
@@ -1890,14 +1904,82 @@ function union_battle_room_detail(self, room_id)
                 local join = troop_mng.get_troop( tid )
                 if join and join:is_go() and join.dest_troop_id == troop._id then
                     local infos = get_troop_detail( join )
-                    for pid, info in pairs( infos or {} ) do
-                        infoA[ pid ] = info
+                    for _, info in pairs( infos or {} ) do
+                        table.insert( armya, info )
                     end
                 end
             end
         end
         infoA.count_max = A:get_val( "CountRallySoldier" )
     end
+
+    local infoD = {}
+    local D = get_ety( troop.target_eid )
+    if D then
+        local troopD = get_home_troop( D )
+        if troopD then
+            infoD.troop_id = troopD._id
+            local armyb = get_troop_detail( troopD )
+            infoD.armys = armyb
+            for tid, action in pairs( D.troop_comings or {} ) do
+                if action == TroopAction.SupportArm or action == TroopAction.HoldDefense or 
+                action == TroopAction.HoldDefenseNPC or
+                action == TroopAction.HoldDefenseKING or
+                action == TroopAction.HoldDefenseLT 
+                then
+                    local join = troop_mng.get_troop( tid )
+                    if join and join:is_go() and join.target_eid == D.eid then
+                        local infos = get_troop_detail( join )
+                        for _, info in pairs( infos or {} ) do
+                            table.insert( armyb, info )
+                        end
+                    end
+                end
+            end
+
+            if is_lost_temple( D ) then
+                _, infoD.count_max = npc_city.hold_limit( D )
+            elseif is_npc_city( D ) then
+                _, infoD.count_max = npc_city.hold_limit( D )
+            elseif is_king_city( D ) then
+                _, infoD.count_max = npc_city.hold_limit( D )
+            elseif is_ply( D ) then
+                infoD.count_max = D:get_val( "CountRelief" )
+            end
+        end
+    end
+
+    Rpc:union_battle_room_detail_resp(self, { id=room_id, action=troop.action, detail={ ack=infoA, def=infoD } })
+end
+
+function union_battle_room_detail2(self, room_id)
+    local room = union_hall_t.get_battle_room(room_id)
+    if room == nil or room.is_mass ~= 1 then return end
+
+    local troop = troop_mng.get_troop(room_id)
+    if not troop then return end
+
+    local infoA = get_troop_detail( troop )
+    --infoA.troop_id = troop._id
+    local A = get_ety( troop.owner_eid )
+    if A  then
+        for tid, action in pairs( A.troop_comings or {} ) do
+            if action == TroopAction.JoinMass then
+                local join = troop_mng.get_troop( tid )
+                if join and join:is_go() and join.dest_troop_id == troop._id then
+                    local infos = get_troop_detail( join )
+                    --for pid, info in pairs( infos or {} ) do
+                    --    infoA[ pid ] = info
+                    --end
+                    for _, info in pairs( infos or {} ) do
+                        table.insert( infoA, info )
+                    end
+                end
+            end
+        end
+        infoA.count_max = A:get_val( "CountRallySoldier" )
+    end
+    infoA.troop_id = troop._id
 
     local infoD = {}
     local D = get_ety( troop.target_eid )
@@ -1915,12 +1997,18 @@ function union_battle_room_detail(self, room_id)
                     local join = troop_mng.get_troop( tid )
                     if join and join:is_go() and join.target_eid == D.eid then
                         local infos = get_troop_detail( join )
-                        for pid, info in pairs( infos or {} ) do
-                            infoD[ pid ] = info
+                        --for pid, info in pairs( infos or {} ) do
+                        --    infoD[ pid ] = info
+                        --end
+
+                        for _, info in pairs( infos or {} ) do
+                            table.insert( infoD, info )
                         end
                     end
                 end
             end
+            infoD.troop_id = troopD._id
+
             if is_lost_temple( D ) then
                 _, infoD.count_max = npc_city.hold_limit( D )
             elseif is_npc_city( D ) then
@@ -1937,6 +2025,8 @@ function union_battle_room_detail(self, room_id)
 
     Rpc:union_battle_room_detail_resp(self, { id=room_id, action=troop.action, detail={ ack=infoA, def=infoD } })
 end
+
+
 
 function union_help_get(self )
     Rpc:union_help_get(self, union_help.get(self))

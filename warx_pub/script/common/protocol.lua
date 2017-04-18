@@ -5,9 +5,9 @@ Server = {
     agent_test_struct = "int id, Array Struct UnionMember mems, string name",
     agent_test = "pack info, pack info1",
 
-    firstPacket = "int uid, int cival, int pid, string signature, int time, string open_id, string token",
+    firstPacket = "int uid, int cival, int pid, string signature, int time, string open_id, string token, int version",
     --firstPacket2 = "int sockid, int source_map, string account, string pasw",
-    firstPacket2 = "int sockid, int source_map, int cival, int pid, string signature, int time, string open_id, string token",
+    firstPacket2 = "int sockid, int source_map, int cival, int pid, string signature, int time, string open_id, string token, int version",
     --string mac, string idfa,string gaid,string android_id,string udid,string openudid,string imei,string ver, string pack_name, string channel, 
     --string hardware, string software, string telecomoper, string network, string width, string hight, string mem",
     login = "int pid",
@@ -57,6 +57,7 @@ Server = {
     --  聊天
     chat = "int chanelid, string word, int chatid",      --chanelId: enum in common/define/ChatChanelEnum;   word:the word you say;     chatid:聊天流水号，服务器会在onError方法中返回
     fetch_chat = "int channel,int sn,int count",
+    chat_p2p = "int pid, string word",
     --chat_with_audio = "int chanelid, byte[] stream",      --TODO
     get_user_simple_info = "int pid",   --获取用户简单信息
 
@@ -91,6 +92,7 @@ Server = {
     siege = "int dest_eid, pack arm",   --单独攻击
     union_mass_create = "int dest_eid, int wait_time, pack arm",   --创建集结
     union_mass_join = "int dest_eid, int dest_troop_id, pack arm",        --参与集结
+    massgo = "int tid", -- 集结出发
     hold_defense = "int dest_eid, pack arm",  --驻守
     support_arm = "int dest_eid, pack arm",  --士兵援助
     support_res = "int dest_eid, pack res",
@@ -167,7 +169,7 @@ Server = {
     test_mail_all = "int class, string title, string content, pack its",
 
     -- roi
-    addEye = "",
+    addEye = "int x,int y",
     remEye = "",
     movEye = "int map, int x, int y",
     agent_move_eye = "int pid, int x, int y",
@@ -253,9 +255,9 @@ Server = {
     union_mission_get = "",     --获取军团定时任务
     union_mission_update = "",     --刷新军团定时任务
     union_mission_chat = "",     --刷新邀请时间
-    union_mission_set = "",     --领取军团定时任务
+    union_mission_set = "int idx",     --领取军团定时任务
     union_mission_log = "string type,int id",     --获取军团定时任务日志
-    union_mission_add = "",     --领取奖励 
+    union_mission_add = "int idx",     --领取奖励 
     union_word_add = "int uid,string title,string word, int flag",--军团留言
     union_word_update = "int wid,string title,string word",--军团内部留言修改
     union_word_top = "int wid,int flag",--军团内部留言置顶 1:置顶 0：取消
@@ -340,8 +342,6 @@ Server = {
 
     ----------------------------------------------------------------------------
     --task
-    daily_task_list = "",    --获取日常任务列表
-    life_task_list = "",     --获取主线支线任务列表
     finish_task = "int task_id",     --完成任务获得奖励
     accept_task = "pack task_id_array",     --接任务
     finish_open_ui = "int ui_id",  --完成打开UI的任务
@@ -376,6 +376,7 @@ Server = {
     ---- boss
     boss_rank_req = "",
     act_info_req = "",
+    gen_boss_req = "int mode, int lv", -- 用于测试
     ---- npc city tw
     get_random_award_req = "int eid",  -- 获取随机奖励
     declare_tw_req = "int eid", --- 宣战
@@ -455,6 +456,7 @@ Server = {
 
 
     load_rank = "int idx, int version",
+    load_my_rank_score = "int idx",
 
     set_client_parm = "string key, string data",
     set_show_equip = "int flag",
@@ -497,6 +499,29 @@ Server = {
     buy_yueka = "", --临时接口
     pack_weekly_activity_info = "",   --限时活动信息
     boss_gather = "int eid_boss, int eid_res",
+
+    get_dig_pos = "",
+    dig = "int x, int y, int itemid, pack arm",
+
+    reset_nature = "int hero_idx",
+    query_around = "pack param, int eid, int range",
+    hero_piece_decompose = "int itemid, int count",
+    skill_piece_decompose = "int itemid, int count",
+
+    get_tribute_exchange = "int eid",
+    exchange = "int eid, pack res, pack tribute", -- res, tribute is in the fomat { [ id ] = num } 
+
+    get_mail_share = "string mail_id",
+
+    hero_info = "int pid, int propid",
+    operate_exchange = "int activity_id, int exchange_id",
+    operate_single_get = "int activity_id",
+    operate_activity_list = "",
+    operate_task_get = "int activity_id, int task_id",
+
+    ---- jpush ntf
+    push_ntf_list_req = "pack info",   -- 开通通知的列表
+    up_jpush_info_req = "pack info",
 
 }
 
@@ -613,7 +638,7 @@ Client = {
     union_task_add = "pack info",     --获取军团悬赏任务列表
     union_task_get = "pack info",     --获取军团悬赏任务列表
     union_mission_get = "pack info",     --获取军团定时任务
-    union_mission_set = "",     --领取军团定时任务
+    union_mission_set = "",              ----领取军团定时任务
     union_mission_log = "pack info",     --获取军团定时任务日志
 
     union_reject = "int pid",                --广播申请拒绝消息
@@ -695,8 +720,6 @@ Client = {
 
     ------------------------------------------------------
     --task
-    daily_task_list_resp = "pack info",
-    life_task_list_resp = "pack info",
     finish_task_resp = "int result",
     update_task_info = "pack info",
     daily_task_activity_resp = "pack info",
@@ -809,6 +832,7 @@ Client = {
     syn_back_code_resp = "int syn",
     load_rank = "int idx, int version, int pos, pack info",
     rank_pos = "int idx, int pos",
+    load_my_rank_score = "int idx",
     -- achievement
     ache_info_ack = "pack info",
     set_ache = "int key, int val",
@@ -850,6 +874,21 @@ Client = {
     monster_declare = "pack info",
     pack_weekly_activity_info_resp = "pack info",  --限时活动信息
 
+    acc_build = "int build_idx, int state, int acc_type",
+    get_dig_pos = "int x, int y",
+
+    query_around = "pack param, pack infos",
+
+
+    get_tribute_exchange = "int eid, pack info",
+
+    get_mail_share_resp = "pack info",
+
+    hero_info = "int pid, int propid, pack info",
+    operate_activity_list_resp = "pack info",
+
+    ---- jpush ntf
+    push_ntf_list_ack = "pack info",   -- 开通通知的列表
 }
 
 CrossQuery = {

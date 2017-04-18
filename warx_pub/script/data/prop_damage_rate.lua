@@ -12,4 +12,5 @@ prop_damage_rate = {
 	[MC] = { ID = MC, Damage_rate = 0.01,},
 	[LT] = { ID = LT, Damage_rate = 0.05,},
 	[BOSS] = { ID = BOSS, Damage_rate = 0.005,},
+	[FAKE_PLAYER] = { ID = FAKE_PLAYER, Damage_rate = 0.05,},
 }

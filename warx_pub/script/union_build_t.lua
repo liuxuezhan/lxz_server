@@ -15,7 +15,6 @@ function load()
             u.build[data.idx] = data
             if data.state ~= BUILD_STATE.DESTROY then
                 gEtys[ data.eid ] = data
-                --data.holding = is_hold(data)
                 data.culture = data.culture or 1
                 etypipe.add(data)
             end
@@ -443,11 +442,10 @@ function save(obj)
     if is_union_building(obj) then
         obj.holding = is_hold(obj)
         gEtys[obj.eid] = obj
-        etypipe.add(obj)
+        if obj.state ~= BUILD_STATE.DESTROY then
+            etypipe.add(obj)
+        end
         gPendingSave.union_build[obj._id] = obj
-
-        dumpTab( obj, "recalc_build" )
-
         local u = unionmng.get_union(obj.uid)
         if u then
             u.build[obj.idx] = obj
@@ -562,9 +560,8 @@ end
 
 
 function fire( obj, s )
-    --local secs = 1800
-    local secs = 600
-    if is_timer_valid( obj, obj.fire_tmSn ) then
+    local secs = 1800
+    if is_timer_valid( obj, obj.tmSn_f ) then
         obj.tmOver_f = obj.tmOver_f + secs
         timer.adjust( obj.tmSn_f, obj.tmOver_f )
     else
@@ -825,6 +822,8 @@ function recalc_build( obj )
     obj.hp = hp
     obj.speed_b = speed_b
     obj.speed_f = speed_f
+
+    print( "union_build", hp )
 
     if hp == 0 then
         remove( obj )

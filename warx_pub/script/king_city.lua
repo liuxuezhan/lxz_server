@@ -69,7 +69,6 @@ function load_king_city()
         gEtys[m.eid] = m
         citys[m.eid] = m.eid
         have[m.propid] = m.eid
-        print("king city eid = ", m.eid)
         etypipe.add(m)
     end
 
@@ -351,6 +350,10 @@ function fight_kw()
             player_t.add_chat({pid=-1,gid=_G.GateSid}, 0, 0, {pid=0}, "", prop.Chat1, {})
         end
     end
+
+    --offline ntf
+    offline_ntf.post(resmng.OFFLINE_NOTIFY_KING)
+
     clear_officer()
     kw_mall.rem_all_buf()
     clear_kings_debuff()
@@ -470,7 +473,8 @@ end
 function clear_city_uid()
     for k, v in pairs(citys or {}) do
         local city = get_ety(k)
-        city.uid = 0  --初始化所以王城的uid都是0  这样才不会互相误伤
+        npc_city.chang_city_uid(city, 0)
+         --初始化所以王城的uid都是0  这样才不会互相误伤
         --city.pid = 0
     end
 end
@@ -479,7 +483,7 @@ function reset_all_city()
     for k, v in pairs(citys or {}) do
         local city = get_ety(k)
         if city then
-            city.uid =0
+            npc_city.change_city_uid(city, 0)
             troop_mng.delete_troop(self.my_troop_id)
             city.my_troop_id = nil
         end
@@ -530,7 +534,8 @@ function do_peace_city()
         local city = get_ety(v)
         if city then
             if  resmng.prop_world_unit[city.propid].Lv == CITY_TYPE.FORT then
-                city.uid = 0  --初始化所以王城的uid都是0  这样才不会互相误伤
+                npc_city.change_city_uid(city, 0)
+                --city.uid = 0  --初始化所以王城的uid都是0  这样才不会互相误伤
                 --city.pid = 0  --初始化所以王城的uid都是0  这样才不会互相误伤
                 city.uname = nil  --初始化所以王城的uid都是0  这样才不会互相误伤
                 city.ualias = nil  --初始化所以王城的uid都是0  这样才不会互相误伤
@@ -611,7 +616,8 @@ end
 
 function fire_win(kingCity, atkCity)
     --kingCity.uid = atkCity.uid
-    kingCity.uid = 0
+    npc_city.change_city_uid(kingCity, 0)
+   -- kingCity.uid = 0
     --kingCity.pid = 0
     local union = unionmng.get_union(atkCity.uid)
     if union then
@@ -1018,7 +1024,7 @@ function reset_other_city(kingCity)
         local city = get_ety(k)
         if city then
             if resmng.prop_world_unit[city.propid].Lv == CITY_TYPE.TOWER then
-                city.uid = kingCity.uid 
+                npc_city.change_city_uid(city, kingCity.uid)
                 --city.pid = kingCity.pid 
                 city.uname = kingCity.uname
                 city.ualias = kingCity.ualias
@@ -1091,7 +1097,7 @@ after_atk_win[CITY_TYPE.FORT] = function(atkTroop, defenseTroop)
         end
     end
 
-    city.uid = atkTroop.owner_uid
+    npc_city.change_city_uid(city, atkTroop.owner_uid)
     --city.pid = atkTroop.owner_pid
     city.my_troop_id = nil
     local union = unionmng.get_union(city.uid)
@@ -1166,7 +1172,7 @@ after_atk_win[CITY_TYPE.KING_CITY] = function(atkTroop, defenseTroop)
         end
     end
 
-    city.uid = atkTroop.owner_uid
+    npc_city.change_city_uid(city, atkTroop.owner_uid)
     --city.pid = atkTroop.owner_pid
     city.my_troop_id = nil
     local union = unionmng.get_union(city.uid)
@@ -1312,7 +1318,6 @@ end
 function try_set_tower_range(city)
     if (get_city_type(city) or 0) == CITY_TYPE.TOWER then
         c_add_scan(city.eid, 7)
-        print("add_scan", city.x, city.y)
     end
 end
 
@@ -1322,7 +1327,7 @@ function set_tower_range()
         if city then
             if (get_city_type(city) or 0) == CITY_TYPE.TOWER then
                 c_add_scan(city.eid, 7)
-                print("add_scan", city.x, city.y)
+                --print("add_scan", city.x, city.y)
             end
             if (get_city_type(city) or 0) == CITY_TYPE.FORT then
                 city.status = 0

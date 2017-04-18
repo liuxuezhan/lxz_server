@@ -3,31 +3,30 @@
 --时区偏移数值 秒
 TIME_ZONE = 0
 
-
 -- chat host
 CHAT_HOST = "war_x.org"
+
 -- 登录秘钥
 APP_SECRET = "zMvnPIT4fHG4ecte"
 APP_ID = "10000"
 APP_KEY = "Os3NpXfDJeURCC1W"
 
 -- login_url
-LOGIN_URL = "http://common.walihudong.com/index.php/LoginClass/uploaduserinfo"
+LOGIN_URL = "http://common.tapenjoy.com/index.php/LoginClass/uploaduserinfo"
 -- chat_url
 CHAT_URL = "http://192.168.103.225:5280"
 
 LOGIN_ERROR =
 {
+    SUCCESS = 0,
     TOKEN_INVAILD = 1,
     TOKEN_OUT_OF_DATE = 2,
     LOGIN_ERROR = 3,
     PID_ERROR = 4,
     SERVER_MAINTAIN = 5,
-
+    OUT_OF_DATE = 6,
+    VERSION_NOT_MATCH = 7,
 }
---概率总和
-TOTAL_RATE = 10000
-BLACK_MARKET_REFRESH_COST = {0,0,0,0,5,10,20,40,80,120,120,160,160,320,320,640,640,1000,1000,1000}
 
 -- 数值变化原因
 VALUE_CHANGE_REASON = {
@@ -79,6 +78,7 @@ VALUE_CHANGE_REASON = {
     GENIUS_RESET      = 40,
 
     CASTLE_6_GIFT     = 41,
+    HERO_NATURE_RESET     = 42,
 
     -- [50, 79] Play
     GATHER = 50,
@@ -102,6 +102,10 @@ VALUE_CHANGE_REASON = {
     PT_MALL_BUY = 76,
     PT_MALL_REFRESH = 77,
     KW_MALL_BUY = 78,
+
+    DIG = 80,
+    SIEGE_DIG = 81,
+    EXCHANGE = 82,
 
 
     -- [100, 200] Union
@@ -146,6 +150,10 @@ VALUE_CHANGE_REASON = {
     REASON_WEEKLY_AWARD             = 1023,          --七日登录奖励
     REASON_YUEKA                    = 1024,          --月卡奖励
     REASON_WORLD_EVENT              = 1025,          --世界事件
+    REASON_LEVEL_UP                 = 1026,          --领主等级升级
+    REASON_OPERATE_EXCHANGE         = 1027,          --兑换活动
+    REASON_OPERATE_SINGLE           = 1028,          --单一活动类型领奖
+    REASON_OPERATE_TASK             = 1029,          --运营活动任务领奖
 
     --扣除资源
     REASON_DEC_RES = 2000,
@@ -161,6 +169,7 @@ VALUE_CHANGE_REASON = {
     REASON_DEC_RES_RESET_SKILL      = 2010,          --重置技能
     REASON_DEC_RES_CHANGE_HEAD      = 2011,          --改变头像
     REASON_DEC_RES_TASK             = 2012,          --任务上缴
+    REASON_DEC_RES_OPERATE_EXCHANGE = 2013,          --兑换活动
 
     --增加资源
     REASON_ADD_RES = 3000,
@@ -174,30 +183,11 @@ VALUE_CHANGE_REASON = {
     REASON_GACHA_DEC_ITEM           = 4002,          --魂匣单抽扣物品
     REASON_DEC_ITEM_RESET_SKILL     = 4003,          --重置技能
     REASON_DEC_ITEM_CHANGE_HEAD     = 4004,          --改变头像
+    REASON_DEC_ITEM_OPERATE_EXCHANGE= 4005,          --兑换活动
 }
 
-RES_RATE = { 1, 1, 5, 20 }
-RANGE_LV = { 3380, 1104, 816, 528, 240, 16 }
 
 SECS_TWO_WEEK = 1209600
-
-CLEAR_CD_COST =         ---清除cd时间与消耗金币关系的通用配置，需要按照时间顺序由小到大排序配置
-{
-    {300, 15},
-    {3300, 135},
-    {25200, 800},
-    {57600, 1750},
-}
-
-BUY_RES_COST =         ---购买单位资源与消耗金币的通用配置，需要按照资源数量顺序由小到大排序配置
-{
-    {  10000,  40},
-    {  40000, 120},
-    { 100000, 240},
-    { 350000, 800},
-    {1000000,2100}
-}
-BUY_SILVER_COST = 150  -- 购买银币比率恒定150:1
 
 resmng.CLASS_RES = 1			--物品类型1资源
 resmng.CLASS_BUILD = 2			--物品类型2建筑
@@ -217,12 +207,6 @@ resmng.CLASS_GUIDED = 15     --需要完成这个引导class
 resmng.CLASS_CASTLE_MAX = 16     --需要城堡等级小于等于这个值
 resmng.CLASS_RES_PROTECT = 101	--物品类型101保护资源
 
-WALL_FIRE_SECONDS = 18          -- 非土地每18秒减1点城防
-WALL_FIRE_IN_BLACK_LAND = 44    -- 黑土地每1秒减44点城防
-WALL_FIRE_REPAIR_FREE = 60      -- 免费修复，每次恢复60点城防
-WALL_FIRE_REPAIR_TIME = 1800    -- 免费修复，每1800秒一次
-WALL_FIRE_OUTFIRE_COST = 50     -- 城墙灭火，花费30金币
-
 
 UNION_TASK =      ---军团悬赏任务类型
 {
@@ -230,19 +214,6 @@ UNION_TASK =      ---军团悬赏任务类型
     NPC = 1,
     HERO = 2,
     NUM = 3,
-}
-
-UNION_DONATE_LIMIT =60000 
-UNION_DONATE_B_LIMIT =7 
-
-UNION_DONATE_WEEK = 
-{
-    ONE = 2013161, 
-    TWO = 2013162, 
-    THREE = 2013163, 
-    B_ONE = 2013164, 
-    B_TWO = 2013165, 
-    B_THREE = 2013166, 
 }
 
 DONATE_RANKING_TYPE = {
@@ -265,19 +236,9 @@ UNION_ITEM =      ---军团礼包来源
     MAX = 7,
 }
 
-UNION_TASK_CONFIG =
-{
-    PRICE = 20,
-    BONUS = {MIN = 20*1000,MAX = 80*1000}
-}
-
 resmng.ITEM_CLASS_ACC = 3
 resmng.MATERIAL_COMPOSE_COUNT = 3
 
--- 重置天赋所需金币
-GENIUS_RESET_COST = 1000
--- 领主体力最大值
-LORD_MAX_SINEW = 100
 ROI_MSG = {
     NTY_NO_RES  = 13,
     TRIGGERS_ENTER = 21,
@@ -307,6 +268,8 @@ CLASS_UNIT = {
     UnionBuild = 10,
     Troop = 11,
     CLOWN = 12,
+
+    DIG = 16,
 }
 
 ACT_NAME = {
@@ -386,8 +349,6 @@ GM_TYPE =
     PAY = 1,
 }
 
-KING = 1001 --国王称号的id
-
 CITY_TYPE =
 {
     FORT = 3,
@@ -412,14 +373,6 @@ MC_TYPE =
     CIVIL_1 = 1
     CIVIL_2 = 2
 
-
--- table of boss reborn after dead
-BossRbTime = {
-    [ BOSS_TYPE.NORMAL ] = 10,
-    [ BOSS_TYPE.ELITE ] = 3600,
-    [ BOSS_TYPE.LEADER ] = 3600,
-    [ BOSS_TYPE.SUPER ] = 259200
-}
 
 ROOM_TYPE =
 {
@@ -473,11 +426,14 @@ MAIL_UNION_MODE = {
 
 --系统邮件界面元素
 MAIL_SYSTEM_SEQ = {
-    NOTICE = 1,         --公告标题
-    PRESENT = 2,        --奖励标题
+    NOTICE = 1,         -- 公告标题
+    PRESENT = 2,        -- 奖励标题
     CONTENT = 3,        -- 内容文字
     AWARD = 4,          -- 奖励
     RESPONSE = 5,       -- 应答按钮
+    PRESENT_NO_GET = 6, -- 获得标题
+    CONSUME = 7,        -- 消耗标题
+    ITEM = 8,           -- 物品展示
 }
 
 MAIL_UNREAD_OP = {
@@ -487,30 +443,10 @@ MAIL_UNREAD_OP = {
 }
 
 
-
 MOVE_CITY_MODE = {
     ADVANCED = 1, --高级迁城
     RANDOM = 2, --随机迁城
     GRADING = 4, --资源带迁城
-}
-
-
--- Zhao@2016年11月23日 ：道具class类型的宏定义
-ITEM_TYPE = {
-    RES = 1,                --1、资源
-    BOX = 2,                --2、箱子
-    ACC_ITEM = 3,           --3、加速道具
-    HERO_ITEM = 4,          --4、英雄碎片+英雄经验书
-    HERO_SKILL = 5,         --5、英雄技能书
-    EQUIP_CAILIAO = 6,      --6、装备材料
-    CIVIL_FAMOUS = 7,       --7、名产
-    BUFF_ITEM = 8,          --8、buff类道具
-    SOLDIER_ITEM = 9,       --9、直接获得士兵
-    MOVECITY = 10,          --10、迁城道具
-    MARCH_ITEM = 11,        --11、行军道具+城建道具
-    FRAGMENT = 12,          --12、碎片
-    ACTIVITY_ITEM = 13,     --13、以后的活动道具
-    OTHER = 20,             --20、杂项，对于无法进行归类，同时由于过于零散，无法新建class的  
 }
 
 -- Hx@2015-12-04 : union state in player eye
@@ -521,9 +457,6 @@ UNION_STATE = {
     ENEMY = 3,
 }
 
-----军团战争动员价格(金币)，客户端已引用
-UNION_MOBILIZE_PRICE = 20000
-UNION_MOBILIZE_EFFECTID = resmng.BUFF_90001001
 
 --军团距离
 UNION_RANGE = {
@@ -541,45 +474,15 @@ UNION_RELATION = {
     MAX         = 4,
 }
 
--- Hx@2015-12-08 :
-UNION_MASS_STATE = {
-    CREATE = 0,
-    UPDATE = 1,
-    DESTORY = 2,
-    FINISH = 3,
-}
-
---- Zhao@2016年4月14日：军团创建条件
-CREATEUNION = {
-    lv = 5,
-    cost = 1000
-}
-
---- 军团科技捐献清除cd价格表
-CLEAR_DONATE_COST = {100,250,250,350,350,600}
-
----弹劾军团长价格
-UNION_IMPEACH_PRICE = 1000
-
----军团建筑受成员数量控制配置表
--- [1] = 基础值，达到这个值可以获得2个联盟奇迹
--- [2] = 步进值，每满足一个步进值，奇迹数+1
-UNION_CASTALCOUNT_LIMIT = {1,1}
-
 ---军团设施类别，决定了会在军团设施页面显示多少种类别
 UNION_CONSTRUCT_TYPE =
 {
     MIRACAL = 1,    --奇迹
     RESTORE = 2,    --仓库
     SUPERRES = 3,   --超级矿
---    TUTTER = 4,     --箭塔
-    MARCKET = 5     --市场
+    -- TUTTER = 4,     --箭塔
+    -- MARCKET = 5     --市场
 }
-
----军团领地争夺战可以占领的城市数量限制
--- [1] = 基础值，达到这个值可以占领一个系统城
--- [2] = 步进值，每满足一个步进值，可占领系统城市数量加 1
-UNION_OCCUPY_LIMIT = {2,1}
 
 ----军团帮助的类型
 HELP_TYPE =
@@ -590,7 +493,6 @@ HELP_TYPE =
     HEAL = 4,        ---治疗
     RESEARCH = 5,    ---研究
 }
-
 
 ---军团权限对应的key
 UNION_POWER =
@@ -635,14 +537,6 @@ TroopStatus = {
 
 }
 
-SPEED_GATHER = {
-    40320,
-    45360,
-    50400,
-    55440,
-    60480,
-}
-
 -- prepare  = V + 000
 -- go       = V + 100
 -- action   = V + 200
@@ -665,7 +559,7 @@ TroopState = {
 
 TroopAction = {
     DefultFollow    = 1,   --默认玩家身上额troop
-    --Wait            = 2,   --等待
+    --Wait            = 2, --等待
     SiegePlayer     = 3,   --单独攻击玩家城堡
     Back            = 4,   --通常返回
     JoinMass        = 5,   --参加集结
@@ -709,7 +603,9 @@ TroopAction = {
     VisitNpc = 43, --拜访大地图Npc 城市
     TaskSpyPly = 44, --侦查任务fake 玩家
     TaskAtkPly = 45, --攻打任务fake 玩家
-
+    Dig = 46, --挖宝
+    SiegeDig = 47, --攻击挖宝
+    Exchange = 48, --贡品兑换
 }
 
 WatchTowerAction = {
@@ -728,25 +624,9 @@ TroopTimerCallBack = {
     StartUnionGather= 3, --开始采集联盟矿
 }
 
-MassTime = {
-    Level1 = 300,
-    Level2 = 900,
-    Level3 = 1800,
-    Level4 = 3600,
-}
-
 --特殊情况固定行军速度，每分钟的速度
 
-TroopSpeed = {
-    [ TroopAction.Spy ] = 100,
-    [ TroopAction.SaveRes ] = 10,
-    [ TroopAction.SupportRes ] = 10,
-    [ TroopAction.GetRes ] = 10,
-    [ TroopAction.Declare ] = 100,
-    [ TroopAction.SiegeMonsterCity ] = 20,
-    [ TroopAction.MonsterAtkPly ] = 20,
-}
-
+--
 --侦查类型
 SpyType = {
     Castle = 1, --玩家城堡
@@ -765,7 +645,6 @@ BigMapState = {
     war = 2,
 }
 
-Gather_Level = { 1, 1, 10, 15 }
 
 --EidType = {
 --    Player = 0,
@@ -794,6 +673,9 @@ EidType = {
     CLOWN = 12,
     Wander = 13,
     Refugee = 14,
+    NPC_PLY = 15,
+    Dig = 16,
+
 }
 
 --聊天频道枚举
@@ -809,14 +691,6 @@ TECH_DONATE_TYPE = {
     MEDIUM = 2,     --中级
     SENIOR = 3,     --高级
 }
-
-
----军团科技层级开放配置，必须比最后一层配置多一个值，不可达到的极限值
-TechValidCond = {0,10,100,200,1000}
--- 资源田加速
-ACC_RES_COST = {30,30,50,70}  -- 金币消耗
-ACC_RES_ITEM = {resmng.ITEM_8009002, resmng.ITEM_8009001, resmng.ITEM_8009003, resmng.ITEM_8009004}
-ACC_RES_BUFF = {resmng.BUFF_52001001, resmng.BUFF_52002001, resmng.BUFF_52003001, resmng.BUFF_52004001}
 
 --------------------------------------------------------------------------------
 -- Build begin.
@@ -945,8 +819,6 @@ BUILD_STATE = {
 
 
 
-CANCEL_BUILD_FACTOR = 0.6  -- 取消建筑操作返还的资源比率(向上取整)
-DESTROY_FIELD_FACTOR = 20  -- 拆除野地耗时:Lv*20
 -- Build end.
 --------------------------------------------------------------------------------
 -- Hx@2016-01-04 : 数据操作类型
@@ -976,8 +848,9 @@ ITEM_CLASS = {
     GLOBUFF = 9, -- 直接获得士兵
     MOVE_CITY = 10, -- 迁城道具
     UINBUFF = 11, -- 行军道具+城建道具
-    ITEM_PIECE = 12, -- 道具碎片
+    ITEM_PIECE = 12, -- 技能书碎片
     ACTIVITY = 13, -- 活动道具
+    DIG = 15,       -- 藏宝图
     OTHER = 20, -- 特殊物品
 }
 -- 道具mode
@@ -1055,8 +928,6 @@ UNION_EVENT = { --  军团事件类型
     RELATION = "relation",
 }
 
-
-
 EVENT_TYPE = {
     UNION_CREATE = 1,
     UNION_DESTORY = 2,
@@ -1126,11 +997,6 @@ EFFECT_TYPE = {
     DImm4_R = true,
 }
 
--- -----------------------------------------------------------------------------
--- Hx@2016-01-26 : 行军速度倍率
--- -----------------------------------------------------------------------------
-TROOP_STDSPEED = 10
-
 
 -- Hx@2015-12-03 : ErrorCode
 E_OK = 0
@@ -1142,6 +1008,8 @@ E_TIMEOUT = 3
 E_MISC = 4
 
 E_ALREADY_IN_UNION = 101
+
+E_POS_OCCUPY = 201
 
 -- lack of something
 E_NO_TROOP = 1001
@@ -1253,39 +1121,6 @@ SKILL_TYPE = {
     LORD = 4,  -- 领主技能
 }
 
--- 英雄卡折算成碎片时的比例
-HERO_CARD_2_PIECE_RATIO = 1
-
--- 重置技能时经验返回比例
-RESET_SKILL_RETURN_RATIO = 0.5
-
--- 分解英雄时的经验值返回比例
-DESTROY_HERO_RETURN_RATIO = 0.7
-
--- 取消治疗时的资源返还比例
-CANCEL_CURE_RETURN_RATIO = 0.5
-
--- 英雄俘虏玩法开启所需的主城等级
-CAPTURE_LV_LIMIT = 10
-
--- 英雄被处死后的复活时限(单位天)
-RELIVE_HERO_DAYS_LIMIT = 7
-
--- 前端显示英雄数值除以数值
-HERO_SHOW_HP_RATE = 265  -- 血量
-HERO_SHOW_ATT_RATE = 10  -- 攻防
-
--- Hero End.
--------------------------------------------------------------------------------------
-
---活跃度
--- TASK_ACTIVITY = {
---     [1] = 20,
---     [2] = 40,
---     [3] = 70,
---     [4] = 100,
---     [5] = 120,
--- }
 
 --活跃度
 TASK_ACTIVITY = {
@@ -1321,23 +1156,21 @@ TASK_STATUS = {
     TASK_STATUS_UPDATE              = 6,    --重置
 }
 
-UNION_MISSION_TM = 180
 UNION_MISSION_CLASS = {
-    NPC_CITY    =9,
-    ACT_PLY     =10,
-    KILL        =11,
-    ACT_AI     =12,
+    BUILD       =11,
+    DONATE      =12,
+    POW         =13,
+    GOD         =14,
 
-    BUILD       =1,
-    DONATE      =3,
-    POW         =6,
-    GOD         =7,
+    HELP        =21,
+    ACTIVE      =22, --积分
+    GATHER      =23,
+    COST        =24,
 
-    HELP        =2,
-    ACTIVE      =4, --积分
-    GATHER      =5,
-    COST        =8,
-
+    NPC_CITY    =31,
+    ACT_PLY     =32,
+    KILL        =33,
+    ACT_AI     =34,
 }
 
 TASK_ACTION = {
@@ -1558,15 +1391,37 @@ g_world_event_relation = {
 
 
 -------------------------------------------------------------------------------------
+--运营活动
+OPERATE_PLAYER_DATA = {     --玩家数据存储类型
+    EXCHANGE = 1,       --兑换
+    ACTION = 2,         --action
+    ACTION_AWARD = 3,   --完成action的奖励
+    VERSION = 4,        --活动版本
+}
 --运营活动类型
+OPERATE_ACTIVITY_TYPE = {
+    NORMAL = 1,             --普通活动通用
+    LORD_RANK = 2,          --领主排行榜
+    OCCUPY_RANK = 3,        --军团占领城市排行榜
+}
+
+OPERATE_SCORE_TYPE_INC = 1     --计算出来的分数参与类型 增量
+OPERATE_SCORE_TYPE_ALL = 2     --计算出来的分数参与类型 全量
+
 OPERATE_ACTIVITY_ACTION = {
-    HEISHI            = 1,         --黑市购买
-    WUZISHICHANG      = 2,         --物资市场
+    GACHA                       = 1,         --抽卡
+    KILL_SOLDIER                = 2,         --领主杀敌
+    OCCUPY_CITY                 = 3,         --军团占领城市
+    BLACK_MARKET                = 4,         --黑市购买
+    RESOURCE_MARKET             = 5,         --资源兑换
 }
 
 g_operate_activity_relation = {
-    ["black_market"] = OPERATE_ACTIVITY_ACTION.BLACK_MARKET,       --黑市
-    ["res_market"] = OPERATE_ACTIVITY_ACTION.RES_MARKET,         --物资市场
+    ["gacha"]                   = OPERATE_ACTIVITY_ACTION.GACHA,                    --抽卡
+    ["kill_soldier"]            = OPERATE_ACTIVITY_ACTION.KILL_SOLDIER,             --领主杀敌
+    ["occupy_city"]             = OPERATE_ACTIVITY_ACTION.OCCUPY_CITY,              --军团占领城市
+    ["black_market"]            = OPERATE_ACTIVITY_ACTION.BLACK_MARKET,             --黑市购买
+    ["resource_market"]         = OPERATE_ACTIVITY_ACTION.RESOURCE_MARKET,          --资源兑换
 }
 
 -------------------------------------------------------------------------------------
@@ -1588,13 +1443,9 @@ WEEKLY_ACTIVITY_ACTION = {
 -------------------------------------------------------------------------------------
 
 
-
-
 -- 日志中是否显示调试信息（文件名、函数名、行号）
 SHOW_DEBUG_INFO = false
 
---奖励概率总和
-AWARD_RANDOM_SUM = 10000
 
 -- Certify Code
 CertifyCode = {
@@ -1603,11 +1454,6 @@ CertifyCode = {
     BLOCK = 2,
     DUPLICATE = 3,
 }
-
---刷新日常任务的消耗
-REFRESH_DAILY_TASK_CON = {{resmng.CLASS_RES, resmng.DEF_RES_GOLD, 200}}
---直接完成日常任务活跃度和金币的比率
-DONE_DAILY_TASK_GOLD = 5
 
 --抽卡
 GACHA_TYPE = {
@@ -1670,18 +1516,18 @@ CLIENT_PARM = {
     ["curguiding"] = 3,
 
     ["guidedclass"] = 800,
-}
 
---重置技能消耗的金币
-RESET_SKILL_GOLD = 250
---重置技能消耗的道具ID
-RESET_SKILL_ITME = 5003001
+    ["buildunlock"] = 900,  -- 建筑解锁引导
+}
 
 function is_type( ety, typeid )
     if not ety then return end
     if type( ety ) == "number" then
         ety = gEtys[ ety ]
         if not ety then return end
+    end
+    if not ety.propid then
+        return false
     end
     return math.floor( ety.propid / 1000000 ) == typeid
 end
@@ -1715,6 +1561,7 @@ function is_npc_city(ety) return is_type( ety, EidType.NpcCity ) end
 function is_clown(ety) return is_type( ety, EidType.CLOWN ) end
 function is_wander(ety) return is_type( ety, EidType.Wander ) end
 function is_refugee(ety) return is_type( ety, EidType.Refugee ) end
+function is_dig(ety) return is_type( ety, EidType.Dig ) end
 
 function can_attack(ety)
     if is_ply(ety) then return true end
@@ -1735,11 +1582,6 @@ OFFLINE_UNIT_TYPE = {
     TASK_PLAYER = 4,
     TASK_HERO = 3,
 }
-
---月卡总天数
-YUEKA_TOTAL_DAYS = 30
---月卡打折时间
-YUEKA_SALE_TIME = 259200 --3天
 
 PLAYER_INIT = {
     map = 0,
@@ -1880,8 +1722,14 @@ PLAYER_INIT = {
     world_event_get_id = {},    --已经领取奖励的世界事件的ID
 
     weekly_activitiy_num = 0,   --周限时活动计数
-    weekly_activity_score = {0,0,0,0,0,0},  --周限时活动积分
-    weekly_activity_award = {0,0,0,0,0,0},  --周限时活动领奖标记
+    weekly_activity_info = {{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0}},    --周限时活动标记 {积分,领奖标志,活动开启时主堡等级}
+
+    operate_activity = {},  --运营活动
+
+    siege_dig = 0,  -- 攻击挖宝次数
+    count_dig = 0,  -- 当日挖宝次数
+
+    sub_ntf_list = {}, --  推送通知列表
 }
 
 map_city_zone = {
@@ -1933,3 +1781,5 @@ Sub_Func =
     LT_POP = 1,
     MC_POP = 2,
 }
+
+

@@ -16,15 +16,28 @@ local g_black_market_day_hot
 --------------------------------------------------------------------------------
 -- load
 function do_load_build(self)
-    local db = self:getDb()
-    local info = db.build_t:find({pid=self.pid})
-    local bs = {}
-    while info:hasNext() do
-        local b = info:next()
-        bs[ b.idx ] = build_t.wrap(b)
+    if not self._build then
+        local bs = {}
+        local db = self:getDb()
+        local info = db.build_t:find({pid=self.pid})
+        while info:hasNext() do
+            local b = info:next()
+            bs[ b.idx ] = build_t.wrap(b)
+        end
+        if not self._build then rawset(self, "_build", bs) end
     end
-    return bs
 end
+
+-- get
+function get_build(self, idx)
+    if not self._build then do_load_build( self ) end
+    if idx then
+        if self._build then return self._build[ idx ] end
+    else
+        return self._build
+    end
+end
+
 
 
 --------------------------------------------------------------------------------
@@ -58,16 +71,6 @@ function get_new_idx(self, build_class, build_mode)
     end
 end
 
-
--- get
-function get_build(self, idx)
-    if not self._build then self._build = self:do_load_build() end
-    if idx then
-        if self._build then return self._build[ idx ] end
-    else
-        return self._build
-    end
-end
 
 function check_is_building( self, idx )
     if idx then
@@ -518,15 +521,26 @@ function doTimerBuild(self, tsn, build_idx, arg_1, arg_2, arg_3, arg_4)
                 end
             end
 
+            -- offline ntf
+            offline_ntf.post(resmng.OFFLINE_NOTIFY_BUILD, self, build.propid)
+
         elseif state == BUILD_STATE.UPGRADE then
             self:clear_build_queue( build.idx )
             self:do_upgrade(build_idx)
+
+            -- offline ntf
+            local build = self:get_build(build_idx)
+            if build then
+                offline_ntf.post(resmng.OFFLINE_NOTIFY_BUILD, self, build.propid)
+            end
 
         elseif state == BUILD_STATE.DESTROY then
             local conf = resmng.get_conf("prop_build", build.propid)
             if conf then
                 if conf.Effect then self:ef_rem( conf.Effect ) end
                 if conf.Pow then self:dec_pow( conf.Pow ) end
+                --周限时活动
+                weekly_activity.process_weekly_activity(self, WEEKLY_ACTIVITY_ACTION.POWER_UP, 1, -conf.Pow)
             end
             self:clear_build_queue( build_idx )
             self._build[ build_idx ] = nil
@@ -547,6 +561,10 @@ function doTimerBuild(self, tsn, build_idx, arg_1, arg_2, arg_3, arg_4)
                     local id = build:get_extra( "id" )
                     build.extra = {}
                     self:do_learn_tech(build, id)
+
+                    -- offline ntf
+                    offline_ntf.post(resmng.OFFLINE_NOTIFY_RESEARCH, self, id)
+
                     self:add_count( resmng.ACH_COUNT_RESEARCH, 1 )
 
                 elseif conf.Mode == BUILD_FUNCTION_MODE.HOSPITAL then
@@ -591,6 +609,7 @@ function doTimerBuild(self, tsn, build_idx, arg_1, arg_2, arg_3, arg_4)
             elseif conf.Class == BUILD_CLASS.ARMY then
                 local extra = build.extra
                 if extra and extra.id and extra.id > 0 and extra.num > 0 then
+                    build.extra = {}
                     self:add_soldier( extra.id, extra.num )
                     self:add_count( resmng.ACH_COUNT_TRAIN, extra.num )
 
@@ -606,7 +625,9 @@ function doTimerBuild(self, tsn, build_idx, arg_1, arg_2, arg_3, arg_4)
                     --周限时活动
                     weekly_activity.process_weekly_activity(self, WEEKLY_ACTIVITY_ACTION.TRAIN_ARM, conf.Lv, extra.num)
 
-                    build.extra = {}
+                    -- offline ntf
+                    offline_ntf.post(resmng.OFFLINE_NOTIFY_RECRUIT, self)
+
                 end
             end
         end
@@ -648,7 +669,9 @@ function acc_build(self, build_idx, acc_type)
 
     if acc_type == ACC_TYPE.FREE then
         if self:is_building( build ) then
+            local skip = self:get_val("BuildFreeTime") + 5
             local remain = build.tmOver - gTime
+            if remain > skip then return end
             build:acceleration( remain )
         end
 
@@ -674,6 +697,8 @@ function acc_build(self, build_idx, acc_type)
     build.tmOver = gTime
     timer.adjust( tm._id, gTime )
 
+    Rpc:acc_build( self, build_idx, state, acc_type )
+
     return true
 end
 
@@ -694,7 +719,7 @@ function item_acc_build(self, build_idx, item_idx, num)
     -- check item.
     local item = self:get_item(item_idx)
     if not item then
-        ERROR("item_acc_build: get_item() failed. pid = %d, item_idx = %d", self.pid or -1, item_idx)
+        INFO("item_acc_build: get_item() failed. pid = %d, item_idx = %d", self.pid or -1, item_idx)
         return
     end
 
@@ -712,7 +737,8 @@ function item_acc_build(self, build_idx, item_idx, num)
         return
     end
 
-    if build.state == BUILD_STATE.WAIT then
+    local state = build.state
+    if state == BUILD_STATE.WAIT then
         ERROR("item_acc_build: pid = %d, build_idx = %d, build.state = BUILD_STATE.WAIT", self.pid, build_idx)
         return
     end
@@ -728,6 +754,11 @@ function item_acc_build(self, build_idx, item_idx, num)
     if self:dec_item(item_idx, num, VALUE_CHANGE_REASON.BUILD_ACC) then
         build:acceleration(conf.Param * num)
     end
+
+    if build.tmOver <= gTime + 1 then
+        Rpc:acc_build( self, build_idx, state, ACC_TYPE.ITEM )
+    end
+
     return conf.Param * num
 end
 
@@ -952,6 +983,7 @@ function draft(self, idx)
 
     local extra = build.extra
     if extra and extra.id and extra.id > 0 and extra.num > 0 then
+        build.extra = {}
         self:add_soldier( extra.id, extra.num )
         self:add_count( resmng.ACH_COUNT_TRAIN, extra.num )
 
@@ -967,7 +999,6 @@ function draft(self, idx)
         --周限时活动
         weekly_activity.process_weekly_activity(self, WEEKLY_ACTIVITY_ACTION.TRAIN_ARM, conf.Lv, extra.num)
 
-        build.extra = {}
     end
     --Rpc:stateBuild(self, build._pro)
 end
@@ -1671,6 +1702,8 @@ function black_market_buy(self, idx)
                 task_logic_t.process_task(self, TASK_ACTION.MARKET_BUY_NUM, 1, 1)
                 --周限时活动
                 weekly_activity.process_weekly_activity(self, WEEKLY_ACTIVITY_ACTION.BLACK_MARKET, 1, conf.Point)
+                --运营活动
+                operate_activity.process_operate_activity(self, OPERATE_ACTIVITY_ACTION.BLACK_MARKET, 1)
             end
         end
         dumpTab(build.extra, "black_market")
@@ -1687,6 +1720,8 @@ function black_market_buy(self, idx)
                     task_logic_t.process_task(self, TASK_ACTION.MARKET_BUY_NUM, 1, 1)
                     --周限时活动
                     weekly_activity.process_weekly_activity(self, WEEKLY_ACTIVITY_ACTION.BLACK_MARKET, 1, conf.Point)
+                    --运营活动
+                    operate_activity.process_operate_activity(self, OPERATE_ACTIVITY_ACTION.BLACK_MARKET, 1)
                     local rate = math.random(1, TOTAL_RATE)
                     local cur = 0
                     for k, v in pairs(resmng.prop_black_market) do
@@ -1887,6 +1922,10 @@ function refresh_black_marcket(self)
     if black_market then
         local items = do_refresh_black_market_items()
         local hots = get_sys_status("black_market")
+        if not hots then
+            refresh_global_black_market()
+            hots = get_sys_status("black_market")
+        end
         black_market:set_extras({ items=items, item=hots[1], item1=hots[2], nfresh=0, nbuy=0, point=0})
         dumpTab(black_market.extra, "black_market")
     end
@@ -2203,7 +2242,6 @@ function wall_fire2( self, dura )
         local x, y = c_get_pos_by_lv(1,4,4)
         if x then
             self:recall_all()
-            c_rem_ety(self.eid)
             self.x = x
             self.y = y
             etypipe.add(self)
@@ -2253,7 +2291,6 @@ function wall_fire2( self, dura )
             --todo
             --call back all troop
             self:recall_all()
-            c_rem_ety(self.eid)
             self.x = x
             self.y = y
             etypipe.add(self)
@@ -2308,9 +2345,10 @@ function wall_fire( self, dura )
     if dura < 0 then return end
 
     --todo test
-    --if dura > 10 then dura = 10 end
+    --if dura > 40 then dura = 40 end
     --hp = hp - speed_f * ( gTime - tmStart_f )
     --
+
     local prop = resmng.get_conf( "prop_build", wall.propid )
     if not prop then return end
     local max = prop.Param.Defence
@@ -2357,7 +2395,6 @@ function wall_fire( self, dura )
             --todo
             --call back all troop
             self:recall_all()
-            c_rem_ety(self.eid)
             self.x = x
             self.y = y
             etypipe.add(self)
@@ -2366,6 +2403,7 @@ function wall_fire( self, dura )
         return 
     end
     wall:set_extra( "hp", hp )
+    print( "set_hp", hp )
 
     local remain = tmOver_f - gTime
     if remain > 0 then
@@ -2378,8 +2416,6 @@ function wall_fire( self, dura )
 
         local ef = self:get_castle_ef()
         if ef.SpeedBurn_R then speed_f = speed_f * ( 1 + ef.SpeedBurn_R * 0.0001 ) end
-
-        print( "burn_speed", speed_f )
 
         wall:set_extra( "speed_f", speed_f )
         wall:set_extra( "tmStart_f", gTime )

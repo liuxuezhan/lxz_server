@@ -11,30 +11,33 @@ task_info.task_daily_num = 0
 --]]
 
 function process_task(player, task_action, ...)
-    print( "process_task", player.pid, task_action )
     if player == nil then
         return
     end
+    local st = c_msec()
     local task_data_array = player:get_task_by_action(task_action)
-    for k, v in pairs(task_data_array) do
-        local task_info = nil
-        if v.task_type == TASK_TYPE.TASK_TYPE_DAILY then
-            task_info = resmng.prop_task_daily[v.task_id]
-        else
-            task_info = resmng.prop_task_detail[v.task_id]
-        end
-        if task_info ~= nil then
-            local con_tab = copyTab(task_info.FinishCondition)
-            for i, j in pairs({...}) do
-                table.insert(con_tab, j)
+    for k, v in pairs(task_data_array or {}) do
+        if v.task_status == TASK_STATUS.TASK_STATUS_ACCEPTED then
+            local task_info = nil
+            if v.task_type == TASK_TYPE.TASK_TYPE_DAILY then
+                task_info = resmng.prop_task_daily[v.task_id]
+            else
+                task_info = resmng.prop_task_detail[v.task_id]
             end
-            local res = distribute_operation(player, v, unpack(con_tab))
-            if res == true then
-                player:add_save_task_id(v.task_id)
+            if task_info ~= nil then
+                local con_tab = copyTab(task_info.FinishCondition)
+                for i, j in pairs({...}) do
+                    table.insert(con_tab, j)
+                end
+                local res = distribute_operation(player, v, unpack(con_tab))
+                if res == true then
+                    player:add_save_task_id(v.task_id)
+                end
             end
         end
     end
     player:do_save_task()
+    LOG("taskstatics:process action:"..task_action.." time:"..(c_msec()-st))
 end
 
 
@@ -82,16 +85,16 @@ function update_get_task_item_process(task_data, con_num, num)
 end
 
 function update_task_process(task_data, con_num, num)
-    if task_data.task_current_num > num then
-        return false
-    end
+    local need_save = false
     if task_data.task_current_num < num then
         task_data.task_current_num = num
+        need_save = true
     end
     if task_data.task_current_num >= con_num then
         task_data.task_status = TASK_STATUS.TASK_STATUS_CAN_FINISH
+        need_save = true
     end
-    return true
+    return need_save
 end
 
 function task_warning(func_name)
@@ -368,7 +371,7 @@ end
 
 --持有英雄数量
 do_task[TASK_ACTION.HAS_HERO_NUM] = function(player, task_data, con_quality, con_star, con_num)
-
+    
     player:try_add_tit_point(resmng.ACH_NUM_HERO)
     player:try_add_tit_point(resmng.ACH_HERO_QUALITY_1)
     player:try_add_tit_point(resmng.ACH_HERO_QUALITY_2)
@@ -382,7 +385,7 @@ do_task[TASK_ACTION.HAS_HERO_NUM] = function(player, task_data, con_quality, con
     player:try_add_tit_point(resmng.ACH_HERO_STAR_4)
     player:try_add_tit_point(resmng.ACH_HERO_STAR_5)
     player:try_add_tit_point(resmng.ACH_HERO_STAR_6)
-
+    
     local real_num = 0
     local hero_list = player:get_hero()
     for k, v in pairs(hero_list) do
@@ -462,7 +465,7 @@ do_task[TASK_ACTION.SUPREME_HERO_LEVEL] = function(player, task_data, con_level)
             local prop_tab = resmng.prop_skill[j[1]]
             if prop_tab ~= nil then
                 if prop_tab.Lv > highest then
-                    highest = lv
+                    highest = prop_tab.Lv
                 end
             end
         end
@@ -589,9 +592,12 @@ do_task[TASK_ACTION.GET_TASK_ITEM] = function(player, task_data, con_id, con_num
     if update_get_task_item_process(task_data, con_num, player:get_item_num(con_id)) then
         player:dec_item_by_item_id(con_id, con_num, VALUE_CHANGE_REASON.REASON_DEC_RES_TASK)
         return true
-    else
-        return false
     end
+    if real_num > 0 then
+        return true
+    end
+
+    return false
 end
 
 --收集品质装备
@@ -1106,6 +1112,11 @@ end
 --迁城到资源带
 do_task[TASK_ACTION.MOVE_TO_ZONE] = function(player, task_data, con_lv, real_lv)
     if real_lv == nil then
+        local zone_lv = get_pos_lv(player.x, player.y)
+        if con_lv == zone_lv then
+            add_task_process(player, task_data, 1, 1)
+            return true
+        end
         return false
     end
 
@@ -1122,7 +1133,8 @@ do_task[TASK_ACTION.PANJUN_SCORE] = function(player, task_data, con_score, real_
     if real_score == nil then
         return false
     end
-    return update_task_process(task_data, con_score, real_score)
+    --return update_task_process(task_data, con_score, real_score)
+    add_task_process(player, task_data, con_score, real_score)
 end
 
 --遗迹塔获得贤者之石
@@ -1134,6 +1146,9 @@ do_task[TASK_ACTION.LOSTTEMPLE_SCORE] = function(player, task_data, con_score, r
 end
 
 --向王城行军
-do_task[TASK_ACTION.TROOP_TO_KING_CITY] = function(player, task_data, con_num)
+do_task[TASK_ACTION.TROOP_TO_KING_CITY] = function(player, task_data, con_num, real_num)
+    if real_num == nil then
+        return false
+    end
     return update_task_process(task_data, con_num, 1)
 end

@@ -64,7 +64,8 @@ function initBoot()
 end
 
 function loop()
-    LOG("[CRONTAB], loop, %d", gTime)
+    LOG("[CRONTAB], loop, %d, %s", gTime, os.date("%c", gTime) )
+    perfmon.start("crontab_loop", 0)
     if resmng and resmng.prop_cron then
         local t = os.date("*t", gTime)
         local gameid = _G.gMapID
@@ -74,12 +75,15 @@ function loop()
                     local fun = crontab[ v.action ]
                     if fun then
                         INFO("[CRONTAB], %s", v.action)
+                        perfmon.start(v.action, gTime)
                         action(fun, unpack(v.arg or {}))
+                        perfmon.stop(v.action, gTime)
                     end
                 end
             end
         end
     end
+    perfmon.stop("crontab_loop", 0)
 end
 
 function setDayStart()

@@ -52,7 +52,7 @@ function add_exp(p,num)--战神经验
     if not c  then return end
 
     u.god.exp =  u.god.exp + num
-    if u.god.exp > c.Exp  then
+    if u.god.exp >= c.Exp  then
         u.god.propid =  u.god.propid + 1
         u.god.exp = u.god.exp - c.Exp
         u:ef_init()

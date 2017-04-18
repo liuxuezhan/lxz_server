@@ -17,6 +17,27 @@ function string.utf8_len(s)
     return count
 end
 
+function string.contains_sign(str,...)
+    local signs = {...}    
+    for k,v in pairs(signs or {}) do
+        if string.match(str,v) then
+            return true
+        end
+    end  
+    return false
+end
+
+function math.round(f)
+    local i,f = math.modf(f)
+    if f >= 0.5 then -- >=0.5加1
+        return i+1
+    elseif  f < -0.5 and f < 0 then --负数 < 0.5 减1 
+        return i-1
+    else
+        return i
+    end
+end
+
 function is_gbchar( _char )
     if _char >= 0x81 then
         return true
@@ -127,7 +148,7 @@ function string.format_ts(s,...)
         local p=string.sub(s,i,e)
         local mtype=string.sub(p,4,4)
         local index=tonumber(string.sub(p,2,2))
-        if mtype=="s" or mtype=="d" then
+        if mtype=="s" or mtype=="d" then   ---格式化字符串和数字
              if type(replace_table[index])=="table" then
                 local ms=""
                 for i,v in ipairs(replace_table[index]) do
@@ -140,7 +161,7 @@ function string.format_ts(s,...)
             else
                 s=replace_ts(s,i,e,replace_table[index])
             end
-        elseif mtype=="z" then
+        elseif mtype=="z" then ---格式化多语言字段
             if type(replace_table[index])=="table" then
                 local ms=""
                 for i,v in ipairs(replace_table[index]) do
@@ -153,7 +174,7 @@ function string.format_ts(s,...)
             else
                 s=replace_ts(s,i,e,get_value(replace_table[index]))
             end
-        elseif mtype == "y" then           
+        elseif mtype == "y" then  ---格式化国旗         
             local lancfg = resmng.get_conf("prop_language_cfg",replace_table[index])
             if lancfg then
                 s = replace_ts(s,i,e,"$"..lancfg.Icon.."$")
@@ -240,7 +261,7 @@ end
 
 function table.index_of(tb,o,field)
     for k,v in ipairs(tb) do
-        if field ~= nil and v[field] == o then
+        if field ~= nil and type(v) == "table" and v[field] == o then
             return k
         elseif v == o then
             return k
@@ -484,14 +505,15 @@ etypipe[EidType.Res]    =       {"propid", "eid", "x", "y", "uid", "pid", "val",
 etypipe[EidType.Refugee]    =   {"propid", "eid", "x", "y", "uid", "pid", "val", "extra"}
 etypipe[EidType.Troop]  =       {"propid", "eid", "culture","action", "owner_eid", "owner_pid", "owner_uid", "target_eid", "target_pid", "target_uid", "tmStart", "tmOver", "soldier_num","be_atk_list", "flag", "mcid", "heros", "target_propid", "fid", "is_mass", "name", "alias", "propid", "target_name", "target_alias", "target_propid", "state"}
 etypipe[EidType.Monster]=       {"propid", "eid", "x", "y", "hp", "level","born"}
-etypipe[EidType.UnionBuild] =   {"propid", "eid", "x", "y", "uid","alias", "sn","idx","hp","state","name","val","culture","holding","speed_b","speed_f","tmStart_b","tmStart_f","speed_g","tmStart_g" }
+etypipe[EidType.UnionBuild] =   {"propid", "eid", "x", "y", "uid","alias", "uflag", "sn","idx","hp","state","name","val","culture","holding","speed_b","speed_f","tmStart_b","tmStart_f","speed_g","tmStart_g" }
 etypipe[EidType.NpcCity]=       {"propid", "eid", "x", "y", "state", "startTime","endTime", "unions", "randomAward", "declareUnions", "getAwardMember"}
 etypipe[EidType.KingCity]=      {"propid", "eid", "x", "y", "state", "status","startTime", "endTime", "occuTime","uid", "uname", "uflag", "ualias"}
-etypipe[EidType.MonsterCity]=   {"propid", "eid", "x", "y", "state", "class", "startTime", "endTime", "uid", "be_atked_list"}
+etypipe[EidType.MonsterCity]=   {"propid", "eid", "x", "y", "state", "class", "startTime", "endTime", "uid", "be_atked_list", "can_atk_uid"}
 etypipe[EidType.Camp]    =      {"propid", "eid", "x", "y", "pid", "uid", "name", "uname", "uflag"}
 etypipe[EidType.LostTemple]=    {"propid", "eid", "x", "y", "state", "startTime", "endTime", "uid", "uname", "born", "uflag", "ualias"}
 etypipe[EidType.CLOWN]=         {"propid", "eid", "x", "y" }
 etypipe[EidType.Wander]=        {"propid", "eid", "x", "y" }
+etypipe[EidType.Dig]=           {"propid", "eid", "x", "y", "pid", "uid", "tmStart", "tmOver", "robber"}
 
 
 function etypipe.pack(filter, xs)
@@ -542,16 +564,23 @@ function etypipe.add(data)
         c_add_troop(data.eid, data.action, data.sx, data.sy, data.dx, data.dy, data.speed, data.use_time, etypipe.pack(node, data))
         
     else
-        if is_king_city(data) or is_lost_temple(data) then
+        if is_king_city(data) or is_lost_temple(data) or is_union_building( data ) then
             data.uflag = 0
             local union = unionmng.get_union(data.uid)
             if union then
                 data.uflag = union.flag
             end
         end
-        if not data.size then WARN("no size, propid=%d", data.propid) end
 
-        if not data.size or data.size == 0 then data.size = 4 end
+        if not data.size or data.size == 0 then
+            ERROR( "etypipe.add, no size, propid=%s", data.propid or "unknown" )
+            local conf = resmng.get_conf( "prop_world_unit", data.propid )
+            if conf then
+                data.size = conf.Size 
+            end
+        end
+        if not data.size or data.size == 0 then data.size = 1 end
+
         c_add_ety(data.propid, data.eid, data.x, data.y, data.size, 0, etypipe.pack(node, data))
     end
 end
@@ -566,7 +595,7 @@ function get_val_by(what, ...)
         r = r + (v[ ridx ] or 0)
         e = e + (v[ eidx ] or 0)
     end
-    return b * (1 + r * 0.0001) + e
+    return math.floor( b * (1 + r * 0.0001) + e )
 end
 
 
@@ -580,7 +609,7 @@ function get_nums_by(what, ...)
         r = r + (v[ ridx ] or 0)
         e = e + (v[ eidx ] or 0)
     end
-    return b, r, e
+    return math.floor(b), math.floor(r), math.floor(e)
 end
 
 function get_num_by(what, ...)
@@ -588,7 +617,7 @@ function get_num_by(what, ...)
     for _, v in pairs({...}) do
         val = val + (v[ what ] or 0)
     end
-    return val
+    return math.floor(val)
 end
 
 --计算在一条直线上的点 cx,cy是否在在线段内部
@@ -810,24 +839,27 @@ function get_next_time()
 end
 
 function can_date(time,cur)--是否跨天
-
     if (not time) or (time == 0)  then return true end
-    if (cur == 0) then return true end
 
-    if os.date("%d", cur )~=os.date("%d",time) then
-        return true
-    end
-    return false
+    cur = cur or gTime
+
+    return (get_diff_days(time, cur) > 0)
+
+    --local zone = tm_zone()
+
+    --if os.date("%d", cur+zone )~=os.date("%d",time+zone ) then
+    --    return true
+    --end
+    --return false
 end
 
 function can_month(time,cur)--是否跨月
 
-    if (not time) or (time == 0)  then
-        return true
-    end
-    if (cur == 0) then return true end
+    if (not time) or (time == 0)  then return true end
+    if (not cur) or (cur == 0) then return true end
+    local zone = tm_zone()
 
-    if os.date("%m", cur)~=os.date("%m",time) then
+    if os.date("%m", cur+zone)~=os.date("%m",time+zone) then
         return true
     end
     return false
@@ -1035,14 +1067,16 @@ function analysis_award(tab, culture, close_open)
 
             --第一层物品信息
             local prop_tab = resmng.prop_itemById(unit.id)
-            if prop_tab ~= nil and prop_tab.Open == 1 then
+            if prop_tab ~= nil and prop_tab.Open == 1 then                
                 local temp = {}
                 temp.icon = prop_tab.Icon
                 temp.grade = prop_tab.Color or 1
                 temp.name = prop_tab.Name
-                table.insert(box, temp)
+                table.insert(box, temp)            
             end
-
+            if nil == prop_tab then
+                utils.printwarning("got nil item config of id:",unit.id)
+            end
         elseif unit.type == "res" or unit.type == "respicked" then
             ana_res(unit)
             table.insert(list, unit)
@@ -1465,7 +1499,7 @@ function is_valid_name( s )
 end
 
 function check_valid_input(s)
-    local regular = { ['<'] = true, ['>'] = true }
+    local regular = { ['<'] = true, ['>'] = true,['\r']=true, ['\n']=true }
 
     local rst=""
     if( type(s) == "string" )then
@@ -1527,3 +1561,84 @@ function split(m,n)
     return out
 end
 
+function tm_zone() --时区差   --全部使用 utc 0点
+    --local now = os.time()
+    --return os.difftime(now, os.time(os.date("*t", now)))
+    return 0
+end
+
+function get_npc_state()
+    local now = os.date("*t", gTime)
+    local startHour = resmng.prop_tw_stage[TW_STATE.DECLARE].Start.hour
+    local endHour = resmng.prop_tw_stage[TW_STATE.DECLARE].End.hour
+    local startMin = resmng.prop_tw_stage[TW_STATE.DECLARE].Start.min
+    local endMin = resmng.prop_tw_stage[TW_STATE.DECLARE].End.min
+    local startTime = 0
+    local endTime = 0
+    local state = 1
+    local temp = { year=now.year, month=now.month, day=now.day, hour=0, min=0, sec=0 }
+    if now.hour >= startHour and now.hour < endHour then
+        state = TW_STATE.DECLARE
+        temp.hour = startHour
+        temp.min = startMin
+        startTime = os.time(temp)
+        temp.hour = endHour
+        endTime = os.time(temp) 
+    elseif now.hour >= endHour then 
+        state = TW_STATE.PACE
+        temp.hour = endHour
+        temp.min = endMin
+        startTime = os.time(temp)
+        temp.hour = startHour
+        endTime = os.time(temp) + 24 * 3600
+    elseif now.hour < startHour then
+        state = TW_STATE.PACE
+        startTime = gTime
+        temp.hour = startHour
+        temp.min = startMin
+        endTime = os.time(temp)
+    end
+    return state, startTime, endTime
+end
+
+function push_offline_ntf(audience, msg)
+    --if get_table_valid_count(audience.registration_id)  == 0 then
+    --   audience = {
+    --        ["registration_id"] = {"1a0018970a9588a5521"}
+    --    }
+    --end
+
+    print("do jpush %s, %s", audience.registration_id, msg)
+    INFO("do jpush %s, %s", audience.registration_id, msg)
+    to_tool( 0, { 
+        type = "common", 
+        mode = "jpush", 
+        url = "https://api.jpush.cn/v3/push", 
+        method = "post", 
+        header = "NDMwMDU2NzliZGMyYThjNzE2NTRmODQ0Ojk5YTFjZTYwOTY0MGQ3MGUzOTJiNTUyYg==",  
+            -- base64 of "43005679bdc2a8c71654f844:99a1ce609640d70e392b552b",
+        platform = "all",
+        audience = audience,
+        notification = {
+            alert = msg,
+            android = {
+                alert = msg,
+                extras = {
+                    android_key1 = "android-value1",
+                }
+            },
+            ios = {
+                alert = msg,
+                sound = "sound.caf",
+                ["content-available"] = true,
+                badge = "+1",
+               -- extras = {
+               -- },
+            }
+        },
+        options = {
+            time_to_live = 0,
+            apns_production = config.JpuahMode or "false"
+        }
+    })
+end

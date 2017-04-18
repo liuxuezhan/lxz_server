@@ -1,7 +1,8 @@
 module("player_t")
 _cache_items = _cache_items or {}
 
-function get_item(self, idx)
+
+function do_load_item( self )
     if not self._item then
         local ms = {}
         local db = self:getDb()
@@ -15,8 +16,12 @@ function get_item(self, idx)
         else
             db.item:insert({_id=self.pid})
         end
-        rawset(self, "_item", ms)
+        if not self._item then rawset(self, "_item", ms) end
     end
+end
+
+function get_item(self, idx)
+    if not self._item then do_load_item( self ) end
     self._item._n_ = nil
     if not idx then return self._item
     else return self._item[ idx ] end
@@ -434,6 +439,42 @@ function material_compose2( self, id, count )
     self:reply_ok("material_compose", id)
     --任务
     task_logic_t.process_task(self, TASK_ACTION.SYN_MATERIAL, id, 1)
+end
+
+function hero_piece_decompose( self, id, count )
+    if count < 0 then return end
+    if self:get_item_num( id ) < count then return end
+    local conf = resmng.get_conf( "prop_item", id )
+    if not conf then return end
+    if conf.Class ~= ITEM_CLASS.HERO then return end
+    if conf.Mode ~= ITEM_HERO_MODE.PIECE then return end
+    local heroid = conf.Param
+    local conf_hero = resmng.get_conf( "prop_hero_basic", heroid )
+    if not conf_hero then return end
+
+    local gain = conf_hero.Dicompose
+    if not gain then return end
+
+    self:dec_item_by_item_id( id, count, VALUE_CHANGE_REASON.DECOMPOSE )
+    local gains = player_t.get_multi_bonus( "mutual_award", gain, count )
+   
+    self:add_bonus( "mutex_award", gains, VALUE_CHANGE_REASON.DECOMPOSE )
+end
+
+
+function skill_piece_decompose( self, id, count )
+    if count < 0 then return end
+    if self:get_item_num( id ) < count then return end
+    local conf = resmng.get_conf( "prop_item", id )
+    if not conf then return end
+    if conf.Class ~= ITEM_CLASS.ITEM_PIECE then return end
+
+    local node = SKILL_BOOK_DECOMPOSE[ conf.Mode ]
+    if node then
+        self:dec_item_by_item_id( id, count, VALUE_CHANGE_REASON.DECOMPOSE )
+        local gains = {{ "item", node.id, node.num * count } }
+        self:add_bonus( "mutex_award", gains, VALUE_CHANGE_REASON.DECOMPOSE )
+    end
 end
 
 

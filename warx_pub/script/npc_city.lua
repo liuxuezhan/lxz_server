@@ -62,6 +62,12 @@ function get_atk_info(unions, data)
             end
         end
     end
+    if data.state == TW_STATE.PREPARE  or data.state == TW_STATE.FIGHT then
+        local declares = npc_city.cur_declares or {} 
+        if declares[data.propid] then 
+            table.insert(unions, {declares[data.propid][1], ["is_fake"] = true})
+        end
+    end
 end
 
 function get_defender_info(data)
@@ -84,11 +90,20 @@ function get_defender_info(data)
         return { data.eid % 5 + 1 }
     end
 
-    local occupys = npc_city.monster_occupys
-    if occupys then
-        local uid = occupys[ data.propid ]
-        if uid then
-            return { uid }
+   -- if data.state == TW_STATE.PREPARE  or data.state == TW_STATE.FIGHT then
+   --     local declares = npc_city.cur_declares or {}
+   --     if declares[data.propid] then
+   --         return {declares[data.propid][1], ["is_fake"] = true}
+   --     end
+   -- end
+
+    if data.state == TW_STATE.PACE then
+        local occupys = npc_city.monster_occupys
+        if occupys then
+            local uid = occupys[ data.propid ]
+            if uid then
+                return { uid , ["is_fake"] = true}
+            end
         end
     end
 
@@ -199,7 +214,7 @@ end
 
 function reset_npc(self)
     self:drop_city(self.uid) -- post to cross center
-    self.uid = 0
+    change_city_uid(self, 0)
     --self.pid = 0
     troop_mng.delete_troop(self.my_troop_id)
     self.my_troop_id = nil
@@ -309,22 +324,22 @@ function fight_state(npcCity)
         king_city.common_ntf(resmng.TW_FIGHT, {pro.Name})
     end
 
-    npcCity.startTime =  gTime 
-    npcCity.endTime = gTime + resmng.prop_tw_stage[npcCity.state].Spantime[level]
-    set_timer(npcCity)
-    format_union(npcCity)
-    etypipe.add(npcCity)
-    update_act_tag()
-    --mark(npcCity)
-end
+    for k, v in pairs(npcCity.declareUnions or {}) do
+        local union = unionmng.get_union(v)
+        if union then
+            local _members = union:get_members()
+            for k, ply in pairs(_members or {}) do
+                offline_ntf.post(resmng.OFFLINE_NOTIFY_FIGHT, ply, pro.NameOffline)
+            end
+        end
+    end
 
-function fight_state(npcCity)
-    local level = get_npc_city_lv(npcCity.propid)
-    npcCity.state = TW_STATE.FIGHT
-
-    local pro = resmng.prop_world_unit[npcCity.propid]
-    if pro then
-        king_city.common_ntf(resmng.TW_FIGHT, {pro.Name})
+    local def_union = unionmng.get_union(npcCity.uid)
+    if def_union then
+        local _members = def_union:get_members()
+        for k, ply in pairs(_members or {}) do
+            offline_ntf.post(resmng.OFFLINE_NOTIFY_BE_FIGHT, ply, pro.NameOffline)
+        end
     end
 
     npcCity.startTime =  gTime 
@@ -560,7 +575,6 @@ function gen_random_list(seqList)
             list[index] = seqList[ index ]
         end
     end
-    print(countTb(list))
     return list
 end
 
@@ -610,9 +624,6 @@ function declare_war(atkEid, npcEid)
                     Rpc:declare_tw_ack(p, npcEid, 1)
                 end
             end
-            
-            -- for debug
-            print("declare ", atkEid, npcEid)
         end
     else
     end
@@ -669,18 +680,22 @@ function declare_notify(atk_eid, npc_eid)
     end
 
     if conf.Mail then
-    for k, v in pairs(npc.declareUnions or {}) do
-        local union = unionmng.get_union(v)
-        if union then
-            local _members = union:get_members()
-            for k, ply in pairs(_members or {}) do
-                --ply:send_system_notice(conf.Mail, {npc_conf.Name},{unions, npc_conf.Name})
-                player_t:send_system_notice(ply, conf.Mail, {npc_conf.Name},{unions, npc_conf.Name})
+        for k, v in pairs(npc.declareUnions or {}) do
+            local union = unionmng.get_union(v)
+            if union then
+                local _members = union:get_members()
+                for k, ply in pairs(_members or {}) do
+                    --ply:send_system_notice(conf.Mail, {npc_conf.Name},{unions, npc_conf.Name})
+                    player_t:send_system_notice(ply, conf.Mail, {npc_conf.Name},{unions, npc_conf.Name})
+
+                    --offline ntf
+                    offline_ntf.post(resmng.OFFLINE_NOTIFY_DECLARE, ply, npc_conf.NameOffline)
+
+                end
+                -- player_t.send_system_to_all(conf.Mail, {},{unions, npc_conf.Name})
             end
-               -- player_t.send_system_to_all(conf.Mail, {},{unions, npc_conf.Name})
         end
     end
-end
 
     if conf.Notify then
         Rpc:tips({pid=-1,gid=_G.GateSid}, 2, conf.Notify,{unions, npc_conf.Name, time})
@@ -688,6 +703,15 @@ end
 
     if conf.Chat then
         player_t.add_chat({pid=-1,gid=_G.GateSid}, 0, 0, {pid=0}, "", conf.Chat, {npc_conf.X, npc_conf.Y, unions, npc_conf.Name, time})
+    end
+
+    local def_union = unionmng.get_union(npc.uid)
+    if def_union then
+        local _members = def_union:get_members()
+        for k, ply in pairs(_members or {}) do
+            --offline ntf
+            offline_ntf.post(resmng.OFFLINE_NOTIFY_BE_DECLARE, ply, npc_conf.NameOffline, unions)
+        end
     end
 end
 
@@ -985,7 +1009,7 @@ function make_new_defender(ackTroop, defenseTroop, npcCity)
 
     if maxUnion then
         if union_t.is_npc_city_full(maxUnion) then
-            npcCity.uid = 0
+            change_city_uid(npc_city, 0)
             --npcCity.pid = 0
             deal_npc_new_defender(npcCity.uid, npcCity)
         else
@@ -1017,7 +1041,6 @@ function make_new_defender(ackTroop, defenseTroop, npcCity)
             end
         end
     end
-    union_hall_t.battle_room_update_ety(OPERATOR.UPDATE, npcCity)
 end
 
 function deal_npc_old_defender(npcCity)
@@ -1072,7 +1095,7 @@ end
 
 function deal_npc_new_defender(newdefender, npcCity, ackTroop)
     reset_declare(npcCity.eid, {npcCity.uid})
-    npcCity.uid = newdefender
+    change_city_uid(npcCity, newdefender)
     if type(newdefender) == "number" and newdefender > 0 then
         npcCity.last_uid = newdefender
     end
@@ -1085,24 +1108,24 @@ function deal_npc_new_defender(newdefender, npcCity, ackTroop)
 
     occupy_notify(npcCity)
 
---    if king_city.state == KW_STATE.FIGHT then  -- notify only in fight state
-        local npc_conf = resmng.get_conf("prop_world_unit", npcCity.propid) or {}
-        local buff = npcCity.kw_buff or {}
-        local buf = {}
-        if buff[1] then
-            buf = resmng.get_conf("prop_buff", buff[1]) or {}
+    --  if king_city.state == KW_STATE.FIGHT then  -- notify only in fight state
+    local npc_conf = resmng.get_conf("prop_world_unit", npcCity.propid) or {}
+    local buff = npcCity.kw_buff or {}
+    local buf = {}
+    if buff[1] then
+        buf = resmng.get_conf("prop_buff", buff[1]) or {}
+    end
+    local ef_name = nil
+    local ef_value = nil
+    for k, v in pairs(buf.Value or {}) do
+        local attr = string.split(k, "_")
+        local ef_conf = resmng.prop_effect_type[attr[1]]
+        if ef_conf then
+            ef_name = ef_conf.BuffName
         end
-        local ef_name = nil
-        local ef_value = nil
-        for k, v in pairs(buf.Value or {}) do
-            local attr = string.split(k, "_")
-            local ef_conf = resmng.prop_effect_type[attr[1]]
-            if ef_conf then
-                ef_name = ef_conf.BuffName
-            end
-            if attr[2]  == "A" or not attr[2] then
-                ef_value = v
-            elseif attr[2] == "R" then
+        if attr[2]  == "A" or not attr[2] then
+            ef_value = v
+        elseif attr[2] == "R" then
                 ef_value = v * 0.0001 * 100
                 ef_value = tostring(ef_value).."%"
             end
@@ -1195,11 +1218,11 @@ function abandon_npc(self)
         update_union_score(self.uid, -score, 13)
     end
 
-    local mc = union_t.get_monster_city(self.eid)
-    if mc then
-        monster_city.send_act_award(mc)
-        rem_ety(mc.eid)
-    end
+    --local mc = union_t.get_monster_city(self.eid)
+    --if mc then
+    --    monster_city.send_act_award(mc)
+    --    rem_ety(mc.eid)
+    --end
 
     if union then
         local npcs = union.npc_citys
@@ -1221,11 +1244,10 @@ function abandon_npc(self)
 
     self:drop_city(self.uid) -- post to cross center
 
-    self.uid = 0
+    change_city_uid(self, 0)
     self.my_troop_id = 0
     --self.pid = 0
     format_union(self)
-    union_hall_t.battle_room_update_ety(OPERATOR.UPDATE, self)
     etypipe.add(self)
 end
 
@@ -1388,7 +1410,7 @@ function get_troop_info(self)
     return pow
 end
 
-function send_score_reward()
+function send_score_award()
     local prop = resmng.prop_tw_person_rank_award
     if prop then
         for k, v in pairs(prop or {}) do
@@ -1457,17 +1479,41 @@ function post_change(propid, map_id, tag)
      Rpc:callAgent(center_id, "post_npc_change", propid, map_id, tag)
 end
 
+function first_pre_boss_atk_city()
+    npc_city.monster_declares = nil
+    npc_city.cur_declares = nil
+    prepare_boss_attack_city( )
+end
+
 function prepare_boss_attack_city( )
     local cs = {}
-    for k, v in pairs( citys ) do
+    local declare_citys = npc_city.monster_declares or {} 
+    for k, v in pairs( citys or {}) do
         local city = get_ety( k )
         if city then
             if city.uid == 0 then
-                table.insert( cs, {city.propid, city.eid} )
+                if not declare_citys[city.propid] then
+                    table.insert( cs, {city.propid, city.eid} )
+                end
             end
         end
     end
-    if #cs < 3 then return end
+    if #cs < 3 then 
+        if #declare_citys >= 3 then
+            for i = #cs, 3, 1 do
+                for k, v in pairs(declare_citys or {}) do
+                    local eid = get_npc_eid_by_propid(k)
+                    table.insert(cs, {city.propid, city.eid})
+                end
+            end
+            return
+        end
+        return 
+    end
+
+    if #cs < 3 then
+        return
+    end
 
     local gs = {}
     for k, v in pairs( resmng.prop_default_union ) do
@@ -1475,6 +1521,8 @@ function prepare_boss_attack_city( )
             table.insert( gs, k )
         end
     end
+
+    local monster_occupys = npc_city.monster_occupys or {}
 
     local infos = {}
     for i = 1, 3, 1 do
@@ -1484,20 +1532,62 @@ function prepare_boss_attack_city( )
         local ct = table.remove( cs, idx )
         local ety = get_ety(ct[2])
         if ety then
-            infos[ ct[1] ] = { table.remove( gs ) }
+            if monster_occupys[ ct[1] ] then
+                local idx = 1
+                while gs[idx] do
+                    if monster_occupys[ ct[1] ] == gs[idx] then
+                        idx = idx + 1
+                    else
+                        break
+                    end
+                end
+                infos[ ct[1] ] = { table.remove(gs, idx) }
+            else
+                infos[ ct[1] ] = { table.remove( gs ) }
+            end
+        end
+    end
+
+  --  for i = 2, 3, 1 do
+  --      if #gs == 0 then break end
+  --      for k, v in pairs( infos ) do
+  --          if #gs == 0 then break end
+  --          table.insert( v, table.remove( gs ) )
+  --      end
+  --  end
+
+    for k, v in pairs(infos) do
+        declare_citys[k] = v
+    end
+
+    npc_city.monster_declares = declare_citys
+    npc_city.cur_declares = infos
+
+    for k, v in pairs(infos or {}) do
+        local eid = get_npc_eid_by_propid(k)
+        local ety = get_ety(eid)
+        if ety then
             prepare_state(ety)
+            local conf = resmng.prop_act_notify[resmng.TW_PREPARE_SPECIAL]
+            if conf then
+                local npc_conf = resmng.prop_world_unit[ety.propid]
+                local union_conf = resmng.prop_default_union[v[1]]
+                if union_conf and npc_conf then
+                    local time = ety.endTime - gTime
+                    time = format_time(time) 
+                    local unions = {union_conf.Name}
+                    if conf.Notify then
+                        Rpc:tips({pid=-1,gid=_G.GateSid}, 2, conf.Notify,{unions, npc_conf.Name, time})
+                    end
+
+                    if conf.Chat1 then
+                        player_t.add_chat({pid=-1,gid=_G.GateSid}, 0, 0, {pid=0}, "", conf.Chat1, {npc_conf.X,npc_conf.Y, unions, npc_conf.Name, time}) 
+                    end
+
+                end
+            end
         end
     end
-
-    for i = 2, 3, 1 do
-        if #gs == 0 then break end
-        for k, v in pairs( infos ) do
-            if #gs == 0 then break end
-            table.insert( v, table.remove( gs ) )
-        end
-    end
-
-    npc_city.monster_declares = infos
 
     --Rpc:monster_declare( {pid=-1, gid=_G.GateSid}, infos )
 
@@ -1505,7 +1595,7 @@ function prepare_boss_attack_city( )
 end
 
 function start_boss_attack_city( )
-    local infos = npc_city.monster_declares or {}
+    local infos = npc_city.cur_declares or {}
     for k, v in pairs(infos ) do
         local eid = get_npc_eid_by_propid(k)
         local ety = get_ety(eid)
@@ -1518,9 +1608,14 @@ function start_boss_attack_city( )
 end
 
 function stop_boss_attack_city( )
-    local infos = npc_city.monster_declares
-    if not infos then return end
+    tmp_stop_boss_attack_city( ) 
     npc_city.monster_declares = nil
+    npc_city.cur_declares = nil
+end
+
+function tmp_stop_boss_attack_city( )
+    local infos = npc_city.cur_declares
+    if not infos then return end
 
     local occupys = {}
     for k, v in pairs( infos ) do
@@ -1529,7 +1624,12 @@ function stop_boss_attack_city( )
             occupys[ k ] = table.remove( v, math.random( 1, count ) )
         end
     end
-    npc_city.monster_occupys = occupys
+
+    local monster_occupys = npc_city.monster_occupys or {}
+    for k, v in pairs(occupys or {}) do
+        monster_occupys[k] = v
+    end
+    npc_city.monster_occupys = monster_occupys
 
     for k, v in pairs( citys ) do
         local npc = get_ety(v)
@@ -1539,12 +1639,33 @@ function stop_boss_attack_city( )
                     --format_union( npc )
                     --etypipe.add( npc )
                     pace_state(npc)
+
+                    local npc_conf = resmng.prop_world_unit[npc.propid] 
+                    local conf = resmng.prop_act_notify[resmng.TW_FIGHT_SPECIAL]
+                    local occu_conf = resmng.prop_default_union[ occupys[ npc.propid ]]
+
+                    if npc_conf and conf and occu_conf then
+
+                        if conf.Notify then
+                            Rpc:tips({pid=-1,gid=_G.GateSid}, 2, conf.Notify,{occu_conf.Name, npc_conf.Name, occu_conf.Shortname})
+                        end
+
+                        if conf.Chat1 then
+                            player_t.add_chat({pid=-1,gid=_G.GateSid}, 0, 0, {pid=0}, "", conf.Chat1, {npc_conf.X,npc_conf.Y, occu_conf.Name, npc_conf.Name, occu_conf.Shortname})
+                        end
+                    end
                 end
             end
         end
     end
 
     Rpc:monster_declare( {pid=-1, gid=_G.GateSid}, {} )
+end
+
+function change_city_uid(self, uid)
+    union_hall_t.ety_rem_def(self)
+    self.uid = uid
+    union_hall_t.ety_add_def(self)
 end
 
 

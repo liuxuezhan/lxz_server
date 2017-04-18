@@ -37,4 +37,6 @@ prop_act_notify = {
 	[KW_SPECIAL_PREPARE] = { ID = KW_SPECIAL_PREPARE, Notify = 60238, Chat1 = 60238, Chat2 = nil, SendMail = nil,},
 	[TW_FIGHT] = { ID = TW_FIGHT, Notify = 60252, Chat1 = 60253, Chat2 = 60254, SendMail = nil,},
 	[KING_ONLINE_NOUNION] = { ID = KING_ONLINE_NOUNION, Notify = 60384, Chat1 = 60385, Chat2 = nil, SendMail = nil,},
+	[TW_PREPARE_SPECIAL] = { ID = TW_PREPARE_SPECIAL, Notify = 60458, Chat1 = 60459, Chat2 = nil, SendMail = nil,},
+	[TW_FIGHT_SPECIAL] = { ID = TW_FIGHT_SPECIAL, Notify = 60460, Chat1 = 60461, Chat2 = nil, SendMail = nil,},
 }

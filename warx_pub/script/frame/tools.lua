@@ -63,10 +63,11 @@ function WARN(fmt, ...)
 end
 
 function ERROR(fmt, ...)
-    local s = string.format(fmt, ...)
-    lwarn(s)
-
-    local stacks = debug.traceback()
+    local inf = string.format(fmt, ...)
+    local stacks = debug.traceback(inf)
+    if config.Game == "actx" then
+        lwarn(stacks)
+    end
     for s in string.gmatch( stacks, "[^%c]+" ) do
         lwarn(s)
     end
@@ -126,13 +127,12 @@ end
 
 
 function mkSpace(num)
-    -- return "|" .. string.rep(" ", num)
     return string.rep(" ", num)
 end
 
 function toStr(x)
     if type(x) == "string" then
-        return "\"" .. tostring(x) .. "\""
+        return string.format("%q", x)
     else
         return tostring(x)
     end
@@ -224,8 +224,8 @@ function chat_tab(p, t, what, max_cnt)
 end
 
 -- max_cnt 打印层数
-function dumpTab(t, what, max_cnt)
-    if not config.Release then
+function dumpTab(t, what, max_cnt, ignore_release)
+    if ignore_release or not config.Release then
         if type(t) ~= "table" then
             LOG("%s: %s", type(t), tostring(t))
         else
@@ -428,11 +428,11 @@ function print_tab(sth,h)
     if type(sth) ~= "table" then
         if type(sth) == "boolean" then
             if sth then
-                cprint(h.."true",1) 
-            else 
+                cprint(h.."true",1)
+            else
                 cprint(h.."false",1)
-            end 
-        elseif type(sth) == "function" then 
+            end
+        elseif type(sth) == "function" then
             cprint(h.."function",1)
         elseif type(sth) == "string" then
             cprint(h.."\\\""..sth.."\\\"",1)
@@ -459,24 +459,24 @@ function print_tab(sth,h)
             if type(v) == "table" then
 
                 deep = deep + 2
-                cprint(string.format( "%s%s = {", string.rep(space, deep - 1), key )) 
+                cprint(string.format( "%s%s = {", string.rep(space, deep - 1), key ))
                 _dump(v)
                 cprint(string.format("%s}",string.rep(space, deep-1)))
                 deep = deep - 2
             elseif type(v) == "string" then
-                cprint(string.format("%s%s = \\\"%s\\\"", string.rep(space, deep + 1), key, v)) 
-            elseif type(v) == "function" then 
-                cprint(string.format("%s%s = function", string.rep(space, deep + 1), key )) 
+                cprint(string.format("%s%s = \\\"%s\\\"", string.rep(space, deep + 1), key, v))
+            elseif type(v) == "function" then
+                cprint(string.format("%s%s = function", string.rep(space, deep + 1), key ))
             elseif type(v) == "boolean" then
                 if sth then
-                    cprint(string.format("%s%s = true", string.rep(space, deep + 1), key )) 
-                else 
-                    cprint(string.format("%s%s = false", string.rep(space, deep + 1), key )) 
-                end 
+                    cprint(string.format("%s%s = true", string.rep(space, deep + 1), key ))
+                else
+                    cprint(string.format("%s%s = false", string.rep(space, deep + 1), key ))
+                end
             else
-                cprint(string.format("%s%s = %s", string.rep(space, deep + 1), key, v)) 
-            end 
-        end 
+                cprint(string.format("%s%s = %s", string.rep(space, deep + 1), key, v))
+            end
+        end
     end
 
     cprint("{")
@@ -490,9 +490,9 @@ function cprint(s,num)--颜色答应
     if num == 1 then --蓝色
         c =  "echo -e \"\\033[;34;2m"
     end
-    local cool = c..s.." \\033[0m \"" 
-    os.execute(cool) 
-    --os.execute(cool.."|jg") 
+    local cool = c..s.." \\033[0m \""
+    os.execute(cool)
+    --os.execute(cool.."|jg")
 
 end
 
@@ -505,7 +505,7 @@ function lxz(...)--打印lua变量数据到日志文件
             print_tab(v,h)
         end
     else
-        cprint(h,1) 
+        cprint(h,1)
     end
 
 end
@@ -517,3 +517,4 @@ function lxz1(...)--打印lua变量数据到日志文件
         print_tab(v)
     end
 end
+

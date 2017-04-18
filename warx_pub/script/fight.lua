@@ -38,7 +38,6 @@ local function _calc_atk(A, As, D, Ds)
     local total = 0
     for _, a in pairs(A.objs) do
         if a.num > 0 then
-            --total = total + a.prop.Atk *a.num * mul
             total = total + a.Atk *a.num * mul
         end
     end
@@ -1657,6 +1656,12 @@ function calc_kill(action, troop, troop0, make_dmg, lost_powD, kill_num, kill_lv
                             if n > 0 then
                                 p:add_count(resmng["ACH_TASK_KILL_SOLDIER"..lv], n)
                                 task_logic_t.process_task(p, TASK_ACTION.KILL_SOLDIER, lv, n)
+                                if action ~= TroopAction.LostTemple and action ~= TroopAction.SiegeNpc then
+                                    --周限时活动
+                                    weekly_activity.process_weekly_activity(p, WEEKLY_ACTIVITY_ACTION.KILL_ARM, lv, n)
+                                    --运营活动
+                                    operate_activity.process_operate_activity(p, OPERATE_ACTIVITY_ACTION.KILL_SOLDIER, lv, n)
+                                end
                             end
                         end
                     end

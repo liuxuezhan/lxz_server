@@ -50,4 +50,13 @@ prop_mail = {
 	[MAIL_10039] = { ID = MAIL_10039, Class = 1, Name = UNION_NEWUNION_MANAGER_1, Title = LG_MAIL_TITLE_10037, Content = LG_MAIL_CONTENT_10040, AddBonus = nil,},
 	[MAIL_10040] = { ID = MAIL_10040, Class = 1, Name = UNION_NEWUNION_MANAGER_1, Title = LG_MAIL_TITLE_10038, Content = LG_MAIL_CONTENT_10041, AddBonus = nil,},
 	[MAIL_10041] = { ID = MAIL_10041, Class = 1, Name = LG_HERO_BASIC_NAME_111100004, Title = LG_MAIL_TITLE_10005, Content = LG_MAIL_CONTENT_10042, AddBonus = nil,},
+	[MAIL_10042] = { ID = MAIL_10042, Class = 1, Name = UNION_NEWUNION_MANAGER_1, Title = LG_MAIL_TITLE_10039, Content = LG_MAIL_CONTENT_10043, AddBonus = nil,},
+	[MAIL_10043] = { ID = MAIL_10043, Class = 1, Name = UNION_NEWUNION_MANAGER_1, Title = LG_MAIL_TITLE_10040, Content = LG_MAIL_CONTENT_10044, AddBonus = nil,},
+	[MAIL_10044] = { ID = MAIL_10044, Class = 1, Name = UNION_NEWUNION_MANAGER_1, Title = LG_MAIL_TITLE_10041, Content = LG_MAIL_CONTENT_10045, AddBonus = nil,},
+	[MAIL_10045] = { ID = MAIL_10045, Class = 1, Name = UNION_NEWUNION_MANAGER_1, Title = LG_MAIL_TITLE_10042, Content = LG_MAIL_CONTENT_10046, AddBonus = nil,},
+	[MAIL_10046] = { ID = MAIL_10046, Class = 1, Name = UNION_NEWUNION_MANAGER_1, Title = LG_MAIL_TITLE_10043, Content = LG_MAIL_CONTENT_10047, AddBonus = nil,},
+	[MAIL_10047] = { ID = MAIL_10047, Class = 1, Name = UNION_NEWUNION_MANAGER_1, Title = LG_MAIL_TITLE_10044, Content = LG_MAIL_CONTENT_10048, AddBonus = nil,},
+	[MAIL_10048] = { ID = MAIL_10048, Class = 1, Name = UNION_NEWUNION_MANAGER_1, Title = LG_MAIL_TITLE_10045, Content = LG_MAIL_CONTENT_10049, AddBonus = nil,},
+	[MAIL_10049] = { ID = MAIL_10049, Class = 1, Name = UNION_NEWUNION_MANAGER_1, Title = LG_MAIL_TITLE_10046, Content = LG_MAIL_CONTENT_10050, AddBonus = "您在开服7日杀敌排行活动中达到第%1$d名，这是您的奖励。",},
+	[MAIL_10050] = { ID = MAIL_10050, Class = 1, Name = UNION_NEWUNION_MANAGER_1, Title = LG_MAIL_TITLE_10047, Content = LG_MAIL_CONTENT_10051, AddBonus = "您的军团在开服7日攻城略地排行活动中达到第%1$d名，这是您的奖励。",},
 }

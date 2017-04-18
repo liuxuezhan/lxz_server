@@ -10,9 +10,13 @@
 --      3.可以使用snapshot_diff:print_module()来输出module对象的统计信息
 --      4.可以使用snapshot_diff:print_one_module(module_name, limit_start, limit_count)来输出某一个module对象的具体差异对象列表
 --      5.可以使用snapshot_diff:print_one_node(addr_str, dump_level)来输出某一个对象的应用关系树
---      6.可以使用snapshot_diff:print_other(obj_type_str, limit_start, limit_count)来输出非module对象的列表
+--      6.可以使用snapshot_diff:print_other(limit_start, limit_count)来输出非module对象的签名和数量
+--      7.可以使用snapshot_diff:print_other_by_search(search, output_cnt_only)来输出特定签名的非module对象.
+--          search可以是字符串或者函数
 -- 其他：
 --      1.关于时机的选择，2个时刻包含的时段应该包含泄漏事件（越明显越好）
+
+local string = string
 snapshot = {
     TABLE = 1,
     FUNCTION = 2,
@@ -205,23 +209,32 @@ snapshot = {
         end
         --print(string.format("zhoujy_debug: mark_object obj=[%s], type=[%s], parent_key=[%s], desc=[%s]", obj, type(obj), parent_key, desc))
 
-        --[[
         -- 以下代码是查找thread中的local，暂时不用
-        for i=-1,1,2 do
-            local local_index = i
-            while true do
-                local name, value = debug.getlocal(obj, 1, local_index)
-                if name == nil then
-                    break
-                else
-                    --print(string.format("zhoujy_debug: mark_thread name=%s, value=%s", name, value))
-                end
-                local info = debug.getinfo(obj, 1, "Sl")
-                local desc_temp = string.format("%s:%s:%d", name, info.short_src, info.currentline)
-                self:mark_object(value, addr_str, desc_temp)
+        --[[
+        -- 故意跳过自身
+        local f = 1
+        while true do
+            local info = debug.getinfo(obj, f, "Sl")
+            if info == nil then
+                break
+            else
+                for i=-1,1,2 do
+                    local local_index = i
+                    while true do
+                        local name, value = debug.getlocal(obj, f, local_index)
+                        if name == nil then
+                            break
+                        else
+                            --print(string.format("zhoujy_debug: mark_thread name=%s, value=%s", name, value))
+                        end
+                        local desc_temp = string.format("[local]%s:%s:%d", name, info.short_src, info.currentline)
+                        self:mark_object(value, addr_str, desc_temp)
 
-                local_index = local_index + i
+                        local_index = local_index + i
+                    end
+                end
             end
+            f = f + 1
         end
         ]]--
         

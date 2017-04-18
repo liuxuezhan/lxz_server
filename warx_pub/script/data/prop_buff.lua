@@ -3174,7 +3174,7 @@ prop_buff = {
 	[BUFF_COUNT_BUILD] = { ID = BUFF_COUNT_BUILD, Class = 1, Cond = nil, Value = {CountBuild_A=1}, Group = 13, Mutex = 3, Lv = 0, IsInform = nil,},
 	[BUFF_SHELL_ROOKIE] = { ID = BUFF_SHELL_ROOKIE, Class = 1, Cond = nil, Value = {SpeedMarchPvE_R=20000,StateShell=1}, Group = 1, Mutex = 1, Lv = 0, IsInform = nil,},
 	[BUFF_SHELL_CROSS] = { ID = BUFF_SHELL_CROSS, Class = 1, Cond = nil, Value = {StateShell=1}, Group = 1, Mutex = 1, Lv = 0, IsInform = nil,},
-	[BUFF_VIP_TEMPOR] = { ID = BUFF_VIP_TEMPOR, Class = 1, Cond = nil, Value = {CountTroop_A=1,BuildFreeTime_A=1260}, Group = 0, Mutex = 0, Lv = 0, IsInform = 1,},
+	[BUFF_VIP_TEMPOR] = { ID = BUFF_VIP_TEMPOR, Class = 1, Cond = nil, Value = {CountTroop_A=1,BuildFreeTime_A=900}, Group = 0, Mutex = 0, Lv = 0, IsInform = 1,},
 	[BUFF_1] = { ID = BUFF_1, Class = 1, Cond = nil, Value = {CountSoldier_A=500000,CountTroop_A=10}, Group = 15, Mutex = 1, Lv = 0, IsInform = nil,},
 	[BUFF_2] = { ID = BUFF_2, Class = 1, Cond = nil, Value = {SpeedRes2_R=2000}, Group = 0, Mutex = 0, Lv = 0, IsInform = nil,},
 	[BUFF_3] = { ID = BUFF_3, Class = 1, Cond = {"BTYPE",1,2}, Value = {SpeedRes2_R=2000}, Group = 0, Mutex = 2, Lv = 0, IsInform = nil,},

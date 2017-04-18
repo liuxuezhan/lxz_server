@@ -12,7 +12,7 @@ prop_black_market_hot_group = {
 	[MARKET_HOT_GROUP_3] = { ID = MARKET_HOT_GROUP_3, Point = 25, Group = 3,},
 	[MARKET_HOT_GROUP_4] = { ID = MARKET_HOT_GROUP_4, Point = 80, Group = 4,},
 	[MARKET_HOT_GROUP_5] = { ID = MARKET_HOT_GROUP_5, Point = 250, Group = 4,},
-	[MARKET_HOT_GROUP_6] = { ID = MARKET_HOT_GROUP_6, Point = 500, Group = 4,},
+	[MARKET_HOT_GROUP_6] = { ID = MARKET_HOT_GROUP_6, Point = 500, Group = 5,},
 	[MARKET_HOT_GROUP_7] = { ID = MARKET_HOT_GROUP_7, Point = 1000, Group = 5,},
 	[MARKET_HOT_GROUP_8] = { ID = MARKET_HOT_GROUP_8, Point = 2000, Group = 6,},
 	[MARKET_HOT_GROUP_9] = { ID = MARKET_HOT_GROUP_9, Point = 3000, Group = 6,},

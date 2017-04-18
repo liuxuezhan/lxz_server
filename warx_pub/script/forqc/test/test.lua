@@ -13,17 +13,32 @@ function t1.action( _idx )
     chat(p, "@addres=3=10000000")
     chat(p, "@addres=4=10000000")
     sync( p )
-    --[[
     Rpc:union_quit( p )
     Rpc:union_create(p,name,name,40,1000)
     wait_for_ack( p, "union_on_create" )
-    --]]
 
 
     Rpc:union_mission_get(p)
     sync(p)
     lxz(p.utask)
-    Rpc:union_mission_set(p)
+    local f = true
+    for k, v in pairs( p.utask.cur ) do
+        if v.class == 13 then 
+            Rpc:union_mission_set(p,k)
+            f = false
+        end
+    end
+    if f then 
+        Rpc:union_mission_set(p,1)
+        Rpc:union_mission_set(p,2)
+        Rpc:union_mission_set(p,3)
+        Rpc:union_mission_set(p,4)
+        Rpc:union_mission_set(p,5)
+        Rpc:union_mission_set(p,6)
+        Rpc:union_mission_get(p)
+        sync(p)
+        return
+    end
     sync(p)
     Rpc:union_mission_get(p)
     sync(p)
@@ -61,7 +76,7 @@ function t1.action( _idx )
             break
         end
     end
-
 end
+
 return t1
 

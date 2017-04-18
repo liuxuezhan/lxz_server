@@ -114,7 +114,7 @@ end
 function do_load_count( self )
     local db = self:getDb()
     local info = db.count:findOne({_id=self.pid})
-    return info or {}
+    return self._count or info or {}
 end
 
 function get_count( self, id )

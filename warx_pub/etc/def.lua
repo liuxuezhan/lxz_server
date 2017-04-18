@@ -2,7 +2,7 @@
 -- 原warx 的socket由c语言引擎统一队列处理 ，移植后由lua分发处理
 json = require "json"
 require "mytool"
-g_host = "192.168.99.181"
+g_host = "192.168.98.130"
 
 _list={
 
@@ -229,6 +229,9 @@ end
 function skiplist.get_range(...)
 end
 function skiplist.clear(...)
+end
+function c_msec()
+    return os.time()
 end
 
 

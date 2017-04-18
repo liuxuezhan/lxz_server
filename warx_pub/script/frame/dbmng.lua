@@ -27,14 +27,14 @@ function conn_close(self, sock)
             table.remove(self.idxMap, k)
             self.sckMap[ sock ] = nil
             self.num = self.num - 1
-            conn.toMongo(v.host, v.port, v.dbname, v.tips)
+            conn.toMongo(v.host, v.port, v.dbname, v.tips, true)
             return
         end
     end
     local v = self.sckMap[ sock ]
     if v then
         self.sckMap[ sock ] = nil
-        conn.toMongo(v.host, v.port, v.dbname, v.tips)
+        conn.toMongo(v.host, v.port, v.dbname, v.tips, true)
     end
 end
 

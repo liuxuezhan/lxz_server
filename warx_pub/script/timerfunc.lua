@@ -5,7 +5,7 @@ _funs["toGate"] = function(sn, ip, port)
 end
 
 _funs["toMongo"] = function( host, port, db, tips)
-    conn.toMongo(host, port, db, tips)
+    conn.toMongo(host, port, db, tips, true)
     --if sid then gConns[ sid ] = nil end
 end
 
@@ -22,11 +22,17 @@ _funs["cron"] = function(sn)
     fight.clean_report()
 
     for what, cos in pairs( gCoroPend ) do
-        INFO( "CoroPend %s, %d", what, table_count( cos ) )
+        local count = table_count( cos )
+        if count > 0 then
+            INFO( "CoroPend %s, %d", what, count )
+        end
     end
 
     for what, cos in pairs( gCoroPool ) do
-        INFO( "CoroPool %s, %d", what, table_count( cos ) )
+        local count = table_count( cos )
+        if count > 0 then
+            INFO( "CoroPool %s, %d", what, count )
+        end
     end
 
     player_t.pre_tlog(0,"GameSvrState",config.GameHost,(player_t.g_online_num or 0),(get_sys_status("start") or 0) ,0 )
@@ -76,8 +82,8 @@ _funs["hero_cure"] = function(sn, pid, hidx, tohp)
             --任务
             task_logic_t.process_task(p, TASK_ACTION.CURE, 1, (tohp - hero.hp))
 
-            p:hero_set_free( hero )
             hero.hp = math.floor( tohp )
+            p:hero_set_free( hero )
             hero.tmSn = 0
             hero.tmStart = 0
             hero.tmOver = 0
@@ -420,7 +426,9 @@ _funs["check"] = function(sn, pid)
         LOG( "[check], pid=%d, off", pid )
         ply._mail = nil
         ply._build = nil
+        ply._item = nil
         ply.tm_check = nil
+        ply:clear_task()
 
     end
 end

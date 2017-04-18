@@ -432,7 +432,6 @@ function main_loop(sec, msec, fpk, ftimer, froi, deb)
     begJob()
 
 
-
     if fpk == 1 then
         while gInit ~= "InitFrameDone" do
             local co = getCoroPool("pk")

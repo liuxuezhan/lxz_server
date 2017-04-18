@@ -101,7 +101,7 @@ function mongo_client:getDB(dbname)
 end
 
 function mongo_client:disconnect()
-	if self.__sock then
+	if rawget(self, __sock) then
 		socket.close(self.__sock)
 		self.__sock = nil
 	end
@@ -131,14 +131,44 @@ end
 --	return reply, driver.reply(reply, result)
 --end
 
-function get_reply(request_id, sock, result)
+-- extra = {
+--     cmd = "find",
+--     cmd_data = {
+--         query = query_bson,
+--         selector = selector_bson,
+--         doc = document
+--     }
+-- }
+--
+-- extra = {
+--     cmd = "findOne",
+--     cmd_data = {
+--         query = query_bson,
+--         selector = selector_bson,
+--     }
+-- }
+--
+-- extra = {
+--     cmd = "runCommand",
+--     cmd_data = {
+--         bson_cmd = bson_cmd
+--     }
+-- }
+--
+-- extra = {
+--     cmd = "runCommand2",
+--     cmd_data = {
+--         same with param
+--     }
+-- }
+function get_reply(request_id, sock, extra)
     --dbmng:pending(sock)
     --local  data, succ, reply_id, doc, cursor = putCoroPend("db", sock, result)
     --dbmng:release(sock)
     --return data, succ, reply_id, doc, cursor
 
     --LOG("get_reply, request_id = %d", request_id)
-    local  data, succ, reply_id, doc, cursor = putCoroPend("db", request_id, result)
+    local  data, succ, reply_id, doc, cursor = putCoroPend("db", request_id, extra)
     return data, succ, reply_id, doc, cursor
 end
 
@@ -159,9 +189,13 @@ function mongo.recvReply(sock)
 
     if id then
         --LOG("get_reply, reply_id = %d", id)
-        local co, result = getCoroPend("db", id)
+        local co, extra = getCoroPend("db", id)
         if co then gCoroBad[ co ] = true end
-        local succ, reply_id, doc, cursor = driver.reply(reply, result)
+        local doc = nil
+        if extra and extra.cmd == "find" then
+            doc = extra.cmd_data.doc
+        end
+        local succ, reply_id, doc, cursor = driver.reply(reply, doc)
         coroutine.resume(co, reply, succ, reply_id, doc, cursor)
     else
         WARN("error, recvReply")
@@ -180,8 +214,32 @@ function mongo_db:runCommand(cmd,cmd_v,...)
 	local pack = driver.query(request_id, 0, self.__cmd, 0, 1, bson_cmd)
 	-- todo: check send
 	socket.write(sock, pack)
+    local extra = {
+        cmd = "runCommand",
+        cmd_data = {
+            bson_cmd = bson_cmd,
+        },
+    }
+	local _, succ, reply_id, doc = get_reply(request_id, sock, extra)
+    --LOG("runCommand, get_reply")
+	assert(request_id == reply_id, "Reply from mongod error")
+	-- todo: check succ
+	return bson_decode(doc)
+end
 
-	local _, succ, reply_id, doc = get_reply(request_id, sock)
+function mongo_db:runCommand2(param)
+	local request_id = self.connection:genId()
+	local sock = self.connection.__sock
+	local pack = driver.query(request_id, 0, self.__cmd, 0, 1, param.bson_cmd)
+	-- todo: check send
+	socket.write(sock, pack)
+
+    local extra = {
+        cmd = "runCommand2",
+        cmd_data = param,
+    }
+
+	local _, succ, reply_id, doc = get_reply(request_id, sock, extra)
     --LOG("runCommand, get_reply")
 	assert(request_id == reply_id, "Reply from mongod error")
 	-- todo: check succ
@@ -264,13 +322,21 @@ end
 function mongo_collection:findOne(query, selector)
 	local request_id = self.connection:genId()
 	local sock = self.connection.__sock
-	local pack = driver.query(request_id, 0, self.full_name, 0, 1, query and bson_encode(query) or empty_bson, selector and bson_encode(selector))
+    local query_bson = query and bson_encode(query) or empty_bson
+    local selector_bson = selector and bson_encode(selector)
+	local pack = driver.query(request_id, 0, self.full_name, 0, 1, query_bson, selector_bson)
 
 	-- todo: check send
 	socket.write(sock, pack)
 
-    local co = coroutine.running()
-	local _, succ, reply_id, doc = get_reply(request_id, sock)
+    local extra = {
+        cmd = "findOne",
+        cmd_data = {
+            query = query_bson,
+            selector = selector_bson,
+        },
+    }
+	local _, succ, reply_id, doc = get_reply(request_id, sock, extra)
 	assert(request_id == reply_id, "Reply from mongod error")
 	-- todo: check succ
 	return bson_decode(doc)
@@ -314,7 +380,15 @@ function mongo_cursor:hasNext()
 		--todo: check send
 		socket.write(sock, pack)
 
-		local data, succ, reply_id, doc, cursor = get_reply(request_id, sock, self.__document)
+        local extra = {
+            cmd = "find",
+            cmd_data = {
+                query = self.__query,
+                selector = self.__selector,
+                doc = self.__document,
+            },
+        }
+		local data, succ, reply_id, doc, cursor = get_reply(request_id, sock, extra)
 		assert(request_id == reply_id, "Reply from mongod error")
 		if succ then
 			if doc then

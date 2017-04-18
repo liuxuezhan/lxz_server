@@ -1,142 +1,151 @@
 module("player_t")
 
 function mail_read_by_class( self, class, mode, lv )
-    local ms = self:get_mail()
-    if ms then
-        for id, m in pairs( ms ) do
-            if m.class == class then
-                if mode == -1 or m.mode == mode then
-                    if lv == -1 or m.lv == lv then
-                        if m.tm_drop == 0 and m.tm_read == 0 then
-                            m.tm_read = gTime
-                            gPendingSave.mail[ id ].tm_read = gTime
-                            INFO("[mail], read, pid=%d, id=%s", self.pid, m._id)
-                        end
-                    end
-                end
+    local db = self:getDb()
+    if db then
+        local qinfo = { to=self.pid, tm_drop = 0, tm_read = 0} 
+        if class ~= -1 then qinfo.class = class end
+        if mode ~= -1 then qinfo.mode = mode end
+        if lv ~= -1 then qinfo.lv = lv end
+        local info = db.mail:find( qinfo )
+        local ms = {}
+        while info:hasNext() do
+            local m = info:next()
+            if m then
+                m.tm_read = gTime
+                gPendingSave.mail[ m._id ].tm_read = gTime
+                INFO("[mail], read, pid=%d, id=%s", self.pid, m._id )
             end
         end
+        self:reply_ok("mail_read_by_class", 0)
     end
-    self:reply_ok("mail_read_by_class", 0)
 end
 
 
 function mail_drop_by_class( self, class, mode, lv )
-    local ms = self:get_mail()
-    if ms then
-        for id, m in pairs( ms ) do
-            if m.class == class then
-                if mode == -1 or m.mode == mode then
-                    if lv == -1 or m.lv == lv then
-                        if m.tm_drop == 0 and m.tm_lock == 0 then
-                            if m.its == 0  or m.tm_fetch > 0 then
-                                m.tm_drop = gTime
-                                gPendingSave.mail[ id ].tm_drop = gTime
-                                INFO("[mail], drop, pid=%d, id=%s", self.pid, m._id)
-                            end
-                        end
-                    end
+    local db = self:getDb()
+    if db then
+        local qinfo = { to=self.pid, tm_drop = 0, tm_lock = 0} 
+        if class ~= -1 then qinfo.class = class end
+        if mode ~= -1 then qinfo.mode = mode end
+        if lv ~= -1 then qinfo.lv = lv end
+        local info = db.mail:find( qinfo )
+        local ms = {}
+        while info:hasNext() do
+            local m = info:next()
+            if m then
+                if m.its == 0 or m.tm_fetch > 0 then
+                    m.tm_drop = gTime
+                    gPendingSave.mail[ m._id ].tm_drop = gTime
+                    INFO("[mail], drop, pid=%d, id=%s", self.pid, m._id )
                 end
             end
         end
+        self:reply_ok("mail_drop_by_class", 0)
     end
-    self:reply_ok("mail_drop_by_class", 0)
 end
 
 function mail_lock_by_sn(self,sns)
-    local ms = self:get_mail()
-    if ms then
-        for _, sn in pairs(sns) do
-            local m = ms[ sn ]
-            if m and m.tm_lock == 0 then
+    local db = self:getDb()
+    if db then
+        local info = db.mail:find( { to=self.pid, _id={ ["$in"] = sns }, tm_drop = 0, tm_lock = 0 } )
+        local ms = {}
+        while info:hasNext() do
+            local m = info:next()
+            if m then
                 m.tm_lock = gTime
                 gPendingSave.mail[ m._id ].tm_lock = gTime
                 self:reply_ok("mail_lock_by_sn", m.idx)
+                --INFO("[mail], lock, pid=%d, id=%s", self.pid, m._id )
             end
         end
     end
 end
 
 function mail_unlock_by_sn(self,sns)
-    local ms = self:get_mail()
-    if ms then
-        local db = self:getDb(self.pid)
-        for _, sn in pairs(sns) do
-            local m = ms[ sn ]
-            if m and m.tm_lock > 0 then
+    local db = self:getDb()
+    if db then
+        local info = db.mail:find( { to=self.pid, _id={ ["$in"] = sns }, tm_drop = 0, tm_lock = { ["$ne"] = 0 } } )
+        local ms = {}
+        while info:hasNext() do
+            local m = info:next()
+            if m then
                 m.tm_lock = 0
                 gPendingSave.mail[ m._id ].tm_lock = 0
                 self:reply_ok("mail_unlock_by_sn", m.idx)
+                --INFO("[mail], unlock, pid=%d, id=%s", self.pid, m._id )
             end
         end
     end
 end
 
 function mail_drop_by_sn(self,sns)
-    local ms = self:get_mail()
-    if ms then
-        for _, sn in pairs(sns) do
-            local m = ms[ sn ]
-            if m and m.tm_lock == 0 and (m.tm_fetch > 0 or m.its == 0) then
+    local db = self:getDb()
+    if db then
+        local info = db.mail:find( { to=self.pid, _id={ ["$in"] = sns }, tm_drop = 0, tm_lock = 0 } )
+        local ms = {}
+        while info:hasNext() do
+            local m = info:next()
+            if m and (m.tm_fetch > 0 or m.its == 0) then
                 m.tm_drop = gTime
                 gPendingSave.mail[ m._id ].tm_drop = gTime
                 self:reply_ok("mail_drop_by_sn", m.idx)
-                INFO("[mail], drop, pid=%d, id=%s", self.pid, sn )
+                INFO("[mail], drop, pid=%d, id=%s", self.pid, m._id )
             end
         end
     end
 end
 
 function mail_read_by_sn(self, sns)
-    local ms = self:get_mail()
-    if ms then
-        local db = self:getDb(self.pid)
-        for _, sn in pairs(sns) do
-            local m = ms[ sn ]
+    local spid = self.pid
+    for _, sn in pairs( sns ) do
+        local idx, pid = string.match(sn, "(%d+)_(%d+)")
+        if tonumber(pid) == spid then
+            gPendingSave.mail[ sn ].tm_read = gTime
+            self:reply_ok("mail_read_by_sn", idx)
+            --INFO("[mail], read, pid=%d, id=%s", self.pid, m._id )
+        end
+    end
+end
+
+function mail_fetch_by_sn(self, sns)
+    local db = self:getDb()
+    if db then
+        local info = db.mail:find( { to=self.pid, _id={ ["$in"] = sns }, tm_drop = 0, tm_fetch = 0 } )
+        local ms = {}
+        while info:hasNext() do
+            local m = info:next()
             if m then
-                if m.tm_read == 0 and m.tm_drop == 0 then
-                    m.tm_read = gTime
-                    gPendingSave.mail[ m._id ].tm_read = gTime
-                    self:reply_ok("mail_read_by_sn", m.idx)
+                if m.its ~= 0 then
+                    m.tm_fetch = gTime
+                    self:add_bonus("mutex_award", m.its, VALUE_CHANGE_REASON.REASON_MAIL_AWARD)
+                    gPendingSave.mail[ m._id ].tm_fetch = gTime
+                    self:reply_ok("mail_fetch_by_sn", m.idx)
+                    INFO("[mail], fetch, pid=%d, id=%s", self.pid, m._id )
                 end
             end
         end
     end
 end
 
-function mail_fetch_by_sn(self, sns)
-    local ms = self:get_mail()
-    if ms then
-        local db = self:getDb(self.pid)
-        for _, sn in pairs(sns) do
-            local m = ms[ sn ]
-            if m and m.its ~= 0 and m.tm_fetch == 0 then
-                m.tm_fetch = gTime
-                self:add_bonus("mutex_award", m.its, VALUE_CHANGE_REASON.REASON_MAIL_AWARD)
-                gPendingSave.mail[ m._id ].tm_fetch = gTime
-                self:reply_ok("mail_fetch_by_sn", m.idx)
-                INFO("[mail], fetch, pid=%d, id=%s", self.pid, m._id)
-            end
-        end
-    end
-end
 
-function get_mail(self)
-    if not self._mail then
-        local ms = {}
-        local db = self:getDb()
-        local info = db.mail:find({to=self.pid})
-        if info then
-            while info:hasNext() do
-                local m = info:next()
-                if m.tm_drop and m.tm_drop == 0 then ms[ m._id ] = m end
-            end
-        end
-        self._mail = ms
-    end
-    return self._mail
-end
-
+--function get_mail(self)
+--    if not self._mail then
+--        local ms = {}
+--        local db = self:getDb()
+--        local info = db.mail:find({to=self.pid, tm_drop=0})
+--        --local info = db.mail:find({to=self.pid})
+--        if info then
+--            while info:hasNext() do
+--                local m = info:next()
+--                ms[ m._id ] = m 
+--            end
+--        end
+--        self._mail = self._mail or ms
+--    end
+--    return self._mail
+--end
+--
 
 function mail_load( self, sn )
     local mail_sys = self.mail_sys or 0
@@ -158,7 +167,7 @@ function mail_load( self, sn )
     end
 
     local db = self:getDb()
-    local info = db.mail:find( { to=self.pid, idx={ ["$gte"] = sn } } )
+    local info = db.mail:find( { to=self.pid, idx={ ["$gte"] = sn }, tm_drop = 0 } )
     local ms = {}
     local num = 0
     while info:hasNext() do
@@ -206,14 +215,9 @@ function mail_new(self, v, isload)
     v.class = v.class or 0
     v.mode = v.mode or 0
     v.lv = v.lv or 0
-
-    --v.content = {}
-    --v.its = its or 0
-    --
+    
     gPendingInsert.mail[ v._id ] = v
 
-    local db = self:getDb()
-    db.mail:insert(v)
     if self._mail then
         self._mail[ v._id ] = v
     end
@@ -273,7 +277,7 @@ function is_troop_no_soldier(troop)
     return true
 end
 
-function generate_fight_mail(ack_troop, def_troop, is_win, catch_hero, rages, total_round)
+function generate_fight_mail(troop_action, ack_troop, def_troop, is_win, catch_hero, rages, total_round)
     --攻击方邮件
     local ack_mail = {}
     ack_mail.tech = fight.get_troop_buf(ack_troop)
@@ -326,14 +330,6 @@ function generate_fight_mail(ack_troop, def_troop, is_win, catch_hero, rages, to
         else unit.amend = { dead = arm.dead_soldier } end
 
         ack_mail.arms[pid] = unit
-
-        --周限时活动
-        for k, v in pairs(arm.kill_soldier or {}) do
-            if k >= 1000000 then
-                local level = (k % 1000000) % 1000
-                weekly_activity.process_weekly_activity(tmp_ply, WEEKLY_ACTIVITY_ACTION.KILL_ARM, level, v)
-            end
-        end
     end
 
 
@@ -410,14 +406,6 @@ function generate_fight_mail(ack_troop, def_troop, is_win, catch_hero, rages, to
             else unit.amend = { dead = arm.dead_soldier } end
 
             def_mail.arms[pid] = unit
-
-            --周限时活动
-            for k, v in pairs(arm.kill_soldier or {}) do
-                if k >= 1000000 then
-                    local level = (k % 1000000) % 1000
-                    weekly_activity.process_weekly_activity(tmp_ply, WEEKLY_ACTIVITY_ACTION.KILL_ARM, level, v)
-                end
-            end
         end
     end
 
@@ -611,5 +599,37 @@ function send_system_support_res( self, from, res )
     table.insert( param, 1, from.name )
 
     send_system_notice(self, mail_id, {}, param)
+end
+
+function get_mail_share(self, mail_id)
+    local db = self:getDb()
+    local info = db.mail:find({_id=mail_id})
+    local msg = {}
+    if info:hasNext() then
+        msg = info:next()
+    end
+    Rpc:get_mail_share_resp(self, msg)
+end
+
+function send_tribute_mail(self, mail_id, title_parm, text_parm, consume_item, get_item)
+    local prop_tab = resmng.get_conf("prop_mail", mail_id)
+    if prop_tab == nil then
+        return false
+    end
+
+    local content = {}
+    content.propid = mail_id
+    content.title_parm = title_parm
+    content.seq = {
+        {type=MAIL_SYSTEM_SEQ.NOTICE},
+        {type=MAIL_SYSTEM_SEQ.CONTENT, parm=text_parm},
+        {type=MAIL_SYSTEM_SEQ.PRESENT_NO_GET},
+        {type=MAIL_SYSTEM_SEQ.ITEM, parm=get_item},
+        {type=MAIL_SYSTEM_SEQ.CONSUME},
+        {type=MAIL_SYSTEM_SEQ.ITEM, parm=consume_item},
+    }
+    content.extra = {}
+    self:mail_new({from=0, name="", class=MAIL_CLASS.SYSTEM, mode=MAIL_SYSTEM_MODE.NORMAL, title="", content=content, its=nil})
+    return true
 end
 

@@ -1,3 +1,6 @@
+local string = string
+local table = table
+
 snapshot_diff = {
     _NAME = "snapshot_diff",
     data_earlier = nil,
@@ -8,12 +11,6 @@ snapshot_diff = {
     -- }
     module_earlier = nil,
     module_later = nil,
-    -- other_diff_obj = {
-    --      [snapshot.TABLE] = {},         -- 类型为table的diff对象数组
-    --      [snapshot.FUNCTION] = {},      -- 类型为function的diff对象数组
-    --      [snapshot.THREAD] = {},        -- 类型为thread的diff对象数组
-    --      [snapshot.USERDATA] = {},      -- 类型为userdata的diff对象数组
-    -- }
     other_diff_obj = nil,
 
     print_line = function(self)
@@ -54,15 +51,43 @@ snapshot_diff = {
     end,
 
     _scan_other = function(self)
+        local ms_begin = c_msec()
         local record = nil
+        local signatures = nil
+        local sign_cnt_tab = {}
+        local one_sign_info = nil
+        local scan_cnt = 0
         for addr_str, type_index in pairs(self.data_later[snapshot.MARK]) do
             if self.data_earlier[snapshot.MARK][addr_str] == nil then
                 record = self.data_later[type_index][addr_str]
                 if record and not record.desc then
-                    table.insert(self.other_diff_obj[type_index], addr_str)
+                    signatures = self:get_node_signatures(self.data_later, addr_str)
+                    for k, v in pairs(signatures) do
+                        one_sign_info = sign_cnt_tab[k]
+                        if nil == one_sign_info then
+                            one_sign_info = {cnt = 0, addrs = {}}
+                            sign_cnt_tab[k] = one_sign_info
+                        end
+                        one_sign_info.cnt = one_sign_info.cnt + 1
+                        if #one_sign_info.addrs < 3 then
+                            table.insert(one_sign_info.addrs, addr_str)
+                        end
+                    end
+                    scan_cnt = scan_cnt + 1
+                    if scan_cnt % 100 == 0 then
+                        print(string.format("print_other scan count = %d", scan_cnt))
+                    end
                 end
             end
         end
+
+        for k, v in pairs(sign_cnt_tab) do
+            table.insert(self.other_diff_obj, {sign = k, cnt = v.cnt, addrs = v.addrs})
+        end
+
+        table.sort(self.other_diff_obj, self._cnt_sort_func)
+        local ms_end = c_msec()
+        print(string.format("scan %d obj total, cost %d ms.", scan_cnt, ms_end - ms_begin))
     end,
 
     _diff_sort_func = function(A, B)
@@ -70,6 +95,18 @@ snapshot_diff = {
             return A.diff > B.diff
         end
         return A.name < B.name
+    end,
+
+    _cnt_sort_func = function(A, B)
+        return A.cnt > B.cnt
+    end,
+
+    _output_one_sign_info = function(i, sign_info)
+        local out_str = string.format("%d.cnt:%d    sign:%s\n        addrs:", i, sign_info.cnt, sign_info.sign)
+        for _, addr in ipairs(sign_info.addrs) do
+            out_str = out_str .. string.format("<%s>", addr)
+        end
+        print(out_str)
     end,
 
     _output_array_simple_info = function(self, output_data, org_data, limit_start, limit_count)
@@ -86,6 +123,7 @@ snapshot_diff = {
                 end
                 simple_info = self:get_simple_info(org_data,  output_data[i])
                 print(string.format("%d.%s", i, simple_info))
+                self:print_signature(output_data[i])
             end
         end
         self:print_line()
@@ -109,6 +147,23 @@ snapshot_diff = {
             end
         end
         --self:print_line()
+    end,
+
+    _output_array_sign_cnt = function(self, output_data, limit_start, limit_count)
+        limit_start = limit_start or 1
+        limit_count = limit_count or 10
+
+        if #output_data < limit_start then
+            print("no more records")
+        else
+            for i = limit_start, limit_count do
+                if i > #output_data then
+                    break
+                end
+                self._output_one_sign_info(i, output_data[i])
+            end
+        end
+        self:print_line()
     end,
 
     -- 只统计module的个数
@@ -269,35 +324,73 @@ snapshot_diff = {
         return
     end,
 
-    print_other = function(self, obj_type, limit_start, limit_count)
+    print_other = function(self, limit_start, limit_count)
         if not self.data_earlier or not self.data_later then
             print("call load() first!")
             self:print_line()
             return
         end
 
-        obj_type = obj_type or "table"
-        local type_index = snapshot.type_2_index[obj_type]
-        if type_index == nil then
-            print("error: invalid obj_type")
+        if self.other_diff_obj == nil then
+            self.other_diff_obj = {}
+            self:_scan_other()
+        end
+
+        self:_output_array_sign_cnt(self.other_diff_obj, limit_start, limit_count)
+        return
+    end,
+
+    print_other_by_search = function(self, search, output_cnt_only)
+        if not self.data_earlier or not self.data_later then
+            print("call load() first!")
+            self:print_line()
             return
         end
 
         if self.other_diff_obj == nil then
-            self.other_diff_obj = {
-                [snapshot.TABLE] = {},
-                [snapshot.FUNCTION] = {},
-                [snapshot.THREAD] = {},
-                [snapshot.USERDATA] = {},
-            }
+            self.other_diff_obj = {}
             self:_scan_other()
-            for k, v in pairs(self.other_diff_obj) do
-                table.sort(v, nil)
-            end
         end
 
-        self:_output_array_simple_info(self.other_diff_obj[type_index], self.data_later, limit_start, limit_count)
-        return
+        local is_func = type(search) == "function"
+        local num = 1
+        local total_cnt = 1
+        for i, v in ipairs(self.other_diff_obj) do
+            if is_func then
+                if search(v) then
+                    if not output_cnt_only then
+                        self._output_one_sign_info(num, v)
+                    end
+                    num = num + 1
+                end
+            elseif string.find(v.sign, search) then
+                if not output_cnt_only then
+                    self._output_one_sign_info(num, v)
+                end
+                num = num + 1
+            end
+            total_cnt = total_cnt + 1
+        end
+
+        print(string.format("print_other_by_search cnt=%d, total_cnt=%d", num, total_cnt))
+    end,
+
+    print_signature = function(self, addr_str)
+        if not self.data_earlier or not self.data_later then
+            print("call load() first!")
+            self:print_line()
+            return
+        end
+        local earlier_mark_data = self.data_earlier[snapshot.MARK][addr_str]
+        local later_mark_data = self.data_later[snapshot.MARK][addr_str]
+        if not earlier_mark_dataor and not later_mark_data then
+            print("error: invalid addr_str")
+            return
+        end
+        local data = later_mark_data and self.data_later or self.data_earlier
+        local signatures = self:get_node_signatures(data, addr_str)
+        self:dumpTab(signatures, "print_signature")
+        self:print_line()
     end,
 
     -- addr_str为要统计的节点key
@@ -388,7 +481,92 @@ snapshot_diff = {
 
         return desc
     end,
-------------------------------------------------------------------------------
+
+    -- signature组成：从node往上搜寻，直到搜索到终端结点，往上的路径关系描述组成签名
+    -- 终端结点包括：_ENV, _G, MODULE, FUNCTION
+    -- 一个node可能有多个signature，都需要生成
+    -- 广度遍历, 已经访问过的结点就不要重复访问了
+    get_node_signatures = function(self, data, node_addr)
+        local visited = {}
+        local node_queue = {}
+        local signatures = {}
+
+        node_queue[1] = {node_addr, ""}
+
+        while #node_queue > 0 do
+            local addr_str = node_queue[1][1]
+            local sign = node_queue[1][2]
+            table.remove(node_queue, 1)
+
+            if not visited[addr_str] then
+                visited[addr_str] = true
+
+                local type_index = data[snapshot.MARK][addr_str]
+                if type_index then
+                    local record = data[type_index][addr_str]
+                    if record then
+                        -- 如果自身就已经是一个module
+                        if record.desc then
+                            signatures[string.format("%s-%s", record.desc, sign)] = true
+                            -- 如果已经上溯到function
+                        elseif type_index == snapshot.FUNCTION then
+                                local func_desc = data[snapshot.SOURCE][addr_str]
+                                if func_desc ~= nil then
+                                    signatures[string.format("%s-%s", func_desc, sign)] = true
+                                else
+                                    -- c function will come here
+                                end
+                            else
+                                for k,v in pairs(record) do
+                                    if k ~= "desc" then
+                                        -- k为parent_key，v为一个table，table的key为关系描述字符串
+                                        -- 如果与父亲有多个关系，则拼接成字符串，并且排序
+                                        local ralations = {}
+                                        local terminal_str = nil
+                                        local need_deep  = false
+                                        for k1,_ in pairs(v) do
+                                            local key_sub_desc = string.sub(k1, 1, 2)
+                                            local format_key = string.gsub(k1, "%d+", "NUM")
+                                            ralations[#ralations+1] = format_key
+
+                                            if string.find(k1, "_ENV") then
+                                                terminal_str = "_ENV"
+                                            elseif string.find(k1, "_G") then
+                                                terminal_str = "_G"
+                                            elseif key_sub_desc == "ke" or key_sub_desc == "k(" or key_sub_desc == "up" then
+                                                need_deep = true
+                                            end
+                                        end
+                                        if #ralations > 1 then
+                                            table.sort(ralations, nil)
+                                        end
+                                        local ralation_desc = nil
+                                        for i, v1 in ipairs(ralations) do
+                                            if ralation_desc == nil then
+                                                ralation_desc = v1
+                                            else
+                                                ralation_desc = string.format("%s-%s", ralation_desc, v1)
+                                            end
+                                        end
+
+                                        if terminal_str then
+                                            signatures[string.format("%s-%s-%s", terminal_str, ralation_desc, sign)] = true
+                                        elseif need_deep then
+                                            --print(string.format("%s-%s", ralation_desc, sign))
+                                            node_queue[#node_queue+1] = {k, string.format("%s-%s", ralation_desc, sign)}
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+
+            return signatures
+        end,
+
+    ------------------------------------------------------------------------------
     -- 以下几个函数是为了打印table
     mkSpace = function(self, num)
         return string.rep(" ", num)

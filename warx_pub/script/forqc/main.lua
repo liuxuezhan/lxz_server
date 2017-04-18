@@ -85,7 +85,7 @@ function loadMod()
 
     dofile( c_get_conf() )
 
-    --require("frame/debugger") 
+    require("frame/debugger") 
 
 
     require("frame/socket")
@@ -102,6 +102,7 @@ function loadMod()
 
     require("frame/crontab")
     require("frame/timer")
+    require("frame/perfmon")
 
     -- rpc
     require("frame/class")
@@ -119,6 +120,7 @@ function loadMod()
     do_load("common/tools")
     do_load("common/protocol")
     do_load("common/struct")
+    do_load("constant/constant")
     for k, v in pairs( RpcType._struct ) do
         RpcType._struct[ k ] = Rpc.parseFunction( v ).args
     end
@@ -128,6 +130,7 @@ function loadMod()
     doLoadMod( "OnRpc", "forqc/OnRpc" )
     require( "forqc/test/action" )
     require( "forqc/names" )
+    require( "forqc/make_name" )
 
 end
 
@@ -209,7 +212,7 @@ function onConnectComp( self )
         end
 
         local signature = c_md5( c_md5( time .. openid .. token ) .. APP_SECRET )
-        Rpc:firstPacket( self, config.Map, culture, pid, signature, time, openid, token )
+        Rpc:firstPacket( self, config.Map, culture, pid, signature, time, openid, token , 200000)
 
     else
         print( "onConnectComp, what?", self.action )

@@ -281,7 +281,7 @@ end
 
 
 function fill()
-    print( "rank fill" )
+    --print( "rank fill" )
     --restore_handler.load_count()
 
     for k, v in pairs( resmng.prop_rank ) do
@@ -306,7 +306,7 @@ function fill()
         load_rank( k )
     end
 
-    print( "rank fill done" )
+    --print( "rank fill done" )
 end
 
 

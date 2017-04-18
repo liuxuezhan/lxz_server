@@ -95,7 +95,9 @@ function send_tw_award()
 end
 
 function send_mc_award()
-    --monster_city.send_mc_award()
+    monster_city.send_score_award()
+    rank_mng.clear(7)
+    rank_mng.clear(8)
 end
 
 function send_lt_award()
@@ -138,6 +140,14 @@ function start_boss_attack_city()
     npc_city.start_boss_attack_city()
 end
 
+function tmp_stop_boss_attack_city()
+    npc_city.tmp_stop_boss_attack_city()
+end
+
 function stop_boss_attack_city()
     npc_city.stop_boss_attack_city()
+end
+
+function operate_activity_tick()
+    operate_activity.heart_beat()
 end

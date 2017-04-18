@@ -86,7 +86,7 @@ function load_troop()
                 arm.live_soldier = live
             end
         end
-        local pid = tr.owner_pid
+        local pid = tr.owner_pid or 0
         if not tr.arms then tr.arms = {} end
         if not tr.arms[ pid ] then tr.arms[ pid ] = { live_soldier={} } end
         if tr._id > maxSn then maxSn = tr._id end
@@ -197,12 +197,10 @@ function init_effect()
         count = count + 1
         if count % 100 == 0 then print( "init_effect, count =", count ) end
     end
-    print( "init_effect_done" )
 
     local us = unionmng.get_all()
     for _, v in pairs( us ) do v:union_pow() end
 
-    print( "init_effect_union_done" )
     return count
 end
 
@@ -243,7 +241,7 @@ function restore_timer()
     local maxSn = 0
 
     local tm_shutdown = gSysStatus.tick or gTime
-    print( "tm_shutdown", tm_shutdown, gTime - tm_shutdown, os.date( "%c", tm_shutdown ) )
+    WARN( "tm_shutdown, %d, %d, %s", tm_shutdown, gTime - tm_shutdown, os.date( "%c", tm_shutdown ) )
 
     _G.gTime = tm_shutdown
     _G.gMsec = 0
@@ -263,8 +261,12 @@ function restore_timer()
     end
     _G.gSns[ "timer" ] = maxSn + 1
 
-    local next_cron = gSysStatus.cron or tm_shutdown
-    next_cron = next_cron - ( next_cron % 60 ) + 90
+    --local next_cron = gSysStatus.cron or tm_shutdown
+    --next_cron = next_cron - ( next_cron % 60 ) + 90
+    --timer.new( "cron", next_cron - tm_shutdown )
+
+    local next_cron = ( gSysStatus.cron or tm_shutdown ) + 90
+    next_cron = next_cron - ( next_cron % 60 )
     timer.new( "cron", next_cron - tm_shutdown )
 
     for eid, ety in pairs( gEtys or {} ) do
@@ -303,6 +305,14 @@ function post_init()
     INFO("-- init weekly activity ---------")
     weekly_activity.init_activity()
     INFO("-- init weekly activity done  ---")
+
+    INFO("-- init operate activity ---------")
+    operate_activity.init_activity()
+    INFO("-- init operate activity done  ---")
+    
+    INFO("-- init daily task filter ---------")
+    daily_task_filter.init_filter()
+    INFO("-- init odaily task filter done  ---")
 end
 
 function action()
@@ -331,6 +341,11 @@ function action()
     INFO("-- load_weekly_activity done --------")
     monitoring(MONITOR_TYPE.LOADDATA, "load_weekly_activity")
 
+    INFO("-- load_operate_activity -------------")
+    operate_activity.load_operate_activity()
+    INFO("-- load_operate_activity done --------")
+    monitoring(MONITOR_TYPE.LOADDATA, "load_operate_activity")
+
     INFO("-- load_union --------------")
     union_t.load()
     union2_t.load()
@@ -356,18 +371,11 @@ function action()
     union_tech_t.load()
     INFO("-- load_union_tech done ----")
     monitoring(MONITOR_TYPE.LOADDATA, "load_union_tech")
-
-
-    INFO("-- load_count -------------")
-    --load_count()
-    INFO("-- load_count done --------")
-    monitoring(MONITOR_TYPE.LOADDATA, "load_player")
-
+    
     INFO("-- load_build --------------")
     load_build()
     INFO("-- load_build done ---------")
     monitoring(MONITOR_TYPE.LOADDATA, "load_build")
-
 
     INFO("-- load_npc_city -----------")
     npc_city.load_npc_city()
@@ -394,12 +402,10 @@ function action()
     load_clown()
     INFO("-- load_clown -----------")
 
-
     INFO("-- load_monster_city -----------")
     monster_city.load_monster_city()
     INFO("-- load_monster_city -----------")
     monitoring(MONITOR_TYPE.LOADDATA, "load_monster_city")
-
 
     INFO("-- load_king_city -----------")
     king_city.load_king_city()
@@ -510,6 +516,11 @@ function action()
     INFO("-- white list done-----")
     monitoring(MONITOR_TYPE.LOADDATA, "white_list")
 
+
+    INFO("-- tribute_exchange -----")
+    load_tribute_exchange()
+    INFO("-- tribute_exchange done -----")
+
     INFO("-- restore_timer -----------")
     local compensate =  restore_timer()
     INFO("-- restore_timer done ------, %s", compensate or "none")
@@ -546,6 +557,24 @@ function load_unit()
             gEtys[ m.eid ] = m
             etypipe.add(m)
         end
+    end
+end
+
+
+function load_tribute_exchange()
+    local db = dbmng:getOne()
+    local info = db.tribute_exchange:find({})
+    local citys = {}
+    while info:hasNext() do
+        local m = info:next()
+        citys[ m._id ] = m
+    end
+
+    if not next( citys ) then
+        tribute_exchange.reset_special()
+    else
+        tribute_exchange.g_exchanges = citys
+        tribute_exchange.g_tribute_special = get_sys_status( "tribute_special" )
     end
 end
 

@@ -111,7 +111,7 @@ skynet.start(function()
     skynet.newservice("lualib/mongo_t",g_warx_t.db_name)--数据库写中心
     socket_id = socket.listen(g_warx_t.host or g_host, g_warx_t.port)
     save_db()
-    require "warx_pub/frame"
+    require "warx_pub/script/frame/frame"
     init(os.time(),os.time())
     while g_beg do
         g_beg = nil

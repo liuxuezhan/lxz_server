@@ -51,8 +51,8 @@ function create(ply, uid, rank)
         tmDonate = 0,               --捐献cd
         buildlv = {},
         god_log = {lv=0,tm=0},       --战神膜拜记录
-        tm_mission = 0,
-        cur_item = 0, --已领军团任务奖励
+        tm_mission = 0,             --领取军团任务时间tag
+        cur_item = {},               --已领军团任务奖励
         --join_tm = 0, --加入军团的次数
 
         restore_sum = {0,0,0,0},

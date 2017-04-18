@@ -3,6 +3,7 @@ module("player_t", package.seeall)
 --使用背包物品
 function use_item(self, idx, num)
     local item = self:get_item(idx)
+    if not item then return end
     local prop_tab = resmng.get_conf("prop_item", item[2])
     if prop_tab == nil then
         return
@@ -112,6 +113,40 @@ function do_item_check(self, prop_item)
 		end
 	end
 	return true
+end
+
+
+function get_multi_bonus( policy, tab, num )
+    if num > 1 then
+        local turn = 1000
+        local totals = {}
+        local step = math.floor(num / turn)
+        local remain = num - step * turn
+        if num < turn then turn = num end
+        for i = 1, turn, 1 do
+            local get_tab = player_t.bonus_func[policy](nil, tab)
+            for k, v in pairs(get_tab) do
+                if not totals[ v[1] ] then totals[ v[1] ] = {} end
+                if not totals[ v[1] ][ v[2] ] then totals[ v[1] ][ v[2] ] = 0 end
+                if i <= remain then
+                    totals[ v[1] ][ v[2] ] = totals[ v[1] ][ v[2] ] + v[3] * ( step + 1 )
+                else
+                    totals[ v[1] ][ v[2] ] = totals[ v[1] ][ v[2] ] + v[3] * step
+                end
+            end
+        end
+
+        local its = {}
+        for class, v in pairs(totals) do
+            for id, num in pairs(v) do
+                table.insert(its, {class, id, num})
+            end
+        end
+        return its
+
+    elseif num == 1 then
+        return player_t.bonus_func[policy](nil, tab)
+    end
 end
 
 
