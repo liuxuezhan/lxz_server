@@ -437,7 +437,7 @@ end
 -- Return   : NULL
 -- Others   : NULL
 --------------------------------------------------------------------------------
-function reset_skill(self, skill_idx)
+function reset_skill(self, skill_idx, is_senior)
     if not skill_idx then
         ERROR("reset_skill: no skill_idx.")
         return
@@ -457,10 +457,12 @@ function reset_skill(self, skill_idx)
 
             self:change_basic_skill(skill_idx, 0, 0)
 
-            local prop = resmng.prop_skill[skill_id]
             local ori_exp = 0
-            if prop then
-                ori_exp = prop.ReturnExp or 0
+            if not is_senior then
+                local prop = resmng.prop_skill[skill_id]
+                if prop then
+                    ori_exp = prop.ReturnExp or 0
+                end
             end
 
             -- 统计经验值
@@ -767,7 +769,12 @@ function change_basic_skill(self, skill_idx, skill_id, exp)
             -- open the slot, will not change pow
         else
             mark_recalc( self )
-
+            role:try_add_tit_point(resmng.ACH_HERO_SKILL_1)
+            role:try_add_tit_point(resmng.ACH_HERO_SKILL_2)
+            role:try_add_tit_point(resmng.ACH_HERO_SKILL_3)
+            role:try_add_tit_point(resmng.ACH_HERO_SKILL_4)
+            role:try_add_tit_point(resmng.ACH_HERO_SKILL_5)
+            role:try_add_tit_point(resmng.ACH_HERO_SKILL_6)
         end
 
         if oid == 0 and skill_id ~= 0 then

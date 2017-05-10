@@ -229,3 +229,16 @@ function get_recently()
     if t ~= -1 then return t end
 end
 
+--------------------------------------------------- --------------------------------------------------- 
+-- TIMER CALL BACK FUNCTION 
+--------------------------------------------------- --------------------------------------------------- 
+
+_funs["toGate"] = function(sn, ip, port)
+    conn.toGate(ip, port)
+end
+
+_funs["toMongo"] = function(sn, host, port, db, tips, is_reconnect)
+    conn.toMongo(host, port, db, tips, is_reconnect)
+end
+
+

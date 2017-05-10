@@ -5,9 +5,11 @@ Server = {
     agent_test_struct = "int id, Array Struct UnionMember mems, string name",
     agent_test = "pack info, pack info1",
 
-    firstPacket = "int uid, int cival, int pid, string signature, int time, string open_id, string token, int version",
+    firstPacket = "int server_id, pack info",
+    firstPacket2 = "int sockid, int server_id, pack info",
+    get_characters = "",
+
     --firstPacket2 = "int sockid, int source_map, string account, string pasw",
-    firstPacket2 = "int sockid, int source_map, int cival, int pid, string signature, int time, string open_id, string token, int version",
     --string mac, string idfa,string gaid,string android_id,string udid,string openudid,string imei,string ver, string pack_name, string channel, 
     --string hardware, string software, string telecomoper, string network, string width, string hight, string mem",
     login = "int pid",
@@ -288,6 +290,7 @@ Server = {
 
     query_fight_info = "int eid",
 
+    echo = "int time",
     --------------------------------------------------------------------------------
     -- Hero Begin.    YC@2015-12-30
     get_hero_list_info = "int pid",
@@ -494,7 +497,7 @@ Server = {
     query_troop_coming = "",
     query_log_support_arm = "",
 
-    on_pay = "int propduct_id",
+    --on_pay = "int propduct_id",
 
     buy_yueka = "", --临时接口
     pack_weekly_activity_info = "",   --限时活动信息
@@ -522,12 +525,18 @@ Server = {
     ---- jpush ntf
     push_ntf_list_req = "pack info",   -- 开通通知的列表
     up_jpush_info_req = "pack info",
+    get_server_tag_req = "",
 
+    dbg_show = "string cmd",
+    dbg_run = "string func", 
+    dbg_set = "string key, string val",
+    dbg_ask = "string key", 
+    get_target_all_award = "int index",
 }
 
 
 Client = {
-    getTime = "int gTime, int gMsec, int tag",
+    getTime = "int gTime, int gMsec, int tag,int gBootTime",
 
     ply_list = "string proc, string account, pack pids, pack characters",
 
@@ -536,8 +545,12 @@ Client = {
 
     hello = "int pid1, int pid2, string text",
     onLogin = "int pid, string name",
+    logout = "",
 
     first_packet_ack = "int error_code", -- 登录验证信息
+
+    get_characters = "pack infos",
+
     say = "string say, int nouse",
     say1 = "string say, int nouse",
 
@@ -839,6 +852,7 @@ Client = {
     set_count = "int key, int val",
     -- title
     title_info_ack = "pack info",
+    display_ntf = "pack info",
     p2p = "int from_pid, pack info",
 
     response_empty_pos = "int x, int y, pack info",
@@ -889,6 +903,10 @@ Client = {
 
     ---- jpush ntf
     push_ntf_list_ack = "pack info",   -- 开通通知的列表
+    get_server_tag_ack = "string tag",
+    echo = "int time",
+
+    dbg_show = "pack info",
 }
 
 CrossQuery = {

@@ -1,20 +1,34 @@
 
 local OnRpc = {}
 
+function OnRpc.first_packet_ack( p, code )
+    if code == 8 then
+        local info = {}
+        local idx = p.idx
+        info.server_id = p.map or config.Map
+        info.cival = ( idx % 4 ) + 1
+        info.pid = -1 
+        info.token_expire = gTime + 36000
+        info.extra = ""
+        info.time = gTime
+        info.token = c_md5( p.account )
+        info.open_id = p.account
+
+        info.signature = c_md5( APP_KEY .. tostring( info.token_expire ) .. info.extra .. tostring( info.time ) .. info.token .. info.open_id )
+        info.version = 10000000
+        Rpc:firstPacket( p, p.map or config.Map, info )
+    end
+end
+
 function OnRpc.onLogin( p, pid, name )
-    local idx = p.idx
-    local node = gHavePlayers[ idx ]
-    print( "login", node.account, pid )
-
-    if not node.pid then node.pid = pid end
-    node.online = true
-
+    p.action = "player"
     p.pid = pid
     p.name = name
     p.online = gTime
     gPlys[ pid ] = p
 
     Rpc:getTime(p,1)
+    print( "onLogin", pid )
 
     if type( idx ) == "number" then
         --local chg_name = string.format("R_%s", idx )
@@ -30,6 +44,7 @@ function OnRpc.getTime( p,tag,tm,sm)
 end
 
 
+gCountLoadData = 0
 function OnRpc.loadData( p, info )
     local key = info.key
     local val = info.val
@@ -37,7 +52,7 @@ function OnRpc.loadData( p, info )
         for k, v in pairs( val ) do
             p[ k ] = v
         end
-        print( string.format( "pid=%d, x=%d, y=%d, name=%s", p.pid, p.x, p.y, p.name ) )
+
     elseif key == "build" then
         local bs = {}
         for k, v in pairs( val ) do
@@ -50,6 +65,12 @@ function OnRpc.loadData( p, info )
         for _, v in pairs( val ) do
             p._troop[ v._id] = v
         end
+    elseif key == "done" then
+        gCountLoadData = gCountLoadData + 1
+        if gCountLoadData % 100 == 0 then
+            WARN( "USE_TIME, count=%d, use=%d", gCountLoadData, c_msec() - gActionStart )
+        end
+
     else
         p[ "_" .. key ] = val
     end
@@ -284,6 +305,24 @@ end
 
 function OnRpc.union_mission_get(p,info)
     p.utask = info
+end
+
+function OnRpc.dbg_show( p, info )
+    local obj = info.ack
+    local func = function ( ... )
+        local str = string.format( ... )
+        print( str )
+    end
+
+    if type( obj ) == "table" then
+        doDumpTab( obj, nil, 20, 0, true, func )
+    else
+        print( obj )
+    end
+end
+
+function OnRpc.get_characters( p, info )
+    dumpTab( info, "get_characters" )
 end
 
 return OnRpc

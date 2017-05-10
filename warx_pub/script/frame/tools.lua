@@ -65,11 +65,12 @@ end
 function ERROR(fmt, ...)
     local inf = string.format(fmt, ...)
     local stacks = debug.traceback(inf)
+
     if config.Game == "actx" then
         lwarn(stacks)
     end
     for s in string.gmatch( stacks, "[^%c]+" ) do
-        lwarn(s)
+        lwarn("[LUA] " .. s)
     end
 end
 
@@ -107,6 +108,13 @@ function tabNum(t)
     return num
 end
 
+function is_in_tab(tab, val) 
+    for k, v in pairs( tab ) do
+        if v == val then return true end
+    end
+    return false
+end
+
 function setIns(tab, val)
     for k, v in pairs( tab ) do
         if v == val then return false end
@@ -141,9 +149,9 @@ end
 --------------------------------------------------------------------------------
 dump_mark = {}
 
-function doDumpTab(t, step, max_cnt, dump_cnt, first)
+function doDumpTab(t, step, max_cnt, dump_cnt, first, fLOG)
     if type(t) ~= "table" then
-        return LOG("%s: %s", type(t), tostring(t))
+        return fLOG("%s: %s", type(t), tostring(t))
     end
 
     if first then
@@ -157,21 +165,21 @@ function doDumpTab(t, step, max_cnt, dump_cnt, first)
     end
 
     step = step or 4
-    LOG("%s{", mkSpace(step*dump_cnt))
+    fLOG("%s{", mkSpace(step*dump_cnt))
     for k, v in pairs(t) do
         if type(v) == "table" then
             if not dump_mark[v] then
                 dump_mark[v] = true
-                LOG("%s[%s] = %s", mkSpace(step*(dump_cnt+1)), toStr(k), tostring(v))
-                doDumpTab(v, step, max_cnt, dump_cnt+1)
+                fLOG("%s[%s] = %s", mkSpace(step*(dump_cnt+1)), toStr(k), tostring(v))
+                doDumpTab(v, step, max_cnt, dump_cnt+1, false, fLOG)
             else
-                LOG("%s[%s] = %s -- already dumped.", mkSpace(step*(dump_cnt+1)), toStr(k), tostring(v))
+                fLOG("%s[%s] = %s -- already dumped.", mkSpace(step*(dump_cnt+1)), toStr(k), tostring(v))
             end
         else
-            LOG("%s[%s] = %s", mkSpace(step*(dump_cnt+1)), toStr(k), toStr(v))
+            fLOG("%s[%s] = %s", mkSpace(step*(dump_cnt+1)), toStr(k), toStr(v))
         end
     end
-    LOG("%s}", mkSpace(step*dump_cnt))
+    fLOG("%s}", mkSpace(step*dump_cnt))
     if first then dump_mark = {} end
 end
 
@@ -229,7 +237,7 @@ function dumpTab(t, what, max_cnt, ignore_release)
         if type(t) ~= "table" then
             LOG("%s: %s", type(t), tostring(t))
         else
-            doDumpTab(t, nil, max_cnt, 0, true)
+            doDumpTab(t, nil, max_cnt, 0, true, LOG)
         end
         LOG("|$$ : %s", what or "Unknown")
     end
@@ -518,3 +526,9 @@ function lxz1(...)--打印lua变量数据到日志文件
     end
 end
 
+function break_player( pid )
+    pushHead(_G.GateSid, 0, 20)  -- NET_BREAK
+    pushInt(pid)
+    pushInt(gMapID)
+    pushOver()
+end

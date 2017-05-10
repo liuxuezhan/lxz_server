@@ -16,16 +16,66 @@ function init_task(self)
     self.daily_refresh_num = 1
     self.daily_refresh_time = gTime + 14400     --4*3600  4个小时
 
-    for k, v in pairs(resmng.prop_task_init) do
-        local prop_tab = resmng.prop_task_detail[v.TaskID]
-        if prop_tab == nil then
-            ERROR("accept task fail in table prop_task_init!! the task isn't exist: %d", v.TaskID)
-            return
+    --for k, v in pairs(resmng.prop_task_init) do
+    --    local prop_tab = resmng.prop_task_detail[v.TaskID]
+    --    if prop_tab == nil then
+    --        ERROR("accept task fail in table prop_task_init!! the task isn't exist: %d", v.TaskID)
+    --        return
+    --    end
+    --    self:add_task_data(prop_tab)
+    --end
+    --self:do_save_task()
+
+    local cur_task_list = {}
+    local action_map = {}
+    local prop_task_init = resmng.prop_task_init 
+    local pid = self.pid
+    for k, v in pairs( prop_task_init ) do
+        local hit = false
+        local task_info = resmng.get_conf( "prop_task_detail", v.TaskID )
+        if task_info then
+            local taskid = v.TaskID
+            local unit = {}
+            unit._id = string.format( "%d_%d", pid, taskid )
+            unit.pid = pid
+            unit.task_id = taskid
+            unit.task_status = TASK_STATUS.TASK_STATUS_ACCEPTED
+            unit.task_type = task_info.TaskType
+            unit.task_current_num = 0
+            unit.task_daily_num = 0
+            local func
+            if unit.task_type == TASK_TYPE.TASK_TYPE_DAILY then
+                func = resmng.prop_task_daily[taskid].FinishCondition[1]
+            else
+                func = resmng.prop_task_detail[taskid].FinishCondition[1]
+            end
+
+            if func then
+                local action = g_task_func_relation[ func ]
+                if action then
+                    cur_task_list[ taskid ] = unit
+                    local node = action_map[ action ]
+                    if not node then
+                        node = {}
+                        action_map[ action ] = node
+                    end
+                    unit.task_action = action
+                    node[ taskid ] = unit
+                    gPendingInsert.task[ unit._id ] = unit
+                    hit = true
+                end
+            end
         end
-        self:add_task_data(prop_tab)
+        if not hit then
+            WARN( "prop_task_init, id = %d, invalid", k )
+        end
     end
-    self:do_save_task()
+    self._cur_task_list = cur_task_list
+    self._finish_task_list = {}
+    self._action_map = action_map
 end
+
+
 
 function clear_task(self)
     self:do_save_task()
@@ -69,10 +119,15 @@ function load_task_from_db(self)
 
         if unit.task_status == TASK_STATUS.TASK_STATUS_ACCEPTED then
             local action = unit.task_action
-            if self._action_map[action] == nil then
-                self._action_map[action] = {}
+            if action == nil then
+                ERROR("This task action is nil, task_id: %d, pid: %d", unit.task_id, self.pid)
             end
-            self._action_map[action][unit.task_id] = unit
+            if action ~= nil then
+                if self._action_map[action] == nil then
+                    self._action_map[action] = {}
+                end
+                self._action_map[action][unit.task_id] = unit
+            end
         end
         
         --漏掉的已完成任务容错
@@ -639,7 +694,34 @@ function packet_target_task(self)
 
 end
 
+function get_target_all_award(self, index)
+    if TASK_TARGET_AWARD[index] == nil or TASK_TARGET_ID[index] == nil then
+        return
+    end
 
+    if self.task_target_all_award_index[index] ~= 0 then
+        return
+    end
+
+    local is_finish = true
+    local list = self:get_cur_task_list()
+    for k, v in pairs(TASK_TARGET_ID[index]) do
+        if list[v] == nil or list[v].task_status == TASK_STATUS.TASK_STATUS_ACCEPTED then
+            is_finish = false
+        end
+    end
+    if is_finish == false then
+        return
+    end
+    local prop_item = resmng.get_conf("prop_item", TASK_TARGET_AWARD[index])
+    if prop_item == nil then
+        return
+    end
+
+    self:add_bonus(prop_item.Param[1][1], prop_item.Param[1][2], VALUE_CHANGE_REASON.REASON_TASK)
+    self.task_target_all_award_index[index] = 1
+    self.task_target_all_award_index = self.task_target_all_award_index
+end
 
 
 

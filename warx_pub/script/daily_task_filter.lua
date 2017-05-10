@@ -63,4 +63,3 @@ function select_task_by_group_id(lv, group_id)
 	return nil
 end
 
-

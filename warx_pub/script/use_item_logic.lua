@@ -4,21 +4,39 @@ module("player_t", package.seeall)
 function use_item(self, idx, num)
     local item = self:get_item(idx)
     if not item then return end
-    local prop_tab = resmng.get_conf("prop_item", item[2])
-    if prop_tab == nil then
+    if num <= 0 then
+        WARN( "[ITEM], NUM_ERROR, use, num < 0, pid=%d, idx=%d, num=%d", self.pid, idx, num )
         return
     end
-    if self:do_item_check(prop_tab) == false then return end
+
+    local prop_tab = resmng.get_conf("prop_item", item[2])
+    if prop_tab == nil then
+        ack( self, "use_item", resmng.E_NO_CONF )
+        return
+    end
+
+    if self:do_item_check(prop_tab) == false then 
+        ack( self, "use_item", resmng.E_CONDITION_FAIL )
+        return 
+    end
+    INFO( "[ITEM], use, pid=%d, itemid=%d, count=%d", self.pid, prop_tab.ID, num )
 
     if prop_tab.RouteToRpc then
         player_t[ prop_tab.RouteToRpc ]( self, prop_tab )
     else
-        if use_item_logic[prop_tab.Action] == nil then return end
-        if self:dec_item(idx, num, VALUE_CHANGE_REASON.USE_ITEM) == true then
-            use_item_logic[prop_tab.Action](self, prop_tab.ID, num, prop_tab)
+        if use_item_logic[prop_tab.Action] == nil then 
+            ack( self, "use_item", resmng.E_CONDITION_FAIL )
+            return 
         end
+        if not self:dec_item(idx, num, VALUE_CHANGE_REASON.USE_ITEM) then
+            ack( self, "use_item", resmng.E_CONSUME_FAIL )
+            return 
+        end
+        use_item_logic[prop_tab.Action](self, prop_tab.ID, num, prop_tab)
     end
+    reply_ok(self, "use_item" )
 end
+
 
 function use_items( self, infos )
     for _, v in pairs( infos ) do

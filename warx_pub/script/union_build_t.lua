@@ -762,7 +762,7 @@ function recalc_gather( obj )
         if is_timer_valid( obj, obj.tmSn_g ) then
             timer.adjust( obj.tmSn_g, obj.tmOver_g )
         else
-            obj.tmSn_g = timer.new( "union_build_gather", dura, obj.eid )
+            obj.tmSn_g = timer.new( "union_gather_empty", dura, obj.eid )
         end
     else
         obj.tmStart_g = 0
@@ -889,21 +889,35 @@ function recalc_build( obj )
 end
 
 
+
+
 function try_hold_troop( obj, troop )
-    local num ,limit=0,0
+    local sum, max = 0, 0
     local u = unionmng.get_union(obj.uid)
     if not u then return end
 
-    local conf = resmng.get_conf("prop_world_unit",obj.propid)
-    local limit = get_val_by( "CountGarrison", u:get_ef(), conf and conf.Buff )
+    local max = get_hold_limit( obj )
+    local num = troop:get_troop_total_soldier()
 
     local tr = troop_mng.get_troop(obj.my_troop_id)
-    if tr then num = tr:get_troop_total_soldier() end
+    local dtroop = tr
+    if tr then 
+        sum = tr:get_troop_total_soldier() 
+    else
+        tr = {}
+    end
 
-    if num + troop:get_troop_total_soldier() > limit then return false end
+    local left = max - sum
+    if left <= 0 then
+        return false
+    elseif left > num then
+        troop:split_tr_by_num_and_back(0, tr )
+    else
+        troop:split_tr_by_num_and_back(num-left, tr )
+    end
 
-    if tr then
-        troop:merge( tr )
+    if dtroop then
+        troop:merge( dtroop ) 
     else
         obj.my_troop_id = troop._id
         save( obj )
@@ -911,3 +925,16 @@ function try_hold_troop( obj, troop )
     return true
 end
 
+
+function get_hold_limit( dest )
+    local u = unionmng.get_union( dest.uid )
+    if u then
+        local c = resmng.get_conf("prop_world_unit", dest.propid)
+        if c then
+            return get_val_by("CountGarrison", u:get_ef(), c.Buff )
+        else
+            return get_val_by("CountGarrison", u:get_ef())
+        end
+    end
+    return 0
+end

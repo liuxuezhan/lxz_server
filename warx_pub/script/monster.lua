@@ -199,19 +199,38 @@ function get_boss_pos_in_zone(tx, ty, prop, grade)
     elseif grade == BOSS_TYPE.SPECIAL then
         x, y = c_get_pos_in_zone(tx, ty, r, r)
     elseif grade == BOSS_TYPE.ELITE then
-        x, y = monster_city.get_pos_in_range(tx, ty, 0, 0, r)
+        --x, y = monster_city.get_pos_in_range(tx, ty, 0, 0, r)
+        x, y = c_get_pos_in_zone(tx, ty, r, r)
     elseif grade == BOSS_TYPE.LEADER then
-        x, y = monster_city.get_pos_in_range(tx, ty, 0, 0, r)
+       -- x, y = monster_city.get_pos_in_range(tx, ty, 0, 0, r)
+        x, y = c_get_pos_in_zone(tx, ty, r, r)
     elseif grade == BOSS_TYPE.SUPER then
-        local pos_arr = {{650,650},{620,620},{650,620},{620,650}}
-        --x, y = monster_city.get_pos_in_range(tx, ty, 2, 2, r)
-        local index = math.random(#pos_arr)
-        local pos = pos_arr[index] or {}
-        x = pos[1] or 680
-        y = pos[2] or 680
-
+        --local pos_arr = {{650,650},{620,620},{650,620},{620,650}}
+        --local index_x = math.random(-2, 2)
+        --local index_y = math.random(-2, 2)
+        --x, y = c_get_pos_in_zone(tx + index_x, ty + index_y, r, r)
+        --local index = math.random(#pos_arr)
+        --local pos = pos_arr[index] or {}
+        --x = pos[1] or 680
+        --y = pos[2] or 680
+        x, y = super_boss_pos()
     end
     return x, y
+end
+
+function super_boss_pos()
+    local num = 0
+    while true do
+        if num > 30 then
+            return
+        end
+        local index_x = math.random(-30, 30)
+        local index_y = math.random(-30, 30)
+        if c_map_test_pos_for_ply( 640 + index_x, 640 + index_y, 3 ) then
+            return 640 + index_x, 640 + index_y
+        end
+        num = num + 1
+    end
 end
 
 function force_born(tx, ty, clv)
@@ -419,7 +438,7 @@ function respawn(tx, ty, grade, npc_id)
             if eid then
                 local m = create_monster(prop)
                 --local tr= debug.traceback()
-                --LOG( "CREATE_MONSTER, eid=%d, x=%d, y=%d, propid=%d, grade= %d %d", eid, x, y, bossPropid, grade, ty * 80 + tx)
+                LOG( "CREATE_MONSTER, eid=%d, x=%d, y=%d, propid=%d, grade= %d %d", eid, x, y, bossPropid, grade, ty * 80 + tx)
 
                 m._id = eid
                 m.eid = eid
@@ -442,7 +461,7 @@ function respawn(tx, ty, grade, npc_id)
                     local idx = m.zy * 80 + m.zx
                     boss[ idx ] = m.eid
                     boss_grade[m.grade] = boss
-                    --print("elite and leader boss", m.x , m.y, m.zx, m.zy, m.grade)
+                    --print("elite and leader boss", m.x , m.y, m.zx, m.zy, m.grade, idx)
                     m:mark()
                 elseif m.grade == BOSS_TYPE.SPECIAL then
                     local boss_list = boss_special[lv] or {}
@@ -497,7 +516,10 @@ function reset_boss()
     --删除之前的boss
     for _, boss in pairs(boss_grade or {}) do
         for k, v in pairs(boss or {}) do
-            rem_ety(v)
+            local ety = get_ety(v)
+            if ety then
+                rem_monster(ety)
+            end
         end
     end
     boss_grade = {}
@@ -967,7 +989,7 @@ function rem_monster(self)
     end
 
     if  self.grade == BOSS_TYPE.SUPER then
-        super_boss = self.eid
+        super_boss = 0
     end
 
     if self.grade == BOSS_TYPE.SPECIAL then
@@ -1242,7 +1264,9 @@ function get_jungle_reward(self, pid, mkdmg, totalDmg , hp_lost, is_mass)
         elseif k == "final" and self.hp <= 0 then
             rewards[k] = {}
             for key, award in pairs(val or {}) do
-                table.insert(rewards[ k ], award[1])
+                for _, item in pairs(award or {}) do
+                    table.insert(rewards[ k ], item)
+                end
             end
         end
     end
@@ -1274,8 +1298,6 @@ can_atk_monster[BOSS_TYPE.ELITE] = function(ply, monster)
     local union = unionmng.get_union(ply.uid)
     if not union then
         return false
-    elseif union:is_new() then
-        return false
     end
 
     --if npc_city.get_city_num(union.npc_citys, 4, OPT_TYPE.LT) < 1 then
@@ -1295,8 +1317,6 @@ can_atk_monster[BOSS_TYPE.LEADER] = function(ply, monster)
     local union = unionmng.get_union(ply.uid)
     if not union then
         return false
-    elseif union:is_new() then
-        return false
     end
 
     --if npc_city.get_city_num(union.npc_citys, 3, OPT_TYPE.LT) < 1 then
@@ -1314,8 +1334,6 @@ end
 can_atk_monster[BOSS_TYPE.SUPER] = function(ply, monster)
     local union = unionmng.get_union(ply.uid)
     if not union then
-        return false
-    elseif union:is_new() then
         return false
     end
 

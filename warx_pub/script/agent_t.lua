@@ -584,17 +584,24 @@ function gm_cmd(self, proc_id, gm_type, param)
     local ret = {code = 0, msg = "param error"}
     if do_gm_cmd[gm_type] then
         ret = do_gm_cmd[gm_type](param)
+        to_tool(0, {type = "gm_ack", gm_type = gm_type, proc_id = proc_id, result = ret})
+    else
+        to_tool(0, {type = "gm_ack", gm_type = gm_type, proc_id = proc_id, result = {code = 0, msg = "no this cmd"}})
     end
-    to_tool(0, {type = "gm_ack", gm_type = gm_type, proc_id = proc_id, result = ret})
 end
 
 do_gm_cmd = {}
 
 do_gm_cmd["pay"] = function(param)
-    local ply_id = tonumber(param.player_id)
+    local ext = Json.decode(param.ext_info or "")
+    local extend = Json.decode(ext.extend or "")
+    local ply_id 
+    if extend then
+        ply_id = tonumber(extend.pid)
+    end
     local order_id = param.order_id
-    local product_id = tonumber(param.product_id)
-    local pay_amount = tonumber(param.pay_amount)
+    local product_id = tonumber(param.pid)
+    local pay_amount = tonumber(param.quantity)
 
     INFO( "[pay], pid=%s, order_id=%s, product_id=%s, pay_amount=%s", ply_id or "unknown", order_id or "unknown", product_id or "unknown", pay_amount or "unknown" )
 
@@ -621,14 +628,21 @@ do_gm_cmd["pay"] = function(param)
             local result = ply:on_pay( product_id, true )
 
             if result.code == 1 then 
-                ply:pre_tlog("PayFlow",prop.NewPrice,(prop.Gold + (prop.ExtraGold or 0)),param.order_id ,"null")
+                local prop = resmng.prop_buy[product_id]
+                if prop then
+                    ply:pre_tlog("PayFlow",prop.NewPrice or 0,((prop.Gold or 0) + (prop.ExtraGold or 0)),param.order_id ,"null")
+                else
+                    ply:pre_tlog("PayFlow",product_id,0,param.order_id ,"null")
+                end
+                INFO( "[pay], ok, pid=%s, order_id=%s, product_id=%s, pay_amount=%s", ply_id or "unknown", order_id or "unknown", product_id or "unknown", pay_amount or "unknown" )
             end
 
             return result
 
         else
             INFO( "[pay], error, pid=%d, order_id=%s, product_id=%s, pay_amount=%s, duplicate", ply_id, order_id, product_id, pay_amount )
-            return {code = 0, msg = "already pay"}
+            return {code = 1, msg = "success"}
+            --return {code = 0, msg = "already pay"}
         end
     end
 
@@ -648,14 +662,6 @@ function gm_add_union_item(ply, awards)
     end
 end
 
-do_gm_cmd["ply"] = function(param)
-    local p = getPlayer(tonumber(param.pid))
-    if not p then
-        INFO( "[ply], error, pid=%d,  no player", p.pid  )
-        return {code = 0, msg = "no this ply"}
-    end
-    return {code = 0, msg = p._pro}
-end
 
 do_gm_cmd["senditem"] = function(param)
     local ply_id = ""

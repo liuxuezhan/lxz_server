@@ -7,6 +7,10 @@ function add_to_do(pid, command, ...)
         player_t[command](ply, ...)
     else
         local ply = get_ply_info(pid)
+        if not ply then
+            WARN("zhoujy_warning: add_to_do can not get ply, pid=%d", pid)
+            return
+        end
         ply.ntodo = (ply.ntodo or 0) + 1
         local id = bson.objectid()
         local task = {_id = id, pid = ply.pid, command = command, ntodo = ply.ntodo, time = gTime, args = {...}}

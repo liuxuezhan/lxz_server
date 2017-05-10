@@ -12,9 +12,26 @@ function string.split(str, delimiter)
     return results
 end
 
+function string.join(arr, delimiter)
+    local s=""
+    local len=#arr
+    for i,v in ipairs(arr) do
+        s=s..v
+        if i<len then s=s..delimiter end
+    end
+    return s
+end
+
 function string.utf8_len(s)
     local _, count = string.gsub(s, "[^\128-\193]", "")
     return count
+end
+
+---按照给定的长度对传入的字符串做字节长度检测，返回布尔值：可用与否
+function is_inputlen_avaliable(a_str,a_cfg_len)
+    if not a_str then return false end
+    if not a_cfg_len then return true end
+    return string.len(a_str) >= a_cfg_len[1] and string.len(a_str) <= a_cfg_len[2] 
 end
 
 function string.contains_sign(str,...)
@@ -1498,6 +1515,21 @@ function is_valid_name( s )
     return true
 end
 
+---这个检测全列表屏蔽符号，检查是不是包含屏蔽符号，限制范围大
+--中文标点符号暂未找到屏蔽方案
+function check_signs_valid(str)
+    if not str or #str < 1 then return true end
+    for k,v in pairs(FORBID_SIGNS) do
+        if string.find(str,k) then
+            return false
+        end
+    end
+    return true
+    -- print(string.match(str,"[%p%s\a\b\n\t\r\v\f\'\"]"))
+    -- return nil == string.find(str,"[%p%s\a\b\n\t\r\v\f\'\"]")
+end
+
+---这个只检测强屏蔽符号，去掉函数中的强屏蔽符号，限制范围小
 function check_valid_input(s)
     local regular = { ['<'] = true, ['>'] = true,['\r']=true, ['\n']=true }
 
@@ -1506,11 +1538,9 @@ function check_valid_input(s)
         local length = string.len(s)
         local i = 1
 
-        while( i <= length ) do
+        while i <= length do
             local first_char = string.sub( s, i, i )
-            if( regular[first_char] == true )then
-                rst=rst.."*"
-            else
+            if not regular[first_char] then
                 rst=rst..first_char
             end
             i = i + 1
@@ -1642,3 +1672,54 @@ function push_offline_ntf(audience, msg)
         }
     })
 end
+
+
+--屏蔽字
+------------------------------------------------------------------------------
+function string.replace(str, tofind, toreplace)
+    tofind = string.gsub(tofind, "[%-%^%$%(%)%%%.%[%]%*%+%?]", "%%%1")
+    toreplace = string.gsub(toreplace, "%%", "%%%1")
+    return (string.gsub(str, tofind, toreplace))
+end
+
+------------------------
+--客户端用
+------------------------
+function is_include_filter(str)
+    local filter_map = resmng.prop_filterData
+    for _, v in pairs(filter_map) do
+        if string.find(str, v[2]) then 
+            return true
+        end
+    end
+    return false
+end
+
+--屏蔽字替换
+function replace_filter(str)
+    local filter_map = resmng.prop_filterData
+    for _, v in pairs(filter_map) do
+        str = string.replace(str, v[2], "*")
+    end
+    return str
+end
+------------------------
+------------------------
+
+------------------------
+--服务器用
+------------------------
+function is_include_filter_server(str)
+    local filter_map = resmng.prop_filter
+    for _, v in pairs(filter_map) do
+        if string.find(str, v.Filter) then 
+            return true
+        end
+    end
+    return false
+end
+------------------------
+------------------------
+------------------------------------------------------------------------------
+
+

@@ -13,7 +13,7 @@ function t1.action()
             num_pre_60 = 0
         end
         num_pre_60 = num_pre_60 + 1
-        local ply = get_random_one()
+        local ply = get_account()
         loadData(ply)
         --wait_for_ack(ply, "loadData")
         if get_castle_lv(ply) <= 3 then

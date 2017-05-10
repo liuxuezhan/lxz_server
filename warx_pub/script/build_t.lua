@@ -20,7 +20,6 @@ module_class("build_t", {
 function create(idx, pid, propid, x, y, state, tmStart, tmOver)
     local _id = string.format("%d_%d", idx, pid)
     local t = {_id=_id, map=gMapID, idx=idx, pid=pid, propid=propid, x=x, y=y, state=state or 2, tmStart=tmStart or 0, tmOver=tmOver or 0, extra={}, bufs={}, hero_idx=0 }
-    print( "create_build", _id, propid )
     return new(t)
 end
 

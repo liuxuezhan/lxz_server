@@ -540,15 +540,22 @@ function do_peace_city()
                 city.uname = nil  --初始化所以王城的uid都是0  这样才不会互相误伤
                 city.ualias = nil  --初始化所以王城的uid都是0  这样才不会互相误伤
                 city.status = 0 --要塞失效
+                clear_timer(city)
 
                 local troop = city:get_my_troop()
                 if troop.owner_eid ~= city.eid then
                     troop:back()
+                    watch_tower.building_def_clear(city, troop)
                     --troop_back(troop)
                 else
                     troop_mng.delete_troop(troop._id)
                 end
                 city.my_troop_id = 0
+            elseif resmng.prop_world_unit[city.propid].Lv == CITY_TYPE.TOWER then
+                clear_timer(city)
+                city.status = 1
+                city.startTime = nil
+                city.endTime = nil
             end
             etypipe.add(city)
         end
@@ -671,7 +678,7 @@ function get_city_type(city)
 end
 
 function get_cd_time(Type, cityType)
-    local table = { ["troop"] = {0,0,18}, [ "fire" ] = {0, 15, 30}, [ "towerDown" ] = {[2] = 36}}
+    local table = { ["troop"] = {0,0,18}, [ "fire" ] = {0, 15, 30}, [ "towerDown" ] = {[2] = 1800}}
     return table[Type][cityType]
 end
 
@@ -758,6 +765,13 @@ function try_fire_king(city)
             if troop then
                 troop:apply_dmg(force)
                 if not troop:has_alive() then
+                    local union = unionmng.get_union(troop.owner_uid)
+                    if union then
+                        local _members = union:get_members()
+                        for k, ply in pairs(_members or {}) do
+                            player_t.send_system_notice(ply, resmng.MAIL_10052, {}, {})
+                        end
+                    end
                     fire_win(kingCity, city)
                     if troop.owner_eid ~= kingCity.eid then
                         troop:back()
@@ -828,6 +842,12 @@ function try_fire_troop(city, troopId)
                         be_atk_list[city.eid] = nil
                         troop.be_atk_list = be_atk_list
                         troop:flush_data()
+                    end
+                    for pid, _ in pairs(troop.arms) do
+                        local ply = getPlayer(pid)
+                        if ply then
+                             player_t.send_system_notice(ply, resmng.MAIL_10051, {}, {})
+                        end
                     end
                     if troop:check_no_arm() and troop:check_no_hero() then
                         troop_mng.delete_troop(troop._id)
@@ -1023,6 +1043,7 @@ function reset_other_city(kingCity)
     for k, v in pairs(citys or {}) do
         local city = get_ety(k)
         if city then
+            clear_timer(city)
             if resmng.prop_world_unit[city.propid].Lv == CITY_TYPE.TOWER then
                 npc_city.change_city_uid(city, kingCity.uid)
                 --city.pid = kingCity.pid 
@@ -1030,7 +1051,11 @@ function reset_other_city(kingCity)
                 city.ualias = kingCity.ualias
                 local troop = city:get_my_troop()
                 if troop.owner_eid ~= city.eid then
-                    troop:back()
+                    if troop.owner_uid ~= kingCity.uid then
+                        troop:back()
+                        city.my_troop_id = nil
+                        watch_tower.building_def_clear(city, troop)
+                    end
                     --troop_back(troop)
                 else  --清除要塞原npc部队
                     troop_mng.delete_troop(troop._id)
@@ -1038,7 +1063,7 @@ function reset_other_city(kingCity)
                 end
             elseif resmng.prop_world_unit[city.propid].Lv == CITY_TYPE.FORT then
                 city.occuTime = gTime
-                try_atk_king(city)
+                --try_atk_king(city)
                 try_fire_king(city)
 
             end
@@ -1091,7 +1116,7 @@ after_atk_win[CITY_TYPE.FORT] = function(atkTroop, defenseTroop)
             if union then
                 local _members = union:get_members() 
                 for _, mem in pairs(union._members or {}) do
-                    union_item.add(mem, award, UNION_ITEM.KING)
+                    union_item.add(mem, award, UNION_ITEM.CITY, city.propid)
                 end
             end
         end
@@ -1166,7 +1191,7 @@ after_atk_win[CITY_TYPE.KING_CITY] = function(atkTroop, defenseTroop)
             if union then
                 local _members = union:get_members() 
                 for _, mem in pairs(union._members) do
-                    union_item.add(mem, award, UNION_ITEM.KING)
+                    union_item.add(mem, award, UNION_ITEM.CITY, city.propid)
                 end
             end
         end
@@ -1279,7 +1304,7 @@ deal_new_defender[CITY_TYPE.FORT] = function(city, kingCity)
     occu_fort_ntf(ntf_id, city)
 
     city.occuTime = gTime
-    try_atk_king(city)
+    --try_atk_king(city)
     try_fire_king(city)
     union_hall_t.battle_room_update_ety(OPERATOR.UPDATE, self)
 end
@@ -1308,6 +1333,7 @@ function reset_tower(city)
         --player_t.add_chat({pid=-1,gid=_G.GateSid}, 0, 0, {pid=0}, string.format("towner down,", conf.Chat))  
     end
 
+    clear_timer(city)
     city.status = 1
     city.startTime = nil
     city.endTime = nil
@@ -1344,10 +1370,11 @@ function eye_info(city, pack)
         pack.uname = city.ualias
         pack.dmg = get_force_prop(city, "fire", "force")
         if is_super_boss() then
-            pack.troop_dmg = get_force_prop(city, "super", "force") or 0
+            --pack.troop_dmg = get_force_prop(city, "super", "force") or 0
         else
-            pack.troop_dmg = get_force_prop(city, "troop", "force") or 0
+            --pack.troop_dmg = get_force_prop(city, "troop", "force") or 0
         end
+        pack.troop_dmg = 0
 
     elseif lv == CITY_TYPE.TOWER then
         pack.defender = city.uid
@@ -1368,7 +1395,8 @@ function eye_info(city, pack)
                     if num == 0 then
                         num = 1
                     end
-                    pack.score = king[4] / num
+                    local point = string.format("%0.2f", king[4] / num)
+                    pack.score = tonumber(point)
                 end
             end
         end
@@ -1455,6 +1483,21 @@ function rem_officer_buff(ply)
 end
 
 function select_officer(king, pid, index)
+    if not kings[season] then
+        return 
+    end
+
+    local ply = getPlayer(pid)
+    if not ply then
+        return
+    end
+
+    ply.select_time = ply.select_time or 0
+
+    if ply.select_time ~= 0 and ply.select_time - gTime < 600 then
+        Rpc:tips(king, 1, resmng.TIPS_APPOINT_CD, {})
+    end
+
     if kings[season][2] ~= king.pid then
         return
     end
@@ -1467,27 +1510,41 @@ function select_officer(king, pid, index)
             ply.officer = 0
         end
     end
-    local ply = getPlayer(pid)
     if ply and (ply.offiecer ~= KING) then
         local preOfficer = ply.officer
         officers[preOfficer] = nil
         ply.officer = index
+        ply.select_time = gTime
         add_officer_buff(ply)
         officers[index] = pid
         gPendingSave.status["kwState"].officers = officers
-        local u = ply:get_union() or {}
 
-        local prop = resmng.get_conf("prop_act_notify", resmng.OFFICIAL_APPOINTMENT)
+        local u = ply:get_union() 
+        local prop
+        if u and (not u:is_new()) then
+            prop = resmng.get_conf("prop_act_notify", resmng.OFFICIAL_APPOINTMENT)
+        else
+            prop = resmng.get_conf("prop_act_notify", resmng.OFFICIAL_APPOINTMENT_NO_UNION)
+        end
+
         if prop then
             local officer_conf = resmng.prop_kw_officer[index]
             if not officer_conf then
                 officer_conf = {}
             end
             if prop.Notify then
-                Rpc:tips({pid=-1,gid=_G.GateSid}, 2, prop.Notify,{ply.name, officer_conf.GDDesc, u.alias})
+                if u then
+                    Rpc:tips({pid=-1,gid=_G.GateSid}, 2, prop.Notify,{ply.name, officer_conf.GDDesc, u.alias})
+                else
+                    Rpc:tips({pid=-1,gid=_G.GateSid}, 2, prop.Notify,{ply.name, officer_conf.GDDesc})
+                end
             end
             if prop.Chat1 then
-                player_t.add_chat({pid=-1,gid=_G.GateSid}, 0, 0, {pid=0}, "", prop.Chat1, {ply.name, officer_conf.GDDesc, u.alias})
+                if u then
+                    player_t.add_chat({pid=-1,gid=_G.GateSid}, 0, 0, {pid=0}, "", prop.Chat1, {ply.name, officer_conf.GDDesc, u.alias})
+                else
+                    player_t.add_chat({pid=-1,gid=_G.GateSid}, 0, 0, {pid=0}, "", prop.Chat1, {ply.name, officer_conf.GDDesc})
+                end
             end
         end
 

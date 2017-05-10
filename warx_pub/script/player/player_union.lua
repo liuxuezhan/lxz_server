@@ -235,6 +235,9 @@ function get_build_list(union)
 end
 
 function union_create(self, name, alias, language, mars)
+    if not is_inputlen_avaliable(name,CHA_LIMIT.Union_Name) then return end 
+    if not is_inputlen_avaliable(alias,CHA_LIMIT.Union_Alias) then return end 
+
     if check_ply_cross(self) then
         ack(self, "union_create", resmng.E_DISALLOWED) return
     end
@@ -335,7 +338,7 @@ function union_set_info(self, info)
                 etypipe.add(v)
             end
 
-            local bs = self:get_build()
+            local bs = u:get_build()
             for _, v in pairs( bs ) do
                 if v.state ~= BUILD_STATE.DESTROY then
                     etypipe.add( v )
@@ -483,6 +486,8 @@ end
 
 function union_enlist_set(self, check,text,lv,pow)
 
+    if not is_inputlen_avaliable(text,CHA_LIMIT.Union_Recruit) then return end 
+
     if check_ply_cross(self) then
         ack(self, "union_enlist_set", resmng.E_DISALLOWED) return
     end
@@ -628,6 +633,7 @@ function union_list(self,name)
         if info then table.insert(ret.list,info) end
     end
 
+    --lxz(ret.list)
     Rpc:union_list(self,ret.name,ret.list)
 end
 
@@ -742,7 +748,7 @@ function union_member_rank(self, pid, r)
 end
 
 function union_member_title(self, pid, t)
-
+    if not is_inputlen_avaliable(t,CHA_LIMIT.Union_Title_Grant) then return end
     if check_ply_cross(self) then
         ack(self, "union_member_title", resmng.E_DISALLOWED) return
     end
@@ -888,10 +894,14 @@ function union_troop_buf(self)
         WARN("没权限")
         return
     end
+    local u = unionmng.get_union(self.uid)
+    if not u then return end
+    for _, v in pairs(u.buf or {}) do
+        if v[1]==90001001 then return end
+    end
     if not self:do_dec_res(resmng.DEF_RES_GOLD, 20000, VALUE_CHANGE_REASON.UNION_TASK) then
         return
     end
-    local u = unionmng.get_union(self.uid)
     u:add_buf(90001001,8*60*60)
     Rpc:tips({pid=-1,gid=_G.GateSid}, 2,resmng.UNION_ADD_BUF,{u.name})
 end
@@ -1017,7 +1027,7 @@ function union_mall_buy(self,propid,num)
     end
 
     union_mall.buy(self,propid,num)
-    Rpc:union_donate_info(self, {donate=self._union.donate,CD_num = self._union.CD_doante_num, tmOver=self._union.tmDonate,flag=union_member_t.get_donate_flag(self)})
+    Rpc:union_donate_info(self, {donate=self._union.donate,CD_num = self._union.CD_donate_num, tmOver=self._union.tmDonate,flag=union_member_t.get_donate_flag(self)})
 end
 
 function union_donate_clear(self)
@@ -1027,7 +1037,7 @@ function union_donate_clear(self)
     end
 
     union_tech_t.clear_tmdonate(self)
-    Rpc:union_donate_info(self, {tmOver=self._union.tmDonate,CD_num = self._union.CD_doante_num, flag=union_member_t.get_donate_flag(self)})
+    Rpc:union_donate_info(self, {donate=self._union.donate,tmOver=self._union.tmDonate,CD_num = self._union.CD_donate_num, flag=union_member_t.get_donate_flag(self)})
 end
 
 function union_donate(self, idx, mode)
@@ -1038,7 +1048,7 @@ function union_donate(self, idx, mode)
     if not union_tech_t.donate(self, idx, mode) then return end
 
     self:union_tech_info(idx)
-    Rpc:union_donate_info(self, {tmOver=self._union.tmDonate, CD_num = self._union.CD_doante_num, flag=union_member_t.get_donate_flag(self)})
+    Rpc:union_donate_info(self, {donate=self._union.donate, tmOver=self._union.tmDonate, CD_num = self._union.CD_donate_num, flag=union_member_t.get_donate_flag(self)})
     --成就
     self:add_count(resmng.ACH_TASK_TECH_DONATE, 1)
     --任务
@@ -1077,7 +1087,7 @@ function union_donate_rank(self, what)
         return
     end
 
-    Rpc:union_donate_rank(self, { what = what, val = u:get_donate_rank(what)})
+    Rpc:union_donate_rank(self, { what = what, val = u:get_donate_rank(what) or {} })
 end
 
 --}}}
@@ -1110,6 +1120,8 @@ end
 
 function union_set_note_in(self, what)
 
+    if not is_inputlen_avaliable(what,CHA_LIMIT.Union_Notice) then return end
+
     if check_ply_cross(self) then
         ack(self, "union_set_note_in", resmng.E_DISALLOWED) return
     end
@@ -1118,8 +1130,8 @@ function union_set_note_in(self, what)
     if not union then
         ack(self, "union_set_note_in", resmng.E_NO_UNION) return
     end
-    union:set_note_in(self.pid,what)
 
+    union:set_note_in(self.pid,what)
 end
 
 function union_task_get(self )--发布悬赏任务
@@ -1243,6 +1255,7 @@ function union_buildlv_donate(self, mode)
 end
 
 function union_build_setup(self, idx, propid, x, y,name)
+    if not is_inputlen_avaliable(name,CHA_LIMIT.Union_Name_Fac) then return end
     if check_ply_cross(self) then
         ack(self, "union_build_setup", resmng.E_DISALLOWED) return
     end
@@ -1936,16 +1949,19 @@ function union_battle_room_detail(self, room_id)
                     end
                 end
             end
+        end
 
-            if is_lost_temple( D ) then
-                _, infoD.count_max = npc_city.hold_limit( D )
-            elseif is_npc_city( D ) then
-                _, infoD.count_max = npc_city.hold_limit( D )
-            elseif is_king_city( D ) then
-                _, infoD.count_max = npc_city.hold_limit( D )
-            elseif is_ply( D ) then
-                infoD.count_max = D:get_val( "CountRelief" )
-            end
+        if is_lost_temple( D ) then
+            _, infoD.count_max = npc_city.hold_limit( D )
+        elseif is_npc_city( D ) then
+            _, infoD.count_max = npc_city.hold_limit( D )
+        elseif is_king_city( D ) then
+            _, infoD.count_max = npc_city.hold_limit( D )
+        elseif is_ply( D ) then
+            infoD.count_max = D:get_val( "CountRelief" )
+        elseif is_union_miracal( D.propid ) then
+            infoD.count_max = union_build_t.get_hold_limit( D )
+
         end
     end
 
@@ -2057,7 +2073,11 @@ function union_word_update(self,wid,title,word)
 end
 
 function union_word_add(self,uid,title,word,top)
+    if not is_inputlen_avaliable(title,CHA_LIMIT.Union_Words_Topic) then return end 
+    if not is_inputlen_avaliable(word,CHA_LIMIT.Union_Words_Content) then return end 
+
     local d = union_word.add(self,uid,title,word)
+
     if top == 1 then
         d = union_word.top(self,d.wid,top)
         local p = getPlayer(d.pid)

@@ -58,6 +58,7 @@ function load_build()
     end
 end
 
+
 function load_troop()
     local db = dbmng:getOne()
     db.troop:delete({delete=true})
@@ -195,7 +196,7 @@ function init_effect()
         end
         etypipe.add(v)
         count = count + 1
-        if count % 100 == 0 then print( "init_effect, count =", count ) end
+        if count % 100 == 0 then INFO( "init_effect, count = %d", count ) end
     end
 
     local us = unionmng.get_all()
@@ -316,11 +317,11 @@ function post_init()
 end
 
 function action()
-    monitoring(MONITOR_TYPE.LOADDATA, "before load data")
+    --monitoring(MONITOR_TYPE.LOADDATA, "before load data")
     INFO("-- load_sys_status ---------")
     load_sys_status()
     INFO("-- load_sys_status done-----")
-    monitoring(MONITOR_TYPE.LOADDATA, "load_sys_status")
+    --monitoring(MONITOR_TYPE.LOADDATA, "load_sys_status")
 
     INFO("-- load_wander -------------")
     wander.load()
@@ -329,73 +330,73 @@ function action()
     INFO("-- load_player -------------")
     load_player()
     INFO("-- load_player done --------")
-    monitoring(MONITOR_TYPE.LOADDATA, "load_player")
+    --monitoring(MONITOR_TYPE.LOADDATA, "load_player")
 
     INFO("-- load_world_event -------------")
     world_event.load_world_event()
     INFO("-- load_world_event done --------")
-    monitoring(MONITOR_TYPE.LOADDATA, "load_world_event")
+    --monitoring(MONITOR_TYPE.LOADDATA, "load_world_event")
 
     INFO("-- load_weekly_activity -------------")
     weekly_activity.load_weekly_activity()
     INFO("-- load_weekly_activity done --------")
-    monitoring(MONITOR_TYPE.LOADDATA, "load_weekly_activity")
+    --monitoring(MONITOR_TYPE.LOADDATA, "load_weekly_activity")
 
     INFO("-- load_operate_activity -------------")
     operate_activity.load_operate_activity()
     INFO("-- load_operate_activity done --------")
-    monitoring(MONITOR_TYPE.LOADDATA, "load_operate_activity")
+    --monitoring(MONITOR_TYPE.LOADDATA, "load_operate_activity")
 
     INFO("-- load_union --------------")
     union_t.load()
     union2_t.load()
     INFO("-- load_union done ---------")
-    monitoring(MONITOR_TYPE.LOADDATA, "load_union")
+    --monitoring(MONITOR_TYPE.LOADDATA, "load_union")
 
     INFO("-- load_union_member -------")
     union_member_t.load()
     INFO("-- load_union_member done --")
-    monitoring(MONITOR_TYPE.LOADDATA, "load_union_member")
+    --monitoring(MONITOR_TYPE.LOADDATA, "load_union_member")
 
     INFO("-- unoin_buildlv -----") -- union_t后 在load_troop 前
     union_buildlv.load()--
     INFO("-- unoin_buildlv done -----")
-    monitoring(MONITOR_TYPE.LOADDATA, "unoin_buildlv")
+    --monitoring(MONITOR_TYPE.LOADDATA, "unoin_buildlv")
 
     INFO("-- load_union_build --------")
     union_build_t.load()
     INFO("-- load_union_build done ---")
-    monitoring(MONITOR_TYPE.LOADDATA, "load_union_build")
+    --monitoring(MONITOR_TYPE.LOADDATA, "load_union_build")
 
     INFO("-- load_union_tech ---------")
     union_tech_t.load()
     INFO("-- load_union_tech done ----")
-    monitoring(MONITOR_TYPE.LOADDATA, "load_union_tech")
+    --monitoring(MONITOR_TYPE.LOADDATA, "load_union_tech")
     
     INFO("-- load_build --------------")
     load_build()
     INFO("-- load_build done ---------")
-    monitoring(MONITOR_TYPE.LOADDATA, "load_build")
+    --monitoring(MONITOR_TYPE.LOADDATA, "load_build")
 
     INFO("-- load_npc_city -----------")
     npc_city.load_npc_city()
     INFO("-- load_npc_city -----------")
-    monitoring(MONITOR_TYPE.LOADDATA, "load_npc_city")
+    --monitoring(MONITOR_TYPE.LOADDATA, "load_npc_city")
 
     INFO("-- load_cross_act -----------")
     cross_act.load_data()
     INFO("-- load_cross_act -----------")
-    monitoring(MONITOR_TYPE.LOADDATA, "load_cross_act")
+    --monitoring(MONITOR_TYPE.LOADDATA, "load_cross_act")
 
     INFO("-- load_refugee -----------")
     refugee.load_from_db()
     INFO("-- load_refugee -----------")
-    monitoring(MONITOR_TYPE.LOADDATA, "load_refugee")
+    --monitoring(MONITOR_TYPE.LOADDATA, "load_refugee")
 
     INFO("-- load_cross_refugee -----------")
     cross_refugee_c.load_data()
     INFO("-- load_cross_refugee -----------")
-    monitoring(MONITOR_TYPE.LOADDATA, "load_refugee")
+    --monitoring(MONITOR_TYPE.LOADDATA, "load_refugee")
 
 
     INFO("-- load_clown -----------")
@@ -405,55 +406,55 @@ function action()
     INFO("-- load_monster_city -----------")
     monster_city.load_monster_city()
     INFO("-- load_monster_city -----------")
-    monitoring(MONITOR_TYPE.LOADDATA, "load_monster_city")
+    --monitoring(MONITOR_TYPE.LOADDATA, "load_monster_city")
 
     INFO("-- load_king_city -----------")
     king_city.load_king_city()
     INFO("-- load_king_city -----------")
-    monitoring(MONITOR_TYPE.LOADDATA, "load_king_city")
+    --monitoring(MONITOR_TYPE.LOADDATA, "load_king_city")
 
     INFO("-- load_kw_mall -----------")
     kw_mall.load_from_db()
     INFO("-- load_kw_mall -----------")
-    monitoring(MONITOR_TYPE.LOADDATA, "load_kw_mall")
+    --monitoring(MONITOR_TYPE.LOADDATA, "load_kw_mall")
 
     load_troop() 
 
     INFO("-- load_hero ---------------")
     load_hero()
     INFO("-- load_hero done ----------")
-    monitoring(MONITOR_TYPE.LOADDATA, "load_hero")
+    --monitoring(MONITOR_TYPE.LOADDATA, "load_hero")
 
     INFO("-- load_monster ------------")
     monster.load_from_db()
     INFO("-- load_monster done--------")
-    monitoring(MONITOR_TYPE.LOADDATA, "load_monster")
+    --monitoring(MONITOR_TYPE.LOADDATA, "load_monster")
 
     INFO("-- restore_load_farm -------")
     farm.load_from_db()
     INFO("-- restore_load_farm done --")
-    monitoring(MONITOR_TYPE.LOADDATA, "restore_load_farm")
+    --monitoring(MONITOR_TYPE.LOADDATA, "restore_load_farm")
 
     INFO("-- restore_load_unit -------")
     load_unit()
     INFO("-- restore_load_unit done --")
-    monitoring(MONITOR_TYPE.LOADDATA, "restore_load_unit")
+    --monitoring(MONITOR_TYPE.LOADDATA, "restore_load_unit")
 
     INFO("-- restore_system_mail -----")
     load_sys_mail()
     INFO("-- restore_system_mail done-")
-    monitoring(MONITOR_TYPE.LOADDATA, "restore_system_mail")
+    --monitoring(MONITOR_TYPE.LOADDATA, "restore_system_mail")
     
     INFO("-- load_lost_temple -----------")
     lost_temple.load_lost_temple()
     INFO("-- load_lost_temple -----------")
-    monitoring(MONITOR_TYPE.LOADDATA, "load_lost_temple")
+    --monitoring(MONITOR_TYPE.LOADDATA, "load_lost_temple")
 
 
     INFO("-- restore_equip -----")
     load_equip()
     INFO("-- restore_equip done-")
-    monitoring(MONITOR_TYPE.LOADDATA, "restore_equip")
+    --monitoring(MONITOR_TYPE.LOADDATA, "restore_equip")
 
     --INFO("-- init_effect -------------")
     --local count = init_effect()
@@ -463,58 +464,58 @@ function action()
     INFO("-- restore_room -----")
     load_room() 
     INFO("-- restore_room done-")
-    monitoring(MONITOR_TYPE.LOADDATA, "restore_room")
+    --monitoring(MONITOR_TYPE.LOADDATA, "restore_room")
     
     INFO("-- unoin_mall -----")
     union_mall.load()
     INFO("-- unoin_mall done -----")
-    monitoring(MONITOR_TYPE.LOADDATA, "unoin_mall")
+    --monitoring(MONITOR_TYPE.LOADDATA, "unoin_mall")
 
     INFO("-- unoin_task -----")
     union_task.load()--在ety和union 后加载
     INFO("-- unoin_task done -----")
-    monitoring(MONITOR_TYPE.LOADDATA, "unoin_task")
+    --monitoring(MONITOR_TYPE.LOADDATA, "unoin_task")
 
     INFO("-- unoin_mission -----")
     union_mission.load()--
     INFO("-- unoin_mission done -----")
-    monitoring(MONITOR_TYPE.LOADDATA, "unoin_mission")
+    --monitoring(MONITOR_TYPE.LOADDATA, "unoin_mission")
 
     INFO("-- unoin_word -----")
     union_word.load()--
     INFO("-- unoin_word done -----")
-    monitoring(MONITOR_TYPE.LOADDATA, "unoin_word")
+    --monitoring(MONITOR_TYPE.LOADDATA, "unoin_word")
 
 
     INFO("-- unoin_relation -----")
     union_relation.load()--
     INFO("-- unoin_relation done -----")
-    monitoring(MONITOR_TYPE.LOADDATA, "unoin_relation")
+    --monitoring(MONITOR_TYPE.LOADDATA, "unoin_relation")
 
     INFO("-- unoin_help -----")
     union_help.load()--
     INFO("-- unoin_help done -----")
-    monitoring(MONITOR_TYPE.LOADDATA, "unoin_help")
+    --monitoring(MONITOR_TYPE.LOADDATA, "unoin_help")
 
     INFO("-- unoin_god -----")
     union_god.load()--
     INFO("-- unoin_god done -----")
-    monitoring(MONITOR_TYPE.LOADDATA, "unoin_god")
+    --monitoring(MONITOR_TYPE.LOADDATA, "unoin_god")
 
     INFO("-- unoin_item -----")
     union_item.load()--
     INFO("-- unoin_item done -----")
 
-    monitoring(MONITOR_TYPE.LOADDATA, "unoin_god")
+    --monitoring(MONITOR_TYPE.LOADDATA, "unoin_god")
     INFO("-- gacha_world_limit -----")
     gacha_limit_t.load_gacha_world_limit()
     INFO("-- gacha_world_limit done -----")
-    monitoring(MONITOR_TYPE.LOADDATA, "gacha_world_limit")
+    --monitoring(MONITOR_TYPE.LOADDATA, "gacha_world_limit")
 
     INFO("-- white list-----")
     load_white_list_status()
     INFO("-- white list done-----")
-    monitoring(MONITOR_TYPE.LOADDATA, "white_list")
+    --monitoring(MONITOR_TYPE.LOADDATA, "white_list")
 
 
     INFO("-- tribute_exchange -----")
@@ -524,7 +525,7 @@ function action()
     INFO("-- restore_timer -----------")
     local compensate =  restore_timer()
     INFO("-- restore_timer done ------, %s", compensate or "none")
-    monitoring(MONITOR_TYPE.LOADDATA, "restore_timer")
+    --monitoring(MONITOR_TYPE.LOADDATA, "restore_timer")
 
     c_tick(0)
     init_effect()

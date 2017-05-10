@@ -17,7 +17,7 @@ function checkin(m)
 end
 
 function farm_reset()
-    local n = gTime - gSysConfig.create
+    local n = gTime - get_sys_status("start")
     n = n / (3600*24)
 
     local node = false

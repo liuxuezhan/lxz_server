@@ -50,6 +50,9 @@ function arrived_target(x, y, actor_eid, parm1, parm2, parm3, parm4, parm5)
                             B:on_troop_arrive( troop )
                         end
                     end
+                else
+                    --其他建筑
+                    watch_tower.building_arrive(D, troop)
                 end
             end
         end

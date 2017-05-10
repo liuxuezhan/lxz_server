@@ -41,6 +41,10 @@ function end_tw()
     npc_city.end_tw()
 end
 
+function rem_all_mc()
+    monster_city.rem_all_mc()
+end
+
 function reset_kw_mall()
     kw_mall.refresh_kw_mall()
 end
@@ -101,7 +105,7 @@ function send_mc_award()
 end
 
 function send_lt_award()
-    lost_temple.send_score_award()
+    --lost_temple.send_score_award()
     rank_mng.clear(9)
     rank_mng.clear(10)
 end

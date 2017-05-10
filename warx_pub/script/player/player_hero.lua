@@ -1200,6 +1200,7 @@ function get_prisoners_info(self)
                     star            = hero.star,
                     lv              = hero.lv,
                     fight_power     = hero.fight_power,
+                    full_pow        = hero_t.calc_hero_pow_body( hero ),
                     player_name     = ply.name,
                     union_name      = "",
                     player_id       = ply._id,
@@ -1313,7 +1314,7 @@ function kill_hero(self, hero_id, buff_idx)
     altar.tmStart = gTime
     altar.tmOver  = tmOver
     altar.tmSn    = timer.new("build", kill_time, self.pid, altar.idx, tmOver, buff_id, buff_time)
-    altar:set_extra("kill", {id=hero._id, start=gTime, over=tmOver})
+    altar:set_extra("kill", {id=hero._id, start=gTime, over=tmOver, buff_idx=buff_idx})
 
     -- notify client.
     self:get_prisoners_info()
@@ -1404,6 +1405,11 @@ function use_skill_special_book(self, hero_idx, skill_idx, item_idx, num, skill_
 
     local conf = prop_skill[ skill_id ]
     if not conf then return end
+
+    if num < 1 then
+        WARN( "[USE_SKILL_SPECIAL_BOOK], NUM_ERROR, num < 1, pid=%d, skill_id=%d, num=%d", self.pid, skill_id, num )
+        return
+    end
     
     if skill[1] == 0 then
         -- 尚无: 首张用于获得该技能，其余用于升级
@@ -1442,6 +1448,10 @@ end
 
 -- 使用英雄通用技能书
 function use_skill_common_book(self, hero_idx, skill_idx, item_idx, num, skill_id, exp)
+    if num < 1 then 
+        WARN( "[USE_SKILL_COMMOM_BOOK], NUM_ERROR, pid=%d, num=%d", self.pid, num)
+        return 
+    end
     local hero = self:get_hero(hero_idx)
     if not hero or not hero:is_valid() then
         WARN("use_skill_common_book: hero isn't valid. pid = %d, hero_idx = %d", self.pid, hero_idx)
@@ -1486,24 +1496,24 @@ end
 
 
 -- 重置技能
-function reset_skill(self, hero_idx, skill_idx)
-    local hero = self:get_hero( hero_idx )
-    if not hero then return end
-
-    local num = self:get_item_num(RESET_SKILL_ITME)
-    if num ~= 0 then
-        self:dec_item_by_item_id(RESET_SKILL_ITME, 1, VALUE_CHANGE_REASON.REASON_DEC_ITEM_RESET_SKILL)
-        hero:reset_skill(skill_idx)
-        return
-    end
-
-    --使用金币
-    local gold = self:get_res_num(resmng.DEF_RES_GOLD)
-    if gold >= RESET_SKILL_GOLD then
-        self:do_dec_res(resmng.DEF_RES_GOLD, RESET_SKILL_GOLD, VALUE_CHANGE_REASON.REASON_DEC_RES_RESET_SKILL)
-        hero:reset_skill(skill_idx)
-    end
-end
+--function reset_skill(self, hero_idx, skill_idx)
+--    local hero = self:get_hero( hero_idx )
+--    if not hero then return end
+--
+--    local num = self:get_item_num(RESET_SKILL_ITME)
+--    if num ~= 0 then
+--        self:dec_item_by_item_id(RESET_SKILL_ITME, 1, VALUE_CHANGE_REASON.REASON_DEC_ITEM_RESET_SKILL)
+--        hero:reset_skill(skill_idx)
+--        return
+--    end
+--
+--    --使用金币
+--    local gold = self:get_res_num(resmng.DEF_RES_GOLD)
+--    if gold >= RESET_SKILL_GOLD then
+--        self:do_dec_res(resmng.DEF_RES_GOLD, RESET_SKILL_GOLD, VALUE_CHANGE_REASON.REASON_DEC_RES_RESET_SKILL)
+--        hero:reset_skill(skill_idx)
+--    end
+--end
 
 function reset_skill_senior(self, hero_idx, skill_idx)
     local hero = self:get_hero(hero_idx)
@@ -1522,7 +1532,7 @@ function reset_skill_senior(self, hero_idx, skill_idx)
     local num = self:get_item_num(RESET_SKILL_ITME)
     if num ~= 0 then
         self:dec_item_by_item_id(RESET_SKILL_ITME, 1, VALUE_CHANGE_REASON.REASON_DEC_ITEM_RESET_SKILL)
-        hero:reset_skill(skill_idx)
+        hero:reset_skill(skill_idx, true)
 
         local conf = resmng.get_conf( "prop_skill", skillid )
         if conf then

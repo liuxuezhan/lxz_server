@@ -97,7 +97,6 @@ function check_tit_add(self, idx)
     if not conf then return end
 
     local result = false
-    INFO("tit indx and score ", propid, self.ache_pint)
 
     result =  (conf.Point or 0) <= self.ache_point
 
@@ -107,6 +106,7 @@ function check_tit_add(self, idx)
         --result = self:check_ache(v)
         if self:check_ache(v) then
             result = true
+            INFO("tit indx and score ", propid, self.ache_pint)
         else
             result = self:check_ach(v)
         end

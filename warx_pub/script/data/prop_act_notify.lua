@@ -39,4 +39,12 @@ prop_act_notify = {
 	[KING_ONLINE_NOUNION] = { ID = KING_ONLINE_NOUNION, Notify = 60384, Chat1 = 60385, Chat2 = nil, SendMail = nil,},
 	[TW_PREPARE_SPECIAL] = { ID = TW_PREPARE_SPECIAL, Notify = 60458, Chat1 = 60459, Chat2 = nil, SendMail = nil,},
 	[TW_FIGHT_SPECIAL] = { ID = TW_FIGHT_SPECIAL, Notify = 60460, Chat1 = 60461, Chat2 = nil, SendMail = nil,},
+	[OFFICIAL_APPOINTMENT_NO_UNION] = { ID = OFFICIAL_APPOINTMENT_NO_UNION, Notify = 60492, Chat1 = 60492, Chat2 = nil, SendMail = nil,},
+	[ISSUE_DECREE] = { ID = ISSUE_DECREE, Notify = 60491, Chat1 = 60491, Chat2 = nil, SendMail = nil,},
+	[TW_START] = { ID = TW_START, Notify = 60517, Chat1 = 60516, Chat2 = nil, SendMail = nil,},
+	[TW_END] = { ID = TW_END, Notify = 60519, Chat1 = 60518, Chat2 = nil, SendMail = nil,},
+	[MC_SUCCESS] = { ID = MC_SUCCESS, Notify = nil, Chat1 = nil, Chat2 = 60520, SendMail = nil,},
+	[LT_OCCUPY] = { ID = LT_OCCUPY, Notify = 60522, Chat1 = 60521, Chat2 = nil, SendMail = nil,},
+	[LT_GATHER] = { ID = LT_GATHER, Notify = 60524, Chat1 = 60523, Chat2 = nil, SendMail = nil,},
+	[SUPER_BOSS_REFRESH] = { ID = SUPER_BOSS_REFRESH, Notify = 60526, Chat1 = 60525, Chat2 = 60527, SendMail = nil,},
 }

@@ -50,9 +50,12 @@ function try_update_ply_hurt(key, score, union)
 
     -- 军团内积分
     local mc_act_ply = union.mc_act_ply or {}
-    mc_act_ply.version = gTime
-    mc_act_ply[key] = (mc_act_ply[key] or 0 )+ score
+    local mc_ply_rank = union.mc_ply_rank or {}
+    mc_ply_rank[key] = (mc_ply_rank[key] or 0 )+ score
+    mc_ply_rank.version = gTime
+    mc_act_ply[key] = key
     union.mc_act_ply = mc_act_ply
+    union.mc_ply_rank = mc_ply_rank
 end
 
 function try_update_union_hurt(key, score)
@@ -156,7 +159,7 @@ end
 
 function gen_monster_city(atkEid)
     local npcCity = get_ety(atkEid)
-    LOG("gen monster city atk eid %d  npc %s", atkEid, npcCity)
+    LOG("gen monster city atk eid %d  npc %d", atkEid, npcCity.eid)
     if npcCity then
         local _id = get_eid_monster_city()
         local m = {}
@@ -189,6 +192,20 @@ function get_pos_in_range(x, y, offsetx, offsety, r)
     local j = 0
     local list = {}
     local lv = c_get_zone_lv(x, y)
+    if lv == 6 then
+        if x == 39 then
+            x = 37
+        end
+        if x == 40 then
+            x = 42
+        end
+        if y == 39 then
+            y = 37
+        end
+        if y == 40 then
+            y = 42
+        end
+    end
     for i = (x-offsetx), (x+offsetx) do
         for j = (y-offsety), (y+offsety) do
             table.insert(list, {i, j})
@@ -202,7 +219,7 @@ function get_pos_in_range(x, y, offsetx, offsety, r)
         local x, y = c_get_pos_in_zone(math.abs(pos[1]), math.abs(pos[2]), r,r)
         if x and y then
             local level = c_get_zone_lv(math.floor(x/16), math.floor(y/16))
-            if level == lv then
+            if level == lv or lv == 6 then
                 return x, y
             end
         end
@@ -231,7 +248,7 @@ function gen_small_city(pid, prop, parentId)
         m = monster_city.new(m)
         gEtys[m.eid] = m
         etypipe.add(m)
-        LOG("small city  atk ply  city x %d, y %d,  propid %d", m.x, m.y, prop.ID)
+        LOG("small city  %d atk ply  city x %d, y %d,  propid %d", m.eid, m.x, m.y, prop.ID)
         prop = resmng.prop_world_unit[prop.City]
         if prop then
             gen_monster_and_atk(m, prop)
@@ -267,7 +284,7 @@ function gen_defense_city(city, prop)
     gEtys[m.eid] = m
     m.class = MC_TYPE.DEF_ATK   -- 防守裂隙
     m = monster_city.new(m)
-    print("defense city", m.x , m.y)
+    LOG("defense city eid %d %d %d", m.eid, m.x , m.y)
     etypipe.add(m)
     timer.new("remove_mc", 2 * 60 * 60, m.eid)
     return m
@@ -304,7 +321,7 @@ end
 
 function monster_city_job(union, city, stage, time)
     -- to do 
-    print("do monster job city %d, stage %d", city.propid, stage)
+    LOG("do monster job city %d, stage %d", city.eid, stage)
     city.state = stage
     local armId = city.propid % (1000 *1000) * 1000 + stage  
     local prop = resmng.prop_monster_city[armId]
@@ -495,7 +512,13 @@ function gen_monster_and_atk(city, prop)
 
     if tr then
         city.my_troop_id = tr._id
-        tr:go()
+        if is_ply(destCity) then
+            local dis = calc_line_length(city.x, city.y, destCity.x, destCity.y)
+            speed = math.ceil(dis / 300)
+            tr:go(speed)
+        else
+            tr:go()
+        end
         union_hall_t.battle_room_create(tr, ROOM_TYPE.MC)
     end
 
@@ -632,19 +655,19 @@ function send_union_act_award(union)
         end
     end
 
-    local mc_act_ply = copyTab(union.mc_act_ply)
-    table.sort(mc_act_ply, mc_sort)
-    local idx = 1
-    for k, v in pairs(resmng.prop_mc_rank_award or {}) do
-        for i = v.Rank[1], v.Rank[2] , 1 do
-            local pid = table.remove(mc_act_ply)
-            local ply = getPlayer(tonumber(pid))
-            if ply then
-                 ply:send_system_notice(10007, {}, {idx}, v.Award) 
-            end
-            idx = idx + 1
-        end
-    end
+   -- local mc_act_ply = copyTab(union.mc_act_ply)
+   -- table.sort(mc_act_ply, mc_sort)
+   -- local idx = 1
+   -- for k, v in pairs(resmng.prop_mc_rank_award or {}) do
+   --     for i = v.Rank[1], v.Rank[2] , 1 do
+   --         local pid = table.remove(mc_act_ply)
+   --         local ply = getPlayer(tonumber(pid))
+   --         if ply then
+   --              ply:send_system_notice(10007, {}, {idx}, v.Award) 
+   --              idx = idx + 1
+   --         end
+   --     end
+   -- end
 
 end
 
@@ -996,5 +1019,53 @@ function send_score_award()
             end
         end
     end
+
+    local us = unionmng.get_all()
+    for _, union in pairs(us or {}) do
+        local mc_ply_rank = copyTab(union.mc_ply_rank)
+        table.sort(mc_ply_rank, mc_sort)
+        local idx = 1
+        for k, v in pairs(resmng.prop_mc_rank_award or {}) do
+            for i = v.Rank[1], v.Rank[2] , 1 do
+                local pid = table.remove(mc_ply_rank)
+                local ply = getPlayer(tonumber(pid))
+                if ply then
+                    ply:send_system_notice(10007, {}, {idx}, v.Award) 
+                    idx = idx + 1
+                end
+            end
+        end
+        union.mc_ply_rank = {}
+    end
+
 end
+
+function rem_all_mc()
+    for _, mc in pairs(citys or {}) do
+        if type(mc) == "number" then
+            rem_ety(mc)
+        else
+            for _, v in pairs(mc or {}) do
+                rem_ety(v)
+            end
+        end
+    end
+    citys = {}
+end
+
+function rem_mc_in_citys(ety)
+    if ety then
+        if citys[ety.atk_eid] then
+            citys[ety.atk_eid] = nil
+        end
+        if ety.band_eid ~= 0 then
+            local band_citys = citys[ety.band_eid] or {}
+            if band_citys[ety.eid] then
+                band_citys[ety.eid] = nil
+                citys[ety.band_eid] = band_citys
+            end
+        end
+    end
+end
+
 

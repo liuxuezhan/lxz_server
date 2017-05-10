@@ -21,6 +21,7 @@ _show_data = _show_data or {sons={}, dirty=false} -- 用于存放记录的数据
 _co_data = _co_data or {}   -- 用于分协程存储每个协程自己的记录数据
 _dead_co_data = _dead_co_data or {sons={}} -- 保存已经死掉的协程的记录数据, 防止_co_data表过大
 _switch = _switch or true   -- 是否生效的总开关
+_mem_switch = _mem_switch or false  -- 检测内存
 
 local get_ms_time = c_msec
 
@@ -64,6 +65,11 @@ function start(module_name, key)
     local node = _get_co_next_node_anyway(module_name)
     node.key_temp = tostring(key)
     node.start_tick_temp = get_ms_time()
+
+    if _mem_switch then
+        collectgarbage("collect")
+        node.start_mem = collectgarbage("count")
+    end
 
     _show_data.dirty = true
 
@@ -110,6 +116,15 @@ function stop(module_name, key)
     node.total_count = node.total_count + 1
     node.total_time = node.total_time + cost_time
     node.avg_time = node.total_time / node.total_count
+
+    if _mem_switch then
+        collectgarbage("collect")
+        local mem = collectgarbage("count") - node.start_mem
+        node.all_mem = node.all_mem + mem
+        node.min_mem = math.min(mem, node.min_mem)
+        node.avg_mem = node.all_mem / node.total_count
+        node.max_mem = math.max(mem, node.max_mem)
+    end
 
     _pop_to_parent()
 end
@@ -207,7 +222,12 @@ function _new_node(up_node, module_name)
         start_tick_temp = 0,
 
         parent = up_node,
-        sons = {}
+        sons = {},
+
+        all_mem = 0,
+        min_mem = math.huge,
+        avg_mem = 0,
+        max_mem = 0,
     }
     return new_node
 end
@@ -270,6 +290,12 @@ function _merge_one_node(show_node, co_node)
     if show_node.total_count ~= 0 then
         show_node.avg_time = show_node.total_time / show_node.total_count
     end
+    
+    show_node.all_mem = show_node.all_mem + co_node.all_mem
+    show_node.min_mem = math.min(co_node.min_mem, show_node.min_mem)
+    show_node.max_mem = math.max(co_node.max_mem, show_node.max_mem)
+    show_node.avg_mem = show_node.all_mem / show_node.total_count
+
     -- 递归merge
     for _, co_son_node in pairs(co_node.sons) do
         local show_son_node, is_new = _get_next_node_anyway(show_node, co_son_node.name)
@@ -327,22 +353,46 @@ function _print_log_str(node)
     local count_str = string.format("[at:%.1f, tc:%d, tt:%.1f][max_t:%.1f, max_k:%s, min_t:%.1f, min_k:%s]",
         node.avg_time, node.total_count, node.total_time,
         node.max.time, node.max.key, node.min.time, node.min.key)
+
+    --dumpTab(node)
+
+    local mem_str = string.format(
+        "[mem:%s:%s:%s],", 
+        math.round((node.min_mem or 0) * 1024), 
+        math.round((node.avg_mem or 0) * 1024), 
+        math.round((node.max_mem or 0) * 1024))
+
     local split_str = "-------------------------------------------------------------------"
 
     _print_and_log(path_str)
     _print_and_log(count_str)
+    if _mem_switch then
+        _print_and_log(mem_str)
+    end
     _print_and_log(split_str)
 end
 
-function _output_one_node(node, module_name)
-    if node.name then
-        if not module_name or _is_self_or_son_of(node, module_name) then
-            _print_log_str(node)
-        end
-    end
+function _output_one_node(root_node, module_name)
+    local visited = {}
+    local node_queue = {}
 
-    for k, v in pairs(node.sons) do
-        _output_one_node(v, module_name)
+    node_queue[1] = root_node
+
+    while #node_queue > 0 do
+        local node = table.remove(node_queue, 1)
+        if not visited[node] then
+            visited[node] = true
+
+            if node.name then
+                if not module_name or _is_self_or_son_of(node, module_name) then
+                    _print_log_str(node)
+                end
+            end
+
+            for k, v in pairs(node.sons) do
+                node_queue[#node_queue+1] = v
+            end
+        end
     end
 end
 
@@ -390,6 +440,9 @@ function _clear_one_node(node, module_name)
             node.avg_time = 0
             node.min = {key=nil, time=math.huge}
             node.max = {key=nil, time=-1}
+            node.min_mem = math.huge
+            node.avg_mem = 0
+            node.max_mem = 0
         end
     end
     for k, v in pairs(node.sons) do

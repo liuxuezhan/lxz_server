@@ -14,7 +14,7 @@ _statistics = _statistics or {game_db = {}, global_db = {}}             -- 用�
 _ack_tick = _ack_tick or {game_db = {}, global_db = {}}                 -- 用于记录每次数据库请求的发起时间，用于判断ack超时
 _ack_window_data = _ack_window_data or {game_db = {}, global_db = {}}   -- 用于数据库写请求基于帧数和ack的流控的数据
 
-COMMON_WRITE_CONCERN = {w=1, j=true, wtimeout=5000}
+COMMON_WRITE_CONCERN = {w=1, wtimeout=5000} -- 故意不使用j=true的选项，3.2后默认50ms刷一次，参考：https://docs.mongodb.com/manual/core/journaling/
 ACK_WINDOW_SIZE = 2                         -- 用于设置同时向mongo发起几帧的写数据请求，最小为1
 
 --_save_data = {
@@ -196,7 +196,7 @@ function loop_array_to_write(save_tab, is_raw_save, is_global)
     end
 end
 
-function build_bson_cmd(tab, docs, is_delete, is_global)
+function build_bson_cmd(tab, docs, is_raw, is_delete, is_global)
     local update_docs = nil
     local del_docs = nil
     if is_delete then
@@ -224,7 +224,7 @@ function build_bson_cmd(tab, docs, is_delete, is_global)
             dumpTab(part_docs, "part of too large update_docs", nil, true)
         end
         local bson_cmd = bson.encode_order("update", tab, "updates", update_docs, "ordered", false, "writeConcern", COMMON_WRITE_CONCERN)
-        put_bson_cmd(gFrame-1, tab, bson_cmd, false, is_global)
+        put_bson_cmd(gFrame-1, tab, bson_cmd, is_raw, is_global)
     end
 
     if del_docs and #del_docs > 0 then
@@ -235,7 +235,7 @@ function build_bson_cmd(tab, docs, is_delete, is_global)
             dumpTab(part_docs, "part of too large del_docs", nil, true)
         end
         local bson_cmd = bson.encode_order("delete", tab, "deletes", del_docs, "ordered", false, "writeConcern", COMMON_WRITE_CONCERN)
-        put_bson_cmd(gFrame-1, tab, bson_cmd, false, is_global)
+        put_bson_cmd(gFrame-1, tab, bson_cmd, is_raw, is_global)
     end
 end
 
@@ -333,18 +333,18 @@ function by_pid_save_update(pendingSave, is_global)
                 end
 
                 if #update_docs >= 1000 then
-                    build_bson_cmd(tab, update_docs, false, is_global)
+                    build_bson_cmd(tab, update_docs, false, false, is_global)
                     update_docs = {}
                 end
                 if #del_docs >= 1000 then
-                    build_bson_cmd(tab, del_docs, true, is_global)
+                    build_bson_cmd(tab, del_docs, false, true, is_global)
                     del_docs = {}
                 end
             end
         end
 
-        build_bson_cmd(tab, update_docs, false, is_global)
-        build_bson_cmd(tab, del_docs, true, is_global)
+        build_bson_cmd(tab, update_docs, false, false, is_global)
+        build_bson_cmd(tab, del_docs, false, true, is_global)
 
         for old_id, chgs in pairs(old_ids) do
             rawset(chgs, "_id", old_id)
@@ -400,9 +400,32 @@ function raw_update(tab, query, modifier, upsert, multi, is_global)
         multi = multi,
     }
 
-    local bson_cmd = bson.encode_order("update", tab, "updates", update_docs, "ordered", false, "writeConcern", COMMON_WRITE_CONCERN)
-    put_bson_cmd(gFrame-1, tab, bson_cmd, true, is_global)
-    --dumpTab(_save_data, "_save_data")
+    build_bson_cmd(tab, update_docs, true, false, is_global)
+end
+
+function raw_batch_update(tab, update_docs, is_global)
+    if type(tab) ~= "string" or type(update_docs) ~= "table" or type(is_global) ~= "boolean" then
+        ERROR("zhoujy_error: invalid param for raw_batch_update. tab=%s, update_docs=%s, is_global=%s", tab, update_docs, is_global)
+        return
+    end
+    if #update_docs <= 0 then
+        return
+    end
+
+    local tmp_docs = {}
+    for i, v in ipairs(update_docs) do
+        if type(v.q) ~= "table" or type(v.u) ~= "table" or type(v.upsert) ~= "boolean" or type(v.multi) ~= "boolean" then
+            ERROR("zhoujy_error: invalid param for raw_batch_update, tab=%s, v.q=%s, v.u=%s, v.upsert=%s, v.multi=%s", tab, v.q, v.u, v.upsert, v.multi)
+            return
+        end
+        tmp_docs[#tmp_docs+1] = v
+        if #tmp_docs >= 1000 then
+            build_bson_cmd(tab, tmp_docs, true, false, is_global)
+            tmp_docs = {}
+        end
+    end
+
+    build_bson_cmd(tab, tmp_docs, true, false, is_global)
 end
 
 function raw_del(tab, query, limit, is_global)
@@ -417,8 +440,7 @@ function raw_del(tab, query, limit, is_global)
         limit = limit,
     }
 
-    local bson_cmd = bson.encode_order("delete", tab, "deletes", del_docs, "ordered", false, "writeConcern", COMMON_WRITE_CONCERN)
-    put_bson_cmd(gFrame-1, tab, bson_cmd, true, is_global)
+    build_bson_cmd(tab, del_docs, true, true, is_global)
 end
 
 function do_threadDB()
@@ -454,7 +476,7 @@ function do_threadDB()
                     --dumpTab(info, "save ok info")
                 end
             else
-                ERROR("zhoujy_warning: do_threadDB unknown ok=%s, code=%s, errmsg=%s", info.ok, info.code, info.errmsg)
+                ERROR("zhoujy_error: do_threadDB unknown ok=%s, code=%s, errmsg=%s", info.ok, info.code, info.errmsg)
                 is_error = true
             end
 
@@ -464,7 +486,7 @@ function do_threadDB()
                     err_db_tab = _save_data.global_db
                 end
 
-                ERROR("zhoujy_warning: do_threadDB catch a error! error_cnt=%d support write cmd only!", #error_db_tab.error_data + 1)
+                ERROR("zhoujy_warning: do_threadDB catch a error! error_cnt=%d support write cmd only!", #err_db_tab.error_data + 1)
                 local one_error = {
                     is_raw_save = is_raw_save,
                     frame_id = frame_id,

@@ -285,14 +285,27 @@ function siege(self, dest_eid, arm)
     --jpush 
     if is_ply(dest) then
         local union = unionmng.get_union(self.uid)
-        offline_ntf.post(resmng.OFFLINE_NOTIFY_ATTACK, dest, self, union)
+        local tr = dest:get_defense_troop()
+        if tr then
+            for pid, _ in pairs(tr.arms or {}) do
+                local ply  = getPlayer(pid)
+                if ply then
+                    offline_ntf.post(resmng.OFFLINE_NOTIFY_ATTACK, ply, self, union)
+                end
+            end
+        end
     elseif is_res(dest) then
         if dest.pid and dest.pid >= 10000 then
             if ( self.uid ~= dest.uid) or (self.uid == 0 and dest.uid == 0) then
                 local union = unionmng.get_union(self.uid)
-                local ply = getPlayer(dest.pid)
-                if ply then
-                    offline_ntf.post(resmng.OFFLINE_NOTIFY_ATTACK, ply, self, union)
+                local tr = get_troop(dest.extra.tid)
+                if tr then
+                    for pid, _ in pairs(tr.arms or {}) do
+                        local ply = getPlayer(pid)
+                        if ply then
+                            offline_ntf.post(resmng.OFFLINE_NOTIFY_ATTACK, ply, self, union)
+                        end
+                    end
                 end
             end
         end
@@ -302,14 +315,29 @@ function siege(self, dest_eid, arm)
         if ply then
             offline_ntf.post(resmng.OFFLINE_NOTIFY_ATTACK, ply, self, union)
         end
-    elseif is_lost_temple(dest)  then
+    elseif is_lost_temple(dest)  or is_npc_city(dest) or is_king_city(dest) then
         if self.uid ~= dest.uid then
             local tr = dest:get_my_troop()
             local union = unionmng.get_union(self.uid)
-            for pid, _ in pairs(tr.arms or {}) do
-                local ply = getPlayer(pid)
-                if ply then
-                     offline_ntf.post(resmng.OFFLINE_NOTIFY_ATTACK, ply, ply, union)
+            if tr then
+                for pid, _ in pairs(tr.arms or {}) do
+                    local ply = getPlayer(pid)
+                    if ply then
+                        offline_ntf.post(resmng.OFFLINE_NOTIFY_ATTACK, ply, self, union)
+                    end
+                end
+            end
+        end
+    elseif is_dig(dest) then
+        if self.uid ~= dest.uid then
+            local tr = troop_mng.get_troop( dest.tid )
+            local union = unionmng.get_union(self.uid)
+            if tr then
+                for pid, _ in pairs(tr.arms or {}) do
+                    local ply = getPlayer(pid)
+                    if ply then
+                        offline_ntf.post(resmng.OFFLINE_NOTIFY_ATTACK, ply, self, union)
+                    end
                 end
             end
         end
@@ -556,7 +584,15 @@ function spy(self, dest_eid)
     -- jpush
     if is_ply(dest) then
         local union = unionmng.get_union(self.uid)
-        offline_ntf.post(resmng.OFFLINE_NOTIFY_SCOUT, dest, self, union) 
+        local tr = dest:get_defense_troop()
+        if tr then
+            for pid, _ in pairs(tr.arms or {}) do
+                local ply  = getPlayer(pid)
+                if ply then
+                    offline_ntf.post(resmng.OFFLINE_NOTIFY_SCOUT, dest, self, union) 
+                end
+            end
+        end
     elseif is_res(dest) then
         if dest.pid and dest.pid >= 10000 then
          --   if dest.uid ~= 0 and self.uid ~= dest.uid then
@@ -573,7 +609,7 @@ function spy(self, dest_eid)
         if ply then
             offline_ntf.post(resmng.OFFLINE_NOTIFY_SCOUT, ply, self, union)
         end
-    elseif is_lost_temple(dest)  then
+    elseif is_lost_temple(dest) or is_npc_city(dest) or is_king_city(dest) then
         if  self.uid ~= dest.uid then
             local tr = dest:get_my_troop()
             local union = unionmng.get_union(self.uid)
@@ -581,6 +617,19 @@ function spy(self, dest_eid)
                 local ply = getPlayer(pid)
                 if ply then
                      offline_ntf.post(resmng.OFFLINE_NOTIFY_SCOUT, ply, self, union)
+                end
+            end
+        end
+    elseif is_dig(dest) then
+        if self.uid ~= dest.uid then
+            local tr = troop_mng.get_troop( dest.tid )
+            local union = unionmng.get_union(self.uid)
+            if tr then
+                for pid, _ in pairs(tr.arms or {}) do
+                    local ply = getPlayer(pid)
+                    if ply then
+                        offline_ntf.post(resmng.OFFLINE_NOTIFY_SCOUT, ply, self, union)
+                    end
                 end
             end
         end
@@ -956,7 +1005,7 @@ function declare_tw_req(self, dest_eid)
 
     local state, startTime, endTime = npc_city.get_npc_state()
     if state == TW_STATE.PACE then
-        self:add_debug("活动没有开启")
+        --self:add_debug("活动没有开启")
         if not debug_tag then
             return
         end
@@ -969,21 +1018,21 @@ function declare_tw_req(self, dest_eid)
     end
 
     if not self:can_move_to(dest.x, dest.y)  then
-        add_debug(self, "城堡等级不够 无法前往")
+        --add_debug(self, "城堡等级不够 无法前往")
         if not debug_tag then
             return
         end
     end
 
     if not  can_ply_join_act[ACT_TYPE.NPC](self) then
-        add_debug(self, "城堡等级不够 宣战失败")
+        --add_debug(self, "城堡等级不够 宣战失败")
         if not debug_tag then
             return
         end
     end
 
     if not  can_ply_opt_act[ACT_TYPE.NPC](self) then
-        add_debug(self, "军团阶级不够 宣战失败")
+        --add_debug(self, "军团阶级不够 宣战失败")
         if not debug_tag then
             return
         end
@@ -994,7 +1043,7 @@ function declare_tw_req(self, dest_eid)
         return
     end
     if not union then
-        add_debug(self, "没有军团 宣战失败")
+        --add_debug(self, "没有军团 宣战失败")
         if not debug_tag then
             return
         end
@@ -1004,7 +1053,7 @@ function declare_tw_req(self, dest_eid)
         local tr = troop_mng.get_troop(v)
         if tr then
             if tr.target_eid == dest_eid and tr.action == (TroopAction.Declare + 100) then
-                add_debug(self, "宣战失败 有宣战部队在路上")
+          --      add_debug(self, "宣战失败 有宣战部队在路上")
                 if not debug_tag then
                     return
                 end
@@ -1193,7 +1242,7 @@ function can_atk_npc(self, destEid)
     end
 
     if not  can_ply_join_act[ACT_TYPE.NPC](self) then
-        add_debug(self, "等级不够 无法参加")
+        --add_debug(self, "等级不够 无法参加")
         if not debug_tag then
             return
         end
@@ -1242,7 +1291,7 @@ function hold_defense(self, dest_eid, arm)
 
     if is_npc_city(dest) then
         if not can_ply_join_act[ACT_TYPE.NPC](self) then
-            add_debug(self, "等级不够 宣战失败")
+            --add_debug(self, "等级不够 宣战失败")
             if not debug_tag then
                 return
             end
@@ -1257,7 +1306,7 @@ function hold_defense(self, dest_eid, arm)
 
     if is_king_city(dest) then
         if not can_ply_join_act[ACT_TYPE.KING](self) then
-            add_debug(self, "等级不够 宣战失败")
+            --add_debug(self, "等级不够 宣战失败")
             if not debug_tag then
                 return
             end
@@ -1269,7 +1318,7 @@ function hold_defense(self, dest_eid, arm)
 
     if is_lost_temple(dest) then
         if not can_ply_join_act[ACT_TYPE.LT](self) then
-            add_debug(self, "等级不够 宣战失败")
+            --add_debug(self, "等级不够 宣战失败")
             if not debug_tag then
                 return
             end
@@ -1425,6 +1474,13 @@ function troop_recall(self, dest_troop_id, force)
                        if B.on_troop_cancel then B:on_troop_cancel( troop ) end
                    end
                end
+
+                --其他建筑
+                if not is_ply( D ) then
+                    if D.pid == nil or D.pid < 10000 then
+                        watch_tower.building_ack_recall(D, troop)
+                    end
+                end
             end
         end
         
@@ -1536,6 +1592,8 @@ function troop_recall(self, dest_troop_id, force)
                 end
             end
             union_hall_t.battle_room_update_ety(OPERATOR.UPDATE, dest)
+            --瞭望塔
+            watch_tower.building_def_recall(self, dest)
             return one
 
         else
@@ -1834,6 +1892,11 @@ end
 --
 
 function dismiss( self, id, num, ishurt )
+    if num < 0 then
+        WARN( "[DISMISS], NUM_ERROR, pid=%d, id=%d, num=%d", self.pid, id, num )
+        return
+    end
+
     if ishurt == 1 then
         local hurts = self.hurts
         if hurts and hurts[ id ] and hurts[ id ] >= num then
@@ -1894,6 +1957,11 @@ function cure( self, arm, quick )
     self.cure_rate = consume_rate
 
     for id, num in pairs( arm ) do
+        if num < 0 then
+            WARN( "[CURE], NUM_ERROR, num < 0, pid=%d", self.pid )
+            return
+        end
+
         if hurts[ id ] and hurts[ id ] >= num then
             local prop = proptab[ id ]
             if not prop then 
@@ -1912,8 +1980,8 @@ function cure( self, arm, quick )
             return ack(self, "cure", resmng.E_NO_HURT, id)
         end
     end
-    local count = self:get_val("CountCure")
-    if total > count then return ack(self, "cure", resmng.E_NO_CONF, 0) end
+    --local count = self:get_val("CountCure")
+    --if total > count then return ack(self, "cure", resmng.E_NO_CONF, 0) end
 
     dura = math.ceil( dura / ( 1 + self:get_num( "SpeedCure_R" ) * 0.0001 ) )
 
@@ -2258,4 +2326,30 @@ function massgo( self, tid )
         timer.adjust( troop.tmSn, gTime )
     end
 end
+
+
+function check_first_blood( self, conf, propid )
+    local id = conf.ID
+    if not self._first_blood then
+        local fs = {}
+        local db = dbmng:getOne()
+        local info = db.first_blood:findOne( {_id=self.pid} )
+        if info then
+            for k, v in pairs( info ) do
+                if type(k) == "number" then
+                    fs[ k ] = v
+                end
+            end
+        end
+        if not self._first_blood then self._first_blood = fs end
+    end
+
+    if self._first_blood[ id ] then return end
+    self._first_blood[ id ] = gTime
+    gPendingSave.first_blood[ self.pid ][ id ] = gTime
+    self:send_system_notice( resmng.MAIL_10054, {}, {conf.Level, resmng[ "FEEL_MONSTER_TYPE_" .. conf.Class] }, conf.Award )
+
+    self:add_to_do( "display_ntf", { mode=DISPLY_MODE.FIRST_BLOOD, propid=propid, firstid=conf.ID } )
+end
+
 

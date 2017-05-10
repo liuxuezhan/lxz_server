@@ -2,7 +2,7 @@ module( "gmcmd", package.seeall )
 
 
 function do_cmd(cmd)
-    INFO( "gm, cmd=%s", cmd )
+    dumpTab(cmd, "gm cmd")
     local gm_type = cmd.cmd
 
     local cmd_item = gmcmd_table[ gm_type ]
@@ -10,7 +10,7 @@ function do_cmd(cmd)
         return {code = 0, msg = "no this cmd"}
     end
 
-    return cmd_item[2](cmd.pids, unpack(cmd.param) )
+    return cmd_item[2](cmd.pids, unpack(cmd.param or {}) )
 
 end
 
@@ -23,25 +23,39 @@ function showbuf(pids)
 end
 
 function nospeak(pids, time)
-    local ply = getPlayer(tonumber(pids[1]))
-    if ply then
-        ply.nospeak_time = gTime + time
+    local p = getPlayer(tonumber(pids[1]))
+    if p then
+        p.nospeak_time = gTime + time
+        if time ~= 0  then p:send_system_notice(10053,{},{tms2str(p.nospeak_time)}) end
         return {code = 1, msg = "success"}
     end
     return {code = 0, msg = "no ply"}
 end
 
 function nologin(pids, time)
-    local ply = getPlayer(tonumber(pids[1]))
-    if ply then
-        ply.nologin_time = gTime + time
+    local p = getPlayer(tonumber(pids[1]))
+    if p then
+        p.nologin_time = gTime + time
+        if time == 0 then
+            p:send_system_notice(10055,{},{}) 
+        else
+            Rpc:tips(p, 3, resmng.NOLOGIN_TIME, {tms2str(p.nologin_time)})
+            Rpc:logout(p)
+            break_player( p.pid )
+        end
         return {code = 1, msg = "success"}
     end
     return {code = 0, msg = "no ply"}
 end
 
-function addexp(param)
-    local ply = getPlayer(tonumber(param[3]))
+function block_account( open_ids, time )
+    player_t.set_block( open_ids[1], tonumber(time) )
+    return {code = 1, msg = "success"}
+end
+
+
+function addexp(pids, exp)
+    local ply = getPlayer(tonumber(pids[1]))
     if ply then
         local num = tonumber(param[2])
         ply:add_exp(num)
@@ -50,13 +64,46 @@ function addexp(param)
     return {code = 0, msg = "no ply"}
 end
 
-function build_exp(param)
-    local ply = getPlayer(tonumber(param[4]))
+function build_exp(pids, mode, exp)
+    local ply = getPlayer(tonumber(pids[1]))
     if ply then
-        local mode = tonumber(param[2])
-        local num = tonumber(param[3])
-        local t = union_buildlv.get_buildlv(ply.uid,mode)
-        t.exp = exp
+        local mode1 = tonumber(mode)
+        local num = tonumber(exp)
+        local t = union_buildlv.get_buildlv(ply.uid,mode1)
+        t.exp = t.exp + num
+        return {code = 1, msg = "success"}
+    end
+    return {code = 0, msg = "no ply"}
+end
+
+function build_lv(pids, c, m, l)
+    local ply = getPlayer(tonumber(pids[1]))
+    if ply then
+        local class = tonumber(c)
+        local mode = tonumber(m)
+        local lv = tonumber(l)
+
+        local propid = class * 1000000 + mode * 1000 + lv
+        local dst = resmng.get_conf( "prop_build", propid )
+        if dst then
+            local build_idx = ply:calc_build_idx(class, mode, 1)
+            local bs = ply:get_build()
+            local build = bs[ build_idx ]
+            if build then
+                local src = resmng.get_conf( "prop_build", build.propid )
+                if src then
+                    if dst.Lv > src.Lv then
+                        local dif = dst.Lv - src.Lv
+                        for i =1, dif, 1 do
+                            ply:do_upgrade( build_idx )
+                        end
+                    else
+                        build.propid = propid
+                        ply:ef_chg(src.Effect or {}, dst.Effect or {})
+                    end
+                end
+            end
+        end
         return {code = 1, msg = "success"}
     end
     return {code = 0, msg = "no ply"}
@@ -382,7 +429,9 @@ end
 function jpush_all_ntf(pids, string)
     local ply = getPlayer(pids[1])
     if ply then
-        local audience = "all"
+        --local audience = "all"
+        local audience = {}
+        audience.tag_and = {get_server_tay()}
         push_offline_ntf(audience, string)
         --offline_ntf.post(resmng.OFFLINE_NOTIFY_TIME_ACTIVITY)
         return {code = 1, msg = "success"}
@@ -429,14 +478,95 @@ function addcount(pids, s_id, s_num)
     end
 end
 
-function ply(pids)
+function ply(pids, ...)
     local p = getPlayer(tonumber(pids[1]))
     if p then
-        local param = {pid = tostring(p.pid)  }
-        return agent_t.do_gm_cmd["ply"](param)
+        local msg = {} 
+        for _, v in pairs({...}) do
+            --lxz(v)
+            if v ~= "arm" then table.insert(msg ,{v,p:get_one(v) or {}} ) end
+        end
+        return {code = 0, msg = msg}
     else
         return {code = 0, msg = "no ply"}
     end
+end
+
+function do_check(pids)
+    local p = getPlayer(tonumber(pids[1]))
+    if p then
+        monster.do_check(math.floor(p.x / 16), math.floor(p.y / 16))
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
+function add_buf(pids, id, count)
+    local p = getPlayer(tonumber(pids[1]))
+    if p then
+        p:add_buf(tonumber(id), tonumber(count))
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
+function set_val(pids, key, v)
+    local p = getPlayer(tonumber(pids[1]))
+    if p then
+        local val = tonumber(v)
+        p[key] = val
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
+function set_ef(pids, key, v)
+    local p = getPlayer(tonumber(pids[1]))
+    if p then
+        local val = tonumber(v)
+        p._ef[key] = val
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
+function ef_add(pids, key, v)
+    local p = getPlayer(tonumber(pids[1]))
+    if p then
+        local val = tonumber(v)
+        p:ef_add({[key] = val})
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
+function skill(pids, skill)
+    local p = getPlayer(tonumber(pids[1]))
+    if p then
+        local skill_id = tonumber(skill)
+        p:launch_talent_skill(skill_id)
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
+
+function totool(pids)
+    local send = {}
+    send.method = "post"
+    send.content_type = "x-www-form-urlencoded"
+    send.body = "access_id=2100257118&timestamp=1493955191&valid_time=600&sign=a2a27c3cf8885f5c6e3a1b1d2b0370cb&message_type=1&message=%7B%22content%22%3A%22zhoujy_content%22%2C%22title%22%3A%22zhoujy_title%22%2C%22builder_id%22%3A0%7D"
+    send.url = "http://openapi.xg.qq.com/v2/push/all_device"
+    to_tool(0, send)
+    --to_tool(0, {method = "get", url = "http://openapi.xg.qq.com/v2/push/all_device?access_id=2100257118&timestamp=1493953471&valid_time=600&sign=32e29b4af085592c549f39893260c817&message_type=1&message=%7B%22content%22%3A%22zhoujy_content%22%2C%22title%22%3A%22zhoujy_title%22%2C%22builder_id%22%3A0%7D"})
+    --to_tool(0, {method = "get", url = "http://47.88.24.9:18081/?sl=auto&tl=en&q=%E5%AD%99%E6%AD%A6%E7%9A%84%E9%95%BF%E7%9F%9B"})
+    return {code = 0, msg = "no ply"}
 end
 
 
@@ -455,7 +585,14 @@ gmcmd_table = {
     ["nologin"]         = { 4,              nologin,         "禁止登录",                     "nologin=time=pid" },
     ["addexp"]         = { 4,              addexp,         "加经验",                     "addexp=num=pid" },
     ["build_exp"]         = { 4,              build_exp,         "加军团建筑经验",                     "build_exp=mode=num=pid" },
-    ["ply"]         = { 4,              ply,         "查询玩家数据",                     "ply=pid" },
+    ["build_lv"]         = { 4,              build_lv,         "建筑升级",                     "build_lv=class=mode=lv=pid" },
+    ["blockaccount"]         = { 4,              block_account,         "禁止玩家登录",                     "blockaccount=time=pid" },
+    ["ply"]         = { 4,              ply,         "查询玩家数据",                     "what" },
+    ["addbuf"]         = { 4,              add_buf,         "给玩家加buf",                     "addbuf=1=-1" },
+    ["setval"]         = { 4,              set_val,         "设置玩家属性",                     "set_val=key=1" },
+    ["setef"]         = { 4,              set_ef,         "设置玩家ef属性",                     "set_ef=key=1" },
+    ["addef"]         = { 4,              ef_add,         "设置玩家属性",                     "ef_add=key=1" },
+    ["skill"]         = { 4,              skill,         "学习技能",                     "skill=1" },
 ------活动相关
     ["refreshboss"]         = { 4,              refreshboss,         "刷玩家周边boss",                     "refreshboss" },
     ["starttw"]         = { 4,              start_tw,         "攻城掠地开启",                     "starttw" },
@@ -496,5 +633,8 @@ gmcmd_table = {
     ["umisadd"] = {4, union_mission_add, "领取军团奖励", "umisadd=idx"},
     ["jpushntf"] = {4, push_ntf, "推送通知", "pushntf=idx"},
     ["jpushall1"] = {4, jpush_all_ntf, "推送所以用户通知", "pushntf=idx"},
+    ["docheck"] = {4, do_check, "强制docheck操作", "docheck"},
+    ["totool"] = {4, totool, "to_tool", "totool"},
+
 
 }

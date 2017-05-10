@@ -213,7 +213,7 @@ function construct(self, x, y, build_propid)
 
     local node = resmng.prop_build[ build_propid ]
     if not node.Dura then
-        WARN("%d",build_propid)
+        WARN("%d, no dura",build_propid)
         return
     end
 
@@ -353,6 +353,10 @@ function do_upgrade(self, build_idx)
 
                     self:try_add_tit_point(resmng.ACH_LEVEL_CASTLE)
 
+                    local pack = {}
+                    pack.mode = DISPLY_MODE.CASTLE
+                    pack.lv = dst.Lv
+                    self:add_to_do("display_ntf", pack)
 
                     if dst.Lv >= 6 then self:rem_buf( resmng.BUFF_SHELL_ROOKIE ) end
 
@@ -601,7 +605,7 @@ function doTimerBuild(self, tsn, build_idx, arg_1, arg_2, arg_3, arg_4)
                     end
                     build:clr_extra("forge")
                     build:clr_extra("silver")
-
+                    self:add_to_do( "display_ntf", { mode=DISPLY_MODE.NEW_EQUIP, propid=tid } )
                 end
 
             elseif conf.Class == BUILD_CLASS.RESOURCE then
@@ -911,6 +915,10 @@ function train(self, idx, armid, num, quick)
     -- check params
     local build = self:get_build(idx)
     if not build then return end
+    if num < 1 then 
+        WARN( "[TRAIN], NUM_ERROR, num < 1, pid=%d, armid=%d, num=%d", self.pid, armid, num )
+        return 
+    end
 
     if build.state ~= BUILD_STATE.WAIT then return end
     local bnode = resmng.prop_build[ build.propid ]
@@ -1321,283 +1329,6 @@ end
 
 function get_market(self)
     return self:get_build_function(BUILD_FUNCTION_MODE.MARKET)
-end
-
-
-watchtower_attacked = {}
-function watchtower_get_attacked_info(self, msg_send, all_info)
-    local b = self:get_watchtower()
-    local cur_watchtower_lv = 1
-    if b ~= nil then
-        local prop_tab = resmng.prop_build[b.propid]
-        if prop_tab ~= nil then
-            cur_watchtower_lv = prop_tab.Lv
-        end
-    end
-    --cur_watchtower_lv = 29
-    for i = 0, cur_watchtower_lv, 1 do
-        if watchtower_attacked[i] ~= nil then
-            watchtower_attacked[i](msg_send, all_info)
-        end
-    end
-end
-
-
-watchtower_attacked[1] = function(msg, src)
-    msg.data_id = src.data_id
-    msg.owner_pid = src.owner_pid
-    msg.owner_propid = src.owner_propid
-    msg.owner_photo = src.owner_photo
-    msg.owner_name = src.owner_name
-    msg.owner_castle = src.owner_castle or nil
-    msg.owner_union_name = src.owner_union_name
-    msg.action = src.action
-    msg.load = src.load or nil
-    msg.target = copyTab(src.target)
-end
-
-watchtower_attacked[3] = function(msg, src)
-    msg.owner_pos = copyTab(src.owner_pos)
-end
-
-watchtower_attacked[5] = function(msg, src)
-    msg.arrived_time = src.arrived_time
-end
-
-watchtower_attacked[7] = function(msg, src)
-    msg.arms_num = src.arms_num
-end
-
-watchtower_attacked[9] = function(msg, src)
-    msg.heros = copyTab(src.heros)
-end
-
-watchtower_attacked[11] = function(msg, src)
-    msg.arms = copyTab(src.arms)
-end
-
-watchtower_attacked[13] = function(msg, src)
-    msg.arms = copyTab(src.arms)
-end
-
-watchtower_attacked[15] = function(msg, src)
-    msg.genius = copyTab(src.genius)
-end
-
-watchtower_attacked[26] = function(msg, src)
-    msg.tech = copyTab(src.tech)
-end
-
-watchtower_attacked[29] = function(msg, src)
-    msg.equip = copyTab(src.equip)
-end
-
-function get_watchtower_info(troop, dest_load)
-    local ack = get_ety(troop.owner_eid)
-    local def = get_ety(troop.target_eid)
-    if ack == nil or def == nil then
-        return
-    end
-    local recv_ply = nil
-    if is_ply(def) then
-        recv_ply = def
-        --pack_data(def)
-    else
-        local tmp_ply = getPlayer(def.pid)
-        if tmp_ply ~= nil then
-            recv_ply = tmp_ply
-            --pack_data(tmp_ply)
-        end
-    end
-    if recv_ply == nil or recv_ply:is_online() == false then
-        return
-    end
-
-
-    local ack_info = {}
-    ack_info.data_id = troop._id
-    ack_info.owner_pid = ack.pid or 0
-    ack_info.owner_photo = ack.photo or 0
-    ack_info.owner_name = ack.name or ""
-    ack_info.owner_propid = ack.propid
-    ack_info.owner_pos = {}
-    ack_info.owner_pos[1] = troop.sx
-    ack_info.owner_pos[2] = troop.sy
-    local owner_union = unionmng.get_union(troop.owner_uid)
-    if owner_union ~= nil then
-        ack_info.owner_union_sn = owner_union.new_union_sn
-        ack_info.owner_union_name = owner_union.alias
-    end
-    ack_info.load = dest_load
-
-    ack_info.target = {}
-    if is_ply(def) then
-        ack_info.target.is_castle = 1
-    end
-    ack_info.target.prop_id = def.propid
-    ack_info.target.pos = {}
-    ack_info.target.pos[1] = troop.dx
-    ack_info.target.pos[2] = troop.dy
-    local target_union = unionmng.get_union(troop.target_uid)
-    if target_union ~= nil then
-        ack_info.target_union_name = target_union.alias
-    end
-
-    ack_info.arrived_time = {troop.tmStart, troop.tmOver}
-    ack_info.action = troop:get_base_action()
-
-    local owner_arms = troop:get_arm_by_pid(ack_info.owner_pid)
-    if not owner_arms then
-        WARN( "troop = %d, action = %d, pid = %d", troop._id, troop.action, ack_info.owner_pid )
-    else
-        ack_info.heros = {}
-        for k, v in pairs(owner_arms.heros or {}) do
-            if v ~= 0 then
-                if ack_info.owner_pid == 0 then --怪物部队
-                    local prop_boss_hero = resmng.get_conf("prop_boss_hero", v)
-                    if prop_boss_hero then
-                        table.insert(ack_info.heros, {prop_boss_hero.PropID, prop_boss_hero.Lv, prop_boss_hero.Star})
-                    end
-                else
-                    local hero_data = heromng.get_hero_by_uniq_id(v)
-                    if hero_data then
-                        table.insert(ack_info.heros, {hero_data.propid, hero_data.lv, hero_data.star})
-                    else
-                        WARN("can not get hero, id = %s", v)
-                    end
-                end
-            end
-        end
-    end
-
-    ack_info.arms = {}
-    ack_info.arms_num = 0
-
-    for k, v in pairs(troop.arms or {}) do
-        for i, j in pairs(v.live_soldier or {}) do
-            if ack_info.arms[i] == nil then
-                ack_info.arms[i] = 0
-            end
-            ack_info.arms[i] = ack_info.arms[i] + j
-            ack_info.arms_num = ack_info.arms_num + j
-        end
-    end
-    if ack_info.action == TroopAction.SupportArm then
-        ack_info.load = ack_info.arms_num
-    end
-
-
-    if is_ply(ack) then
-        ack_info.genius = {}
-        table.insert(ack_info.genius, {1,0})
-        table.insert(ack_info.genius, {2,0})
-        table.insert(ack_info.genius, {3,0})
-        for k, v in pairs(ack.genius) do
-            local prop_tab = resmng.prop_genius[v]
-            local class = prop_tab.Class
-            if class == 1 then
-                ack_info.genius[1][2] = ack_info.genius[1][2] + prop_tab.Lv
-            elseif class == 2 then
-                ack_info.genius[2][2] = ack_info.genius[2][2] + prop_tab.Lv
-            elseif class == 3 then
-                ack_info.genius[3][2] = ack_info.genius[3][2] + prop_tab.Lv
-            end
-        end
-
-        ack_info.tech = {}
-        for k, v in pairs(ack.tech) do
-            table.insert(ack_info.tech, v)
-        end
-
-        ack_info.equip = {}
-        for k, v in pairs(ack._equip) do
-            table.insert(ack_info.equip, v.propid)
-        end
-
-        --主城等级
-        ack_info.owner_castle = ack:get_castle_lv()
-    end
-
-    local msg_watch = {}
-    recv_ply:watchtower_get_attacked_info(msg_watch, ack_info)
-    Rpc:add_compensation_info(recv_ply, msg_watch)
-end
-
-function fill_watchtower_info(self, troop)
-    if troop == nil or troop:is_back() == true then
-        return
-    end
-
-    local base_action = troop:get_base_action()
-    if WatchTowerAction[base_action] == nil then
-        return
-    end
-
-    local dest_load = nil
-    if base_action == TroopAction.SupportRes then --如果是物资援助，要把负重算出来
-        dest_load = 0
-        for k, v in pairs(troop.goods or {}) do
-            if v[3] > 0 then
-                dest_load = dest_load + math.floor(v[3] * RES_RATE[k])
-            end
-        end
-    end
-
-    player_t.get_watchtower_info(troop, dest_load)
-end
-
-function packet_watchtower_info(self)
-    for k, v in pairs(self.troop_comings or {}) do
-        local troop = troop_mng.get_troop(k)
-        self:fill_watchtower_info(troop)
-    end
-end
-
-function rm_watchtower_info(troop)
-    local ply = nil
-    ply = getPlayer(troop.target_pid)
-    if ply == nil then
-        local ety = get_ety(troop.target_eid)
-        ply = getPlayer(ety.pid)
-    end
-    if ply == nil then
-        return
-    end
-
-    Rpc:rm_compensation_info(ply, troop._id)
-end
-
-function update_watchtower_speed(troop)
-    local action = troop:get_base_action()
-
-    if WatchTowerAction[action] then
-        local ply = get_ety(troop.target_eid)
-        if not ply then return end
-        local recv_ply = nil
-        if is_ply(ply) then
-            recv_ply = ply
-        else
-            local tmp_ply = getPlayer(ply.pid)
-            if tmp_ply ~= nil then
-                recv_ply = tmp_ply
-            end
-        end
-
-        if recv_ply then
-            local b = recv_ply:get_watchtower()
-            local cur_watchtower_lv = 1
-            if b ~= nil then
-                local prop_tab = resmng.prop_build[b.propid]
-                if prop_tab ~= nil then
-                    cur_watchtower_lv = prop_tab.Lv
-                end
-            end
-            --cur_watchtower_lv = 29
-            if cur_watchtower_lv >= 5 then
-                Rpc:update_compensation_info(recv_ply, troop._id, troop.tmOver)
-            end
-        end
-    end
 end
 
 function get_store_house(self)
@@ -2403,7 +2134,6 @@ function wall_fire( self, dura )
         return 
     end
     wall:set_extra( "hp", hp )
-    print( "set_hp", hp )
 
     local remain = tmOver_f - gTime
     if remain > 0 then

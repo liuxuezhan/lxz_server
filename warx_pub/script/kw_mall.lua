@@ -317,10 +317,25 @@ function buy(ply, index)
                 else
                     ply:add_bonus("mutex_award", conf.Buy, VALUE_CHANGE_REASON.KW_MALL_BUY, 1, true)
                 end
+                if item[1] == "item" then
+                    local union = ply:get_union()
+                    local item_prop = resmng.prop_item[item[2]]
+                    if item_prop then
+                        local prop = resmng.get_conf("prop_act_notify", resmng.ISSUE_DECREE)
+                        if prop then
+                            if prop.Notify then
+                                Rpc:tips({pid=-1,gid=_G.GateSid}, 2, prop.Notify,{item_prop.Name, item_prop.Detail, union.alias, ply.name})
+                            end
+                            if prop.Chat1 then
+                                player_t.add_chat({pid=-1,gid=_G.GateSid}, 0, 0, {pid=0}, "", prop.Chat1, {item_prop.Name, item_prop.Detail, union.alias, ply.name})
+                            end
+                        end
+                    end
+                end
             end
         end
     end
-    --table.insert(gsBuffs, good.itemId)
+        --table.insert(gsBuffs, good.itemId)
     --gPendingSave.status["kwState"].gsBuffs = gsBuffs
     gPendingSave.status["gsBuffs"].gsBuffs = gsBuffs
     gPendingSave.status["kwState"].shelf = shelf

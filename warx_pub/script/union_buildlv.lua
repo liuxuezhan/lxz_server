@@ -38,7 +38,7 @@ function get(ply)
     return l
 end
 
-function get_cons(ply,mode)
+function get_cons(ply,mode,flag)
     local u = unionmng.get_union(ply.uid)
     if not u then WARN("") return end
 
@@ -50,7 +50,7 @@ function get_cons(ply,mode)
         ply._union.buildlv[mode] ={ mode=mode,tm=0,open_tm =0 }
     end
 
-    if can_date(ply._union.buildlv[mode].open_tm,gTime) then
+    if can_date(ply._union.buildlv[mode].open_tm,gTime) or flag then
         ply._union.buildlv[mode].open_tm =gTime
         if not  u.god then WARN("") return end
 

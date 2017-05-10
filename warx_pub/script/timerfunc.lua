@@ -1,14 +1,5 @@
 module("timer")
 
-_funs["toGate"] = function(sn, ip, port)
-    conn.toGate(ip, port)
-end
-
-_funs["toMongo"] = function( host, port, db, tips)
-    conn.toMongo(host, port, db, tips, true)
-    --if sid then gConns[ sid ] = nil end
-end
-
 _funs["cron"] = function(sn)
     INFO( "crontab_timer, sn = %d, %s", sn, os.date("%c", gTime) )
     timer.cron_base_func()
@@ -39,10 +30,10 @@ _funs["cron"] = function(sn)
 end
 
 _funs["monitor"] = function(sn, num)
-    timer.new("monitor", 20, (num+1))
-    monitoring(MONITOR_TYPE.TOTAL)
+    --timer.new("monitor", 20, (num+1))
+    --monitoring(MONITOR_TYPE.TOTAL)
     if num % 3 == 0 then
-        monitoring(MONITOR_TYPE.LUAOBJ)
+        --monitoring(MONITOR_TYPE.LUAOBJ)
     end
 end
 
@@ -305,8 +296,7 @@ end
 
 _funs["union_gather_empty"] = function(sn, eid)
     local dest = get_ety(eid)
-    if dest and dest.tmSn == sn then
-        --union_build_t.remove( dest )
+    if dest and dest.tmSn_g == sn then
         union_build_t.recalc_gather( dest )
     end
 end
@@ -314,7 +304,7 @@ end
 
 _funs["union_build_complete"] = function(sn, eid)
     local dest = get_ety(eid)
-    if dest and dest.tmSn == sn then
+    if dest and dest.tmSn_b == sn then
 		union_build_t.mark(dest)
         save_ety(dest)
     end
@@ -404,13 +394,13 @@ end
 g_log_idx = 0
 _funs["tlog"] = function(sn, tid)
     c_tlog( string.format("rolelogin|%d|2012-07-12|222222|111111", g_log_idx ) )
-    --print("tlog")
     timer.new("tlog", 1 )
     g_log_idx = g_log_idx + 1
 end
 
 _funs["check"] = function(sn, pid)
     local ply = getPlayer( pid )
+    if not ply then return end
     if ply.tm_check ~= sn then return end
 
     LOG( "[check], pid=%d", pid )
@@ -419,7 +409,7 @@ _funs["check"] = function(sn, pid)
     if ply:is_online() then
         ply.tm_check = timer.new( "check", 3600, pid )
 
-    elseif gTime - ply.tm_logout < 5 * 3600 then
+    elseif gTime - ply.tm_logout < 7200 then
         ply.tm_check = timer.new( "check", 3600, pid )
 
     else

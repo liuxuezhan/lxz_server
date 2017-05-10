@@ -178,8 +178,21 @@ function add_tit_point( self, idx )
     local conf = self:check_tit_point( idx )
     if not conf then return end
     self:set_tit_point( idx, gTime )
+
+    local pack = {}
+    pack.mode =  DISPLY_MODE.ACHEVEMENT
+    pack.ache_id = idx
+    self:add_to_do("display_ntf", pack)
+
     self.ache_point = (self.ache_point or 0) + conf.Point
     self:try_upgrade_titles()
+
+    --[[
+    local c = get_conf("resmng.prop_achievement",idx)
+    if c and c.PushType and c.PushText then
+        Rpc:tips({pid=-1,gid=_G.GateSid}, c.PushType, c.PushText, {self.name, c.Name})
+    end
+    --]]
     return true
 end
 

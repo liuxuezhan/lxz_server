@@ -54,7 +54,11 @@ function thanks()
     for k, v in ipairs(t) do
         WARN( v )
     end
-    INFO("[GameStart], map=%d", _G.gMapID)
+    INFO("[GameStart], map=%s,time=%s", tostring(config.SERVER_ID),tms2str(gTime))
+    if config.TlogSwitch then 
+        local info = table.concat({"GameStart",config.SERVER_ID,tms2str(gTime)}, '|')
+        c_tlog(info)
+    end
 end
 
 
@@ -300,6 +304,8 @@ function do_threadPK()
                     local p = getPlayer(pid)
                     if p then
                         p.gid = gateid
+                        p.tick = gTime
+
                         if gActionQue[ pid ] then
                             LOG("%d, RpcR, pid=%d, func=%s, in queue", gFrame, pid, fname)
                             table.insert(gActionQue[ pid ], {fname, args})
@@ -571,6 +577,7 @@ function main_loop(sec, msec, fpk, ftimer, froi, signal)
             --c_set_init( 0 )
             thanks()
             gInit = nil
+            gBootTime = gTime
 
             --[[
             local t = debug.tablemark(10)
@@ -588,7 +595,7 @@ function main_loop(sec, msec, fpk, ftimer, froi, signal)
                 if not have then
                     c_tlog_stop()
                     WARN( "save done" )
-                    os.exit( 0 )
+                    c_game_stop()
                 end
             end
         end
@@ -707,8 +714,13 @@ function ack_tool(pid, sn, data)
         gPendingToolAck[sn] = nil
     end
 
-    if data.api then
-        player_t[data.api](data)
+    if on_ack_tool then
+        -- act的ack_tool接口
+        on_ack_tool(pid, sn, data)
+    else
+        if data.api then
+            player_t[data.api](data)
+        end
     end
 end
 
@@ -719,6 +731,7 @@ function to_tool( sn, info )
     val.info = info
     gPendingToolAck[sn] = val
     Rpc:qry_tool( gAgent, sn ,info )
+    return sn
 end
 
 function check_tool_ack()

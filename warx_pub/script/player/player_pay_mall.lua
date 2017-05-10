@@ -33,7 +33,10 @@ function get_can_buy_list_req(self, force)
 
         for id, _ in pairs(v.list or {}) do
             local prop = resmng.prop_buy[id] or {}
-            list[id] = prop
+            local item = copyTab(prop)
+            item.count_by_daily = get_buy_count(pay_state.daily_buy_history or {}, id)
+            item.count_by_life = get_buy_count(pay_state.buy_history or {}, id)
+            list[id] = item
         end
         gift.list = list
         local prop = resmng.prop_buy_group[v.prop] or {}
@@ -43,6 +46,7 @@ function get_can_buy_list_req(self, force)
 
     pack.normal_buy_list = normal_buy_list or {}
     pack.gift_buy_list = gift_buy_list or {}
+    pack.new_list = pay_state.new_list
 
     Rpc:get_can_buy_list_ack(self, pack)
 end
@@ -64,6 +68,7 @@ function gen_next_buy_list(ply, product_id)
    --     end
    -- end
     ply:gen_normal_buy_list(pay_state)
+    local new_list = {}
     for k, v in pairs( pay_state.gift_buy_list or {}) do
         for id, _ in pairs(v.list or {}) do
             if id == product_id then
@@ -73,13 +78,16 @@ function gen_next_buy_list(ply, product_id)
           --          ply:add_can_buy_id(id, v.list)
            --     else
                     for _, id in pairs(prop.Next or {}) do
-                        ply:add_can_buy_id(id,  v.list)
+                       if  ply:add_can_buy_id(id,  v.list) then
+                           table.insert(new_list, id)
+                       end
                     end
            --     end
                 break
             end
         end
         pay_state.gift_buy_list[k] = v
+        pay_state.new_list = new_list
     end
     ply.pay_state = pay_state
     ply:get_can_buy_list_req()
@@ -172,6 +180,7 @@ function add_can_buy_id( self, product_id, buy_list) --查看是否有高优先�
             if not self:add_can_buy_id(prop.pre_id, buy_list) then
                 if self:check_cond(prop.Limited) then
                     buy_list[product_id] = product_id
+                    return true
             --    elseif get_table_valid_count(prop.Limited) > 0 then
              --       for _, id in pairs(prop.Next or {}) do
              --           self:add_can_buy_id(id, buy_list)
@@ -181,6 +190,7 @@ function add_can_buy_id( self, product_id, buy_list) --查看是否有高优先�
         else
             if  self:check_cond(prop.Limited) then
                 buy_list[product_id] = product_id
+                return true
            -- elseif get_table_valid_count(prop.Limited) > 0 then  
            --     for _, id in pairs(prop.Next or {}) do
            --         self:add_can_buy_id(id, buy_list)
@@ -188,6 +198,7 @@ function add_can_buy_id( self, product_id, buy_list) --查看是否有高优先�
             end
         end
     end
+    return false
 end
 
 function get_enable_group(self, pay_state)
@@ -275,6 +286,10 @@ function compare(num1, num2, action)
     end
 end
 
+function get_buy_count(history, id)
+    return get_table_valid_count(history[id] or {})
+end
+
 check_each_cond = {}
 
 check_each_cond["buy_peruser"] = function(ply, mode, action, id, num)
@@ -321,6 +336,7 @@ function process_order(self, product_id)
     local pay_state = self.pay_state or {}
     pay_state.last_buy_time = gTime
     local prop = resmng.prop_buy[product_id]
+    print("buy num", product_id)
     if prop then
         for k, v in pairs(prop.Limited or {}) do
             if do_record[v[1]] then
@@ -348,14 +364,17 @@ function on_pay( self, product_id, real )
                     return {code = 0, msg = "product did not in buy list"}
                 end
 
-                
+                local msg_ntf = {}
                 if prop.Gold and prop.Gold > 0 then
                     self:do_inc_res_normal(6, prop.Gold, VALUE_CHANGE_REASON.GM_PAY)
+                    table.insert(msg_ntf, {"res", 6, prop.Gold})
                 end
 
                 if prop.ExtraGold and prop.ExtraGold > 0 then
                     self:do_inc_res_normal(6, prop.ExtraGold, VALUE_CHANGE_REASON.GM_PAY)
+                    table.insert(msg_ntf, {"res", 6, prop.ExtraGold})
                 end
+                Rpc:notify_bonus(self, msg_ntf)
 
                 if prop.Item_ExtraGift and prop.Item_ExtraGift > 0 then
                     agent_t.gm_add_ply_item(self, {{"item", prop.Item_ExtraGift, 1, 10000}}, VALUE_CHANGE_REASON.GM_PAY)

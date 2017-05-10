@@ -1,0 +1,29 @@
+set $b = L->base_ci
+set $p = L->ci
+
+#print $b
+#print $p
+
+while ( $p != &(L->base_ci) )
+    if ($p->callstatus & 0x02 ) 
+        set $o = $p->func.value_.gc
+        set $f = ((union Closure*)($o))->l->p->source
+        printf "%s : ", (char*)$f + sizeof( TString )
+
+
+        set $ci = ((union Closure*)($o))->l
+        #print $ci
+        #print $ci.p
+
+        #print $ci.p->lineinfo
+        #print $p->u.l.savedpc
+        #print $ci.p.code
+
+        printf "%d\n", $ci.p->lineinfo[ ( (int)($p->u.l.savedpc - $ci.p.code - 1) ) ]
+        printf "\n"
+
+    else
+        #print "not luafunction\n"
+    end
+    set $p = (*$p).previous
+end

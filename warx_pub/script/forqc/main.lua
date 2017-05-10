@@ -1,7 +1,8 @@
 
 gCoroWaitForAck = gCoroWaitForAck or {}
 gCoroWaitForTime = gCoroWaitForTimer or {}
-gHavePlayers = gHavePlayers or false
+gHavePlayers = gHavePlayers or {}
+
 
 if not gCoroMark then
     gCoroMark = {}
@@ -82,11 +83,11 @@ gNetPt = {
 
 function loadMod()
     require("frame/tools")
+    _G.Json = require("frame/json")
 
     dofile( c_get_conf() )
 
-    require("frame/debugger") 
-
+    --require("frame/debugger") 
 
     require("frame/socket")
 
@@ -200,19 +201,34 @@ function onConnectComp( self )
     elseif self.action == "login" then
         local idx = self.idx
         local node = gHavePlayers[ idx ] or self
+        
+        local info = {}
+        info.server_id = config.Map
+        info.cival = ( idx % 4 ) + 1
+        info.pid = 0
+        info.token_expire = gTime + 36000
+        info.extra = ""
+        info.time = gTime
+        info.token = c_md5( node.account )
+        info.open_id = node.account
 
-        local openid = node.openid
-        local token = node.token
-        local time = node.time
-        local pid = node.pid
-        local culture = node.culture
-        if not pid then 
-            pid = -1 
-            culture = self.culture or ( ( idx % 4 ) + 1 )
-        end
+        info.signature = c_md5( APP_KEY .. tostring( info.token_expire ) .. info.extra .. tostring( info.time ) .. info.token .. info.open_id )
+        info.version = 10000000
+        Rpc:firstPacket( self, config.Map, info )
 
-        local signature = c_md5( c_md5( time .. openid .. token ) .. APP_SECRET )
-        Rpc:firstPacket( self, config.Map, culture, pid, signature, time, openid, token , 200000)
+    elseif self.action == "test_login" then
+        local info = {}
+        info.server_id = self.map
+        info.cival = ( self.idx % 4 ) + 1
+        info.pid = 0
+        info.token_expire = self.expire
+        info.extra = self.ext_info
+        info.time = self.timestamp
+        info.token = self.token
+        info.open_id = self.uid
+        info.signature = self.sig
+        info.version = 10000000
+        Rpc:firstPacket( self, info.server_id, info )
 
     else
         print( "onConnectComp, what?", self.action )
@@ -358,18 +374,26 @@ function main_loop(sec, msec, fpk, ftimer, froi, signal)
     end
 
     if gInit == "StateBeginInit" then
-        if is_db_ready() then
-            gInit = "StateLoadAccount"
-            action( load_account )
-        end
-    elseif gInit == "StateLoadAccount" then
-        if gHavePlayers then
-            gInit = "StateAction"
-        end
+        gInit = "StateAction" 
     elseif gInit == "StateAction" then
+        gActionStart = c_msec()
         dofile( "forqc/task_queue.lua" )
         gInit = nil
     end
+
+    --if gInit == "StateBeginInit" then
+    --    if is_db_ready() then
+    --        gInit = "StateLoadAccount"
+    --        action( load_account )
+    --    end
+    --elseif gInit == "StateLoadAccount" then
+    --    if gHavePlayers then
+    --        gInit = "StateAction"
+    --    end
+    --elseif gInit == "StateAction" then
+    --    dofile( "forqc/task_queue.lua" )
+    --    gInit = nil
+    --end
 
     if gInit then begJob() end
 
@@ -453,8 +477,8 @@ function init(sec, msec)
 
     if config.Tips then c_init_log(config.Tips) end
 
-    conn.toMongo( config.DbHost, config.DbPort, "warx_"..config.Map )
-    conn.toMongo( config.DbHostG, config.DbPortG, "warxG", "Global" )
+    --conn.toMongo( config.DbHost, config.DbPort, "warx_"..config.Map )
+    --conn.toMongo( config.DbHostG, config.DbPortG, "warxG", "Global" )
 
     begJob()
 

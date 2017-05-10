@@ -8,8 +8,8 @@ CHAT_HOST = "war_x.org"
 
 -- 登录秘钥
 APP_SECRET = "zMvnPIT4fHG4ecte"
-APP_ID = "10000"
-APP_KEY = "Os3NpXfDJeURCC1W"
+APP_ID = "045fce0de7f9b8ee9bf12e28c2d6d2cd"
+APP_KEY = "4e69fd13cb06ef2c62c712ced980d1e6"
 
 -- login_url
 LOGIN_URL = "http://common.tapenjoy.com/index.php/LoginClass/uploaduserinfo"
@@ -26,102 +26,101 @@ LOGIN_ERROR =
     SERVER_MAINTAIN = 5,
     OUT_OF_DATE = 6,
     VERSION_NOT_MATCH = 7,
+    NO_CHARACTER = 8,
+    BLOCK_ACCOUNT = 9,
 }
 
 -- 数值变化原因
 VALUE_CHANGE_REASON = {
     -- [0, 9] Don't use these value.
-    DEFAULT = 0,
-    DEBUG   = 1,
-    RAGE   = 2,
-    USE_ERROR = 3,
-    MIGRATE = 4,
-    BUY_RES = 5,
-    GM_PAY = 6,
-    GM_CMD = 7,
-    CHAT_NOTICE = 8,
+    DEFAULT = 0, --默认
+    DEBUG   = 1, --测试
+    RAGE   = 2, --战争
+    USE_ERROR = 3, --用户错误
+    MIGRATE = 4, --迁移
+    BUY_RES = 5, --买资源
+    GM_PAY = 6, --gm付费
+    GM_CMD = 7, --gm命令
+    CHAT_NOTICE = 8, --聊天公告
 
     -- [10, 19] Item
-    USE_ITEM   = 10,
-    FETCH_MAIL = 11,
-    COMPOSE = 12,
-    DECOMPOSE = 13,
-    FORGE = 14,
-    SPLIT = 15,
-    CURE = 16,
-    FORGE_CANCEL=17,
-    COMPOUND = 18,
-    ACC_TROOP = 19,
+    USE_ITEM   = 10, --使用道具
+    FETCH_MAIL = 11, --补偿邮件
+    COMPOSE = 12, --调解
+    DECOMPOSE = 13, --分解
+    FORGE = 14,  --锻造
+    SPLIT = 15,  --分裂
+    CURE = 16,   --治疗
+    FORGE_CANCEL=17, --锻造取消
+    COMPOUND = 18, --合成
+    ACC_TROOP = 19, --行军加速
 
 
     -- [20, 29] Build
-    BUILD_CONSTRUCT = 20,
-    BUILD_UPGRADE   = 21,
-    BUILD_ACC       = 22,
-    LEARN_TECH      = 23,
-    CANCEL_ACTION  = 24,
-    WALL_REPAIR    = 25,
-    TROOP_RECALL = 26,
-    CHANGE_NAME = 27,
+    BUILD_CONSTRUCT = 20, --修建
+    BUILD_UPGRADE   = 21, --建筑升级 
+    BUILD_ACC       = 22, --建筑加速
+    LEARN_TECH      = 23, --学习技能
+    CANCEL_ACTION  = 24, --取消触发
+    WALL_REPAIR    = 25, --修墙
+    TROOP_RECALL = 26,  --部队召回
+    CHANGE_NAME = 27,  --修改名字
 
     -- [30, 39] Hero
-    HERO_CREATE       = 30,
-    HERO_SATR_UP      = 31,
-    HERO_LV_UP        = 32,
-    RESET_SKILL       = 33,
-    CONVERT_HERO_CARD = 34,
-    DESTROY_HERO      = 35,
-    CURE_HERO         = 36,
-    CANCEL_CURE_HERO  = 37,
-    RELIVE_HERO       = 38,
-    HERO_DESTORY      = 39,
-    GENIUS_RESET      = 40,
+    HERO_CREATE       = 30, --英雄合成
+    HERO_SATR_UP      = 31, --英雄升星
+    HERO_LV_UP        = 32, --英雄升级
+    RESET_SKILL       = 33, --重置技能
+    CONVERT_HERO_CARD = 34, --换英雄碎片
+    DESTROY_HERO      = 35, --销毁英雄
+    CURE_HERO         = 36, --治疗英雄
+    CANCEL_CURE_HERO  = 37, --取消治疗英雄
+    RELIVE_HERO       = 38, --重置英雄
+    HERO_DESTORY      = 39, --英雄销毁
+    GENIUS_RESET      = 40, --天赋重置
 
-    CASTLE_6_GIFT     = 41,
-    HERO_NATURE_RESET     = 42,
+    CASTLE_6_GIFT     = 41, --城堡礼物
+    HERO_NATURE_RESET     = 42, --英雄技能重置
 
     -- [50, 79] Play
-    GATHER = 50,
-    REAP   = 51,
-    TRAIN  = 52,
-    JUNGLE = 53,
-    SUPPORT_RES = 54,
+    GATHER = 50,  --采集
+    REAP   = 51, --收割
+    TRAIN  = 52, --访问
+    JUNGLE = 53,   --打怪
+    SUPPORT_RES = 54, --资源物资
 
-    BLACK_MARKET_PAY = 61,
-    BLACK_MARKET_BUY = 62,
-    BLACK_MARKET_REFRESH = 63,
+    BLACK_MARKET_PAY = 61, --黑市支付
+    BLACK_MARKET_BUY = 62, --黑市购买
+    BLACK_MARKET_REFRESH = 63, --黑市补给
 
-    RESOURCE_MARKET_PAY = 71,
-    RESOURCE_MARKET_BUY = 72,
+    RESOURCE_MARKET_PAY = 71,--资源市场支付
+    RESOURCE_MARKET_BUY = 72,--资源市场购买
 
-    MALL_PAY = 73,
-    MALL_BUY = 74,
+    MALL_PAY = 73, --商城支付
+    MALL_BUY = 74, --商城购买
 
-    VIP_BUY = 75,
+    VIP_BUY = 75,--	vip购买
 
-    PT_MALL_BUY = 76,
-    PT_MALL_REFRESH = 77,
-    KW_MALL_BUY = 78,
+    PT_MALL_BUY = 76, --平台购买
+    PT_MALL_REFRESH = 77,--平台补给
+    KW_MALL_BUY = 78, --王城商城购买
 
-    DIG = 80,
-    SIEGE_DIG = 81,
-    EXCHANGE = 82,
+    DIG = 80, --挖据
+    SIEGE_DIG = 81, --围攻挖掘
+    EXCHANGE = 82, --交易
 
 
     -- [100, 200] Union
-    UNION_CREATE    = 101,
-    UNION_DONATE    = 102,
-    UNION_MALL      = 103,
-    UNION_WAIT      = 104,
-    UNION_FAIL      = 105,
-    UNION_OK        = 106,
-    UNION_MISSION   = 107,
-    UNION_TASK      = 108,
-    UNION_BUILDLV   = 109,
-    UNION_GOD       = 110,
-    UNION_RANK      = 111,
-    UNION_ITEM      = 112,
-    UNION_FLAG      = 113,
+    UNION_CREATE    = 101, --军团创建
+    UNION_DONATE    = 102, --军团科技捐献
+    UNION_MALL      = 103, --军团邮件
+    UNION_MISSION   = 107, --军团限时任务
+    UNION_TASK      = 108, --军团悬赏任务
+    UNION_BUILDLV   = 109, --军团建筑缴纳
+    UNION_GOD       = 110, --军团战神 
+    UNION_RANK      = 111, --军团排行 
+    UNION_ITEM      = 112, --军团礼物
+    UNION_FLAG      = 113, --军团旗帜
 
     --加奖励
     REASON_ADD_BONUS = 1000,
@@ -251,6 +250,7 @@ ROI_MSG = {
     UPD_ACTOR = 28,
     TIME_STEP = 29,
     GET_AROUND = 30,
+    GET_NEAR = 33,
 }
 
 --resmng.CLASS_UNION_BUILD_
@@ -616,6 +616,15 @@ WatchTowerAction = {
     [TroopAction.SupportRes] = 1,
     [TroopAction.MonsterAtkPly] = 1,
     [TroopAction.Gather] = 1,
+    [TroopAction.SiegeDig] = 1,
+    [TroopAction.SiegeNpc] = 1,
+    [TroopAction.King] = 1,
+    [TroopAction.LostTemple] = 1,
+    [TroopAction.HoldDefenseNPC] = 1,
+    [TroopAction.HoldDefenseKING] = 1,
+    [TroopAction.HoldDefenseLT] = 1, 
+    [TroopAction.SiegeUnion] = 1,
+    [TroopAction.SiegeMonsterCity] = 1,
 }
 
 TroopTimerCallBack = {
@@ -1656,6 +1665,7 @@ PLAYER_INIT = {
     activity_box = {},  --每日活跃度箱子领取,
     daily_refresh_num = 0, --每日任务免费刷新剩余次数,
     daily_refresh_time = 0, --每日任务免费刷新时间,
+    task_target_all_award_index = {0,0,0,0},    --阶段目标任务奖励标记 
 
     def_heros = {},  -- 守城英雄,
 
@@ -1780,6 +1790,16 @@ Sub_Func =
 {
     LT_POP = 1,
     MC_POP = 2,
+}
+
+DISPLY_MODE = 
+{
+    VIP = 1,                --VIP等级提升
+    ACHEVEMENT = 2,         --成就达成
+    NPC = 3,                --占领npc城市
+    CASTLE = 4,             --城堡升级
+    FIRST_BLOOD = 5,        --叛军首杀
+    NEW_EQUIP = 6,          --新装备获得
 }
 
 

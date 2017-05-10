@@ -6,10 +6,8 @@ function mod.action(_idx)
     require("union_tech_t")
     require("frame/debugger")
     local name = math.floor(gTime % 1000)
-    --local p = get_one(true,1)
-    --local p = get_one2(name)
 
-    local p = get_account( 1 )
+    local p = get_account( 1024 )
     Rpc:union_quit(p)
 
     loadData(p)

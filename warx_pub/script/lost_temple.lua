@@ -450,7 +450,7 @@ function end_lt()
     end_time = gTime
     gPendingSave.status["lostTemple"].end_time = end_time
     clear_timer()
-    send_score_reward()
+    send_score_award()
     -- debug
     --set_timer(LT_STATE.ACTIVE)
     update_lt_ntf()  -- 推送更新通知
@@ -458,12 +458,13 @@ end
 
 function close_temple(city)
     clear_timer(city)
-    citys[city.eid] = nil
     --local tr = get_my_troop(city)
     local tr = troop_mng.get_troop(city.my_troop_id)
     if tr and tr.owner_uid ~= 0 then
         king_city.troop_back(tr)
     end
+
+    citys[city.eid] = nil
     rem_ety(city.eid)
 end
 
@@ -606,11 +607,13 @@ function finish_grap_state(self)
             owner.lt_citys = lt_citys
         end
         tr:back()
+        watch_tower.building_def_clear(self, tr)
     end
 
 
     rem_ety(self.eid)
     citys[self.eid] = nil
+
     add_pool(self.band_id)
     update_act_tag() 
 
@@ -626,7 +629,7 @@ function new_defender_state(self, troop)
     troop.tmStart = gTime
     troop.tmOver = self.endTime
     troop:do_notify_owner({tmStart = troop.tmStart, tmOver = troop.tmOver})
-    player_t.update_watchtower_speed(troop)
+    watch_tower.update_watchtower_speed(troop)
 
 end
 
@@ -726,7 +729,7 @@ function find_rank_prop(rank, score, prop)
 end
 
 
-function send_score_reward()
+function send_score_award()
     local prop = resmng.prop_lt_rank_award
     if prop then
         local num = 1

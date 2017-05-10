@@ -44,6 +44,9 @@ function add_link( self )
                             end
                             if A.on_troop_coming then A:on_troop_coming( self ) end
                         end
+                    else
+                        --其他建筑
+                        watch_tower.building_troop_add(dest, self)
                     end
                 end
             end
@@ -131,10 +134,13 @@ function calc_troop_speed(self)
                     speed = min_speed
                     local owner = get_ety( self.owner_eid )
                     if owner and is_ply( owner ) then
-                        if node.SpeedMarch > 0    then speed = speed * ( 1 + owner:get_num( "SpeedMarch_R" ) * 0.0001 ) end
-                        if node.SpeedMarchPvE > 0 then speed = speed * ( 1 + owner:get_num( "SpeedMarchPvE_R" ) * 0.0001 ) end
-                        if node.SpeedRally > 0    then speed = speed * ( 1 + owner:get_num( "SpeedRally_R" ) * 0.0001 ) end
-                        if node.SpeedCavaran > 0  then speed = speed * ( 1 + owner:get_num( "SpeedCavaran_R" ) * 0.0001 ) end
+                        local speed_R = 0
+                        if node.SpeedMarch > 0    then speed_R = speed_R + owner:get_num( "SpeedMarch_R" ) end
+                        if node.SpeedMarchPvE > 0 then speed_R = speed_R + owner:get_num( "SpeedMarchPvE_R" ) end
+                        if node.SpeedRally > 0    then speed_R = speed_R + owner:get_num( "SpeedRally_R" ) end
+                        if node.SpeedCavaran > 0  then speed_R = speed_R + owner:get_num( "SpeedCavaran_R" ) end
+
+                        speed = speed * ( 1 + speed_R * 0.0001 )
 
                         if node.SpeedMarch > 0 then
                             if owner:get_buf( resmng.BUFF_SPEED_TROOP ) then
@@ -855,7 +861,7 @@ function start_march(self, default_speed)
 
     self:add_link()
 
-    monitoring(MONITOR_TYPE.TROOP)
+    --monitoring(MONITOR_TYPE.TROOP)
 end
 
 
@@ -1186,6 +1192,7 @@ end
 
 
 function rem_soldier(self, id, num)
+    if num < 1 then return end
     local arms = self.arms
     if not arms then return end
 
@@ -1518,7 +1525,12 @@ function acc_march(troop, ratio)
         local dist = c_calc_distance( curx, cury, troop.dx, troop.dy )
         local use_time = dist / speed
         troop.use_time = use_time
-        troop.tmOver = math.ceil(gTime + use_time)
+        local tmOver = math.ceil( gTime + use_time )
+        local offset = troop.tmOver - tmOver
+        troop.tmOver = tmOver
+        troop.tmStart = troop.tmStart - offset
+
+        --troop.tmOver = math.ceil(gTime + use_time)
 
         local chg = gPendingSave.troop[ troop._id ]
         chg.curx    = troop.curx
@@ -1527,8 +1539,8 @@ function acc_march(troop, ratio)
         chg.speed   = troop.speed
 
         c_troop_set_speed( troop.eid, troop.speed, troop.use_time )
-        troop:do_notify_owner( {tmOver=troop.tmOver} )
-        player_t.update_watchtower_speed(troop)
+        troop:do_notify_owner( {tmOver=troop.tmOver, tmStart=troop.tmStart} )
+        watch_tower.update_watchtower_speed(troop)
 
         if troop:is_go() and troop:get_base_action() == TroopAction.SupportArm then
             if troop.target_pid and troop.target_pid >= 10000 then
@@ -1862,6 +1874,8 @@ function gather_stop(troop)
         world_event.process_world_event(WORLD_EVENT_ACTION.GATHER_NUM, mode, count)
         --周限时活动
         weekly_activity.process_weekly_activity(owner, WEEKLY_ACTIVITY_ACTION.GATHER, mode, count)
+        --瞭望塔
+        watch_tower.building_def_clear(dp, troop)
     end
 end
 
@@ -1917,6 +1931,30 @@ function rem_no_arm_troop(self)
             if tag == false then
                 local tr = self:split_pid(pid)
                 tr:back()
+            end
+        end
+    end
+end
+
+
+function recalc_hostile( dest )
+    local uid = dest.uid
+    for tid, action in pairs( dest.troop_comings or {} ) do
+        local troop = troop_mng.get_troop( tid )
+        if troop and troop.action < 200 then
+            if troop.target_uid ~= uid then
+                if union_hall_t.get_battle_room( tid ) then
+                    if troop.owner_uid == uid then
+                        union_hall_t.battle_room_remove( troop )
+                    end
+                else
+                    if troop.owner_uid ~= uid then
+                        troop.target_uid = uid
+                        union_hall_t.battle_room_create( troop )
+                    end
+                end
+                troop.target_uid = uid
+                flush_data( troop )
             end
         end
     end

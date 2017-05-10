@@ -183,8 +183,8 @@ end
 function ety_add_def(dest)
     for k, v in pairs(dest.rooms or {}) do
         local tr = troop_mng.get_troop(v)
-        tr.target_uid = dest.uid
         if tr then
+            tr.target_uid = dest.uid
             local atk_u = unionmng.get_union(tr.owner_uid)
             if atk_u then 
                 if is_in_table( atk_u.battle_room_ids, v ) then

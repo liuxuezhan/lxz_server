@@ -3268,7 +3268,7 @@ prop_buff = {
 	[BUFF_70004001] = { ID = BUFF_70004001, Class = 1, Cond = nil, Value = {SpeedGather4_R=1500}, Group = 14, Mutex = 0, Lv = 0, IsInform = nil,},
 	[BUFF_70005001] = { ID = BUFF_70005001, Class = 1, Cond = nil, Value = {SpeedMarch_R=500}, Group = 14, Mutex = 0, Lv = 0, IsInform = nil,},
 	[BUFF_70006001] = { ID = BUFF_70006001, Class = 1, Cond = nil, Value = {SpeedMarchPvE_R=2000}, Group = 14, Mutex = 0, Lv = 0, IsInform = nil,},
-	[BUFF_70007001] = { ID = BUFF_70007001, Class = 1, Cond = nil, Value = {SpeedConsume_R=500}, Group = 14, Mutex = 0, Lv = 0, IsInform = nil,},
+	[BUFF_70007001] = { ID = BUFF_70007001, Class = 1, Cond = nil, Value = {SpeedConsume_R=-500}, Group = 14, Mutex = 0, Lv = 0, IsInform = nil,},
 	[BUFF_70008001] = { ID = BUFF_70008001, Class = 1, Cond = nil, Value = {CountStore_R=1000}, Group = 14, Mutex = 0, Lv = 0, IsInform = nil,},
 	[BUFF_71001001] = { ID = BUFF_71001001, Class = 1, Cond = nil, Value = {SpeedTrain_R=500}, Group = 14, Mutex = 0, Lv = 0, IsInform = nil,},
 	[BUFF_71002001] = { ID = BUFF_71002001, Class = 0, Cond = nil, Value = {CountSoldier_R=400}, Group = 14, Mutex = 0, Lv = 0, IsInform = nil,},

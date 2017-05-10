@@ -6,7 +6,7 @@ function mod.action(_idx)
 
     require("frame/debugger")
     local name = tostring(math.floor(gTime % 1000))
-    local p = get_one2(name )
+    local p = get_account(1024 )
     chat(p, "@set_val=gold=100000000")
     Rpc:union_quit(p)
     Rpc:union_create(p, name, name, 40, 1000)
@@ -14,8 +14,7 @@ function mod.action(_idx)
     
     local num, def = 5000, {}
     for i = 1, num do
-        --def[i] = get_one(nil,1)
-        def[i] = get_one2(name .. i)
+        def[i] = get_account(i)
         Rpc:union_quit( def[i] )
         Rpc:union_apply( def[i],p.uid)
         chat(def[i], "@set_val=gold=100000000")

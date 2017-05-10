@@ -528,7 +528,6 @@ function skill_fire(skill, hero, A, As, Ds)
     local effect = skill.Effect
     if effect then
         for _, e in pairs(effect) do
-            print( "skill_fire", skill.ID )
             do_skill_fire(skill.Target or "A", hero, A, As, Ds, unpack(e))
         end
     end
@@ -543,7 +542,6 @@ local function _launch_skills(As, Ds, round, report, who)
                         local skill = resmng.prop_skill[v]
                         if skill and skill.Type == 1 and skill_check(skill, A, As, Ds) then
                             skill_fire(skill, obj, A, As, Ds)
-                            print( "launch_skills", obj.hero, v )
                             --table.insert(report, {round, 3, who, A.mode, obj.id, skill.ID, "skills"})
                         end
                     end
@@ -779,7 +777,6 @@ fight.pvp = function(action, A0, D0)
 
         if la == 0 or ld == 0 then break end
     end
-    print( "fight_over", c_tick(1) )
 
     --dumpTab(report, "fight")
 
@@ -852,7 +849,6 @@ fight.pvp = function(action, A0, D0)
     local replay_id = get_replay_id()
     gPendingInsert.replay[ replay_id ] = { gTime, report }
     A0.replay_id = replay_id
-    print( "fight_finish", c_tick(1) )
 
     return (win == 1), round
 end
@@ -983,8 +979,6 @@ function hero_capture(At, Dt)
         local heroA = false
         if #hsLiveA > 0 then heroA = hsLiveA[ math.random(1, #hsLiveA) ]
         else heroA = hsDeadA[ math.random(1, #hsDeadA) ] end
-
-        print( "hero_capture", heroA._id , "->", heroD._id )
 
         return heroA, heroD
     end
@@ -1449,7 +1443,6 @@ function rage(troop, D)
     table.sort( weights, sort_func )
 
     local haves = D:get_res_over_store()
-    for mode = 1, 4, 1 do print("rage, have, mode, num = ", mode, haves[ mode ]) end
 
     local farms = D:get_farms()
     local result = {}

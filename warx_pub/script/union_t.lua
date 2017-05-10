@@ -40,6 +40,7 @@ module_class("union_t", {
     restore = {},
     market = {},
     mc_act_ply = {}, -- 参见本次mc活动玩家
+    mc_ply_rank = {}, -- 参见本次mc活动玩家
     mc_reward_pool = {},  -- 本次mc奖励
     mc_trs = {},          --mc出发的攻打npc部队
 })
@@ -86,9 +87,6 @@ function get_all_members(self)
     return self._members
 end
 
-function get_build(self)
-    return self.build
-end
 
 function get_god(self)
     return self.god
@@ -301,10 +299,10 @@ function get_live_mc(eid)
 end
 
 function get_mc_rank(self, version)
-    local mc_act_ply = self.mc_act_ply or {}
+    local mc_ply_rank = self.mc_ply_rank or {}
     local mc_rank_info = {}
-    if version == 0 or (mc_act_ply.version or 1 )> version then
-        for k, v in pairs(mc_act_ply) do
+    if version == 0 or (mc_ply_rank.version or 1 )> version then
+        for k, v in pairs(mc_ply_rank) do
             if k ~= "version" then
                 local info =  rank_mng.rank_function[1](k)  
                 local rank = {}
@@ -315,7 +313,7 @@ function get_mc_rank(self, version)
         end
         self.mc_rank_info = mc_rank_info
     end
-    return mc_act_ply.version or 0, mc_rank_info
+    return mc_ply_rank.version or 0, mc_rank_info
 end
 
 function set_mc_state(self, stage)
@@ -775,7 +773,7 @@ function add_buf(self, bufid, count)
         self.buf = bufs
         self:ef_init()
 
-        lxz(string.format("add_buf, pid=%d, bufid=%d, count=%d", self.uid, bufid, count))
+        --lxz(string.format("add_buf, pid=%d, bufid=%d, count=%d", self.uid, bufid, count))
 
         if count ~= -1 then
             timer.new("union_buf", count, self.uid, bufid, tmOver)
@@ -884,7 +882,7 @@ end
 
 function add_member(self, A,B)
     if self.membercount >= self:get_memberlimit() then
-        INFO("军团人数满")
+        INFO( "union, add_member, full, uid=%d, pid=%d", self.uid, A.pid )
         return
     end
 
@@ -900,7 +898,7 @@ function add_member(self, A,B)
     etypipe.add(A)
     self._members[A.pid] = A
     self.membercount = tabNum(self._members)
-    INFO(A.pid..":add_member:"..self.uid)
+    INFO( "union, add_member, uid=%d, pid=%d", self.uid, A.pid )
 
     self.pow = (self.pow or 0) + A:get_pow()
     if self.pow > 0 and not self:is_new() then rank_mng.add_data( 5, self.uid, { self.pow } ) end
@@ -908,9 +906,12 @@ function add_member(self, A,B)
 
     local t = A:get_union_info()
     t.uid = self.uid
-    self:notifyall(resmng.UNION_EVENT.MEMBER, resmng.UNION_MODE.ADD, t)
 
     self.donate_rank = {} --清除捐献排行
+    for _, v in pairs(UNION_CONSTRUCT_TYPE) do
+        union_buildlv.get_cons(A,v,1)
+    end
+    self:notifyall(resmng.UNION_EVENT.MEMBER, resmng.UNION_MODE.ADD, t)
     --任务
     task_logic_t.process_task(A, TASK_ACTION.JOIN_PLAYER_UNION)
     task_logic_t.process_task(A, TASK_ACTION.OCC_NPC_CITY)
@@ -921,7 +922,7 @@ end
 
 function rm_member(self, A,kicker)
     kicker = kicker or {}
-    if not self:has_member(A) then return resmng.E_NO_UNION end
+    self:has_member(A) 
     A:recall_all()
 
     local store = A._union and A._union.restore_sum
@@ -952,12 +953,11 @@ function rm_member(self, A,kicker)
     if not self:is_new() then f = A:union_leader_auto() end --移交军团长
 
     self:notifyall(resmng.UNION_EVENT.MEMBER, resmng.UNION_MODE.DELETE, {name=A.name,pid=A.pid,kicker=kicker.pid})
-
     A:set_uid()
     etypipe.add(A)
     self._members[A.pid] = nil
-    self.membercount = tabNum(self._members)
     INFO(A.pid..":rm_member:"..self.uid)
+    self.membercount = tabNum(self._members)
 
     self.pow = (self.pow or 0) - A:get_pow()
     if self.pow > 0 and not self:is_new() then rank_mng.add_data( 5, self.uid, { self.pow } ) end
@@ -1397,21 +1397,11 @@ function add_log(self, what, op,data)
         data = data,
     }
 
-    --[[
-    local len = #self.log
-    for i = #self.log, 1, -1 do
-        if self.log[i].tm < (gDayStart or gTime) - 2592000 then
-            table.remove(self.log, i)
-        end
-    end
-
     local total = #self.log
-    if total > 100 then
-        for i = 1, total - 100 do
-            table.remove(self.log, 1)
-        end
+    while total >= 100 do
+        table.remove(self.log, 1)
+        total = total - 1
     end
-    --]]
 
     table.insert(self.log, log)
     dbmng:getOne().union_log:update( {_id=self._id}, { ["$push"]={ log={["$each"]={log}, ["$slice"]=-100 }} }, true )
@@ -1570,7 +1560,7 @@ function can_build(self, id, x, y)
     --数量
     local num = self:get_ubuild_num(id)
     local sum = self:get_build_count(bcc.BuildMode)
-    if sum >= num then INFO("数量达到上限:"..sum..":"..num) return false end
+    if sum >= num and (not player_t.debug_tag) then INFO("数量达到上限:"..sum..":"..num) return false end
 
     if is_union_miracal_small( id ) and sum < 1 then INFO("先修建大奇迹") return false end
 
@@ -1632,6 +1622,7 @@ function union_pow(self)
     for _, v in pairs(self._members) do
         pow = pow + v:get_pow()
     end
+    if pow > 2100000000 then pow = 2100000000 end
     self.pow = pow
     return pow
 end

@@ -234,4 +234,9 @@ function c_msec()
     return os.time()
 end
 
+function pullString()
+    return ""
+end
+
+
 

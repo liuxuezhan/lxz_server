@@ -1,5 +1,6 @@
 module( "player_t" )
 gChat = gChat or {}
+gBlockAccounts = false
 
 function init()
     _example = PLAYER_INIT
@@ -73,15 +74,29 @@ function create(account, map, pid, culture)
     p.online_award_num = 0
     p.online_award_on_day_pass = 0
 
-    insert_global( "players", pid, { account=account, name=p.name, tmCreate=gTime, map=gMapID, smap=map, emap=gMapID } )
-    update_global( "accounts", account, { [pid] = { map=gMapID, smap=map } } )
-
     local ply = player_t.new(p)
 
     -- just for speed
     rawset( ply, "eid", eid )
     rawset( ply, "pid", pid )
     rawset( ply, "ntodo", 0 )
+    rawset( ply, "uname", "" )
+    rawset( ply, "size", 4 )
+    rawset( ply, "nprison", 0 )
+
+    rawset( ply, "_first_blood", {} )
+    rawset( ply, "_equip", {} )
+    rawset( ply, "_item", {} )
+    rawset( ply, "_hero", {} )
+    rawset( ply, "_mail", {} )
+    rawset( ply, "_count", {})
+    rawset( ply, "_tit_point", {} )
+
+    gEtys[ eid ] = ply
+    etypipe.add(ply)
+
+    insert_global( "players", pid, { account=account, name=p.name, tmCreate=gTime, map=gMapID, smap=map, emap=gMapID } )
+    update_global( "accounts", account, { [pid] = { map=gMapID, smap=map } } )
 
     local default_build = {}
     for _, v in pairs(resmng.prop_citybuildview) do
@@ -106,38 +121,22 @@ function create(account, map, pid, culture)
     local troop = troop_mng.create_troop(TroopAction.DefultFollow, ply, ply, {live_soldier=arms})
     ply.my_troop_id = troop._id
 
-    ply._equip = {}
-    ply._item = {}
-    ply._hero = {}
-    ply._mail = {}
-
-    if culture == 1 then ply:make_hero(201)
-    elseif culture == 2 then ply:make_hero(205)
-    elseif culture == 3 then ply:make_hero(204)
-    elseif culture == 4 then ply:make_hero(206) end
-
-    --接任务
-    local st = c_msec()
     ply:init_task()
-    LOG("taskstatics:init_task:"..(c_msec()-st))
+
+    local heroid = 201
+    if culture == 2 then heroid = 205
+    elseif culture == 3 then heroid = 204
+    elseif culture == 4 then heroid = 206 end
+    ply._hero[ 1 ] = hero_t.create_hero( 1, ply.pid, heroid )
 
     ply:initEffect()
-
     gPendingInsert.item[ pid ] = {}
-
-    --player_t._cache[pid] = p
-    gEtys[ eid ] = ply
-    ply.uname = ""
-    ply.size = 4
-    ply.nprison = 0
-    etypipe.add(ply)
-
+    
     -- register chat accout
     create_chat_account(ply)
     ply:add_buf( resmng.BUFF_SHELL_ROOKIE, 72 * 3600 )
 
     ply:init_offline_ntf_list()
-
     return ply
 end
 
@@ -367,7 +366,7 @@ function firstPacket3(self, sockid, from_map, account, pasw)
     end
 
     if not p then
-        monitoring(MONITOR_TYPE.PLY)
+        --monitoring(MONITOR_TYPE.PLY)
         local pid = getId("pid")
 
         local dg = dbmng:getGlobal()
@@ -377,7 +376,7 @@ function firstPacket3(self, sockid, from_map, account, pasw)
 
         p = player_t.create(account, gMapID, pid)
         if not p then return end
-        monitoring(MONITOR_TYPE.PLY)
+        --monitoring(MONITOR_TYPE.PLY)
     end
 
     if p then
@@ -390,33 +389,44 @@ function firstPacket3(self, sockid, from_map, account, pasw)
     end
 end
 
+function get_pay_token(self)
+    local input = {
+        appid = APP_ID,
+        uid = self.account,
+        server_id = gMapID,
+        notify_url = config.Tool_Url,
+        timestamp = gTime,
+    }
+    local pay_token = c_encode_aes( "APP_KEY", "1234567890123456", Json.encode( input ) )
+    return c_encode_base64( pay_token )
+end
+
 function upload_user_info(self)
-    local sign = c_md5(c_md5(APP_ID..self.account..tostring(self.pid)..tostring(gMapID)..tostring(self:get_castle_lv()).. tostring(self.name)..tostring(self.culture)..self.token),APP_SECRET)
---    to_tool(0, {type = "login_server", cmd = "upload_ply_info", appid = APP_ID, open_id = self.account, pid = tostring(self.pid), logic = tostring(gMapID), level = tostring(self:get_castle_lv()), name = self.name, custom = tostring(self.culture), token = self.token, signature=sign})
-   to_tool(0, {url = config.Login_url or LOGIN_URL, method = "post", appid = APP_ID, open_id = self.account, pid = tostring(self.pid), logic = tostring(gMapID), level = tostring(self:get_castle_lv()), name = self.name, custom = tostring(self.culture), token = self.token, signature=sign})
+    local send = {}
+    send.url = config.Login_url
+    send.method = "post"
+    send.type = "chat"
+    send.uid = self.account
+    send.token = self.token
+    send.pid = tostring(self.pid)
+    send.pname = tostring(self.name)
+    send.server_id = tostring(gMapID)
+    send.is_server = "1"
+    send.timestamp = tostring(gTime)
+    send.appid = APP_ID
+    send.ext_info = string.format("{\"level\":%d,\"civil\":%d}", self.lv, self.culture)
+    send.sig = c_md5(APP_KEY..send.ext_info.."1"..tostring(self.pid)..tostring(self.name)..tostring(gmapID)..tostring(gTime)..self.token..self.account)
+    --to_tool(0, send)
 end
 
 function upload_user_ack(self)
     return
 end
 
-function check_token(signature, time, open_id, token)
-    --lxz
-    return true
-    --[[
-    --local app_secret = 1
-    local cal_token = c_md5(c_md5(tostring(time)..open_id..token)..APP_SECRET)
-    return signature == cal_token
-    --]]
-end
-
-function is_token_overdue(time)
-    return false
-end
-
 function pre_tlog(self,name,...)
 
     if not config.TlogSwitch then return end
+
 
     local info = {}
     if name == "GameSvrState" then
@@ -427,7 +437,7 @@ function pre_tlog(self,name,...)
         config.PLAT_ID,
         tms2str(),
         gTime,
-        ...}
+        }
     else
         info = {
         name,
@@ -455,7 +465,7 @@ function pre_tlog(self,name,...)
         "vClientVersion",
         "vPackageName",
         "vChannel",
-        "vIP",
+        self.ip or "",
         "40",
         self.account,
         self.pid,
@@ -467,7 +477,15 @@ function pre_tlog(self,name,...)
         self.reg_name,
         1,
         tostring(self.language),
-        ...}
+        }
+    end
+
+    for _, v in pairs( {...} ) do
+        if type(v) == "number" and v > math.pow(2,32) then
+            table.insert(info,2100000000)
+        else
+            table.insert(info,v)
+        end
     end
 
     for i=1,10 do
@@ -479,15 +497,96 @@ function pre_tlog(self,name,...)
     c_tlog(info)
 end
 
-function firstPacket2(self, sockid, from_map, cival, pid, signature, time, open_id, token, version)
+local function verify_signature(uid, token, expire, time, extra, sig)                                                                                                                                                                   
+    local calc_sig = c_md5(APP_KEY..tostring(expire)..extra..tostring(time)..token..uid)                                                                                                                                                
+    if calc_sig ~= sig then                                                                                                                                                                                                             
+        INFO( "verify_signature, miss, %s, %s, %s, %s, %s",  expire, extra, time, token, uid )
+        return false                                                                                                                                                                                                                    
+    end                                                                                                                                                                                                                                 
+    return true                                                                                                                                                                                                                         
+end                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                        
+local function verify_time(time)
+    if config.IsEnableGm == 1 then
+        return true
+    end                                                                                                                                                                                                        
+    if gTime > time + (3*86400) then                                                                                                                                                                                                    
+        return false                                                                                                                                                                                                                    
+    end                                                                                                                                                                                                                                 
+    return true                                                                                                                                                                                                                         
+end
+
+function get_block_accounts()
+    if gBlockAccounts then return gBlockAccounts end
+    local db = dbmng:getOne()
+    local info = db.block_account:find({}) 
+    local blocks = {}
+    while info:hasNext() do
+        local node = info:next()
+        blocks[ node._id ] = node.tick
+    end
+    if not gBlockAccounts then
+        gBlockAccounts = blocks 
+    end
+    return gBlockAccounts
+end
+
+
+function set_block( open_id, tick )
+    local acc = gAccounts[ open_id ]
+    if acc then
+        for pid, _ in pairs( acc ) do
+            local p = getPlayer( pid )
+            if p then
+                if p:is_online() then
+                    break_player( pid )
+                end
+            end
+        end
+    end
+
+    local blocks = get_block_accounts()
+    blocks[ open_id ] = gTime + tick
+    gPendingSave.block_account[ open_id ].tick = gTime + tick
+end
+
+function is_block_account( open_id )
+    local blocks = get_block_accounts()
+    local tick = blocks[ open_id ]  or 0
+    return tick > gTime
+end
+
+function firstPacket2(self, sockid, server_id, info)
+    local from_map = info.server_id
+    local cival = info.cival
+    local pid = info.pid
+    local signature = info.signature
+    local time = info.time
+    local open_id = info.open_id
+    local token = info.token
+    local token_expire = info.token_expire
+    local extra = info.extra or ""
+    local version = info.version
+
+    local ip = pullString()
+
+    INFO( "firstPacket2, from=%s, sockid=0x%08x, ip=%s, civil=%d, pid=%d, token=%s, time=%d, open_id=%s, did=%s, signature = %s, token=%s", from_map,  sockid , ip, cival, pid, token, time, open_id, info.did or "unknonw", signature, token)
+
+    if is_block_account( open_id ) then
+        Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.BLOCK_ACCOUNT)
+        INFO( "firstPacket2, block_account, ip=%s, from=%s, sockid=0x%08x, civil=%d, pid=%d, token=%s, time=%d, open_id=%s, did=%s, signature = %s, token=%s", ip, from_map,  sockid , cival, pid, token, time, open_id, info.did or "unknonw", signature, token)
+        return
+    end
+
+
+    --[[
     if config.Version then
         if version < config.Version then
-            INFO( "WRONG_VERSION, open_id=%s, version=%d, valid=%d", open_id, version, config.Version )
+            INFO( "WRONG_VERSION, ip=%s, open_id=%s, version=%d, valid=%d", ip, open_id, version, config.Version )
             Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.VERSION_NOT_MATCH)
             return
         end
     end
-    pid = -1
 
     if _G.white_list.active == "true" then
         local list = get_white_list("list")
@@ -497,70 +596,109 @@ function firstPacket2(self, sockid, from_map, cival, pid, signature, time, open_
         end
     end
 
-    --print( string.format( "firstPacket2, from=%s, sockid=%d, civil=%d, pid=%d, token=%s, time=%d, open_id=%s, signature = %s, token=%s", from_map,  sockid , cival, pid, token, time, open_id, signature, token) )
-    if not check_token(signature, time, open_id, token) then
-        Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.TOKEN_OUT_OF_DATE)
-        return false
+    if verify_signature(open_id, token, token_expire, time, extra, signature) == false then
+        Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.TOKEN_INVAILD)
+        INFO( "firstPacket2, token_invalid, from=%s, sockid=0x%08x, civil=%d, pid=%d, token=%s, time=%d, open_id=%s, did=%s, signature = %s, token=%s", from_map,  sockid , cival, pid, token, time, open_id, info.did or "unknonw", signature, token)
+        return
     end
 
-    if is_token_overdue(time)  then
+    if verify_time(time) == false then
         Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.TOKEN_OUT_OF_DATE)
-        return false
+        INFO( "firstPacket2, verify_time, from=%s, sockid=0x%08x, civil=%d, pid=%d, token=%s, time=%d, open_id=%s, did=%s, signature = %s, token=%s", from_map,  sockid , cival, pid, token, time, open_id, info.did or "unknonw", signature, token)
+        return
+    end
+    --]]
+
+    if pid > 0 then
+        local p = getPlayer( pid )
+        if not p then
+            INFO( "firstPacket2, open_id=%s, pid=%d, not found, set pid = 0", open_id, pid )
+            pid = 0
+        else
+            if p.account ~= open_id then
+                INFO( "firstPacket2, open_id=%s, pid=%d, p.acount (%s) ~= open_id, set pid = 0", open_id, pid, p.account )
+                pid = 0 
+            end
+        end
+    end
+
+    if pid == 0 then
+        local acc = gAccounts[ open_id ]
+        if acc then
+            local tick = 0
+            for k, v in pairs( acc ) do
+                local ply = getPlayer( k )
+                if ply then
+                    if ply.tm_login > tick or ply.tm_logout > tick then
+                        tick = math.max( ply.tm_login, ply.tm_logout )
+                        pid = k
+                        INFO( "firstPacket2, try, open_id=%s, pid=0, pid=%d, tm_login=%d", open_id, k, ply.tm_login )
+                    end
+                end
+            end
+        end
+
+        if pid == 0 then
+            Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.NO_CHARACTER)
+            INFO( "firstPacket2, open_id=%s, pid=0, no character", open_id )
+            return
+        else
+            INFO( "firstPacket2, open_id=%s, pid=0, pid=%d", open_id, pid )
+        end
     end
 
     local p = false
-
     if pid == -1 then
-        monitoring(MONITOR_TYPE.PLY)
-        pid = getId("pid")
-
-        local dg = dbmng:getGlobal()
-        local info = { [pid] = {map=map, smap=from_map} }
-        dg.account:update({_id=open_id}, {["$set"] = info }, true)
-        local info = dg:runCommand("getLastError")
-
-        p = player_t.create(open_id, gMapID, pid, cival)
-        if not p then
-            Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.TOKEN_OUT_OF_DATE)
+        --查看是否建号超过4个
+        local count = 0
+        for k, v in pairs(gAccounts[open_id] or {}) do
+            count = count + 1
+        end
+        if count >= 4 then
+            Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.LOGIN_ERROR)
             return
         end
-        monitoring(MONITOR_TYPE.PLY)
+
+        pid = getId("pid")
+        
+        p = player_t.create(open_id, gMapID, pid, cival)
+        if not p then
+            Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.LOGIN_ERROR)
+            return
+        end
+
+        INFO( "firstPacket2, open_id=%s, pid=-1, new pid=%d", open_id, pid )
+
+        --todo, for xuezhan
+        p.ip = ip
         p:pre_tlog("PlayerRegister","iphone6","ios","oper","wifi","800","600",2000)
     end
 
     p = getPlayer(pid)
-
-    if p then
-        --check no speak
-        if gTime < (p.nologin_time or 0) then
-            print("ply not allowed login", p.nologin_time)
-            return
-        end
-
-        if p.cross_gs ~= gMapID and p.cross_gs ~= 0 then
-            pushHead(_G.GateSid, 0, 9)  -- set server id
-            pushInt(sockid)
-            pushInt(p.cross_gs)
-            pushInt(p.pid)
-            pushOver()
-            Rpc:callAgent(p.cross_gs, "agent_login", p.pid)
-            return
-        end
-    end
-
     if not p then
-        --Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.TOKEN_OUT_OF_DATE)
-        --return
-        if not config.Release or (config.Robot)  then
-            p = player_t.create(open_id, gMapID, pid, cival)
-        else
-            Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.TOKEN_OUT_OF_DATE)
-            return
-        end
+        Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.LOGIN_ERROR)
+        return
     end
 
     if p.account ~= open_id then
-            Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.PID_ERROR)
+        Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.PID_ERROR)
+    end
+
+    INFO( "[LOGIN], uid=%s, pid=%d", open_id, pid )
+    if gTime < (p.nologin_time or 0) then
+        Rpc:tips(p, 3, resmng.NOLOGIN_TIME, {tms2str(p.nologin_time)})
+        Rpc:logout(p)
+        return
+    end
+
+    if p.cross_gs ~= gMapID and p.cross_gs ~= 0 then
+        pushHead(_G.GateSid, 0, 9)  -- set server id
+        pushInt(sockid)
+        pushInt(p.cross_gs)
+        pushInt(p.pid)
+        pushOver()
+        Rpc:callAgent(p.cross_gs, "agent_login", p.pid)
+        return
     end
 
     if p.token ~= token then
@@ -571,19 +709,19 @@ function firstPacket2(self, sockid, from_map, cival, pid, signature, time, open_
     p:upload_user_info()
     p.sockid = sockid
 
+    --Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.SUCCESS)
     Rpc:first_packet_ack(p, LOGIN_ERROR.SUCCESS)
 
-    if p then
-        pushHead(_G.GateSid, 0, 9)  -- set server id
-        pushInt(sockid)
-        pushInt(from_map)
-        pushInt(p.pid)
-        pushOver()
-        print( string.format( "firstPacket3:%s", open_id ) )
-        player_t.login( p, p.pid )
-    end
+    pushHead(_G.GateSid, 0, 9)  -- set server id
+    pushInt(sockid)
+    pushInt(from_map)
+    pushInt(p.pid)
+    pushOver()
+    player_t.login( p, p.pid )
+
+    --todo
+    p.ip = ip
     p:pre_tlog("PlayerLogin",p.gold,0,"iphone6","ios","oper","wifi","800","600",2000)
-    --lxz
     return p
 end
 
@@ -595,6 +733,7 @@ function login(self, pid)
     if p then
         p.gid = gid
         INFO("[LOGIN], on, pid=%d, name=%s", pid, p.name)
+        --local pay_token = get_pay_token(self)
         Rpc:onLogin(p, p.pid, p.name)
 
         p.tm_login = gTime
@@ -621,12 +760,9 @@ function login(self, pid)
         if get_diff_days(gTime, self.cross_time) > 0 then self:on_day_pass() end
         if self.foodUse == 0 then self:recalc_food_consume() end
 
-        local tmcheck = math.random( 1800, 3600 )
-        if self.tm_check then timer.adjust( self.tm_check, gTime + tmcheck )
-        else self.tm_check = timer.new( "check", tmcheck, pid ) end
+        if not self.tm_check then self.tm_check = timer.new( "check", math.random( 1800, 3600 ) ) end
 
         g_online_num = (g_online_num  or 0) + 1
-
 
         return
     end
@@ -898,7 +1034,7 @@ function initObj(self)
 end
 
 function getTime(self, tag)
-    Rpc:getTime(self, tag, gTime, gMsec)
+    Rpc:getTime(self, tag, gTime, gMsec, gTime)
 end
 
 
@@ -1892,11 +2028,17 @@ function gm_user(self, cmd)
     elseif choose == "debug1" then
         debug_tag = 1
     elseif choose == "lxz" then
+        local u = self:union()
+        for _, v in pairs(u.build or {}) do v.val = 100 end
+        --[[
         union_item.add(self,{"mutex_award",{{"item",2012009,1,10000},}} ,UNION_ITEM.TASK)--加入军团礼物
         debug_tag = 1
         union_buildlv_donate(self,1)
         debug_tag = nil
         self:add_buf( 50003001, -1 ) --行军队列无限
+        local param = {player_id = tostring(self.pid), order_id = tostring(gTime), pay_amount = "1", product_id = 1}
+        agent_t.do_gm_cmd["pay"](param)
+        --]]
 
     elseif choose == "bossscore" then
         local score = tonumber(tb[2])
@@ -1950,7 +2092,7 @@ function gm_user(self, cmd)
             end
         end
     elseif choose == "mcaward" then
-        monster_city.send_score_reward()
+        monster_city.send_score_award()
     elseif choose  == "setmc" then -- 开启怪物攻城
         local time = tonumber(tb[2])
         self:set_mc_start_time_req(time)
@@ -2030,13 +2172,13 @@ function gm_user(self, cmd)
     elseif choose == "kingme" then
         self.officer = KING
     elseif choose == "fightkw" then
-        king_city.fight_kw()
+       -- king_city.fight_kw()
     elseif choose == "clearkw" then
         king_city.clear_officer()
     elseif choose == "peacekw" then
         king_city.pace_kw()
     elseif choose == "endkw" then
-        king_city.pace_kw()
+      --  king_city.pace_kw()
     elseif choose  == "kwinfo" then -- 王城战活动页面
         kw_info_req(self)
     elseif choose == "king" then
@@ -2103,7 +2245,7 @@ function gm_user(self, cmd)
         self:add_buf( id, count )
 
     elseif choose == "skill" then
-        self:launch_talent_skill(tonumber(get_parm(1)))
+      --  self:launch_talent_skill(tonumber(get_parm(1)))
     elseif choose == "reload" then
         os.execute("./reload.sh")
         do_reload()
@@ -2199,7 +2341,7 @@ function gm_user(self, cmd)
         self.gold = 0
         self.silver = 0
 
-    elseif choose == "additem" then
+    elseif choose == "adddaoju" then
         local itemid = tonumber(tb[2])
         local itemnum = tonumber(tb[3])
         local conf = resmng.get_conf("prop_item", itemid)
@@ -2442,7 +2584,8 @@ function gm_user(self, cmd)
             end
         end
     elseif choose == "opt" then
-        operate_activity.gm()
+        --operate_activity.gm()
+        self:operate_on_day_pass()
 
     elseif choose == "renwu" then
         local st = c_msec()
@@ -2459,6 +2602,89 @@ function qryInfo(self, aid)
     end
 end
 
+function get_one(self, what)--本函数严禁加日志
+    local val = {}
+    if what == "pro" then
+        val = self._pro
+    elseif what == "ef_eid" then
+        local e = get_ety(self.ef_eid)
+        if e then
+            val = { eid=e.eid, uid = e.uid, propid=e.propid }
+        else
+            val = { eid = 0, uid = 0, propid = 0 }
+        end
+    elseif what == "item" then
+        val = self:get_item()
+
+    elseif what == "equip" then
+        val = self:get_equip()
+
+    elseif what == "ef" then
+        val = self._ef
+
+    elseif what == "ef_hero" then
+        val = self._ef_hero
+
+    elseif what == "build" then
+        local ts = {}
+        for k, v in pairs(self:get_build() or {}) do
+            table.insert(ts, v._pro)
+        end
+        val = ts
+
+    elseif what == "tech" then
+        val = self.tech
+
+    elseif what == "hero" then
+        local ts = {}
+        for k, v in pairs(self._hero or {}) do
+            local h = copyTab(v._pro)
+            table.insert(ts, h)
+        end
+        val = ts
+
+    elseif what == "troop" then
+        local data = {}
+        for _, tid in pairs(self.busy_troop_ids) do
+            local tr = troop_mng.get_troop(tid)
+            if tr then
+                table.insert( data, tr:get_info() )
+            end
+        end
+        val = data
+
+    elseif what == "ache" then
+        val = self:get_ache()
+
+    elseif what == "count" then
+        val = self:get_count()
+
+    elseif what == "arm" then
+        local my_troop = troop_mng.get_troop(self.my_troop_id)
+        if my_troop ~= nil then
+            local a = my_troop.arms[ self.pid ]
+            if a then a = a.live_soldier end
+            if not a then a = {} end
+            val = a
+        end
+        dumpTab( "arm", t.val )
+
+    elseif what == "task" then
+        val = self:packet_all_task_id()
+
+    elseif what == "watch_tower" then
+        val = watch_tower.packet_watchtower_info(self)
+
+    elseif what == "client_parm" then
+        val = self:load_client_parm()
+
+    elseif what == "target" then
+        val = self:packet_target_task()
+    end
+    return val
+end
+
+gCountLoadData = 0
 function loadData(self, what)--本函数严禁加日志
     local t = {}
     t.key = what
@@ -2522,18 +2748,16 @@ function loadData(self, what)--本函数严禁加日志
         if my_troop ~= nil then
             local a = my_troop.arms[ self.pid ]
             if a then a = a.live_soldier end
-            --if not a then a = {} end
             a = {}
             t.val = a
         end
-        --lxz
         lxz( "arm", t.val )
 
     elseif what == "task" then
         t.val = self:packet_all_task_id()
 
     elseif what == "watch_tower" then
-        t.val = self:packet_watchtower_info()
+        t.val = watch_tower.packet_watchtower_info(self)
 
     elseif what == "client_parm" then
         t.val = self:load_client_parm()
@@ -2543,7 +2767,11 @@ function loadData(self, what)--本函数严禁加日志
 
     elseif what == "done" then
         INFO( "[login], pid=%d, loaddone", self.pid )
-
+        if gCountLoadData == 0 then gActionStart = c_msec() end
+        gCountLoadData = gCountLoadData + 1
+        if gCountLoadData % 100 == 0 then
+            WARN( "USE_TIME, count=%d, use=%d", gCountLoadData, c_msec() - gActionStart )
+        end
     end
 
     if not t.val then t.val = {} end
@@ -2932,7 +3160,7 @@ function do_inc_res_protect(self, mode, num, reason)
         WARN("do_inc_res, pid=%d, num=%d, reason=%s, num<0", self.pid, num, reason)
         return
     end
-    INFO("do_inc_res_protect, pid=%d, num=%d, mode=%d, reason=%s", self.pid, num, mode, reason)
+    INFO( "[RES], inc, pid=%d, mode=%d, num=%d, reason=%s, protect", self.pid, mode, num, reason or 0 )
 
     if mode > resmng.DEF_RES_ENERGY then
         self:do_inc_res_normal( mode, num, reason )
@@ -2958,7 +3186,8 @@ function do_inc_res_normal(self, mode, num, reason)
         return
     end
     num = math.floor( num )
-    INFO("do_inc_res_normal, pid=%d, num=%d, mode=%d, reason=%s", self.pid, num, mode, reason)
+
+    INFO( "[RES], inc, pid=%d, mode=%d, num=%d, reason=%s, normal", self.pid, mode, num, reason or 0)
 
     if mode <= resmng.DEF_RES_ENERGY then
         local node = self.res[ mode ]
@@ -2993,15 +3222,14 @@ function do_inc_res_normal(self, mode, num, reason)
             self[ key ] = math.floor((self[ key ] or 0) + num)
             if mode == resmng.DEF_RES_GOLD  then
                 self:pre_tlog("MoneyFlow",0,num,2,0,self[key],reason )
+            elseif mode == resmng.DEF_RES_SILVER  then
+                self:pre_tlog("MoneyFlow",0,num,1,0,self[key],reason )
             end
         end
     end
 end
 
 function do_dec_res(self, mode, num, reason)
-    if mode == resmng.DEF_RES_GOLD then
-        print("ddd")
-    end
     if not reason then
         ERROR("do_dec_res: pid = %d, don't use the default reason.", self.pid)
         reason = resmng.VALUE_CHANGE_REASON.DEFAULT
@@ -3014,7 +3242,7 @@ function do_dec_res(self, mode, num, reason)
 
     num = math.floor(num)
 
-    LOG("do_dec_res, pid=%d, num=%d, reason=%s", self.pid, num, reason)
+    INFO( "[RES], dec, pid=%d, mode=%d, num=%d, reason=%s", self.pid, mode, num, reason or 0)
 
     local enough = true
     if mode > resmng.DEF_RES_ENERGY then
@@ -3027,6 +3255,8 @@ function do_dec_res(self, mode, num, reason)
                     self:add_count( resmng.ACH_COUNT_GOLD_COST, num )
                     self:pre_tlog("MoneyFlow",0,num,2,1,self[key],reason )
                     union_mission.ok(self,UNION_MISSION_CLASS.COST, num)
+                elseif mode == resmng.DEF_RES_SILVER  then
+                    self:pre_tlog("MoneyFlow",0,num,1,1,self[key],reason )
                 end
             else
                 INFO("资源不足:"..self[ key ])
@@ -3265,7 +3495,7 @@ end
 function chat(self, channel, word, sn)
     --gm
     if gTime < (self.nospeak_time or 0 ) then
-        print("ply not allowd speak", self.pid , self.nospeak_time or 0)
+        Rpc:tips(self, 3, resmng.NOSPEAK_TIME, {tms2str(self.nospeak_time)})
         return
     end
 
@@ -3693,11 +3923,9 @@ function add_exp(self, value)
     if self.lv > old_level then
         self.tm_lv = gTime
         rank_mng.add_data(2, self.pid, {self.lv, self.tm_lv} )
-
         --升级触发全部写到这个函数
-        self:on_level_up(old_level, self.lv)
+        self:on_level_up( old_level, self.lv )
     end
-
     self:try_add_tit_point(resmng.ACH_LEVEL_PLAYER)
 
 end
@@ -3747,6 +3975,12 @@ end
 function change_name(self, name)
     if not is_valid_name(name) then
         ack(self, "change_name", resmng.E_DISALLOWED)
+    end
+
+    --包含屏蔽字
+    if is_include_filter_server(name) == true then
+        ack(self, "change_name", resmng.E_DISALLOWED)
+        return
     end
 
     for k, v in pairs(gPlys) do
@@ -4319,7 +4553,7 @@ function get_npc_map_req(self)
     if king_city then
         local union = unionmng.get_union(king_city.uid) or {}
         local name = union.name or ""
-            table.insert(map, {king_city.eid, king_city.uid, name, king_city.propid, {}, king_city.state, king_city.startTime, king_city.endTime})
+            table.insert(map, {king_city.eid, king_city.uid, name, king_city.propid, {{union.uid, union.name, union.flag, union.alias}}, king_city.state, king_city.startTime, king_city.endTime})
     end
     pack.map = map
     local union = unionmng.get_union(self.uid)
@@ -4380,7 +4614,7 @@ end
 
 function tag_npc_req(self, act, eid)
     if not can_ply_opt_act[ACT_TYPE.NPC](self) then
-        self:add_debug("no union right to do it")
+        --self:add_debug("no union right to do it")
         return
     end
     local union = self:union()
@@ -4407,7 +4641,7 @@ end
 
 function untag_npc_req(self, eid)
     if not can_ply_opt_act[ACT_TYPE.NPC](self) then
-        self:add_debug("no union right to do it")
+        --self:add_debug("no union right to do it")
         return
     end
     local pack = {}
@@ -4643,8 +4877,8 @@ function get_hold_limit(self,dp)
         end
     end
 
-    local c = resmng.get_conf("prop_world_unit",dp.propid)
-    if c then limit = self:get_val("CountGarrison",c.Buff) end
+    limit = union_build_t.get_hold_limit( dp )
+
     return num,limit
 end
 
@@ -5091,10 +5325,12 @@ function honour_wall_req(self)
             unionName = union.alias
         end
         local year = os.date("%Y", v[5]) or 0
-
-        table.insert(kings, {k, v[2], plyName, unionName, v[4], v[5], math.floor(year - start_year + 1), ply.photo})
+        local point = string.format("%0.2f", (v[4] / v[10] or 1))
+        --kings[k] = {k, v[2], plyName, unionName, tonumber(point), v[5], math.floor(year -start_year + 1), ply.photo}
+        table.insert(kings, {k, v[2], plyName, unionName, tonumber(point), v[5], math.floor(year - start_year + 1), ply.photo})
     end
     pack.kings = kings
+    pack.season = season
     --pack.canVote = (self.kwseason ~= season)
     Rpc:honour_wall_ack(self, pack)
 end
@@ -5459,6 +5695,11 @@ function mc_info_req(self)
 end
 
 function set_mc_start_time_req(self, time)
+    if not can_ply_opt_act[ACT_TYPE.MC](self) then
+        Rpc:tips(self, 1, resmng.ACTIVITIES_MONSTER_SET_TIP, {})
+        return
+    end
+
     local union = unionmng.get_union(self.uid)
     if union then
         union_t.set_mc_start(union, time, self)
@@ -5613,6 +5854,10 @@ function vip_add_exp( self, exp )
         local remain = self:rem_buf( src.Buf )
         self:add_buf( node.Buf, remain + ( tolv - lv ) * 24 * 3600 )
         self:pre_tlog("PlayerVipExpFlow",exp,lv,0,0)
+        local pack = {}  ----  display 
+        pack.mode = DISPLY_MODE.VIP
+        pack.lv = tolv
+        self:add_to_do("display_ntf", pack)
     end
 end
 
@@ -5772,7 +6017,8 @@ function load_rank( self, idx, version )
 
         local ver, info = union:get_mc_rank(version)
 
-        if ver == version then
+        if ver == version and ver ~= 0 then
+            Rpc:rank_pos( self, idx, 0 )
             return
         end
 
@@ -5819,6 +6065,9 @@ function load_my_rank_score(self, idx)
 end
 
 function set_client_parm(self, key, data)
+
+    if key == "curguiding"  then self:pre_tlog("NewPlayerNode",tonumber(data) ) return end
+
     local info = CLIENT_PARM[key]
     if info == nil then
         return
@@ -5829,9 +6078,6 @@ function set_client_parm(self, key, data)
     end
 
     gPendingSave.client_parm[self.pid][key] = data
-    if key == "curguiding"  then
-        self:pre_tlog("NewPlayerNode",tonumber(data) )
-    end
 end
 
 function get_union_ef( self )
@@ -5859,7 +6105,7 @@ end
 can_ply_join_act[ACT_TYPE.NPC] = function(ply)
     local lv_castle = ply:get_castle_lv() or 0
     if lv_castle < 6 then
-        ply:add_debug(string.format("castle lv , %d", lv_castle))
+       -- ply:add_debug(string.format("castle lv , %d", lv_castle))
         return false
     end
 
@@ -5867,12 +6113,12 @@ can_ply_join_act[ACT_TYPE.NPC] = function(ply)
     if not union then
         return false
     elseif union:is_new() then
-        ply:add_debug("new union ")
+        --ply:add_debug("new union ")
         return false
     end
 
     if ( ply.join_tm or 3 ) > 2 and (gTime - ply._union.tmJoin ) <= (12 * 3600) then
-        ply:add_debug(string.format("join union  %f", (gTime - ply._union.tmJoin) / 3600))
+        --ply:add_debug(string.format("join union  %f", (gTime - ply._union.tmJoin) / 3600))
         return false
     end
 
@@ -5981,16 +6227,16 @@ function rem_shell( self )
 end
 
 function on_troop_coming( self, troop )
-    self:fill_watchtower_info(troop)
+    watch_tower.fill_watchtower_info(troop)
 end
 
 function on_troop_arrive( self, troop )
-    player_t.rm_watchtower_info(troop)
+    watch_tower.rm_watchtower_info(troop)
 end
 
 function on_troop_cancel( self, troop )
     -- the troop coming towards me is be canceled
-    player_t.rm_watchtower_info(troop)
+    watch_tower.rm_watchtower_info(troop)
 end
 
 function detach_ety( self, dest )
@@ -6532,4 +6778,81 @@ function up_jpush_info_req(self, pack) -- upload jpuash info
         self.jpush_id = pack.jpush_id
     end
 end
+
+function display_ntf(self, pack)
+    Rpc:display_ntf(self, pack)
+end
+
+function get_server_tag_req(self)
+    local tag = offline_ntf.get_server_tag() 
+    Rpc:get_server_tag_ack(self, tag)
+end
+
+function get_characters( self )
+    local acc = gAccounts[ self.account ]
+    if acc then
+        local infos = {}
+        for pid, _ in pairs( acc ) do
+            local p = getPlayer( pid )
+            if p then
+                local info = { pid=p.pid, name=p.name, photo=p.photo, cival=p.culture, lv_castle=p:get_castle_lv() }
+                table.insert( infos, info )
+            end
+        end
+        Rpc:get_characters( self, infos )
+    end
+end
+
+
+function dbg_show( self, str )
+    if not rawget( self, "debug" ) then return Rpc:dbg_show(self, {ack=""}) end
+    local func = string.format( " return %s ", str )
+    INFO( "debug show : %s", func )
+    local code, obj = pcall( load( func ) )
+    if code then
+        Rpc:dbg_show( self, { ack=obj } )
+    else
+        Rpc:dbg_show( self, { ack="error" } )
+    end
+end
+
+function dbg_set( self, key, val )
+    if not rawget( self, "debug" ) then return Rpc:dbg_show(self, {ack=""}) end
+    local func = string.format( "%s = %s", key, val )
+    INFO( "debug set : %s", func )
+
+    local code, obj = pcall( load( func ) )
+    if code then
+        Rpc:dbg_show( self, { ack="ok" } )
+        dbg_show( self, key )
+    else
+        Rpc:dbg_show( self, { ack="fail" } )
+    end
+end
+
+function dbg_run( self, func )
+    if not rawget( self, "debug" ) then return Rpc:dbg_show(self, {ack=""}) end
+    INFO( "debug run : %s", func )
+
+    local code, obj = pcall( load( func ) )
+    if code then
+        Rpc:dbg_show( self, { ack="ok" } )
+    else
+        Rpc:dbg_show( self, { ack="fail" } )
+    end
+end
+
+function dbg_ask( self, val )
+    local f = io.open( "player_t.lua", "r" )
+    local block = f:read("a")
+    f:close()
+    local mark = c_md5( block )
+    if mark == val then
+        rawset( self, "debug", true )
+        Rpc:dbg_show( self, { ack="permit" } )
+    else
+        rawset( self, "debug", false )
+    end
+end
+
 

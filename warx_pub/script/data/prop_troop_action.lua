@@ -35,7 +35,7 @@ prop_troop_action = {
 	[Tower] = { TroopAction = Tower, SpeedMarch = 1, SpeedMarchPvE = 0, SpeedRally = 0, SpeedCavaran = 0, Default = nil, IsPvp = 0, CanSpecial = 0,},
 	[King] = { TroopAction = King, SpeedMarch = 1, SpeedMarchPvE = 0, SpeedRally = 0, SpeedCavaran = 0, Default = nil, IsPvp = 1, CanSpecial = 0,},
 	[HeroBack] = { TroopAction = HeroBack, SpeedMarch = 1, SpeedMarchPvE = 0, SpeedRally = 0, SpeedCavaran = 0, Default = 100, IsPvp = 0, CanSpecial = 1,},
-	[MonsterAtkPly] = { TroopAction = MonsterAtkPly, SpeedMarch = 0, SpeedMarchPvE = 0, SpeedRally = 0, SpeedCavaran = 0, Default = 4, IsPvp = 0, CanSpecial = 0,},
+	[MonsterAtkPly] = { TroopAction = MonsterAtkPly, SpeedMarch = 0, SpeedMarchPvE = 0, SpeedRally = 0, SpeedCavaran = 0, Default = 10, IsPvp = 0, CanSpecial = 0,},
 	[SiegeMonsterCity] = { TroopAction = SiegeMonsterCity, SpeedMarch = 0, SpeedMarchPvE = 0, SpeedRally = 0, SpeedCavaran = 0, Default = 20, IsPvp = 0, CanSpecial = 0,},
 	[SiegeTaskNpc] = { TroopAction = SiegeTaskNpc, SpeedMarch = 1, SpeedMarchPvE = 1, SpeedRally = 0, SpeedCavaran = 0, Default = nil, IsPvp = 0, CanSpecial = 0,},
 	[AtkMC] = { TroopAction = AtkMC, SpeedMarch = 1, SpeedMarchPvE = 1, SpeedRally = 0, SpeedCavaran = 0, Default = nil, IsPvp = 0, CanSpecial = 0,},
@@ -54,5 +54,5 @@ prop_troop_action = {
 	[TaskAtkPly] = { TroopAction = TaskAtkPly, SpeedMarch = 1, SpeedMarchPvE = 1, SpeedRally = 0, SpeedCavaran = 0, Default = nil, IsPvp = 0, CanSpecial = 0,},
 	[Dig] = { TroopAction = Dig, SpeedMarch = 0, SpeedMarchPvE = 0, SpeedRally = 0, SpeedCavaran = 0, Default = 20, IsPvp = 0, CanSpecial = 0,},
 	[SiegeDig] = { TroopAction = SiegeDig, SpeedMarch = 1, SpeedMarchPvE = 0, SpeedRally = 0, SpeedCavaran = 0, Default = 20, IsPvp = 1, CanSpecial = 0,},
-	[Exchange] = { TroopAction = Exchange, SpeedMarch = 1, SpeedMarchPvE = 1, SpeedRally = 0, SpeedCavaran = 0, Default = 20, IsPvp = 0, CanSpecial = 1,},
+	[Exchange] = { TroopAction = Exchange, SpeedMarch = 0, SpeedMarchPvE = 0, SpeedRally = 0, SpeedCavaran = 0, Default = 20, IsPvp = 0, CanSpecial = 1,},
 }

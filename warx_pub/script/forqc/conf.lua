@@ -16,7 +16,7 @@
 module("config")
 
 -- Map 跟 Tips 每个服务器都不一样，要改
-Map = 5 --服务器ID
+Map = 3 --服务器ID
 Tips = "robot"
 
 -- 脚本所在目录，可以不改，也可以用全路径
@@ -31,12 +31,12 @@ DbHost = "192.168.100.12"
 Daemon = 0
 DbPortG = 27017
 DbHostG = "192.168.100.12"
-GateHost = "192.168.100.12"
-GatePort = 8001 
+GateHost = "127.0.0.1"
+GatePort = 6001 
 
 LogLevel = 1
 Release = true
-BuddySize = 128
+--BuddySize = 2048
 
 IsEnableGm = 1
 

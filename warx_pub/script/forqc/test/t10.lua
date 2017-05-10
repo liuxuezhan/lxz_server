@@ -4,26 +4,26 @@
 local mod = {}
 
 function mod.action( _idx )
-    local p = get_one2("r01")
+    local p = get_account(1)
     chat( p, "@set_val=gold=100000000" )
     chat( p, "@buildtop" )
     chat( p, "@addbuf=1=-1" )
     chat( p, "@addres=1=10000000" )
     sync( p )
 
-    local p2 = get_one2("r02")
+    local p2 = get_account(2)
     chat( p2, "@set_val=gold=100000000" )
     chat( p2, "@buildtop" )
     chat( p2, "@addbuf=1=-1" )
     sync( p2 )
 
-    local p3 = get_one2("r13")
+    local p3 = get_account(3)
     chat( p3, "@set_val=gold=100000000" )
     chat( p3, "@buildtop" )
     chat( p3, "@addbuf=1=-1" )
     sync( p3 )
 
-    local p4 = get_one2("r04")
+    local p4 = get_account(4)
     chat( p4, "@set_val=gold=100000000" )
     chat( p4, "@buildtop" )
     chat( p4, "@addbuf=1=-1" )

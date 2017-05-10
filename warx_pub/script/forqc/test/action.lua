@@ -1,43 +1,5 @@
 _name = "robot"
 
-function get_one2(acc,culture )
-    local pid = -1
-    local culture = culture or 1
-    local tm = 0  
-
-    os.execute("python forqc/new.py "..acc.." "..getMap())
-    dofile( "/tmp/new_"..getMap()..".lua" )
-    if _pids[acc] then
-        for k, v in pairs( _pids[acc].pid or {} ) do
-            if v.map == getMap() and v.tm > tm then 
-                cluture = v.culture
-                pid = k 
-                tm = v.tm
-            end
-        end
-        local sid = connect(config.GateHost, config.GatePort, 0, 0 )
-        if sid then
-            local node = {  gid = sid, 
-                            account = acc, 
-                            pid = pid, 
-                            token = _pids[acc].token, 
-                            openid = _pids[acc].open_id, 
-                            action = "login", 
-                            idx = _pids[acc].signature, 
-                            time=_pids[acc].time, 
-                            culture = culture, 
-                            _etys = {},
-                        }
-            gConns[ sid ] = node
-            gHavePlayers[node.idx] = node 
-            wait_for_ack( node, "onLogin" )
-            loadData( node )
-            sync( node )
-            return node
-        end
-    end
-end
-
 function back( p )
     local back = {}
     for k, v in pairs( p._troop or {} ) do table.insert(back,k) end
@@ -49,7 +11,6 @@ function back( p )
             wait_for_ack( p, "upd_arm" )
         end
     end
-    --lxz(p._troop)
 end
 
 function set_build( p, propid, x, y, range )
@@ -142,7 +103,6 @@ function atk( p, obj )
             if v.target == obj.eid then 
                 if  v.action < 200 then 
                     troop_acc(p,v._id) 
---                    wait_for_ack( p, "stateTroop" )
                     return 
                 end
             end
@@ -249,10 +209,11 @@ function load_account()
 end
 
 
+local gActionIdx = 0
 function start_action(mod, idx)
+    gActionIdx = gActionIdx + 1
     local t1 = require( mod )
-    local tips = t1.action( 0 )
-    print( tips, mod )
+    local tips = t1.action( gActionIdx )
     if tips=="ok" then
         os.execute("echo "..mod..">> /tmp/check.csv")
     end
@@ -287,125 +248,43 @@ function sync( p )
     end
 end
 
-function do_get_one( culture )
-    for k, v in ipairs( gHavePlayers ) do
-        if not gPlys[ v[1] ] then
-            if not culture or v[4] == culture then
-                table.remove( gHavePlayers, k )
-                table.insert( gHavePlayers, v )
-                return v[2], v[1], v[3]
-            end
-        end
-    end
-
-end
-
-
-function do_get_new_one()
-    while true do
-        local account 
-        while true do
-            local idx = getSn( _name )
-            if idx >= 20000 then  idx = setsnstart( _name ) end
-            account = _name..idx 
-            local hit = false
-
-            for _, v in pairs( ghaveplayers or {} ) do
-                if v[ 2 ] == account then
-                    hit = true
-                    break
-                end
-            end
-            if not hit then break end
-        end
-
-        return account, -1, "c67sahejr578aqo3l8912oic9"
-    end
-end
-
-function get_random_one()
-    local idx = math.random(20 or {})
-   -- local idx = 1
-    local num = 1
-    local node = gHavePlayers[idx]
-    if node.pid then
-        if gPlys[ node.pid ] then
-            return gPlys[ node.pid ]
-        end
-    end
-    if idx then
-        local node = gHavePlayers[ idx ]
-        if node then
-            if not node.token then
-                local openid, token, signature, time = make_login( node.account )
-                node.token = token
-                node.time = time
-            end
-            local sid = connect(config.GateHost, config.GatePort, 0, 0 )
-            if sid then
-                local t = { action= "login", gid = sid, idx = idx }
-                if is_new then t.culture = culture end
-                gConns[ sid ] = t
-                wait_for_ack( t, "onLogin" )
-                return t
-            end
-        end
-    end
-end
 
 function get_one( is_new, culture )
-    local idx 
-    if is_new then
-        for k, v in ipairs( gHavePlayers ) do
-            if not v.pid then
-                idx = k
-                break
-            end
-        end
-    else
-        for k, v in pairs( gHavePlayers ) do
-            if v.pid and not v.online then
-                idx = k
-                break
-            end
-        end
-    end
-
-    if idx then
-        local node = gHavePlayers[ idx ]
-        if node then
-            if not node.token then
-                local openid, token, signature, time = make_login( node.account )
-                node.token = token
-                node.time = time
-            end
-            local sid = connect(config.GateHost, config.GatePort, 0, 0 )
-            if sid then
-                local t = { action= "login", gid = sid, idx = idx }
-                if is_new then t.culture = culture end
-                gConns[ sid ] = t
-                wait_for_ack( t, "onLogin" )
-                return t
-            end
-        end
-    end
+    return get_account()
 end
 
-function get_account( idx ) -- robot_idx
-    local node = gHavePlayers[ idx ]
-    if node then
-        if not node.token then
-            local openid, token, signature, time = make_login( node.account )
-            node.token = token
-            node.time = time
+
+function get_account( idx )
+    local node = false
+    if idx then
+        node = gHavePlayers[ idx ]
+        if node then
+            if node.online then return node end
         end
-        local sid = connect(config.GateHost, config.GatePort, 0, 0 )
-        if sid then
-            local t = { action= "login", gid = sid, idx = idx }
-            gConns[ sid ] = t
-            wait_for_ack( t, "onLogin" )
-            return t
+    else
+        local i = 1
+        while true do
+            if not gHavePlayers[ i ] then
+                idx = i
+                break
+            else
+                i = i + 1
+            end
         end
+    end
+
+    if not node then
+        node = { account = c_md5( tostring( idx ) ), idx = idx }
+        gHavePlayers[ idx ] = node
+    end
+
+    local sid = connect(config.GateHost, config.GatePort, 0, 0 )
+    if sid then
+        node.action = "login"
+        node.gid = sid
+        gConns[ sid ] = node
+        wait_for_ack( node, "onLogin" )
+        return node
     end
 end
 
@@ -433,7 +312,16 @@ function loadData( p )
     Rpc:loadData( p, "hero" )
     Rpc:loadData( p, "troop" )
     Rpc:loadData( p, "arm" )
+    Rpc:loadData( p, "tech" )
+    Rpc:loadData( p, "ache" )
+    Rpc:loadData( p, "count" )
+    Rpc:loadData( p, "arm" )
+    Rpc:loadData( p, "task" )
+    Rpc:loadData( p, "watch_tower" )
+    Rpc:loadData( p, "client_param" )
+    --Rpc:loadData( p, "target" )
     Rpc:loadData( p, "ef" )
+
     sync( p )
     if p.uid and p.uid ~= 0  then 
         Rpc:union_load( p, "info" )
@@ -441,6 +329,7 @@ function loadData( p )
         Rpc:union_load( p, "build" )
     end
     Rpc:loadData( p, "ef_eid" )
+    Rpc:loadData( p, "done" )
     sync( p )
 end
 

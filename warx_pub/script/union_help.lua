@@ -56,6 +56,11 @@ function set_one(p,cur)
     local num = tabNum(u.help[cur].log or {} )
 
     local t = timer.get(u.help[cur].id)
+    if not t then 
+        u.help[ cur ] = nil 
+        return
+    end
+
     local pid = t.param[1]
     if t and (t.what == "build" or t.what == "cure")and p.pid~=pid  then
         local w = getPlayer(pid)

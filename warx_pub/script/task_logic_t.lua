@@ -37,7 +37,7 @@ function process_task(player, task_action, ...)
         end
     end
     player:do_save_task()
-    LOG("taskstatics:process action:"..task_action.." time:"..(c_msec()-st))
+    --LOG("taskstatics:process action:"..task_action.." time:"..(c_msec()-st))
 end
 
 
@@ -276,8 +276,10 @@ end
 --抢夺资源数量
 do_task[TASK_ACTION.LOOT_RES] = function(player, task_data, con_type, con_num, con_acc, real_type, real_num)
     if con_acc == 1 then
-        local ach_index = "ACH_TASK_ATK_RES"..con_type
-        local cur = player:get_count(resmng[ach_index])
+        local cur = 0
+        for i = 1, 4, 1 do
+            cur = cur + player:get_count(resmng["ACH_TASK_ATK_RES"..i])
+        end
         return update_task_process(task_data, con_num, cur)
     end
 
@@ -439,12 +441,6 @@ end
 --学习英雄技能
 do_task[TASK_ACTION.LEARN_HERO_SKILL] = function(player, task_data, con_pos)
 
-    player:try_add_tit_point(resmng.ACH_HERO_SKILL_1)
-    player:try_add_tit_point(resmng.ACH_HERO_SKILL_2)
-    player:try_add_tit_point(resmng.ACH_HERO_SKILL_3)
-    player:try_add_tit_point(resmng.ACH_HERO_SKILL_4)
-    player:try_add_tit_point(resmng.ACH_HERO_SKILL_5)
-    player:try_add_tit_point(resmng.ACH_HERO_SKILL_6)
 
     local hero_list = player:get_hero()
     for k, v in pairs(hero_list) do
@@ -736,7 +732,7 @@ do_task[TASK_ACTION.RES_OUTPUT] = function(player, task_data, con_type, con_num)
         local class = math.floor(v.propid / 1000000)
         local mode = math.floor((v.propid - (class * 1000000)) / 1000)
         if class == 1 and mode == con_type then
-            real_num = real_num + v:get_extra("speed")
+            real_num = real_num + (v:get_extra("speed") or 0)
         end
     end
     if real_num > 0 then

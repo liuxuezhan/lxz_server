@@ -938,8 +938,20 @@ end
 
 function save_npc_dmg(self, ackTroop, defenseTroop)
     local dmg = self.dmg or {}
+    local dmg_by_u = dmg.dmg_by_u or {}
+    local dmg_by_ply = dmg.dmg_by_ply or {}
     local mkdmg = ackTroop.mkdmg or 0
-    dmg[ackTroop.owner_uid] = (dmg[ackTroop.owner_uid] or 0) + mkdmg
+    dmg_by_u[ackTroop.owner_uid] = (dmg_by_u[ackTroop.owner_uid] or 0) + mkdmg
+
+    for k, arm in pairs(ackTroop.arms or {}) do
+        dmg_by_ply[k] = (dmg_by_ply[k] or 0) + (arm.mkdmg or 0)
+    end
+
+    dmg.dmg_by_u = dmg_by_u
+    dmg.dmg_by_ply = dmg_by_ply
+    dmg.max_union = nil
+    dmg.max_pid = nil
+
     self.dmg = dmg
 end
 
@@ -969,7 +981,8 @@ function send_win_award(city, maxHurtUnion)
     if prop then
         local award = prop.Base_award or {1, {{"item",2016004,50, 10000}}}
 
-        for k, v in pairs(city.dmg or {}) do
+        local dmg = city.dmg or {}
+        for k, v in pairs(dmg.dmg_by_u or {}) do
             if v >= (prop.Extra_award or 0)  then
                 local u = unionmng.get_union(k)
                 if u then
@@ -1023,21 +1036,6 @@ function make_new_defender(ackTroop, defenseTroop, npcCity)
 
             if npcCity.lv == 1 then
                 king_city.try_unlock_kw()
-            end
-
-            --任务
-            local city_type = 0
-            local prop_build = resmng.get_conf("prop_world_unit", npcCity.propid)
-            if prop_build ~= nil and prop_build.Class == 3 then
-                city_type = prop_build.Lv
-            end
-            local _members = maxUnion:get_members()
-            for k, v in pairs(_members or {}) do
-                task_logic_t.process_task(v, TASK_ACTION.OCC_NPC_CITY, city_type)
-            end
-            --世界事件
-            if npcCity.last_uid > 0 then
-                world_event.process_world_event(WORLD_EVENT_ACTION.OCCUPY_CITY, prop_build.Lv)
             end
         end
     end
@@ -1094,6 +1092,18 @@ function npc_buff_ntf()
 end
 
 function deal_npc_new_defender(newdefender, npcCity, ackTroop)
+    local maxUnion = unionmng.get_union(newdefender)
+    local _members = maxUnion:get_members()
+    local pack = {}
+    pack.mode = DISPLY_MODE.NPC
+    pack.npc_id = npcCity.propid
+    if npcCity.dmg then
+        pack.max_dmg_pid = find_max_dmg_ply(npcCity, maxHurtUnion)
+    end
+    for k, v in pairs(_members or {}) do
+        v:add_to_do("display_ntf", pack)
+    end
+
     reset_declare(npcCity.eid, {npcCity.uid})
     change_city_uid(npcCity, newdefender)
     if type(newdefender) == "number" and newdefender > 0 then
@@ -1167,19 +1177,75 @@ function deal_union_new_defender(unionId, npcCity)
     local union =  unionmng.get_union(unionId)
     if union then
         union_t.deal_new_npc_city(union, npcCity.eid)
+
+        --任务
+        local _members = union:get_members() 
+        local city_type = 0
+        local prop_build = resmng.get_conf("prop_world_unit", npcCity.propid)
+        if prop_build ~= nil and prop_build.Class == 3 then
+            city_type = prop_build.Lv
+        end
+        for k, v in pairs(_members or {}) do
+            task_logic_t.process_task(v, TASK_ACTION.OCC_NPC_CITY, city_type)
+        end
+
+        --世界事件
+        if npcCity.last_uid > 0 then
+            world_event.process_world_event(WORLD_EVENT_ACTION.OCCUPY_CITY, prop_build.Lv)
+        end
     end
 end
 
 function find_new_defender(npcCity)
+    local dmg = npcCity.dmg or {}
+    local max_union = dmg.max_union
+    if max_union then
+        return max_union
+    end
+
     local max = 0
     local max_union = 0
-    for k, v in pairs(npcCity.dmg or {}) do
+    for k, v in pairs(dmg.dmg_by_u or {}) do
         if v >= max then
             max_union = k
             max = v
         end
     end
+
+    dmg.max_union = max_union
+    npcCity.dmg = dmg
     return max_union
+end
+
+function find_max_dmg_ply(npcCity, uid)
+    local dmg = npcCity.dmg or {}
+    local max_pid = dmg.max_pid
+    if max_pid then
+        return max_pid
+    end
+
+    local max = 0
+    local max_pid = 0
+    for k, v in pairs(dmg.dmg_by_ply or {}) do
+        if v >= max then
+            if uid then
+                local ply = getPlayer(k)
+                if ply then
+                    if ply.uid == uid then
+                        max_pid = k
+                        max = v
+                    end
+                end
+            else
+                max_pid = k
+                max = v
+            end
+        end
+    end
+
+    dmg.max_pid = max_pid
+    npcCity.dmg = dmg
+    return max_pid
 end
 
 function test_npc()
@@ -1360,12 +1426,15 @@ function try_hold_troop(self, tr)
     local num =  tr:get_troop_total_soldier()
     if left <= 0 then
         tr:back()
+        watch_tower.building_hold_full(self, tr)
     elseif left > num then
         tr:split_tr_by_num_and_back(0, hold_tr)
         do_hold_troop(self, tr) 
+        watch_tower.building_recalc(self)
     else
         tr:split_tr_by_num_and_back(num - left, hold_tr)
         do_hold_troop(self, tr) 
+        watch_tower.building_recalc(self)
     end
     etypipe.add(self)
     

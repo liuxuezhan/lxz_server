@@ -449,8 +449,10 @@ end
 --抢夺资源数量
 do_task[TASK_ACTION.LOOT_RES] = function(self, task_data, con_type, con_num, con_acc, real_type, real_num)
     if con_acc == 1 then
-        local ach_index = "ACH_TASK_ATK_RES"..con_type
-        local cur = self:get_count(resmng[ach_index])
+        local cur = 0
+        for i = 1, 4, 1 do
+            cur = cur + self:get_count(resmng["ACH_TASK_ATK_RES"..i])
+        end
         update_task_process(task_data, con_num, cur)
         return true
     end

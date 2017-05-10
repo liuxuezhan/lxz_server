@@ -143,6 +143,7 @@ function do_gacha(self, type)
 	msg_send.gift = self.gacha_gift
 	msg_send.type = type
 
+
 	Rpc:do_gacha_resp(self, msg_send)
 end
 

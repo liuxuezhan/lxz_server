@@ -1,0 +1,37 @@
+#!/bin/bash
+path=$(date +%m%d%H%M)
+mkdir -p ${path}
+cd ${path}
+svn co http://svn.dev.tapenjoy.com/slg/branch_aws/code/server/script
+cd script 
+svn info > ../version.info 
+rm -rf .svn
+rm -rf client
+rm -rf forqc
+rm -rf robot
+compile.sh 
+cd ..
+
+svn co http://svn.dev.tapenjoy.com/slg/engine/misc
+svn co http://svn.dev.tapenjoy.com/slg/engine/net
+svn co http://svn.dev.tapenjoy.com/slg/engine/game
+
+cd misc 
+svn info >> ../version.info 
+make 
+cd ..
+
+cd net 
+svn info >> ../version.info 
+make 
+cd ..
+
+cd game 
+svn info >> ../version.info 
+make 
+cd ..
+
+tar -czvf ${path}.tar.gz script ./game/bin/game version.info
+mv ${path}.tar.gz ../
+
+

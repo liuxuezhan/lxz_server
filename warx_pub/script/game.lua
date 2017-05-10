@@ -8,7 +8,7 @@ function load_game_module()
     gMapID = getMap()
     gMapNew = 1
     c_roi_init()
-    c_roi_set_block("common/map_block.bytes")
+    c_roi_set_block("common/mapBlockInfo.bytes")
     gSysMailSn = 0
     gSysMail = {}
     gSysStatus = {}
@@ -125,6 +125,7 @@ function do_reload()
     do_load("operate_activity/operate_occupy_rank")
 
     do_load("offline_ntf")
+    do_load("watch_tower")
 
     --gTimeReload = c_get_time()
 end
@@ -180,6 +181,11 @@ function do_roi_msg(msg, d0, d1, d2, d3, eids )
     elseif msg == ROI_MSG.GET_AROUND then
         local co = getCoroPend( "roi", d0 )
         if co then coroutine.resume(co, eids ) end
+
+    elseif msg == ROI_MSG.GET_NEAR then
+        local co = getCoroPend( "roi", d0 )
+        if co then coroutine.resume(co, d1 ) end
+
     else
         LOG("[ROI_MSG], what %s", msg)
     end
@@ -364,30 +370,31 @@ function do_rem_ety(eid)
             if e.marktm then gPendingDelete.farm[ eid ] = 0 end
 
         elseif is_monster(e) then
-            if e.grade >= BOSS_TYPE.ELITE and e.grade < BOSS_TYPE.SUPER then
-                if monster.boss_grade[e.grade] then
-                    local boss = monster.boss_grade[e.grade] or {}
-                    local idx = e.zy * 80 + e.zx
-                    if boss[idx] then
-                        boss[idx] = nil
-                        monster.boss_grade[e.grade] = boss
-                    end
-                end
-            elseif e.grade == BOSS_TYPE.SPECIAL then
-                local lv =  c_get_zone_lv(e.zx, e.zy)
-                local boss_list = monster.boss_special[lv] or {}
-                local idx = e.zy * 80 + e.zx
-                if boss_list[idx] then
-                    boss_list[idx] = nil
-                    monster.boss_special[lv] = boss_list
-                end
-            elseif e.grade == BOSS_TYPE.SUPER then
-                super_boss = 0
-            end
+            --if e.grade >= BOSS_TYPE.ELITE and e.grade < BOSS_TYPE.SUPER then
+            --    if monster.boss_grade[e.grade] then
+            --        local boss = monster.boss_grade[e.grade] or {}
+            --        local idx = e.zy * 80 + e.zx
+            --        if boss[idx] then
+            --            boss[idx] = nil
+            --            monster.boss_grade[e.grade] = boss
+            --        end
+            --    end
+            --elseif e.grade == BOSS_TYPE.SPECIAL then
+            --    local lv =  c_get_zone_lv(e.zx, e.zy)
+            --    local boss_list = monster.boss_special[lv] or {}
+            --    local idx = e.zy * 80 + e.zx
+            --    if boss_list[idx] then
+            --        boss_list[idx] = nil
+            --        monster.boss_special[lv] = boss_list
+            --    end
+            --elseif e.grade == BOSS_TYPE.SUPER then
+            --    super_boss = 0
+            --end
             --if e.marktm then gPendingDelete.monster[ eid ] = 0 end
             gPendingDelete.monster[ eid ] = 0
 
         elseif is_monster_city(e) then
+            monster_city.rem_mc_in_citys(e)
             gPendingDelete.monster_city[ eid ] = 0
 
         elseif is_lost_temple(e) then
@@ -420,8 +427,10 @@ function test3()
 end
 
 function lt()
-    lost_temple.start_lt()
+   -- lost_temple.start_lt()
+   monster_city.rem_all_mc()
 end
+
 
 
 function test_mc()
@@ -460,7 +469,23 @@ end
 
 
 function test(id)
-    gPendingSave.test[ "hello" ] = { _id="hello", foo="bar" }
+    break_player( 2290016 )
+
+
+    --gPendingSave.test[ "hello" ] = { _id="hello", foo="bar" }
+
+    --local str0 = c_encode_aes( "4e69fd13cb06ef2c62c712ced980d1e6", "1234567890123456", Json.encode( { hello="foo", world=1} ) )
+    --local str1 = c_encode_base64( str0 )
+    --print( str1 )
+
+
+    --local ply = getPlayer( 2020000 )
+    --local eid = get_near( ply.x+2, ply.y+2, 2001002 )
+    --local dst = get_ety( eid )
+    --if dst then
+    --    print( "ply", ply.x, ply.y )
+    --    print( "dst", dst.x, dst.y )
+    --end
 
 
     --for r = 1, 78, 1 do
@@ -693,6 +718,15 @@ function get_around_eids( eid, r )
     local eids = putCoroPend( "roi", gQueryAroundSn )
     return eids
 end
+
+function get_near( x, y, propid, dist )
+    dist = dist or 0
+    gQueryAroundSn = gQueryAroundSn + 1
+    c_get_near( gQueryAroundSn, x, y, propid, dist )
+    local eid = putCoroPend( "roi", gQueryAroundSn )
+    return eid
+end
+
 
 function get_mall_item( itemid )
     for _, conf in pairs( resmng.prop_mall ) do

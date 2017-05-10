@@ -116,6 +116,9 @@ do_load(BasePath .. "define_operate_award_exchange")
 do_load(BasePath .. "define_operate_award_rank")
 do_load(BasePath .. "define_offline_notify")
 do_load(BasePath .. "define_language_offline")
+do_load(BasePath .. "define_filter")
+do_load(BasePath .. "define_first_blood")
+
 
 do_load(BasePath .. "prop_buy_group")
 do_load(BasePath .. "prop_buy")
@@ -233,7 +236,8 @@ do_load(BasePath .. "prop_operate_award_exchange")
 do_load(BasePath .. "prop_operate_award_rank")
 do_load(BasePath .. "prop_offline_notify")
 do_load(BasePath .. "prop_language_offline")
-
+do_load(BasePath .. "prop_filter")
+do_load(BasePath .. "prop_first_blood")
 
 do_check("prop_arm")
 do_check("prop_build")

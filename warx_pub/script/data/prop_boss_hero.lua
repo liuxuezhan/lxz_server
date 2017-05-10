@@ -1067,7 +1067,7 @@ prop_boss_hero = {
 	[BOSS_HERO_1118] = { ID = BOSS_HERO_1118, PropID = 1206, Lv = 17, Quality = 3, Star = 2, Skill = 20108001, Effect = {TacticsAtk_R=42500,AtkImmTac_R=-42500},},
 	[BOSS_HERO_1119] = { ID = BOSS_HERO_1119, PropID = 1206, Lv = 21, Quality = 3, Star = 3, Skill = 20108001, Effect = {TacticsAtk_R=42500,AtkImmTac_R=-42500},},
 	[BOSS_HERO_1120] = { ID = BOSS_HERO_1120, PropID = 1210, Lv = 25, Quality = 3, Star = 6, Skill = 20108001, Effect = {},},
-	[BOSS_HERO_1121] = { ID = BOSS_HERO_1121, PropID = 1214, Lv = 25, Quality = 3, Star = 6, Skill = 20108001, Effect = {},},
+	[BOSS_HERO_1121] = { ID = BOSS_HERO_1121, PropID = 1013, Lv = 25, Quality = 4, Star = 6, Skill = 20108001, Effect = {},},
 	[BOSS_HERO_1122] = { ID = BOSS_HERO_1122, PropID = 1202, Lv = 25, Quality = 3, Star = 6, Skill = 20108001, Effect = {TacticsAtk_R=42500,AtkImmTac_R=-42500},},
 	[BOSS_HERO_1123] = { ID = BOSS_HERO_1123, PropID = 1218, Lv = 29, Quality = 3, Star = 10, Skill = 20108001, Effect = {},},
 	[BOSS_HERO_1124] = { ID = BOSS_HERO_1124, PropID = 1202, Lv = 29, Quality = 3, Star = 10, Skill = 20108001, Effect = {},},

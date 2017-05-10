@@ -30,15 +30,16 @@ end
 -- one item = {idx, id, num, extra ...}
 function inc_item(self, id, num, reason)
     num = math.floor( num )
-    --print( "inc_item", id, num, reason )
     local its = self:get_item()
     local hit = false
     local idx = 0
+    local total = num
     for k, v in pairs(its) do
         if v[2] == id and not v[4] then
             v[3] = v[3] + num
             hit = true
             idx = k
+            total = v[3]
             break
         end
     end
@@ -54,6 +55,8 @@ function inc_item(self, id, num, reason)
     end
 
     self:add_item_pend(idx)
+    INFO("[ITEM] inc, pid = %d, idx = %d, item_id = %d, num = %d, total = %d, reason = %d.", self.pid, idx, id, num, total, reason or 0)
+
     --任务
     task_logic_t.process_task(self, TASK_ACTION.GET_ITEM, id, num)
     task_logic_t.process_task(self, TASK_ACTION.GET_TASK_ITEM, id, num)
@@ -65,7 +68,6 @@ function inc_item(self, id, num, reason)
     end
     -- dumpTab( its, "inc_item" )
     -- print("[ITEM] inc_item: pid = %d, idx = %d, item_id = %d, num = %d, total = %d, reason = %d.", self.pid, idx, id, num, its[idx][3], reason)
-    LOG("[ITEM] inc_item: pid = %d, idx = %d, item_id = %d, num = %d, total = %d, reason = %d.", self.pid, idx, id, num, its[idx][3], reason)
 end
 
 function add_item_pend(self, idx)
@@ -104,7 +106,7 @@ function dec_item(self, idx, num, reason)
         if reason == VALUE_CHANGE_REASON.DEFAULT then
             ERROR("dec_item: pid = %d, don't use the default reason.", self.pid)
         end
-        LOG("[ITEM] dec_item: pid = %d, idx = %d, item_id = %d, num = %d, total = %d, reason = %d.", self.pid, idx, item[2], num, item[3], reason)
+        INFO("[ITEM] dec, pid = %d, idx = %d, item_id = %d, num = %d, total = %d, reason = %d.", self.pid, idx, item[2], num, item[3], reason or 0)
         --任务
         task_logic_t.process_task(self, TASK_ACTION.USE_ITEM, propid, num)
         task_logic_t.process_task(self, TASK_ACTION.GET_TASK_ITEM, propid, -num)
@@ -442,7 +444,7 @@ function material_compose2( self, id, count )
 end
 
 function hero_piece_decompose( self, id, count )
-    if count < 0 then return end
+    if count < 1 then return end
     if self:get_item_num( id ) < count then return end
     local conf = resmng.get_conf( "prop_item", id )
     if not conf then return end
@@ -463,7 +465,7 @@ end
 
 
 function skill_piece_decompose( self, id, count )
-    if count < 0 then return end
+    if count < 1 then return end
     if self:get_item_num( id ) < count then return end
     local conf = resmng.get_conf( "prop_item", id )
     if not conf then return end
@@ -479,7 +481,10 @@ end
 
 
 function buy_item(self, id, num, use)
-    if num < 0 then return end
+    if num <= 0 then 
+        WARN( "[ITEM], NUM_ERROR, buy, pid=%d, id=%d, num=%d", self.pid, id, num )
+        return 
+    end
     local conf = resmng.get_conf("prop_mall", id)
     if conf then
         local cost = math.ceil(conf.NewPrice * num)
@@ -501,7 +506,8 @@ function buy_item(self, id, num, use)
             end
 
             self:doConsume(resmng.CLASS_RES, resmng.DEF_RES_GOLD, cost, VALUE_CHANGE_REASON.MALL_PAY)
-            INFO( "buy_item, pid=%d, id=%d, num=%d, use=%d", self.pid, id, num, use )
+            INFO( "[ITEM], buy, pid=%d, itemid=%d, count=%d, use=%d", self.pid, id, num, use or 0 )
+
             if use == 1 then
                 for k, v in pairs( conf.Item ) do
                     local flag = false

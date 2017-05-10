@@ -7,7 +7,7 @@ prop_cron = {
     [6] = {game="*", boot=nil, min="0", hour="4", day="*", month="*", wday="*", action="start_tw", arg={}},
     [7] = {game="*", boot=nil, min="0", hour="13", day="*", month="*", wday="*", action="end_tw", arg={}},
     [8] = {game="*", boot=nil, min="0", hour="16", day="*", month="*", wday="*", action="reset_kw_mall", arg={}},
-    [9] = {game="*", boot=nil, min="30", hour="15", day="*", month="*", wday="*", action="try_open_lt", arg={}},
+    [9] = {game="*", boot=nil, min="30", hour="23", day="*", month="*", wday="*", action="try_open_lt", arg={}},
     [10] = {game="*", boot=nil, min="0", hour="0", day="*", month="*", wday="*", action="try_start_kw", arg={}},
    -- [11] = {game="*", boot=nil, min="0", hour="0", day="*", month="*", wday="1", action="send_boss_award", arg={}},
     [12] = {game="*", boot=nil, min="0", hour="0", day="*", month="*", wday="1", action="send_tw_award", arg={}},
@@ -37,5 +37,6 @@ prop_cron = {
     [33] = {game="*", boot=nil, min="0", hour="2", day="*", month="*", wday="*", action="start_boss_attack_city", arg={}},
     [34] = {game="*", boot=nil, min="0", hour="3", day="*", month="*", wday="*", action="stop_boss_attack_city", arg={}},
     [35] = {game="*", boot=nil, min="*", hour="*", day="*", month="*", wday="*", action="operate_activity_tick", arg={}},
+    [36] = {game="*", boot=nil, min="0", hour="4", day="*", month="*", wday="*", action="rem_all_mc", arg={}},
     --[16] = {game="*", boot=true, min="30", hour="23", day="*", month="*", wday="*", action="upload_gs_info", arg={}},
 }

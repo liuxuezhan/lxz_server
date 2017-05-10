@@ -101,7 +101,7 @@ function mongo_client:getDB(dbname)
 end
 
 function mongo_client:disconnect()
-	if rawget(self, __sock) then
+	if rawget(self, "__sock") then
 		socket.close(self.__sock)
 		self.__sock = nil
 	end

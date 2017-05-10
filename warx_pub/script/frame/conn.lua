@@ -45,7 +45,6 @@ function toMongo(host, port, db, tips, is_reconnect)
         end,
 
         onConnectOk = function (self)
-            print( "connect mongo, ok" )
             self.state = 1
             local t = mongo.client2(self.host, self.port, self.sid)
             dbmng:conn_new(self.host, self.port, self.db, self.sid, t[ self.db ], self.tips)
@@ -64,7 +63,6 @@ function toMongo(host, port, db, tips, is_reconnect)
     local sid = connect(host, port, 0, 2)
     local t = { host=host, port=port, sid=sid, state=0, db=db, tips=tips, action="db", is_reconnect=is_reconnect}
     gConns[ sid ] = t
-    print( "connect", host, port, sid )
     return setmetatable(t, mt)
 end
 

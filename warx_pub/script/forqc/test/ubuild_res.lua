@@ -6,7 +6,8 @@ local mod = {}
 function mod.action( _idx )
     require("frame/debugger") 
     local name = math.floor(gTime%1000)
-    local p = get_one2(name.."0")
+
+    local p = get_account(1024)
     Rpc:union_quit( p )
     chat( p, "@set_val=gold=100000000" )
     chat( p, "@buildtop" )
@@ -17,7 +18,7 @@ function mod.action( _idx )
 
     local num,def = 2,{} 
     for i = 1, num do
-        def[i] = get_one2(name..i)
+        def[i] = get_account(i)
         Rpc:union_quit( def[i] )
         Rpc:union_apply( def[i],p.uid)
         chat( def[i], "@set_val=gold=100000000" )
