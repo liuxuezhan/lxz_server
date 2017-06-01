@@ -80,6 +80,8 @@ count=1
 * 分窗：`ctrl+W`+`v` 或`s` 
 * 切换窗口：`Esc`+`1~9`
 * 搜索：`F7`
+* 注释：`leader`+`cc`
+* 取消注释：`leader`+`cu`
 * vimrc支持tmux
 ```
 if exists('$TMUX')
