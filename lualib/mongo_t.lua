@@ -22,11 +22,9 @@ function test_insert_with_index(db_name,db)
 
 	local ret = db[db_name].testdb:safe_insert({test_key = 1})
     lxz(ret)	
-
 end
 
 function test_find_and_remove(db_name,db)
-
 	db[db_name].testdb:dropIndex("*")
 	db[db_name].testdb:drop()
 
@@ -37,7 +35,6 @@ function test_find_and_remove(db_name,db)
 
 	local ret = db[db_name].testdb:safe_insert({test_key = 2})
 	assert(ret and ret.n == 1)
-
 	local ret = db[db_name].testdb:findOne({test_key = 1})
 
 	assert(ret and ret.test_key == 1)
