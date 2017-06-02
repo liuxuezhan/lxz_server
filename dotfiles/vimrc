@@ -1,6 +1,7 @@
 " vim: set foldmethod=marker foldlevel=0:
 " ============================================================================
 " .vimrc of Junegunn Choi {{{
+
 " ============================================================================
 
 " Vim 8 defaults
@@ -52,8 +53,8 @@ unlet! g:plug_url_format
 "Plug 'altercation/vim-colors-solarized'
 Plug 'solarized/vim-colors-solarized'
 Plug 'tomasr/molokai'
-Plug 'chriskempson/vim-tomorrow-theme'
-Plug 'AlessandroYorba/Monrovia'
+"Plug 'chriskempson/vim-tomorrow-theme'
+"Plug 'AlessandroYorba/Monrovia'
 
 " Edit
 Plug 'tpope/vim-repeat'
@@ -146,8 +147,6 @@ endif
 " BASIC SETTINGS {{{
 " ============================================================================
 
-let mapleader      = ' '
-let maplocalleader = ' '
 
 augroup vimrc
   autocmd!
@@ -365,6 +364,14 @@ endif
 " ============================================================================
 " MAPPINGS {{{
 " ============================================================================
+let mapleader      = ' '
+let maplocalleader = ' '
+" ----------------------------------------------------------------------------
+"设置切换Buffer快捷键"
+" ----------------------------------------------------------------------------
+nnoremap zj :bnext<cr>
+nnoremap zk :bprev<cr>
+
 
 " ----------------------------------------------------------------------------
 " Basic mappings
@@ -461,12 +468,6 @@ nnoremap ]q :cnext<cr>zz
 nnoremap [q :cprev<cr>zz
 nnoremap ]l :lnext<cr>zz
 nnoremap [l :lprev<cr>zz
-
-" ----------------------------------------------------------------------------
-" Buffers
-" ----------------------------------------------------------------------------
-nnoremap ]b :bnext<cr>
-nnoremap [b :bprev<cr>
 
 " ----------------------------------------------------------------------------
 " Tabs
@@ -1830,9 +1831,6 @@ let g:airline_powerline_fonts = 1
 let g:airline#extensions#tabline#enabled = 1
 let g:airline#extensions#tabline#buffer_nr_show = 1
 
-"设置切换Buffer快捷键"
-nnoremap <C-tab> :bn<CR>
-nnoremap <C-s-tab> :bp<CR>
 " 关闭状态显示空白符号计数
 let g:airline#extensions#whitespace#enabled = 0
 let g:airline#extensions#whitespace#symbol = '!'
