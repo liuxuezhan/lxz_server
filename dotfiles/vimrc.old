@@ -14,6 +14,7 @@ let s:darwin = has('mac')
 " ============================================================================
 " VIM-PLUG BLOCK {{{
 " ============================================================================
+
 silent! if plug#begin('~/.vim/plugged')
 
 if s:darwin
@@ -23,22 +24,28 @@ else
 endif
 
 " My plugins
-"对齐插件
 Plug 'junegunn/vim-easy-align',       { 'on': ['<Plug>(EasyAlign)', 'EasyAlign'] }
 Plug 'junegunn/vim-github-dashboard', { 'on': ['GHDashboard', 'GHActivity']      }
-Plug 'junegunn/gv.vim'
-
+Plug 'junegunn/vim-emoji'
 Plug 'junegunn/vim-pseudocl'
+Plug 'junegunn/vim-slash'
 Plug 'junegunn/vim-fnr'
-
+Plug 'junegunn/vim-peekaboo'
+Plug 'junegunn/vim-journal'
+Plug 'junegunn/seoul256.vim'
+Plug 'junegunn/gv.vim'
+Plug 'junegunn/goyo.vim'
+Plug 'junegunn/limelight.vim'
+Plug 'junegunn/vader.vim',  { 'on': 'Vader', 'for': 'vader' }
+"Plug 'junegunn/vim-ruby-x', { 'on': 'RubyX' }
 Plug 'junegunn/fzf',        { 'do': './install --all' }
 Plug 'junegunn/fzf.vim'
-Plug 'ctrlpvim/ctrlp.vim'
-Plug 'rking/ag.vim'
-"彩色括号
 Plug 'junegunn/rainbow_parentheses.vim'
 if v:version >= 703
   Plug 'junegunn/vim-after-object'
+endif
+if s:darwin
+  Plug 'junegunn/vim-xmark'
 endif
 unlet! g:plug_url_format
 
@@ -50,34 +57,24 @@ Plug 'tomasr/molokai'
 "Plug 'AlessandroYorba/Monrovia'
 
 " Edit
-Plug 'mattn/emmet-vim'
-" Plug 'maralla/completor.vim'
-Plug 'Valloric/YouCompleteMe'
-Plug 'rdnetto/YCM-Generator', { 'branch': 'stable'}
-Plug 'sirver/ultisnips'
-Plug 'honza/vim-snippets'
-Plug 'Shougo/vimproc', { 'do': 'make' }
-Plug 'Shougo/neoinclude.vim'
-Plug 'Shougo/neco-vim'
-Plug 'Shougo/neco-syntax'
-Plug 'Shougo/neocomplete'
-Plug 'Shougo/neosnippet'
-Plug 'Shougo/neosnippet-snippets'
-" Plug 'Shougo/vimshell'
-" 快速去行尾空格 
 Plug 'tpope/vim-repeat'
 Plug 'tpope/vim-surround'
 Plug 'tpope/vim-endwise'
-"注释插件
 Plug 'tpope/vim-commentary',        { 'on': '<Plug>Commentary' }
-"取消修改
 Plug 'mbbill/undotree',             { 'on': 'UndotreeToggle'   }
-"语法一行gJ
+Plug 'vim-scripts/ReplaceWithRegister'
 Plug 'AndrewRadev/splitjoin.vim'
+Plug 'rhysd/vim-grammarous'
+Plug 'beloglazov/vim-online-thesaurus'
+Plug 'vim-airline/vim-airline'
+Plug 'vim-airline/vim-airline-themes'
 
-Plug 'terryma/vim-expand-region'"选择插件
-"Plug 'vim-airline/vim-airline'
-"Plug 'vim-airline/vim-airline-themes'
+function! BuildYCM(info)
+  if a:info.status == 'installed' || a:info.force
+    !./install.py --clang-completer --gocode-completer
+  endif
+endfunction
+Plug 'Valloric/YouCompleteMe', { 'for': ['c', 'cpp'], 'do': function('BuildYCM') }
 
 " Plug 'SirVer/ultisnips', { 'on': '#InsertEnter' }
 " Plug 'honza/vim-snippets'
@@ -111,12 +108,13 @@ endif
 
 " Lang
 if v:version >= 703
- " Plug 'kovisoft/paredit', { 'for': 'clojure' }
- " Plug 'junegunn/vim-fireplace', { 'for': 'clojure' }
- " Plug 'guns/vim-clojure-static'
- " Plug 'guns/vim-clojure-highlight'
- " Plug 'guns/vim-slamhound'
-"  Plug 'venantius/vim-cljfmt'
+ " Plug 'vim-ruby/vim-ruby'
+  Plug 'kovisoft/paredit', { 'for': 'clojure' }
+  Plug 'junegunn/vim-fireplace', { 'for': 'clojure' }
+  Plug 'guns/vim-clojure-static'
+  Plug 'guns/vim-clojure-highlight'
+  Plug 'guns/vim-slamhound'
+  Plug 'venantius/vim-cljfmt'
 endif
 Plug 'tpope/vim-bundler'
 "Plug 'fatih/vim-go', { 'do': ':GoInstallBinaries' }
@@ -222,8 +220,94 @@ endif
 " %P Percentage
 " %#HighlightGroup#
 set statusline=%<[%n]\ %F\ %m%r%y\ %{exists('g:loaded_fugitive')?fugitive#statusline():''}\ %=%-14.(%l,%c%V%)\ %P
+silent! if emoji#available()
+  let s:ft_emoji = map({
+    \ 'c':          'baby_chick',
+    \ 'clojure':    'lollipop',
+    \ 'coffee':     'coffee',
+    \ 'cpp':        'chicken',
+    \ 'css':        'art',
+    \ 'eruby':      'ring',
+    \ 'gitcommit':  'soon',
+    \ 'haml':       'hammer',
+    \ 'help':       'angel',
+    \ 'html':       'herb',
+    \ 'java':       'older_man',
+    \ 'javascript': 'monkey',
+    \ 'make':       'seedling',
+    \ 'markdown':   'book',
+    \ 'perl':       'camel',
+    \ 'python':     'snake',
+    \ 'ruby':       'gem',
+    \ 'scala':      'barber',
+    \ 'sh':         'shell',
+    \ 'slim':       'dancer',
+    \ 'text':       'books',
+    \ 'vim':        'poop',
+    \ 'vim-plug':   'electric_plug',
+    \ 'yaml':       'yum',
+    \ 'yaml.jinja': 'yum'
+  \ }, 'emoji#for(v:val)')
 
+  function! S_filetype()
+    if empty(&filetype)
+      return emoji#for('grey_question')
+    else
+      return get(s:ft_emoji, &filetype, '['.&filetype.']')
+    endif
+  endfunction
 
+  function! S_modified()
+    if &modified
+      return emoji#for('kiss').' '
+    elseif !&modifiable
+      return emoji#for('construction').' '
+    else
+      return ''
+    endif
+  endfunction
+
+  function! S_fugitive()
+    if !exists('g:loaded_fugitive')
+      return ''
+    endif
+    let head = fugitive#head()
+    if empty(head)
+      return ''
+    else
+      return head == 'master' ? emoji#for('crown') : emoji#for('dango').'='.head
+    endif
+  endfunction
+
+  let s:braille = split('"⠉⠒⠤⣀', '\zs')
+  function! Braille()
+    let len = len(s:braille)
+    let [cur, max] = [line('.'), line('$')]
+    let pos  = min([len * (cur - 1) / max([1, max - 1]), len - 1])
+    return s:braille[pos]
+  endfunction
+
+  hi def link User1 TablineFill
+  let s:cherry = emoji#for('cherry_blossom')
+  function! MyStatusLine()
+    let mod = '%{S_modified()}'
+    let ro  = "%{&readonly ? emoji#for('lock') . ' ' : ''}"
+    let ft  = '%{S_filetype()}'
+    let fug = ' %{S_fugitive()}'
+    let sep = ' %= '
+    let pos = ' %l,%c%V '
+    let pct = ' %P '
+
+    return s:cherry.' [%n] %F %<'.mod.ro.ft.fug.sep.pos.'%{Braille()}%*'.pct.s:cherry
+  endfunction
+
+  " Note that the "%!" expression is evaluated in the context of the
+  " current window and buffer, while %{} items are evaluated in the
+  " context of the window that the statusline belongs to.
+  set statusline=%!MyStatusLine()
+endif
+
+set pastetoggle=<F9>
 set modelines=2
 set synmaxcol=1000
 
@@ -280,7 +364,6 @@ endif
 " ============================================================================
 " MAPPINGS {{{
 " ============================================================================
-set pastetoggle=<F9>
 let mapleader      = ' '
 let maplocalleader = ' '
 " ----------------------------------------------------------------------------
@@ -327,7 +410,6 @@ nnoremap <C-p> <C-i>
 autocmd VimEnter * NERDTree
 let NERDTreeShowBookmarks=1
 let NERDTreeShowHidden=1
-let NERDTreeWinPos = "right"
 nnoremap <F10> :NERDTreeToggle<cr>
 
 " <F11> | Tagbar
@@ -577,6 +659,15 @@ nnoremap <leader>bs :cex []<BAR>bufdo vimgrepadd @@g %<BAR>cw<s-left><s-left><ri
 " ----------------------------------------------------------------------------
 inoreabbrev <expr> #!! "#!/usr/bin/env" . (empty(&filetype) ? '' : ' '.&filetype)
 
+" ----------------------------------------------------------------------------
+" <leader>ij | Open in IntelliJ
+" ----------------------------------------------------------------------------
+if s:darwin
+  nnoremap <silent> <leader>ij
+  \ :call system('"/Applications/IntelliJ IDEA.app/Contents/MacOS/idea" '.expand('%:p'))<cr>
+endif
+
+" }}}
 " ============================================================================
 " FUNCTIONS & COMMANDS {{{
 " ============================================================================
@@ -627,6 +718,10 @@ function! s:copy_rtf(line1, line2, ...)
   let &l:nu = nu
   execute 'colorscheme' cs
 endfunction
+
+if s:darwin
+  command! -range=% -nargs=? -complete=customlist,s:colors CopyRTF call s:copy_rtf(<line1>, <line2>, <f-args>)
+endif
 
 " ----------------------------------------------------------------------------
 " :Root | Change directory to the root of the Git repository
@@ -854,6 +949,25 @@ function! s:todo() abort
   endif
 endfunction
 command! Todo call s:todo()
+
+" ----------------------------------------------------------------------------
+" ConnectChrome
+" ----------------------------------------------------------------------------
+if s:darwin
+  function! s:connect_chrome(bang)
+    augroup connect-chrome
+      autocmd!
+      if !a:bang
+        autocmd BufWritePost <buffer> call system(join([
+        \ "osascript -e 'tell application \"Google Chrome\"".
+        \               "to tell the active tab of its first window\n",
+        \ "  reload",
+        \ "end tell'"], "\n"))
+      endif
+    augroup END
+  endfunction
+  command! -bang ConnectChrome call s:connect_chrome(<bang>0)
+endif
 
 " ----------------------------------------------------------------------------
 " AutoSave
@@ -1283,11 +1397,36 @@ nmap gcc <Plug>CommentaryLine
 nmap     <Leader>g :Gstatus<CR>gg<c-n>
 nnoremap <Leader>d :Gdiff<CR>
 
+" ----------------------------------------------------------------------------
+" vim-ruby
+" ----------------------------------------------------------------------------
+" ft-ruby-syntax
+let ruby_operators = 1
+let ruby_space_errors = 1
+let ruby_fold = 1
+let ruby_no_expensive = 1
+let ruby_spellcheck_strings = 1
+
+autocmd vimrc FileType ruby command! Rubocop :call system('rubocop -a '.expand('%')) | e
+" ft-ruby-omni
+" let rubycomplete_buffer_loading = 1
+" let rubycomplete_classes_in_global = 1
+" let rubycomplete_load_gemfile = 1
 
 " ----------------------------------------------------------------------------
 " matchit.vim
 " ----------------------------------------------------------------------------
 runtime macros/matchit.vim
+
+" ----------------------------------------------------------------------------
+" ack.vim
+" ----------------------------------------------------------------------------
+if executable('ag')
+  let &grepprg = 'ag --nogroup --nocolor --column'
+else
+  let &grepprg = 'grep -rn $* *'
+endif
+command! -nargs=1 -bar Grep execute 'silent! grep! <q-args>' | redraw! | copen
 
 " ----------------------------------------------------------------------------
 " vim-after-object
@@ -1355,6 +1494,62 @@ let g:indentLine_enabled = 0
 let g:signify_vcs_list = ['git']
 let g:signify_skip_filetype = { 'journal': 1 }
 
+" ----------------------------------------------------------------------------
+" vim-slash
+" ----------------------------------------------------------------------------
+if has('timers')
+  noremap <expr> <plug>(slash-after) slash#blink(2, 50)
+endif
+
+" ----------------------------------------------------------------------------
+" vim-emoji :dog: :cat: :rabbit:!
+" ----------------------------------------------------------------------------
+function! s:replace_emojis() range
+  for lnum in range(a:firstline, a:lastline)
+    let line = getline(lnum)
+    let subs = substitute(line,
+          \ ':\([^:]\+\):', '\=emoji#for(submatch(1), submatch(0))', 'g')
+    if line != subs
+      call setline(lnum, subs)
+    endif
+  endfor
+endfunction
+command! -range EmojiReplace <line1>,<line2>call s:replace_emojis()
+
+" ----------------------------------------------------------------------------
+" goyo.vim + limelight.vim
+" ----------------------------------------------------------------------------
+let g:limelight_paragraph_span = 1
+let g:limelight_priority = -1
+
+function! s:goyo_enter()
+  if has('gui_running')
+    set fullscreen
+    set background=light
+    set linespace=7
+  elseif exists('$TMUX')
+    silent !tmux set status off
+  endif
+  Limelight
+  let &l:statusline = '%M'
+  hi StatusLine ctermfg=red guifg=red cterm=NONE gui=NONE
+endfunction
+
+function! s:goyo_leave()
+  if has('gui_running')
+    set nofullscreen
+    set background=dark
+    set linespace=0
+  elseif exists('$TMUX')
+    silent !tmux set status on
+  endif
+  Limelight!
+endfunction
+
+autocmd! User GoyoEnter nested call <SID>goyo_enter()
+autocmd! User GoyoLeave nested call <SID>goyo_leave()
+
+nnoremap <Leader>G :Goyo<CR>
 
 " ----------------------------------------------------------------------------
 " gv.vim / gl.vim
@@ -1373,6 +1568,63 @@ autocmd! FileType GV nnoremap <buffer> <silent> + :call <sid>gv_expand()<cr>
 " ----------------------------------------------------------------------------
 let g:undotree_WindowLayout = 2
 nnoremap U :UndotreeToggle<CR>
+
+" ----------------------------------------------------------------------------
+" clojure
+" ----------------------------------------------------------------------------
+function! s:lisp_maps()
+  nnoremap <buffer> <leader>a[ vi[<c-v>$:EasyAlign\ g/^\S/<cr>gv=
+  nnoremap <buffer> <leader>a{ vi{<c-v>$:EasyAlign\ g/^\S/<cr>gv=
+  nnoremap <buffer> <leader>a( vi(<c-v>$:EasyAlign\ g/^\S/<cr>gv=
+  nnoremap <buffer> <leader>rq :silent update<bar>Require<cr>
+  nnoremap <buffer> <leader>rQ :silent update<bar>Require!<cr>
+  nnoremap <buffer> <leader>rt :silent update<bar>RunTests<cr>
+  nmap     <buffer> <leader>*  cqp<c-r><c-w><cr>
+  nmap     <buffer> <c-]>      <Plug>FireplaceDjumpzz
+  imap     <buffer> <c-j><c-n> <c-o>(<right>.<space><left><tab>
+endfunction
+
+function! s:countdown(message, seconds)
+  for t in range(a:seconds)
+    let left = a:seconds - t
+    echom printf('%s in %d second%s', a:message, left, left > 1 ? 's' : '')
+    redraw
+    sleep 1
+  endfor
+  echo
+endfunction
+
+function! s:figwheel()
+  call system('tmux send-keys -t right C-u "(start-figwheel!)" Enter')
+  call system('open-chrome localhost:3449')
+  call s:countdown('Piggieback', 5)
+  Piggieback (figwheel-sidecar.repl-api/repl-env)
+endfunction
+
+augroup vimrc
+  autocmd FileType lisp,clojure,scheme RainbowParentheses
+  autocmd FileType lisp,clojure,scheme call <sid>lisp_maps()
+
+  " Clojure
+  autocmd FileType clojure xnoremap <buffer> <Enter> :Eval<CR>
+  autocmd FileType clojure nmap <buffer> <Enter> cpp
+
+  " Figwheel
+  autocmd BufReadPost *.cljs command! -buffer Figwheel call s:figwheel()
+augroup END
+
+let g:clojure_maxlines = 60
+
+set lispwords+=match
+let g:clojure_fuzzy_indent_patterns = ['^with', '^def', '^let']
+
+" let g:rainbow#pairs = [['(', ')'], ['[', ']'], ['{', '}']]
+let g:paredit_smartjump = 1
+
+" vim-cljfmt
+let g:clj_fmt_autosave = 0
+autocmd vimrc BufWritePre *.clj call cljfmt#AutoFormat()
+autocmd vimrc BufWritePre *.cljc call cljfmt#AutoFormat()
 
 " ----------------------------------------------------------------------------
 " vim-markdown
@@ -1434,39 +1686,8 @@ autocmd vimrc FileType vim inoremap <buffer> <c-x><c-v> <c-r>=VimAwesomeComplete
 " ----------------------------------------------------------------------------
 " YCM
 " ----------------------------------------------------------------------------
-let g:ycm_auto_trigger = 0
-let g:ycm_global_ycm_extra_conf = "~/.vim/plugged/YouCompleteMe/third_party/ycmd/cpp/ycm/.ycm_extra_conf.py"
-let g:ycm_collect_identifiers_from_tags_files = 0
-let g:ycm_add_preview_to_completeopt = 5
-let g:ycm_use_ultisnips_completer = 0
-let g:ycm_error_symbol = '>>'
-let g:ycm_warning_symbol = '>*'
-let g:ycm_cache_omnifunc = 1
-let g:ycm_max_diagnostics_to_display=0
-let g:ycm_key_list_select_completion = ['<C-n>', '<C-j>']
-let g:ycm_key_list_previous_completion = ['<C-p>', '<C-k>']
-let g:ycm_filetype_blacklist = {
-			\ 'tagbar' : 1,
-			\ 'qf' : 1,
-			\ 'notes' : 1,
-			\ 'markdown' : 1,
-			\ 'unite' : 1,
-			\ 'text' : 1,
-			\ 'vimwiki' : 1,
-			\ 'pandoc' : 1,
-			\ 'infolog' : 1,
-			\ 'mail' : 1,
-			\ 'mundo': 1,
-			\ 'fzf': 1,
-			\ 'ctrlp' : 1
-			\}
-
-let g:ycm_error_symbol = '>>'
-let g:ycm_warning_symbol = '>*'
-
-nnoremap <leader>gl :YcmCompleter GoToDeclaration<CR>
-nnoremap <leader>gf :YcmCompleter GoToDefinition<CR>
-nnoremap <leader>gg :YcmCompleter GoToDefinitionElseDeclaration<CR>
+autocmd vimrc FileType c,cpp,go nnoremap <buffer> ]d :YcmCompleter GoTo<CR>
+autocmd vimrc FileType c,cpp    nnoremap <buffer> K  :YcmCompleter GetType<CR>
 
 " }}}
 " ============================================================================
@@ -1485,6 +1706,9 @@ command! -bang -nargs=? -complete=dir Files
 nnoremap <silent> <expr> <Leader><Leader> (expand('%') =~ 'NERD_tree' ? "\<c-w>\<c-w>" : '').":Files\<cr>"
 nnoremap <silent> <Leader>C        :Colors<CR>
 nnoremap <silent> <Leader><Enter>  :Buffers<CR>
+nnoremap <silent> <Leader>ag       :Ag <C-R><C-W><CR>
+nnoremap <silent> <Leader>AG       :Ag <C-R><C-A><CR>
+xnoremap <silent> <Leader>ag       y:Ag <C-R>"<CR>
 nnoremap <silent> <Leader>`        :Marks<CR>
 " nnoremap <silent> q: :History:<CR>
 " nnoremap <silent> q/ :History/<CR>
@@ -1585,7 +1809,7 @@ endif
 " }}}
 " ============================================================================
 set background=light
-let g:solarized_termcolors=  16
+let g:solarized_termcolors=  256
 let g:solarized_termtrans =   1
 color solarized
 let g:solarized_degrade   =   1
@@ -1594,12 +1818,32 @@ let g:solarized_underline =   1
 let g:solarized_italic    =   1
 let g:solarized_contrast  =   "high"   
 let g:solarized_visibility=   "high"
-" terryma/vim-expand-region
-vmap v <Plug>(expand_region_expand)
-vmap <C-v> <Plug>(expand_region_shrink)
+"--------------------------------------------------------------------------
+"vim-airline
+"--------------------------------------------------------------------------
+let g:airline_theme="solarized" 
+let g:airline_solarized_bg='light'
 
-" Ag.vim Settings
-let g:ackprg = "ag --nocolor --nogroup --column"
-set grepprg=ag\ --nogroup\ --nocolor
-command! -nargs=+ -complete=file -bar Ag silent! grep! <args>|cwindow|redraw!
-nnoremap \ :Ag<SPACE>
+"这个是安装字体后 必须设置此项" 
+let g:airline_powerline_fonts = 1   
+
+"打开tabline功能,方便查看Buffer和切换,省去了minibufexpl插件
+let g:airline#extensions#tabline#enabled = 1
+let g:airline#extensions#tabline#buffer_nr_show = 1
+
+let g:airline#extensions#tagbar#enabled = 1
+  " 关闭状态显示空白符号计数
+let g:airline#extensions#whitespace#enabled = 0
+let g:airline#extensions#whitespace#symbol = '!'
+" 设置consolas字体"前面已经设置过
+"set guifont=Consolas\ for\ Powerline\ FixedD:h11
+if !exists('g:airline_symbols')
+  let g:airline_symbols = {}
+endif
+" old vim-powerline symbols
+let g:airline_left_sep = '⮀'
+let g:airline_left_alt_sep = '⮁'
+let g:airline_right_sep = '⮂'
+let g:airline_right_alt_sep = '⮃'
+let g:airline_symbols.branch = '⭠'
+let g:airline_symbols.readonly = '⭤'
