@@ -50,20 +50,6 @@ Plug 'tomasr/molokai'
 "Plug 'AlessandroYorba/Monrovia'
 
 " Edit
-Plug 'mattn/emmet-vim'
-" Plug 'maralla/completor.vim'
-Plug 'Valloric/YouCompleteMe'
-Plug 'rdnetto/YCM-Generator', { 'branch': 'stable'}
-Plug 'sirver/ultisnips'
-Plug 'honza/vim-snippets'
-Plug 'Shougo/vimproc', { 'do': 'make' }
-Plug 'Shougo/neoinclude.vim'
-Plug 'Shougo/neco-vim'
-Plug 'Shougo/neco-syntax'
-Plug 'Shougo/neocomplete'
-Plug 'Shougo/neosnippet'
-Plug 'Shougo/neosnippet-snippets'
-" Plug 'Shougo/vimshell'
 " 快速去行尾空格 
 Plug 'tpope/vim-repeat'
 Plug 'tpope/vim-surround'
@@ -76,8 +62,14 @@ Plug 'mbbill/undotree',             { 'on': 'UndotreeToggle'   }
 Plug 'AndrewRadev/splitjoin.vim'
 
 Plug 'terryma/vim-expand-region'"选择插件
-"Plug 'vim-airline/vim-airline'
-"Plug 'vim-airline/vim-airline-themes'
+
+function! BuildYCM(info)
+  if a:info.status == 'installed' || a:info.force
+    !./install.py --clang-completer --gocode-completer
+  endif
+endfunction
+Plug 'Valloric/YouCompleteMe', { 'for': ['c', 'cpp'], 'do': function('BuildYCM') }
+Plug 'scrooloose/syntastic'
 
 " Plug 'SirVer/ultisnips', { 'on': '#InsertEnter' }
 " Plug 'honza/vim-snippets'
@@ -138,7 +130,6 @@ Plug 'lyuts/vim-rtags', { 'for': ['c', 'cpp'] }
 
 " Lint
 Plug 'metakirby5/codi.vim'
-Plug 'scrooloose/syntastic'
 "Plug 'w0rp/ale', { 'on': 'ALEEnable', 'for': ['ruby', 'sh'] }
 
 call plug#end()
@@ -221,7 +212,6 @@ endif
 " %V Virtual column
 " %P Percentage
 " %#HighlightGroup#
-set statusline=%<[%n]\ %F\ %m%r%y\ %{exists('g:loaded_fugitive')?fugitive#statusline():''}\ %=%-14.(%l,%c%V%)\ %P
 
 
 set modelines=2
@@ -1434,41 +1424,9 @@ autocmd vimrc FileType vim inoremap <buffer> <c-x><c-v> <c-r>=VimAwesomeComplete
 " ----------------------------------------------------------------------------
 " YCM
 " ----------------------------------------------------------------------------
-let g:ycm_auto_trigger = 0
-let g:ycm_global_ycm_extra_conf = "~/.vim/plugged/YouCompleteMe/third_party/ycmd/cpp/ycm/.ycm_extra_conf.py"
-let g:ycm_collect_identifiers_from_tags_files = 0
-let g:ycm_add_preview_to_completeopt = 5
-let g:ycm_use_ultisnips_completer = 0
-let g:ycm_error_symbol = '>>'
-let g:ycm_warning_symbol = '>*'
-let g:ycm_cache_omnifunc = 1
-let g:ycm_max_diagnostics_to_display=0
-let g:ycm_key_list_select_completion = ['<C-n>', '<C-j>']
-let g:ycm_key_list_previous_completion = ['<C-p>', '<C-k>']
-let g:ycm_filetype_blacklist = {
-			\ 'tagbar' : 1,
-			\ 'qf' : 1,
-			\ 'notes' : 1,
-			\ 'markdown' : 1,
-			\ 'unite' : 1,
-			\ 'text' : 1,
-			\ 'vimwiki' : 1,
-			\ 'pandoc' : 1,
-			\ 'infolog' : 1,
-			\ 'mail' : 1,
-			\ 'mundo': 1,
-			\ 'fzf': 1,
-			\ 'ctrlp' : 1
-			\}
-
-let g:ycm_error_symbol = '>>'
-let g:ycm_warning_symbol = '>*'
-
-nnoremap <leader>gl :YcmCompleter GoToDeclaration<CR>
-nnoremap <leader>gf :YcmCompleter GoToDefinition<CR>
-nnoremap <leader>gg :YcmCompleter GoToDefinitionElseDeclaration<CR>
-
-" }}}
+let g:ycm_confirm_extra_conf=1
+autocmd vimrc FileType c,cpp,go nnoremap <buffer> ]d :YcmCompleter GoTo<CR>
+autocmd vimrc FileType c,cpp    nnoremap <buffer> K  :YcmCompleter GetType<CR>
 " ============================================================================
 " FZF {{{
 " ============================================================================
@@ -1603,3 +1561,93 @@ let g:ackprg = "ag --nocolor --nogroup --column"
 set grepprg=ag\ --nogroup\ --nocolor
 command! -nargs=+ -complete=file -bar Ag silent! grep! <args>|cwindow|redraw!
 nnoremap \ :Ag<SPACE>
+
+set statusline=%<[%n]\ %F\ %m%r%y\ %{exists('g:loaded_fugitive')?fugitive#statusline():''}\ %=%-14.(%l,%c%V%)\ %P
+set statusline+=%#warningmsg#
+set statusline+=%{SyntasticStatuslineFlag()}
+set statusline+=%*
+let g:syntastic_always_populate_loc_list = 1
+let g:syntastic_auto_loc_list = 1
+let g:syntastic_check_on_open = 1
+let g:syntastic_enable_signs=1
+let g:syntastic_check_on_wq = 0
+let g:syntastic_error_symbol='>>'
+let g:syntastic_warning_symbol='>'
+let g:syntastic_check_on_open=1
+let g:syntastic_check_on_wq=0
+
+" syntastic {{{
+" dependence
+" 1. shellcheck `brew install shellcheck` https://github.com/koalaman/shellcheck
+
+let g:syntastic_error_symbol='>>'
+let g:syntastic_warning_symbol='>'
+let g:syntastic_check_on_open=1
+let g:syntastic_check_on_wq=0
+let g:syntastic_enable_highlighting=1
+
+" checkers
+" 最轻量
+" let g:syntastic_python_checkers=['pyflakes'] " 使用pyflakes
+" 中等
+" error code: http://pep8.readthedocs.org/en/latest/intro.html#error-codes
+let g:syntastic_lua_checkers=['lua'] " 使用pyflakes,速度比pylint快
+" 重量级, 但是足够强大, 定制完成后相当个性化
+" pylint codes: http://pylint-messages.wikidot.com/all-codes
+" let g:syntastic_python_checkers=['pyflakes', 'pylint'] " 使用pyflakes,速度比pylint快
+" let g:syntastic_python_checkers=['pylint'] " 使用pyflakes,速度比pylint快
+" let g:syntastic_python_pylint_args='--disable=C0111,R0903,C0301'
+
+" if js
+" let g:syntastic_javascript_checkers = ['jsl', 'jshint']
+" let g:syntastic_html_checkers=['tidy', 'jshint']
+
+" to see error location list
+let g:syntastic_always_populate_loc_list = 1
+let g:syntastic_enable_signs = 1
+let g:syntastic_auto_loc_list = 0
+let g:syntastic_auto_jump = 0
+let g:syntastic_loc_list_height = 5
+
+function! ToggleErrors()
+	let old_last_winnr = winnr('$')
+	lclose
+	if old_last_winnr == winnr('$')
+		" Nothing was closed, open syntastic_error location panel
+		Errors
+	endif
+endfunction
+nnoremap <Leader>s :call ToggleErrors()<cr>
+
+" ,en ,ep to jump between errors
+function! <SID>LocationPrevious()
+	try
+		lprev
+	catch /^Vim\%((\a\+)\)\=:E553/
+		llast
+	endtry
+endfunction
+
+function! <SID>LocationNext()
+	try
+		lnext
+	catch /^Vim\%((\a\+)\)\=:E553/
+		lfirst
+	endtry
+endfunction
+
+nnoremap <silent> <Plug>LocationPrevious    :<C-u>exe 'call <SID>LocationPrevious()'<CR>
+nnoremap <silent> <Plug>LocationNext        :<C-u>exe 'call <SID>LocationNext()'<CR>
+nmap <silent> <Leader>ep    <Plug>LocationPrevious
+nmap <silent> <Leader>en    <Plug>LocationNext
+
+" 修改高亮的背景色, 适应主题
+highlight SyntasticErrorSign guifg=white guibg=black
+
+" 禁止插件检查java
+" thanks to @marsqing, see https://github.com/wklken/k-vim/issues/164
+let g:syntastic_mode_map = {'mode': 'active', 'passive_filetypes': ['java'] }
+
+" 关闭syntastic语法检查, 鼠标复制代码时用到, 防止把错误标志给复制了
+nnoremap <silent> <Leader>ec :SyntasticToggleMode<CR>
+" }}}
