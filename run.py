@@ -23,25 +23,33 @@ if __name__ == "__main__":
    #print ip
     if len(sys.argv) < 2:
         print "输入路径"
-        exit() 
+        exit()
     (path,name) = os.path.split(sys.argv[1])
     (name,ext) = os.path.splitext(name)
     print ip
     print path
     print name
-    lua_path = "skynet/?.lua;skynet/lualib/?.lua;lualib/?.lua;lib/rpc/?.lua;?.lua;%s/?.lua"%(path)
+    lua_path = "skynet/?.lua;"\
+               + "skynet/lualib/?.lua;"\
+               + "skynet/lualib/skynet/?.lua;"\
+               + "skynet/lualib/skynet/db/?.lua;"\
+               + "lualib/?.lua;"\
+               + "lib/rpc/?.lua;"\
+               + "lib/?.lua;"\
+               + "?.lua;"\
+               + "%s/?.lua"%(path)
 
     if name == "php":
         os.system("php -S %s:80 -t rockmongo/"%(ip))
-        exit() 
+        exit()
 
     if name == "ex_1":
         os.system("./skynet/3rd/lua/lua ex_1.lua")
-        exit() 
+        exit()
 
     if name == "clear":
         os.system('mongo warx_1 --eval "db.dropDatabase()"')
-        exit() 
+        exit()
 
     if name == "warx":
         lua_path = lua_path + ";%s/script/?.lua"%(path)
