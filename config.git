@@ -9,6 +9,6 @@
 [remote "all"]
 	fetch = +refs/heads/*:refs/remotes/origin/*
     url = https://liuxuezhan@git.coding.net/liuxuezhan/lxz_skynet.git                                                                                                                
-    url = https://liuxuezhan@github.com/liuxuezhan/skynet.git                                                                                                                        
+    url = https://liuxuezhan@github.com/liuxuezhan/lxz_server.git                                                                                                                        
     url = https://liuxuezhan@git.oschina.net/liuxuezhan/skynet.git                                                                                                                   
     url = https://arron126@code.csdn.net/arron126/skynet.git

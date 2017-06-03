@@ -1,6 +1,6 @@
 [submodule "skynet"]  
 	path = skynet
-	url = https://github.com/cloudwu/skynet.git
+	url = https://github.com/liuxuezhan/skynet.git
 [submodule "rockmongo"]
 	path = rockmongo
 	url = https://github.com/iwind/rockmongo.git
