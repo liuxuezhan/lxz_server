@@ -12,3 +12,7 @@
     url = https://liuxuezhan@github.com/liuxuezhan/lxz_server.git                                                                                                                        
     url = https://liuxuezhan@git.oschina.net/liuxuezhan/skynet.git                                                                                                                   
     url = https://arron126@code.csdn.net/arron126/skynet.git
+[submodule "skynet"]
+	url = https://github.com/liuxuezhan/skynet.git
+[submodule "rockmongo"]
+	url = https://github.com/liuxuezhan/rockmongo.git
