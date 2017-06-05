@@ -1,13 +1,27 @@
 #!/bin/sh
 
-git add -A . 
+
+timestamp=` ` 
 if [ $# == 1 ]
 then
-   git commit -m "'$1'" 
+	timestamp='$1' 
 else
-   #timestamp=`date +%s` 
    timestamp=`date "+%Y-%m-%d %H:%M:%S"` 
-   git commit -m "$timestamp" 
-   echo "日志名：$timestamp"
 fi
-git push origin master --recurse-submodules=on-demand
+echo "日志名：$timestamp"
+
+cd k-vim 
+git add .
+git commit -m "$timestamp" 
+git push
+cd ..
+
+cd skynet 
+git add .
+git commit -m "$timestamp" 
+git push
+cd ..
+
+git add -A . 
+git commit -m "$timestamp" 
+git push --recurse-submodules=on-demand
