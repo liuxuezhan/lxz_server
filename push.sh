@@ -8,6 +8,6 @@ else
 fi
 echo "日志名：$timestamp"
 
-git add -A . 
+git add . 
 git commit -m "$timestamp" 
 git push --recurse-submodules=on-demand
