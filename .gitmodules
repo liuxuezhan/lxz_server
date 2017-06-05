@@ -1,6 +1,3 @@
-[submodule "k-vim"]
-	path = k-vim
-	url = https://github.com/liuxuezhan/k-vim.git
 [submodule "skynet"]
 	path = skynet
 	url = https://github.com/liuxuezhan/skynet.git
