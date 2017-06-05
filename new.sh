@@ -1,5 +1,6 @@
 #!/bin/sh
 git submodule update --init --recursive
+git checkout master
 
 cd k-vim
 git checkout master

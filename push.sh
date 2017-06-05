@@ -1,6 +1,4 @@
 #!/bin/sh
-
-
 timestamp=` ` 
 if [ $# == 1 ]
 then
@@ -9,18 +7,6 @@ else
    timestamp=`date "+%Y-%m-%d %H:%M:%S"` 
 fi
 echo "日志名：$timestamp"
-
-cd k-vim 
-git add .
-git commit -m "$timestamp" 
-git push
-cd ..
-
-cd skynet 
-git add .
-git commit -m "$timestamp" 
-git push
-cd ..
 
 git add -A . 
 git commit -m "$timestamp" 
