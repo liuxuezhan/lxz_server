@@ -6,11 +6,15 @@
 	filemode = true
 	bare = false
 	logallrefupdates = true
-[remote "all"]
-	fetch = +refs/heads/*:refs/remotes/origin/*
+[remote "origin"]
     url = https://liuxuezhan@github.com/liuxuezhan/lxz_server.git                                                                                                                        
-    url = https://liuxuezhan@git.oschina.net/liuxuezhan/lxz_server.git                                                                                                                   
-[submodule "skynet"]
-	url = https://github.com/liuxuezhan/skynet.git
+	fetch = +refs/heads/*:refs/remotes/origin/*
+[branch "master"]
+	remote = origin
+	merge = refs/heads/master
+[submodule "k-vim"]
+	url = git@github.com:liuxuezhan/k-vim.git
 [submodule "rockmongo"]
-	url = https://github.com/liuxuezhan/rockmongo.git
+	url = git@github.com:liuxuezhan/rockmongo.git
+[submodule "skynet"]
+	url = git@github.com:liuxuezhan/skynet.git
