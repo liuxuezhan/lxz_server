@@ -1,6 +1,6 @@
 #!/bin/sh
 
-git add -A --all
+git add -A . 
 if [ $# == 1 ]
 then
    git commit -m "'$1'" 
@@ -10,4 +10,4 @@ else
    git commit -m "$timestamp" 
    echo "日志名：$timestamp"
 fi
-git push all --recurse-submodules=check
+git push origin master --recurse-submodules=check
