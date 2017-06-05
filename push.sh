@@ -10,4 +10,4 @@ else
    git commit -m "$timestamp" 
    echo "日志名：$timestamp"
 fi
-git push origin master --recurse-submodules=check
+git push origin master --recurse-submodules=on-demand
