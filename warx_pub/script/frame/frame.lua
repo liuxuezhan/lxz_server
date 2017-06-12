@@ -85,11 +85,7 @@ gDbNum = 1
 function loadMod()
     require("frame/tools")
 
-    --dofile( c_get_conf() )
-
-    --if not config.Release then require("frame/debugger") end
-
-    require("frame/socket")
+--  require("frame/socket")
 
     if config.NO_DB then
         require("nodb/_conn")
@@ -97,7 +93,6 @@ function loadMod()
         _G.mongo = require("nodb/_mongo")
     else
         require("frame/conn")
-        require("frame/dbmng")
         require("warx_pub/dbmng")
     end
 
@@ -138,6 +133,7 @@ end
 
 function handle_network(sid)
     local pktype = pullInt()
+    pktype = gNetPt.NET_MSG_CONN_COMP 
     local p = gConns[ sid ]
     if p then
         if pktype ==  gNetPt.NET_MSG_CLOSE then
@@ -251,6 +247,7 @@ function do_threadPK()
         local gateid, tag
         while true do
             gateid, tag = pullNext()
+            gateid, tag = 1,1 
             if gateid then
                 break
             else
@@ -269,15 +266,10 @@ function do_threadPK()
                             while #as > 0 do
                                 local v = table.remove(as, 1)
                                 gActionCur[ pid ] = gTime
-                                perfmon.start("thread_pk", 1)
-                                local perf_key = string.format("RpcR-%s", v[1])
-                                perfmon.start(perf_key, pid)
-                                LOG("RpcR, pid=%d, func=%s", pid, v[1])
+                                lxz("RpcR, pid=%d, func=%s", pid, v[1])
                                 local p = getPlayer(pid)
                                 if p then player_t[ v[1] ](p, unpack(v[2]) ) end
                                 gActionCur[ pid ] = nil
-                                perfmon.stop(perf_key, pid)
-                                perfmon.stop("thread_pk", 1)
                             end
                             if gFrame ~= nframe then pid = nil end
                         end
@@ -289,32 +281,29 @@ function do_threadPK()
         end
 
         if tag then
+            --[[
             if gTagFun[ tag ] then
                 gTagFun[ tag ](gateid)
+            end
+            --]]
+            for sid, _ in pairs(gConns) do
+                gTagFun[ 1 ](sid)
+                gTagFun[ 2 ](sid)
             end
         else
             local pid = pullInt()
             local pktype = pullInt()
-            --print(Rpc.localF[pktype].name)
-            perfmon.start("thread_pk", 2)
+            --print(rpc.localF[pktype].type)
             local fname, args = Rpc:parseRpc(packet, pktype)
             if fname then
                 if pid == 0 then
                     LOG("RpcR, pid=%d, func=%s", pid, fname)
-                    local perf_key = string.format("RpcR-%s", fname)
-                    perfmon.start(perf_key, pid)
-
                     player_t[ fname ](_G.gAgent, unpack(args) )
 
-                    perfmon.stop(perf_key, pid)
                 elseif pid < 10000 then
                     LOG("RpcAR, pid:%s, func=%s", pid, fname)
-                    local perf_key = string.format("RpcAR-%s", fname)
-                    perfmon.start(perf_key, pid)
-
                     agent_t[ fname ]( {pid=pid}, unpack( args ) )
 
-                    perfmon.stop(perf_key, pid)
                 else
                     local p = getPlayer(pid)
                     if p then
@@ -329,31 +318,15 @@ function do_threadPK()
                             gActionQue[ pid ] = { {fname, args} }
                         else
                             LOG("RpcR, pid=%d, func=%s", pid, fname)
-                            local perf_key = string.format("RpcR-%s", fname)
-                            perfmon.start(perf_key, pid)
-
                             gActionCur[ pid ] = gTime
                             player_t[ fname ](p, unpack(args) )
                             gActionCur[ pid ] = nil
-
-                            perfmon.stop(perf_key, pid)
                         end
                     else
-                        if pid >= 10000 then
-                            if Protocol.CrossQuery[ fname ] then
-                                local perf_key = string.format("Cross-%s", fname)
-                                perfmon.start(perf_key, pid)
-
-                                player_t[ fname ]( {pid=pid, uid=0, gid=_G.GateSid}, unpack( args ) )
-
-                                perfmon.stop(perf_key, pid)
-                            end
-                        end
                         LOG("RpcR, pid=%d, func=%s, no player", pid, Rpc.localF[pktype].name)
                     end
                 end
             end
-            perfmon.stop("thread_pk", 2)
         end
 
         if gCoroBad[ co ] then
@@ -466,7 +439,7 @@ function frame_init()
 end
 
 function clean_replay()
-    local db = dbmng:tryOne()
+    local db = dbmng:getOne()
     if db then
         local time = gTime - (86400 * 3)
         db.replay:delete({["1"] = {["$lt"] = time}})
@@ -618,15 +591,17 @@ function main_loop(sec, msec, fpk, ftimer, froi, signal)
 
             if init_game_data then init_game_data() end
 
-            c_set_init( 0 )
+       --     c_set_init( 0 )
             thanks()
             gInit = nil
             gBootTime = gTime
 
+            --[[
             local t = debug.tablemark(10)
             for k, v in pairs( t ) do
                 INFO( "MarkTable, Start, %s", v )
             end
+            --]]
         
         elseif gInit == "Shutdown" then
             set_sys_status( "tick", gTime )
@@ -750,6 +725,7 @@ function is_remain_db_action()
         return mongo_save_mng.is_remain_db_action(false)
     end
 
+    local have = false
     for tab, doc in pairs( gPendingSave ) do
         local cache = doc.__cache
         for id, chgs in pairs( doc ) do
@@ -761,13 +737,13 @@ function is_remain_db_action()
             elseif id == "__name" then
 
             else
+                have = true
                 INFO( "shutdown, save %s : %s", tab, id )
                 return true
             end
         end
     end
-    if gPendingActions and #gPendingActions > 0 then return true end
-    return false
+    return have
 end
 
 
