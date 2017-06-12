@@ -2,11 +2,7 @@
 -- 原warx 的socket由c语言引擎统一队列处理 ，移植后由lua分发处理
 json = require "json"
 require "mytool"
-<<<<<<< HEAD
 g_host = "192.168.98.187"
-=======
-g_host = "192.168.100.12"
->>>>>>> 9e54067971543bdfaa7818f70a668d3b2d1e763c
 
 _list={
 
