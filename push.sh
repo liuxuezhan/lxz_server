@@ -2,7 +2,7 @@
 timestamp=` ` 
 if [ $# == 1 ]
 then
-	timestamp='$1' 
+	timestamp=$1 
 else
    timestamp=`date "+%Y-%m-%d %H:%M:%S"` 
 fi
