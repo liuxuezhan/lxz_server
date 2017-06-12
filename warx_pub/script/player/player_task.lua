@@ -83,6 +83,7 @@ function clear_task(self)
     self._cur_task_list = nil
     self._finish_task_list = nil
     self._action_map = nil
+    INFO( "[TASK], pid=%d, clear_task", self.pid)
 end
 
 function load_task_from_db(self)
@@ -91,9 +92,9 @@ function load_task_from_db(self)
     end
 
     local st = c_msec()
-    self._cur_task_list = {}
-    self._finish_task_list = {}
-    self._action_map = {}
+    local tmp_cur_task_list = {}
+    local tmp_finish_task_list = {}
+    local tmp_action_map = {}
 
     local db = dbmng:getOne()
    
@@ -103,7 +104,7 @@ function load_task_from_db(self)
         local list = finish_info:next()
         for k, v in pairs(list or {}) do
             if k ~= "_id" then
-                self._finish_task_list[k] = 1
+                tmp_finish_task_list[k] = 1
             end
         end
     end
@@ -114,8 +115,7 @@ function load_task_from_db(self)
         local unit = info:next()
         unit.pid = nil
         unit._id = nil
-
-        self._cur_task_list[unit.task_id] = unit
+        tmp_cur_task_list[unit.task_id] = unit
 
         if unit.task_status == TASK_STATUS.TASK_STATUS_ACCEPTED then
             local action = unit.task_action
@@ -123,24 +123,35 @@ function load_task_from_db(self)
                 ERROR("This task action is nil, task_id: %d, pid: %d", unit.task_id, self.pid)
             end
             if action ~= nil then
-                if self._action_map[action] == nil then
-                    self._action_map[action] = {}
+                if tmp_action_map[action] == nil then
+                    tmp_action_map[action] = {}
                 end
-                self._action_map[action][unit.task_id] = unit
+                tmp_action_map[action][unit.task_id] = unit
             end
         end
         
         --漏掉的已完成任务容错
         if unit.task_type == TASK_TYPE.TASK_TYPE_TRUNK or unit.task_type == TASK_TYPE.TASK_TYPE_BRANCH then
             if unit.task_status == TASK_STATUS.TASK_STATUS_FINISHED then
-                self._cur_task_list[unit.task_id] = nil
+                tmp_cur_task_list[unit.task_id] = nil
                 local _id = self.pid.."_"..unit.task_id
                 gPendingDelete.task[_id] = 0
-                self._finish_task_list[unit.task_id] = 1
-                gPendingSave.finished_task[self.pid] = self._finish_task_list
+                tmp_finish_task_list[unit.task_id] = 1
+                gPendingSave.finished_task[self.pid] = tmp_finish_task_list
             end
         end
     end
+
+    if self._cur_task_list == nil then
+        self._cur_task_list = tmp_cur_task_list
+    end
+    if self._finish_task_list == nil then
+        self._finish_task_list = tmp_finish_task_list
+    end
+    if self._action_map == nil then
+        self._action_map = tmp_action_map
+    end
+
     LOG(self.pid.."taskstatics:load task:"..(c_msec()-st))
 end
 
@@ -224,6 +235,7 @@ end
 function do_finish_task(self, task_id)
     self._finish_task_list[task_id] = 1
     gPendingSave.finished_task[self.pid] = self._finish_task_list
+    INFO( "[TASK], pid=%d, finish_task=%s", self.pid, task_id)
 end
 
 function add_save_task_id(self, task_id)
@@ -264,6 +276,7 @@ function add_task_data(self, task_info)
     self:set_task_by_action(unit)
 
     self:add_save_task_id(unit.task_id)
+    INFO( "[TASK], pid=%d, add_task=%s", self.pid, unit.task_id)
     return true
 end
 
@@ -368,6 +381,7 @@ function accept_task(self, task_id_array)
             local accept_task_data = resmng.prop_task_detail[v]
             self:add_task_data(accept_task_data)
             self:check_finish(accept_task_data.ID, unpack(accept_task_data.FinishCondition))
+            INFO( "[TASK], pid=%d, accept_task=%s", self.pid, accept_task_data.ID)
         end
     end
     self:do_save_task()
@@ -471,6 +485,7 @@ function take_daily_task(self)
         local prop_daily = resmng.prop_task_daily[v]
         self:add_task_data(prop_daily)
         self:check_finish(prop_daily.ID, unpack(prop_daily.FinishCondition))
+        INFO( "[TASK], pid=%d, take_daily_task=%s", self.pid, prop_daily.ID)
     end
     self:do_save_task()
     LOG("taskstatics:task_daily_task:"..(c_msec()-st))
@@ -537,6 +552,7 @@ function refresh_daily_task(self)
             local prop_daily = resmng.prop_task_daily[task_id]
             self:add_task_data(prop_daily)
             self:check_finish(prop_daily.ID, unpack(prop_daily.FinishCondition))
+            INFO( "[TASK], pid=%d, refresh_daily_task=%s", self.pid, prop_daily.ID)
         else
             ERROR("refresh_daily_task error,task id is not exist,group id:%d", v.group_id)
         end
@@ -595,6 +611,7 @@ function get_activity_box(self, id)
     self.activity_box[id] = true
     self.activity_box = self.activity_box
     Rpc:get_activity_box_resp(self, 0)
+    INFO( "[TASK], pid=%d, get_box=%s", self.pid, id)
 end
 
 function add_activity(self, task_id)
@@ -610,6 +627,7 @@ function inc_activity(self, value)
     union_mission.ok(self, UNION_MISSION_CLASS.ACTIVE, value)
     kw_mall.add_kw_point(value)
     task_logic_t.process_task(self, TASK_ACTION.FINISH_DAILY_TASK)
+    INFO( "[TASK], pid=%d, add_point=%s", self.pid, value)
 end
 
 function calc_daily_refresh_time(self)
@@ -699,7 +717,7 @@ function get_target_all_award(self, index)
         return
     end
 
-    if self.task_target_all_award_index[index] ~= 0 then
+    if self.task_target_all_award_index[index] ~= nil then
         return
     end
 
@@ -721,18 +739,27 @@ function get_target_all_award(self, index)
     self:add_bonus(prop_item.Param[1][1], prop_item.Param[1][2], VALUE_CHANGE_REASON.REASON_TASK)
     self.task_target_all_award_index[index] = 1
     self.task_target_all_award_index = self.task_target_all_award_index
+    INFO( "[TASK], pid=%d, get_target_task=%s", self.pid, index)
 end
 
 
-
-
-
-
-
-
-
-
-
+---------------------------------------------------------
+--修复任务操作
+function fix_task(self)  
+    --重置目标任务
+    local prop_task_init = resmng.prop_task_init 
+    local pid = self.pid 
+    local cur_list = self:get_cur_task_list()
+    for _, prop in pairs( prop_task_init ) do
+        local task_info = resmng.get_conf( "prop_task_detail", prop.TaskID )
+        if task_info and task_info.TaskType == 5 then
+            self:add_task_data(task_info)
+        end 
+    end
+    self:do_save_task()
+    --重置日常任务
+    self:take_daily_task()
+end
 
 
 

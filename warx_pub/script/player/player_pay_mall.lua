@@ -207,7 +207,7 @@ function get_enable_group(self, pay_state)
     for k, v in pairs(resmng.prop_buy_group or {}) do
         if v.Group == 1 then
             if not group[v.Group] then
-                local index = math.ceil((gTime - _G.gSysStatus.start) / v.Lasts) % 7 + 1
+                local index = math.ceil((gTime - get_sys_status("start") or 0 ) / v.Lasts) % 7 + 1
                 local prop = resmng.prop_buy_group[index]
                 if prop then
                     if self:check_cond(prop.Cond) then
@@ -344,6 +344,11 @@ function process_order(self, product_id)
             end
         end
     end
+end
+
+function agent_on_pay(self, product_id, real, map_id)
+    LOG("agent_on_pay from map %d, pid %d, product_id %d", map_id, self.pid, product_id)
+    return self:on_pay(product_id, real)
 end
 
 function on_pay( self, product_id, real )

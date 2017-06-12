@@ -21,6 +21,7 @@ module_class("union_t", {
     atk_id = 0,  -- 领土争夺好招攻击的对象
     def_id =  0, -- 领土争夺好招防御的对象
     declare_wars = {}, -- 宣战的城市
+    declare_tm = 0, -- 宣战的次数
     abd_city_time = 0,  -- npc 弃城的时间，每天只能弃城一次
     last_declare_time = 0, --上次成功宣战的时间
     monster_city_stage = 0, -- 怪物攻城的波次
@@ -28,7 +29,6 @@ module_class("union_t", {
     mc_ntf_timer = 0, -- 怪物攻城定时器
     set_mc_time = 999, -- 设置mc 开始的时间
     mc_start_time = {2, 30}, -- 设置mc 开始的时间
-    mc_reward_pool = {}, -- 怪物攻城的奖励池
     enlist = {}, --招募信息
     rank_alias = {"","","","","",""}, --军阶称谓
     tm_buf_over = 0,
@@ -43,6 +43,8 @@ module_class("union_t", {
     mc_ply_rank = {}, -- 参见本次mc活动玩家
     mc_reward_pool = {},  -- 本次mc奖励
     mc_trs = {},          --mc出发的攻打npc部队
+    last_join_act_tm = 0,
+    act_rank = {},
 })
 
 --
@@ -157,6 +159,12 @@ function set_mc_start(self, time, ply)
                 self:union_chat("", prop.Chat2, {ply.name, time})
             end
         end
+
+        local _members = self:get_members()
+        for _, player in pairs(_members or {}) do
+            player:send_system_notice(resmng.MAIL_10064, {}, {ply.name, time})
+        end
+
         local mc_ntf_time = leftTime - 30 * 60
         if mc_ntf_time <= 0 then
             mc_ntf_time = 10
@@ -178,6 +186,8 @@ end
 function mc_notify(self, notify_id)
 
     self.set_mc_time = gTime  -- when default timer set do set 
+    self.mc_act_ply = {}
+    self.mc_reward_pool = {}
 
     for k, v in pairs(self.npc_citys or {}) do
         local city = monster_city.gen_monster_city(v)
@@ -187,6 +197,11 @@ function mc_notify(self, notify_id)
         if prop.Chat2 then
             self:union_chat("", prop.Chat2, {})
         end
+    end
+
+    local _members = self:get_members()
+    for _, ply in pairs(_members or {}) do
+        ply:send_system_notice(resmng.MAIL_10060, {})
     end
 end
 
@@ -243,9 +258,6 @@ function set_default_start(self)
         return
     end
 
-    self.mc_act_ply = {}
-    self.mc_reward_pool = {}
-
     timer.del(self.mc_timer)
     timer.del(self.mc_ntf_timer)
     local time = get_left_time(self.mc_start_time or self:get_default_time())
@@ -283,11 +295,6 @@ function get_monster_city(eid)
         local city = get_ety(cityId)
         if city then return city end
     end
- --   local city = monster_city.gen_monster_city(eid)
-  --  if city then
-  --      return city
-  --  end
-  --  return
 end
 
 function get_live_mc(eid)
@@ -324,11 +331,19 @@ function set_mc_state(self, stage)
     end
 
     if stage == 1 then
+        self.mc_act_ply = {}
+        self.mc_reward_pool = {}
+
         local prop = resmng.get_conf("prop_act_notify", resmng.MC_OPEN)
         if prop then
             if prop.Chat2 then
                 self:union_chat("", prop.Chat2, {})
             end
+        end
+
+        local _members = self:get_members()
+        for _, ply in pairs(_members or {}) do
+            ply:send_system_notice(resmng.MAIL_10061, {}, {})
         end
         --offline ntf
         offline_ntf.post(resmng.OFFLINE_NOTIFY_REBEL, self)
@@ -340,17 +355,25 @@ function set_mc_state(self, stage)
 
     self.monster_city_stage = stage
 
-    if get_table_valid_count(self.npc_citys or {})  == 0 then
-        monster_city.send_union_act_award(self)
-        self.monster_city_stage = 0
-        return
-    end
+    --if get_table_valid_count(self.npc_citys or {})  == 0 then
+    --    monster_city.send_union_act_award(self)
+    --    self.monster_city_stage = 0
+    --    return
+    --end
 
+    local mc_num = 0
     for k, v in pairs(self.npc_citys) do
         local city = get_monster_city(v)
         if city then
+            mc_num = mc_num + 1
             monster_city.monster_city_job(self, city, stage, prop.Spantime)
         end
+    end
+
+    if mc_num == 0 then
+        monster_city.send_union_act_award(self)
+        self.monster_city_stage = 0
+        return
     end
 
     local time = prop.Spantime
@@ -384,6 +407,7 @@ end
 
 function clear_declare(self)
     self.declare_wars = nil
+    self.declare_tm = 0
 end
 
 function try_declare_tw(self, npcId)
@@ -403,6 +427,7 @@ function do_declare_tw(self, npcEid)
     end
     declare_union[npcEid] = npcEid
     self.declare_wars = declare_union
+    self.declare_tm = self.declare_tm + 1
     self.last_declare_time = gTime
     self.donate = self.donate - prop.Consume
 end
@@ -423,7 +448,8 @@ function can_declare_war(self, npcId)
             try_reset_declare_data(self)
             print("delacre num full or not")
 
-            if self.declare_wars and  get_table_valid_count(self.declare_wars or {}) >= 3 then
+            --if self.declare_wars and  get_table_valid_count(self.declare_wars or {}) >= 3 then
+            if self.declare_tm >= 3 then
                 return false
             else
                 print("alread declare or not")
@@ -499,8 +525,9 @@ end
 
 function try_reset_declare_data(self)
     if os.date("%d", self.last_declare_time or 0 ) ~= os.date("%d",gTime) then
-        last_declare_time = gTime
+        self.last_declare_time = gTime
         self.declare_wars = {}
+        self.declare_tm = 0
         self.send_declare_city = {}
     end
 end
@@ -629,6 +656,8 @@ function create(A, name, alias, language, propid)
 
     insert_global( "unions", id, { name=name, alias=alias, tmCreate=gTime, map=gMapID} )
 
+    player_t.pre_tlog(nil,"UnionList",union.uid,union.name,union.language,0)
+
     return union
 end
 
@@ -709,7 +738,7 @@ end
 -- count == -1, means a buf forever
 function add_buf(self, bufid, count)
     if count <= 0 and count ~= -1 then
-        WARN( "add_buf, pid=%d, buf=%d, count=%d", self.uid, bufid, count)
+        INFO( "[UNION]add_buf, pid=%d, buf=%d, count=%d", self.uid, bufid, count)
         return
     end
 
@@ -802,7 +831,9 @@ function rem_buf(self, bufid, tmOver)
 end
 
 function get_memberlimit(self)--军团人数上限
-    if self:is_new() then return 50 end
+    if self:is_new() then 
+        return 50 
+    end
     local c = resmng.get_conf("prop_effect_type", "CountMember")
     if not c then c = {} end
     local num = get_val_by("CountMember",self:get_ef())
@@ -814,8 +845,8 @@ function check(self)
     if not self:is_new() then
         local p = getPlayer(self.leader)
         if  (not p) or (p.uid ~=self.uid)  then
-            WARN("err union:"..self.uid)
             unionmng.rm_union(self)
+            INFO("[UNION] union_t check pid=%d uid=%d not uid=%d",p.pid,p.uid,self.uid)
             return false
         end
     end
@@ -830,7 +861,9 @@ function get_info(self)
     info.name = self.name
     info.alias = self.alias
     info.level = self.level
-    if self.god then info.mars_propid = self.god.propid end
+    if self.god then 
+        info.mars_propid = self.god.propid 
+    end
     info.membercount = self.membercount 
     info.memberlimit = self:get_memberlimit()
     info.language = self.language
@@ -876,13 +909,14 @@ function destory(self)
     for k, v in pairs(resmng.prop_rank) do
         if v.IsPerson ~= 1 then rank_mng.rem_data( k, self.uid ) end
     end
-    LOG("[Union] destory, uid:%s", self.uid)
+    INFO("[Union] destory, uid:%s", self.uid)
+    player_t.pre_tlog(nil,"UnionList",self.uid,self.name,self.language,2)
 end
 
 
 function add_member(self, A,B)
     if self.membercount >= self:get_memberlimit() then
-        INFO( "union, add_member, full, uid=%d, pid=%d", self.uid, A.pid )
+        INFO( "[UNION], add_member, full, uid=%d, pid=%d", self.uid, A.pid )
         return
     end
 
@@ -898,7 +932,6 @@ function add_member(self, A,B)
     etypipe.add(A)
     self._members[A.pid] = A
     self.membercount = tabNum(self._members)
-    INFO( "union, add_member, uid=%d, pid=%d", self.uid, A.pid )
 
     self.pow = (self.pow or 0) + A:get_pow()
     if self.pow > 0 and not self:is_new() then rank_mng.add_data( 5, self.uid, { self.pow } ) end
@@ -956,7 +989,6 @@ function rm_member(self, A,kicker)
     A:set_uid()
     etypipe.add(A)
     self._members[A.pid] = nil
-    INFO(A.pid..":rm_member:"..self.uid)
     self.membercount = tabNum(self._members)
 
     self.pow = (self.pow or 0) - A:get_pow()
@@ -974,39 +1006,14 @@ function rm_member(self, A,kicker)
     self.donate_rank = {} --清除捐献排行
     if f then unionmng.rm_union(self) end
 
-    if self:is_new() then
-        local u1,u3
-        local us = rank_mng.get_range(5,1,20000)
-        for k, uid in pairs( us or {}  ) do
-            if uid == 0 then break end
-            local u = unionmng.get_union(uid)
-            if u and (not u:is_new()) and u:check() then 
-                if A.language == u.language then
-                    if not u1  and u.enlist.check == 0  then
-                        u1 = u 
-                    end
-                else
-                    if not u3  and u.enlist.check == 0  then
-                        u3 = u 
-                    end
-                end
+    self:clear_score_by_pid(A.pid)  --清除军团积分
 
-                if u1 and u3 then
-                    break
-                end
-            end
-        end
-
-        if u1  then
-            local leader = getPlayer(u1.leader)
-            leader:union_invite(A.pid)
-        end
-        if u3  then
-            local leader = getPlayer(u3.leader)
+    if #A._union.history < 4 then
+        for _, v in pairs(A:union_hot()) do
+            local leader = getPlayer(v.leader)
             leader:union_invite(A.pid)
         end
     end
-
 
     return resmng.E_OK
 end
@@ -1037,15 +1044,13 @@ function has_member(self, ...)
             return false
         else
             if not self._members[A.pid] then
-                WARN("uid matching but not in member list, pid:%s, uid:%s", A.pid, self.uid)
+                INFO("[UNION]uid matching but not in member list, pid:%s, uid:%s", A.pid, self.uid)
                 return false
             end
         end
     end
     return true
 end
-
-
 
 -- chat union room invite
 function send_chat_invite(chat_room, B)
@@ -1069,7 +1074,7 @@ function remove_apply(self, pid)
 end
 
 function get_apply(self, pid)
-    if not pid then WARN("not pid") return end
+    if not pid then return end
 
     for k, v in pairs(self.applys) do
         if pid == v.pid then
@@ -1096,12 +1101,12 @@ function add_apply(self, B)
     local data = B:get_union_info()
     data.rank = 0
 
-    LOG("[Union] add_apply, pid:%s, uid:%s", B.pid, self.uid)
+    INFO("[Union] add_apply, pid:%s, uid:%s", B.pid, self.uid)
 end
 
 function reject_apply(self, A, B)
-    if not self:has_member(A) then WARN("") return end
-    if not is_legal(A, "Invite") then WARN("") return end
+    if not self:has_member(A) then return end
+    if not is_legal(A, "Invite") then return end
     if self:remove_apply(B.pid) then
         self:notifyall(resmng.UNION_EVENT.REJECT, resmng.UNION_MODE.DELETE, {B.pid})
         return resmng.E_OK
@@ -1124,15 +1129,9 @@ end
 
 function is_legal(A, what)
     local conf = resmng.prop_union_power[A:get_rank()]
-    if not conf then 
-        LOG("没军团配置:"..A:get_rank() )
-        return false 
-    end
+    if not conf then return false end
 
-    if not conf[what] or conf[what] == 0 then 
-        LOG(A.account..":"..A:get_rank().."没军团权限:"..what)
-        return false 
-    end
+    if not conf[what] or conf[what] == 0 then return false end
     return true
 end
 
@@ -1141,7 +1140,7 @@ function send_invite(self, A, B)
     if not is_legal(A, "Invite") then return resmng.E_DISALLOWED end
     if not self:has_member(A) then return resmng.E_NO_UNION end
     if self:has_member(B) then
-        WARN("[Union]: sendInvite, already in union, player:%s", B.pid)
+        INFO("[Union]: sendInvite, already in union, player:%s", B.pid)
         return resmng.E_ALREADY_IN_UNION
     end
 
@@ -1183,10 +1182,20 @@ function get_invite(self, pid)
     end
 end
 
-function notifyall(self, what, mode, data)
+function notifyall(self, what, mode, data,ply)
     local pids = {}
     for _, p in pairs(self._members) do
-        if p:is_online() then table.insert(pids, p.pid) end
+      if p ~= ply then
+        if p:is_online() then 
+          table.insert(pids, p.pid) 
+        end
+        if what == resmng.UNION_EVENT.WORD then
+          p._union.word = p._union.word or {} 
+          gPendingSave.union_member[p.pid].word = gPendingSave.union_member[p.pid].word  or {} 
+          p._union.word[data[1]]=1   
+          gPendingSave.union_member[p.pid].word[data[1]] = 1 
+        end
+      end
     end
     if #pids == 0 then return end
     Rpc:union_broadcast(pids, what, mode, data)
@@ -1203,8 +1212,9 @@ function notifyall(self, what, mode, data)
         or (what ==resmng.UNION_EVENT.TASK and mode ==resmng.UNION_MODE.ADD )
         or (what ==resmng.UNION_EVENT.FIGHT and mode ==resmng.UNION_MODE.ADD )
      then
-       self:add_log(what, mode,data)
+         self:add_log(what, mode,data)
     end
+    INFO( "[UNION] notifyall uid=%d what=%s mode=%d ",self.uid,what,mode )
 end
 
 
@@ -1529,7 +1539,10 @@ end
 
 function can_build(self, id, x, y)
     local bcc = resmng.get_conf("prop_world_unit",id)
-    if not bcc then return false end
+    if not bcc then 
+      INFO( "[UNION] 没有军团建筑propid" )
+      return false 
+    end
 
     if is_hit_black_land( x, y, bcc.Size ) then 
         print( "hit black" )
@@ -1538,12 +1551,12 @@ function can_build(self, id, x, y)
 
     if not is_union_miracal(id) then
         if not self:can_castle( x, y,bcc.Size/2) then
-            INFO( "不在奇迹范围内 \n" )
+            INFO( "[UNION] 不在奇迹范围内" )
             return false
         end
     else
         if self:can_other_castle( x, y,bcc.Size/2) then
-            INFO("奇迹不能建造在其他奇迹范围内\n")
+            INFO("[UNION]奇迹不能建造在其他奇迹范围内")
             return false
         end
 
@@ -1551,18 +1564,18 @@ function can_build(self, id, x, y)
 
 
     local b = union_buildlv.get_buildlv(self._id,bcc.BuildMode)
-    if not b then INFO("建筑等级 错误\n") return false end
+    if not b then INFO("[UNION]建筑等级 错误\n") return false end
 
     local bb = resmng.get_conf("prop_union_buildlv",b.id)
-    if not bb then INFO("propid 错误\n") return false end
+    if not bb then INFO("[UNION]propid 错误\n") return false end
     --等级
-    if bb.Lv < bcc.Lv then INFO("等级不够\n") return false end
+    if bb.Lv < bcc.Lv then INFO("[UNION]等级不够\n") return false end
     --数量
     local num = self:get_ubuild_num(id)
     local sum = self:get_build_count(bcc.BuildMode)
-    if sum >= num and (not player_t.debug_tag) then INFO("数量达到上限:"..sum..":"..num) return false end
+    if sum >= num and (not player_t.debug_tag) then INFO("[UNION]数量达到上限:"..sum..":"..num) return false end
 
-    if is_union_miracal_small( id ) and sum < 1 then INFO("先修建大奇迹") return false end
+    if is_union_miracal_small( id ) and sum < 1 then INFO("[UNION]先修建大奇迹") return false end
 
     if is_union_restore(id) then
         --超级矿排他
@@ -1603,7 +1616,6 @@ function get_ubuild_num(self,id)--计算军团建筑上限数量
     return 0
 end
 
-
 function get_build(self, idx )
     if idx then
         if self.build then
@@ -1636,8 +1648,11 @@ function get_pow( self )
 end
 
 function is_new( self )
-    if self.uid < 10000 then return true
-    else return false end
+    if self.uid < 10000 then
+        return true
+    else
+        return false
+    end
 end
 
 
@@ -1704,4 +1719,95 @@ end
 function clear_battle_room(self, room_id)
     self.battle_list = nil
 end
+
+function add_score_in_u(self, pid, mode, score)
+    self:try_clear_rank()
+    local act_rank = self.act_rank or {}
+    local rank = act_rank[mode] or {}
+    local act_daily_rank = rank[UNION_RANK_MODE.DAILY] or {}
+    local act_weekly_rank = rank[UNION_RANK_MODE.WEEKLY] or {}
+    local act_permanent_rank = rank[UNION_RANK_MODE.PERMANENT] or {}
+    act_daily_rank[pid] = (act_daily_rank[pid] or 0) + score
+    act_weekly_rank[pid] = (act_weekly_rank[pid] or 0) + score
+    act_permanent_rank[pid] = (act_permanent_rank[pid] or 0) + score
+    rank[UNION_RANK_MODE.DAILY] = act_daily_rank
+    rank[UNION_RANK_MODE.WEEKLY] = act_weekly_rank
+    rank[UNION_RANK_MODE.PERMANENT] = act_permanent_rank
+    act_rank[mode] = rank
+    self.act_rank = act_rank
+    self.last_join_act_tm = gTime
+end
+
+function clear_score_by_pid(self, pid)
+    local act_rank = self.act_rank or {}
+
+    for k, v in pairs(act_rank or {}) do
+        local rank = v
+        local act_daily_rank = rank[UNION_RANK_MODE.DAILY] or {}
+        local act_weekly_rank = rank[UNION_RANK_MODE.WEEKLY] or {}
+        local act_permanent_rank = rank[UNION_RANK_MODE.PERMANENT] or {}
+        act_daily_rank[pid] = nil
+        act_weekly_rank[pid] = nil
+        act_permanent_rank[pid] = nil
+        rank[UNION_RANK_MODE.DAILY] = act_daily_rank
+        rank[UNION_RANK_MODE.WEEKLY] = act_weekly_rank
+        rank[UNION_RANK_MODE.PERMANENT] = act_permanent_rank
+        act_rank[k] = v
+    end
+    self.act_rank = act_rank
+end
+
+function get_ply_rank_in_u(self, mode)
+    self:try_clear_rank()
+    if self.act_rank then
+        return self.act_rank[mode]
+    end
+end
+
+function clear_sigle_rank(self, mode)
+    local act_rank = self.act_rank or {}
+    for _, v in pairs(act_rank or {}) do
+        if v[mode] then
+            v[mode] = nil
+        end
+    end
+    self.act_rank = act_rank
+end
+
+function try_clear_rank(self)
+    if self.last_join_act_tm == 0 then
+        return
+    end
+
+    if can_date(self.last_join_act_tm, gTime) then
+        self:clear_sigle_rank(UNION_RANK_MODE.DAILY)
+    end
+
+    if can_weekly(self.last_join_act_tm, gTime) then
+        self:clear_sigle_rank(UNION_RANK_MODE.WEEKLY)
+    end
+
+end
+
+
+--迁城用
+function is_in_miracal_range(self, x, y, r)  --在奇迹范围内
+    for k, v in pairs(self.build or {} ) do
+        if v.state ~= BUILD_STATE.DESTROY then
+            if is_union_miracal(v.propid) then
+                local cc = resmng.get_conf("prop_world_unit",v.propid)
+                local b = {}
+                b.xx,b.yy = (x+r),(y+r)--目标中心点
+                b.x = v.x - cc.Range + r --可以放置范围的左下角
+                b.y = v.y - cc.Range + r
+                b.s = 2*cc.Range + cc.Size - 2*r
+                if b.xx >= b.x and b.xx <= (b.x+b.s) and b.yy >= b.y and b.yy <= (b.y+b.s) then
+                    return true
+                end
+            end
+        end
+    end
+    return false
+end
+
 

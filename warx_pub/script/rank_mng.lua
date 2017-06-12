@@ -28,6 +28,12 @@ function init()
     end
 end
 
+function reset_rank()
+    for k, v in pairs( resmng.prop_rank ) do
+        clear( k )
+    end
+end
+
 function load_rank( which )
     local node = gRanks[ which ]
     if not node then return gTime, {} end
@@ -79,7 +85,7 @@ function get_info( is_person, id, init )
         db = dbmng:getGlobal()
         local info = db.unions:findOne( {_id=id} )
         if info then
-            local map = info.map
+            local map = info.emap
             if map then
                 local info =  remote_func(map, "get_rank_detail", {"union", id})
                 if info then
@@ -112,7 +118,7 @@ function get_info( is_person, id, init )
         db = dbmng:getGlobal()
         local info = db.players:findOne( {_id=id} )
         if info then
-            local map = info.map
+            local map = info.emap
             if map then
                 local info = remote_func(map, "get_rank_detail", {"player", id})
                 if info then

@@ -43,60 +43,64 @@ function del_res(p,id,num)
     local c = resmng.get_conf("prop_build",b.propid)
 
     if sum < UNION_TASK_CONFIG.BONUS.MIN * c.Lv or sum > UNION_TASK_CONFIG.BONUS.MAX * c.Lv then
-        INFO("上限不足") return false end
+        INFO("[UNION] union_task pid=%d uid=%d 上限不足 sum=%d ",p.pid,p.uid,sum) 
+        return false 
+    end
 
-    if num > p:get_res_num_normal(id) then INFO("普通资源不足") return false end
+    if num > p:get_res_num_normal(id) then 
+        INFO("[UNION] union_task pid=%d uid=%d  普通资源不足 num=%d ",p.pid,p.uid,num) 
+        return false 
+    end
 
-    if not p:do_dec_res(id,num, VALUE_CHANGE_REASON.UNION_TASK) then
-        INFO("资源不足:"..num) return false end
+    if not p:do_dec_res(id,num, VALUE_CHANGE_REASON.UNION_TASK) then return false end
 
     return true
 end
 
 function add(p,sub,eid,hero_id,num,mode,res,res_num,x,y) --发布悬赏任务
     for k,v in pairs(_d ) do
-        if v.eid == eid and v.uid == p:get_uid() then WARN("已有任务") return end
+        if v.eid == eid and v.uid == p:get_uid() then return 1 end
     end
 
     if is_ply(eid) then
         local e = get_ety(eid)
-        if p.uid == e.uid then WARN("是自己") return end
+        if p.uid == e.uid then  return 2 end
     end
 
-    if sub > UNION_TASK.NUM then WARN("类型错误:"..sub) return end
-    if num < 1 then WARN("次数小于1") return end
+    if sub > UNION_TASK.NUM then return 3 end
+    if num < 1 then return 4 end
 
     if sub == UNION_TASK.HERO then
-        if num ~= 1 then WARN("次数不对") return end
-        if hero_id == "" then WARN("没有英雄id") return end
+        if num ~= 1 then return 5 end
+        if hero_id == "" then return 6 end
 
         local h = heromng.get_hero_by_uniq_id(hero_id)
-        if not h then WARN("没有英雄")return end
-        if h.status ~= HERO_STATUS_TYPE.BEING_IMPRISONED then WARN("英雄状态不对")return end
-        if h.capturer_pid < 10000 then WARN("英雄状态不对")return end
+        if not h then return 7 end
+        if h.status ~= HERO_STATUS_TYPE.BEING_IMPRISONED then return 8 end
+        if h.capturer_pid < 10000 then return 9 end
         local enemy = getPlayer( h.capturer_pid )
-        if not enemy then WARN("英雄没有被捕")return end
+        if not enemy then return 10 end
         eid = enemy.eid
 
     elseif sub == UNION_TASK.PLY then
-        if num > 10 then WARN("次数不对") return end
+        if num > 10 then return 11 end
         local target = get_ety( eid )
-        if not target then WARN("没有目标") return end
-        if not is_ply( target ) then return end
+        if not target then return 12 end
+        if not is_ply( target ) then return 13 end
 
     elseif sub == UNION_TASK.NPC then 
-        if num > 10  then WARN("次数不对") return end
+        if num > 10  then return 14 end
 
         local target = get_ety( eid )
-        if not target then WARN("没有目标") return end
-        if not is_npc_city( target ) then WARN("不是npc") return end
+        if not target then return 15 end
+        if not is_npc_city( target ) then return 16 end
 
     end
     
     _id = _id + 1
     local t = {}
     if mode == 2 then
-        if res_num < num * 1000 then WARN("资源下限不够") return end
+        if res_num < num * 1000 then return 17 end
         local sum =  math.floor(res_num /1000)
         t = split(sum,num)
         for i = 1, num do
@@ -106,9 +110,9 @@ function add(p,sub,eid,hero_id,num,mode,res,res_num,x,y) --发布悬赏任务
         t[sn] = t[sn] + res_num % 1000 
     end
 
-    if p.gold < UNION_TASK_CONFIG.PRICE then WARN("gold不够")return end
-    if not union_task.del_res(p,res,res_num) then WARN("资源不够")return end
-    if not p:do_dec_res(resmng.DEF_RES_GOLD, UNION_TASK_CONFIG.PRICE, VALUE_CHANGE_REASON.UNION_TASK) then INFO("金币不够:"..UNION_TASK_CONFIG.PRICE) return end
+    if p.gold < UNION_TASK_CONFIG.PRICE then return 18 end
+    if not union_task.del_res(p,res,res_num) then return 19 end
+    if not p:do_dec_res(resmng.DEF_RES_GOLD, UNION_TASK_CONFIG.PRICE, VALUE_CHANGE_REASON.UNION_TASK) then return 20 end
 
     local data= {_id=_id,pid=p.pid,eid=eid,hero_id = hero_id,uid=p:get_uid(),type=sub,num=num,
                 mode=mode,t=t,res=res,res_num = res_num,sum = res_num, tmStart=gTime,log={},x=x,y=y, tax_rate=45 }
@@ -120,7 +124,7 @@ function add(p,sub,eid,hero_id,num,mode,res,res_num,x,y) --发布悬赏任务
     end
     if mark(data) then gPendingSave.union_task[data._id] = data end
     Rpc:union_task_add(p,get_one(p.uid,data._id))
-    return true
+    return 0
 end
 
 

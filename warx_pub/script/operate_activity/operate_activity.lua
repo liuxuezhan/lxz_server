@@ -40,7 +40,7 @@ function get_obj_by_type(type)
 	end
 end
 
-function init_activity()
+function init_operate_activity()
 	for k, v in pairs(resmng.prop_operate_activity) do
 		if v.Open == 1 then
 			--先判断数据库的数据有没有
@@ -67,6 +67,27 @@ function init_activity()
 			end
 		end
 	end
+end
+
+function reinit_operate_activity()
+	for k, v in pairs(OpActivityData) do
+		v:reset_rank()
+	end
+	OpActivityData = {}
+	LoadDataTemp = {}
+
+    local db = dbmng:getOne()
+    while true do
+        db.status:delete( {_id="operate_activity" } )
+        local info = db:runCommand("getPrevError")
+        if info then break end
+    end
+
+    for _, ply in pairs(gPlys or {}) do
+    	ply.operate_activity = {}
+    end
+
+	init_operate_activity()
 end
 
 function heart_beat()
@@ -124,6 +145,7 @@ function packet_activity_list(player)
 	for k, v in pairs(OpActivityData or {}) do
 		local prop_tab = resmng.get_conf("prop_operate_activity", v.activity_id)
 		if prop_tab.Open == 1 and v.is_end == 0 then
+			v:first_start(player)
 			local unit = {}
 			unit.id = v.activity_id
 			unit.start_time = v.start_time

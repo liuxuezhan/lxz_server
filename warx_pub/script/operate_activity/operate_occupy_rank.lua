@@ -79,7 +79,7 @@ function OccupyRankActivity:refresh_rank()
 		if union:is_new() == false then
 			--城市
 			for k, v in pairs(union.npc_citys or {}) do
-				local city = union_t.get_monster_city(v)
+				local city = get_ety(v)
 				if city ~= nil then
 					local prop_build = resmng.get_conf("prop_world_unit", city.propid)
 					if prop_build ~= nil then

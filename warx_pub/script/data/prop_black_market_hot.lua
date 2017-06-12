@@ -14,7 +14,7 @@ prop_black_market_hot = {
 	[DEF_BLACK_MARKET_ITEM_5] = { ID = DEF_BLACK_MARKET_ITEM_5, Buy = {{"item",8005001,1,10000}}, Pay = {{1,6,80}}, Notice = 0, Point = 8, Group = 1,},
 	[DEF_BLACK_MARKET_ITEM_6] = { ID = DEF_BLACK_MARKET_ITEM_6, Buy = {{"res",2,100000,10000}}, Pay = {{1,6,100}}, Notice = 0, Point = 10, Group = 1,},
 	[DEF_BLACK_MARKET_ITEM_7] = { ID = DEF_BLACK_MARKET_ITEM_7, Buy = {{"res",1,100000,10000}}, Pay = {{1,6,100}}, Notice = 0, Point = 10, Group = 1,},
-	[DEF_BLACK_MARKET_ITEM_8] = { ID = DEF_BLACK_MARKET_ITEM_8, Buy = {{"item",2011003,1,10000}}, Pay = {{1,6,80}}, Notice = 0, Point = 8, Group = 1,},
+	[DEF_BLACK_MARKET_ITEM_8] = { ID = DEF_BLACK_MARKET_ITEM_8, Buy = {{"item",2011003,3,10000}}, Pay = {{1,6,150}}, Notice = 0, Point = 15, Group = 1,},
 	[DEF_BLACK_MARKET_ITEM_9] = { ID = DEF_BLACK_MARKET_ITEM_9, Buy = {{"res",2,150000,10000}}, Pay = {{1,6,150}}, Notice = 0, Point = 15, Group = 2,},
 	[DEF_BLACK_MARKET_ITEM_10] = { ID = DEF_BLACK_MARKET_ITEM_10, Buy = {{"res",1,150000,10000}}, Pay = {{1,6,150}}, Notice = 0, Point = 15, Group = 2,},
 	[DEF_BLACK_MARKET_ITEM_11] = { ID = DEF_BLACK_MARKET_ITEM_11, Buy = {{"res",2,200000,10000}}, Pay = {{1,6,200}}, Notice = 0, Point = 20, Group = 2,},

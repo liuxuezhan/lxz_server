@@ -118,6 +118,10 @@ do_load(BasePath .. "define_offline_notify")
 do_load(BasePath .. "define_language_offline")
 do_load(BasePath .. "define_filter")
 do_load(BasePath .. "define_first_blood")
+do_load(BasePath .. "define_cross_person_rank_award")
+do_load(BasePath .. "define_cross_union_rank_award")
+
+
 
 
 do_load(BasePath .. "prop_buy_group")
@@ -238,6 +242,8 @@ do_load(BasePath .. "prop_offline_notify")
 do_load(BasePath .. "prop_language_offline")
 do_load(BasePath .. "prop_filter")
 do_load(BasePath .. "prop_first_blood")
+do_load(BasePath .. "prop_cross_person_rank_award")
+do_load(BasePath .. "prop_cross_union_rank_award")
 
 do_check("prop_arm")
 do_check("prop_build")

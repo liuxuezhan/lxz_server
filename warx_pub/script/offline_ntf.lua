@@ -102,6 +102,22 @@ function replace_param(lang, lang_id, param)
 
 end
 
+function get_lang_str(prop, language)
+
+    local lang_tag = get_language_tag(language)
+
+    if prop[lang_tag] then
+        return prop[lang_tag]
+    end
+
+    lang_tag = get_language_tag(10) 
+    if prop[lang_tag] then
+        return prop[lang_tag]
+    end
+
+    return
+end
+
 
 ntf_action = {}
 
@@ -119,6 +135,9 @@ ntf_action[resmng.OFFLINE_NOTIFY_ATTACK] = function(action, ply, atk_ply, union)
     local param = {word}
 
     local msg = replace_param(ply.language, prop.Inform, param)
+    if not msg then
+        return 
+    end
 
     local audience = {
             ["registration_id"] = {ply.jpush_id}
@@ -142,6 +161,9 @@ ntf_action[resmng.OFFLINE_NOTIFY_SCOUT] = function(action, ply, atk_ply, union)
     local param = {word}
 
     local msg = replace_param(ply.language, prop.Inform, param)
+    if not msg then
+        return 
+    end
 
     local audience = {
             ["registration_id"] = {ply.jpush_id}
@@ -165,6 +187,9 @@ ntf_action[resmng.OFFLINE_NOTIFY_MASS] = function(action, ply, atk_ply, union)
     local param = {word}
 
     local msg = replace_param(ply.language, prop.Inform, param)
+    if not msg then
+        return 
+    end
 
     local audience = {
             ["registration_id"] = {ply.jpush_id}
@@ -181,6 +206,9 @@ ntf_action[resmng.OFFLINE_NOTIFY_GATHER] = function(action, ply)
     end
 
     local msg = replace_param(ply.language, prop.Inform)
+    if not msg then
+        return 
+    end
 
     local audience = {
             ["registration_id"] = {ply.jpush_id}
@@ -197,6 +225,9 @@ ntf_action[resmng.OFFLINE_NOTIFY_RECRUIT] = function(action, ply)
     end
 
     local msg = replace_param(ply.language, prop.Inform)
+    if not msg then
+        return 
+    end
 
     local audience = {
             ["registration_id"] = {ply.jpush_id}
@@ -213,6 +244,9 @@ ntf_action[resmng.OFFLINE_NOTIFY_PROTECT] = function(action, ply)
     end
 
     local msg = replace_param(ply.language, prop.Inform)
+    if not msg then
+        return 
+    end
 
     local audience = {
             ["registration_id"] = {ply.jpush_id}
@@ -236,6 +270,9 @@ ntf_action[resmng.OFFLINE_NOTIFY_MAIL] = function(action, ply, from_ply, union, 
     local param = {word}
 
     local msg = replace_param(ply.language, prop.Inform, param)
+    if not msg then
+        return 
+    end
 
     local audience = {
             ["registration_id"] = {ply.jpush_id}
@@ -261,9 +298,17 @@ ntf_action[resmng.OFFLINE_NOTIFY_RESEARCH] = function(action, ply, tech_id)
         return
     end
 
-    local param = lang[get_language_tag(ply.language)] .. " lv" ..tostring(tech_prop.Lv)
+    local lang_str = get_lang_str(lang, ply.language)
+    if not lang_str then
+        return 
+    end
+
+    local param = lang_str .. " lv" ..tostring(tech_prop.Lv)
 
     local msg = replace_param(ply.language, prop.Inform, {param})
+    if not msg then
+        return
+    end
 
     local audience = {
             ["registration_id"] = {ply.jpush_id}
@@ -289,9 +334,17 @@ ntf_action[resmng.OFFLINE_NOTIFY_BUILD] = function(action, ply, build_id)
         return
     end
 
-    local param = lang[get_language_tag(ply.language)] .. " lv" ..tostring(build_prop.Lv)
+    local lang_str = get_lang_str(lang, ply.language)
+    if not lang_str then
+        return 
+    end
+
+    local param = lang_str .. " lv" ..tostring(build_prop.Lv)
 
     local msg = replace_param(ply.language, prop.Inform, {param})
+    if not msg then
+        return
+    end
 
     local audience = {
             ["registration_id"] = {ply.jpush_id}
@@ -312,9 +365,15 @@ ntf_action[resmng.OFFLINE_NOTIFY_DECLARE] = function(action, ply, npc_name)
         return
     end
 
-    local param = lang[get_language_tag(ply.language)] 
+    local param = get_lang_str(lang, ply.language)
+    if not param then
+        return 
+    end
 
     local msg = replace_param(ply.language, prop.Inform, {param})
+    if not msg then
+        return
+    end
 
     local audience = {
             ["registration_id"] = {ply.jpush_id}
@@ -335,9 +394,15 @@ ntf_action[resmng.OFFLINE_NOTIFY_BE_DECLARE] = function(action, ply, npc_name, u
         return
     end
 
-    local param = lang[get_language_tag(ply.language)]
+    local param = get_lang_str(lang, ply.language)
+    if not param then
+        return 
+    end
 
     local msg = replace_param(ply.language, prop.Inform, {param, unions[1]})
+    if not msg then
+        return
+    end
 
     local audience = {
             ["registration_id"] = {ply.jpush_id}
@@ -358,9 +423,15 @@ ntf_action[resmng.OFFLINE_NOTIFY_FIGHT] = function(action, ply, npc_name)
         return
     end
 
-    local param = lang[get_language_tag(ply.language)]
+    local param = get_lang_str(lang, ply.language)
+    if not param then
+        return 
+    end
 
     local msg = replace_param(ply.language, prop.Inform, {param})
+    if not msg then
+        return
+    end
 
     local audience = {
             ["registration_id"] = {ply.jpush_id}
@@ -381,9 +452,15 @@ ntf_action[resmng.OFFLINE_NOTIFY_BE_FIGHT] = function(action, ply, npc_name)
         return
     end
 
-    local param = lang[get_language_tag(ply.language)]
+    local param = get_lang_str(lang, ply.language)
+    if not param then
+        return 
+    end
 
     local msg = replace_param(ply.language, prop.Inform, {param})
+    if not msg then
+        return
+    end
 
     local audience = {
             ["registration_id"] = {ply.jpush_id}
@@ -440,6 +517,9 @@ ntf_action[resmng.OFFLINE_NOTIFY_REBEL] = function(action, union)
     lang = union.lang
 
     local msg = replace_param(lang, prop.Inform, {})
+    if not msg then
+        return
+    end
 
     local audience = {
             ["registration_id"] = {get_union_jpush_list(union)}
@@ -509,6 +589,9 @@ function ntf_by_all_language(audience, ntf_id, param)
         end
 
         local msg = replace_param(lang, ntf_id, param)
+        if not msg then
+            return
+        end
 
         local tag_and = target.tag_and or {}
         table.insert(tag_and, tag)

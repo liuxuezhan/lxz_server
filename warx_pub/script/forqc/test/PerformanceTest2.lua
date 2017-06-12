@@ -10,7 +10,9 @@ function t1.action( _idx )
     
 
     for i=1,18 do
-        local p1 = get_one(true, 1)
+        --local p1 = get_one(true, 1)
+
+        local p1 = get_account( i * 4 + 1 )
         if not p1 then return end
         loadData( p1 )
 
@@ -23,7 +25,8 @@ function t1.action( _idx )
     end
  
     for i=1,18 do
-        local p2 = get_one(true, 2)
+        --local p2 = get_one(true, 2)
+        local p2 = get_account( i * 4 + 2 )
         if not p2 then return end
         loadData( p2 )
 
@@ -36,7 +39,8 @@ function t1.action( _idx )
     end
 
     for i=1,18 do
-        local p3 = get_one(true, 3)
+        --local p3 = get_one(true, 3)
+        local p3 = get_account( i * 4 + 3 )
         if not p3 then return end
         loadData( p3 )
 
@@ -49,7 +53,8 @@ function t1.action( _idx )
     end
 
     for i=1,18 do
-        local p4 = get_one(true, 4)
+        --local p4 = get_one(true, 4)
+        local p4 = get_account( i * 4 + 4 )
         if not p4 then return end
         loadData( p4 )
 

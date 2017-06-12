@@ -17,8 +17,8 @@
 module("config")
 
 -- Map 跟 Tips 每个服务器都不一样，要改
-Map = 5 --服务器ID
-Tips = "robot"
+Map = 3 --服务器ID
+Tips = "robot3"
 
 -- 脚本所在目录，可以不改，也可以用全路径
 --StartScript = "robot/robot.lua"
@@ -33,10 +33,10 @@ Daemon = 0
 DbPortG = 27017
 DbHostG = "192.168.100.12"
 GateHost = "192.168.100.12"
-GatePort = 8001 
+GatePort = 6001 
 
 LogLevel = 1
---Release = true
+Release = true
 BuddySize = 128
 
 IsEnableGm = 1

@@ -28,8 +28,8 @@ function set_build( p, propid, x, y, range )
             local ty = y + math.random( 1, 2 * range ) - range
             if tx >= 0 and tx < 1280 then
                 if ty >= 0 and ty < 1280 then
---                 print( tx, ty )
-                    Rpc:union_build_setup(p,0,propid,tx,ty,"")
+--                    lxz( tx, ty )
+                    Rpc:union_build_setup(p,0,propid,tx,ty,"test")
                     sync( p )
                 end
             end
@@ -86,14 +86,16 @@ function atk( p, obj )
     local arms = {}
     local heros = {}
     for id, num in pairs( p._arm ) do 
-        arms[ id ] = 10000 
-        local hero = get_hero( p, 1 )
-        if not hero then return "nohero" end
-        Rpc:hero_cure_quick(p, hero.idx, 10)
-        sync( p )
-        local conf = resmng.get_conf( "prop_arm", id )
-        heros[conf.Mode] = hero.idx
-        break 
+        if num == 10000 then
+            arms[ id ] = num 
+            local hero = get_hero( p )
+            if not hero then lxz() return "nohero" end
+            Rpc:hero_cure_quick(p, hero.idx, 10)
+            sync( p )
+            local conf = resmng.get_conf( "prop_arm", id )
+            heros[conf.Mode] = hero.idx
+            break 
+        end
     end
 
     Rpc:siege(p, obj.eid, {live_soldier=arms,heros=heros } ) 
@@ -248,11 +250,9 @@ function sync( p )
     end
 end
 
-
 function get_one( is_new, culture )
     return get_account()
 end
-
 
 function get_account( idx )
     local node = false
@@ -287,6 +287,94 @@ function get_account( idx )
         return node
     end
 end
+
+function get_account2( name,url_s,url_u,key,idx )
+    local data = {}
+    local appid = "045fce0de7f9b8ee9bf12e28c2d6d2cd"
+    data.appid = appid 
+    data.platform = 1
+    data.sig = create_http_sign(data,key)
+    local info = post_to( url_s or "http://gw-warx.dev.tapenjoy.com/api/servers/lists", data )
+    if not info then return end
+    local ip = info.data[gMapID].ip 
+
+    local cid = name 
+    local data = {}
+    data.appid = appid
+    data.ctype = 0
+    data.cid = cid
+    data.open_udid = cid
+    data.os = "android"
+    data.language = "cn"
+    data.locale = "ase"
+    data.mac = "mac"
+    data.device_info = "device_info"
+    local sig = create_http_sign(data,key)
+    data.sig = sig
+    info = post_to( url_u or "http://uc.dev.tapenjoy.com/api/user/login", data )
+
+    local node = info.data
+    node.map = gMapID
+    node.account = node.uid
+    node.did = UDID
+    if not idx then
+        local i = 1
+        while true do
+            if not gHavePlayers[ i ] then
+                idx = i
+                break
+            else i = i + 1 end
+        end
+    end
+    node.idx = idx
+    gHavePlayers[ idx ] = node
+
+    local sid = connect(ip, 8001, 0, 0 )
+    if sid then
+        node.action = "test_login"
+        node.gid = sid
+        gConns[ sid ] = node
+        wait_for_ack( node, "onLogin" )
+        loadData( node )
+        sync(node)
+        return node 
+    end
+end
+
+function post_to( url, data )
+    local tmpfile = string.format( "download.%d", gTime )
+    os.execute( "rm -rf ".. tmpfile )
+
+    print( url )
+
+    local info = Json.encode( data )
+    local cmd = string.format( "curl -X POST -s -o %s -d \'%s\' %s", tmpfile, info, url )
+
+    os.execute( cmd )
+    local f = io.open( tmpfile, "r" )
+    if not f then return end
+    local str = f:read()
+    os.execute( "rm -rf ".. tmpfile )
+    return Json.decode( str )
+end
+
+function create_http_sign(tab,key)
+    local sign = key or "1a4d7ea4895af21dd945ead32e9b1eae"
+    local tab_key = {}
+    tab.timestamp = gTime
+    for k,v in pairs(tab) do
+        table.insert(tab_key, k)
+    end
+    table.sort(tab_key, function ( a, b )
+        return tostring(a) < tostring(b)
+    end)
+    for i=1,#tab_key do
+        sign = sign.. tostring(tab[tab_key[i]])
+    end
+    return c_md5(sign)
+end
+
+
 
 
 function get_tm( p )
@@ -422,7 +510,7 @@ end
 
 function get_hero( p, id )
     for k, v in pairs( p._hero or {} ) do
-        if v.propid == id then return v end
+        if (not id) or (v.propid == id) then return v end
     end
 
     local conf = resmng.get_conf( "prop_hero_basic", id )
@@ -1158,3 +1246,54 @@ function get_arm_id_by_mode_lv(mode, lv, class)
         end
     end
 end
+
+function tele_debug( p )
+    print( "l login" )
+    print( "p print" )
+    print( "s set" )
+    print( "r run" )
+    print( "q quit" )
+    print( "h help" )
+
+    while true do
+        print( ">" )
+        local line = io.read( "*line" )
+        if line then
+            if string.len( line ) > 0 then
+                local info = string.split( line, " " )
+                if info[1] == "p" then
+                    Rpc:dbg_show( p, info[ 2 ] )
+                    wait_for_ack( p, "dbg_show" )
+
+                elseif info[1] == "l" then
+                    Rpc:dbg_ask( p, info[ 2 ] )
+                    wait_for_ack( p, "dbg_show" )
+
+                elseif info[1] == "r" then
+                    Rpc:dbg_run( p, string.sub( line, 2, -1 ) )
+                    wait_for_ack( p, "dbg_show" )
+
+                elseif info[1] == "s" then
+                    if #info == 3 then
+                        Rpc:dbg_set( p, info[2], info[3] )
+                        wait_for_ack( p, "dbg_show" )
+                    end
+
+                elseif info[1] == "h" then
+                    print( "l login" )
+                    print( "p print" )
+                    print( "s set" )
+                    print( "r run" )
+                    print( "q quit" )
+
+                elseif info[1] == "q" then
+                    Rpc:dbg_ask( p, "a" )
+                    os.exit(-1)
+
+                end
+            end
+            wait_for_time( 1 )
+        end
+    end
+end
+

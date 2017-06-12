@@ -10,7 +10,6 @@ import datetime
 import time
 import sys
 import re
-from datetime import *
 
 from tornado.options import define, options
 define("port", default=9000, help="输入端口号", type=int)
@@ -149,7 +148,7 @@ class stop_robot(tornado.web.RequestHandler):
 
 class log_robot(tornado.web.RequestHandler):
     def get(self):
-        cmd = 'grep %s /var/log/localA.log | tail -n 100'%(options.name)
+        cmd = 'grep %s /tmp/logs/%s_00-00_A | tail -n 100'%( options.name,datetime.datetime.now().strftime('%Y-%m-%d'))
         a = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
         logs = a.stdout.read()
         a.wait()

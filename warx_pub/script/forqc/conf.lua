@@ -35,7 +35,7 @@ GateHost = "127.0.0.1"
 GatePort = 6001 
 
 LogLevel = 1
-Release = true
+--Release = true
 --BuddySize = 2048
 
 IsEnableGm = 1

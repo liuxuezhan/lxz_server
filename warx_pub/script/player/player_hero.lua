@@ -34,6 +34,8 @@ function make_hero(self, propid)
                 self._hero[ idx ] = h
                 --任务
                 task_logic_t.process_task(self, TASK_ACTION.HAS_HERO_NUM)
+                self:check_hero_num_ache()  -- check title ache
+
                 local prop_hero = resmng.get_conf("prop_hero_basic", propid)
                 if prop_hero.Quality >= 4 then
                     Rpc:tips({pid = -1, gid = _G.GateSid}, 2, resmng.GACHA_NOTIFY_GRADE4, {self.name, prop_hero.Name})
@@ -41,6 +43,9 @@ function make_hero(self, propid)
                 end
                 --世界事件
                 world_event.process_world_event(WORLD_EVENT_ACTION.HERO_NUM, propid)
+
+                --运营活动
+                operate_activity.process_operate_activity(self, OPERATE_ACTIVITY_ACTION.COLLECT_GRADE_HERO)
             end
             return
         end
@@ -753,6 +758,17 @@ function hero_cure_quick(self, hidx, tohp)
     hero_t.mark_recalc( hero )
     reply_ok(self, "hero_cure_quick", 0)
 end
+
+function check_hero_num_ache(self)
+    self:try_add_tit_point(resmng.ACH_NUM_HERO)
+    self:try_add_tit_point(resmng.ACH_HERO_QUALITY_1)
+    self:try_add_tit_point(resmng.ACH_HERO_QUALITY_2)
+    self:try_add_tit_point(resmng.ACH_HERO_QUALITY_3)
+    self:try_add_tit_point(resmng.ACH_HERO_QUALITY_4)
+    self:try_add_tit_point(resmng.ACH_HERO_QUALITY_5)
+    self:try_add_tit_point(resmng.ACH_HERO_QUALITY_6)
+end
+
 
 
 function hero_cure_acc_item(self, hero_idx, item_idx, item_num)

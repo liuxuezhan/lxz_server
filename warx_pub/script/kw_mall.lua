@@ -316,6 +316,7 @@ function buy(ply, index)
                     player_t.use_item_logic[itemp.Action](ply,itemp.ID, num, itemp)
                 else
                     ply:add_bonus("mutex_award", conf.Buy, VALUE_CHANGE_REASON.KW_MALL_BUY, 1, true)
+        --ply:pre_tlog("ItemFlow",0,0,propid,num,item[2],VALUE_CHANGE_REASON.KW_MALL_BUY,0,2,1)
                 end
                 if item[1] == "item" then
                     local union = ply:get_union()

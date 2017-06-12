@@ -1,37 +1,33 @@
 #!/bin/bash
-path=$(date +%m%d%H%M)
+path=$(date +%Y-%m-%d_%H-%M)
 mkdir -p ${path}
 cd ${path}
 svn co http://svn.dev.tapenjoy.com/slg/branch_aws/code/server/script
-cd script 
-svn info > ../version.info 
+svn co http://svn.yx.com/slg/trunk/code/server/bin
+
+mkdir -p ${path}
+svn info  http://svn.dev.tapenjoy.com/slg/branch_aws/code/server/script >> ${path}/version.info
+svn info  http://svn.dev.tapenjoy.com/slg/trunk/code/server/bin >> ${path}/version.info
+svn info  http://svn.dev.tapenjoy.com/slg/engine/misc >> ${path}/version.info
+svn info  http://svn.dev.tapenjoy.com/slg/engine/net  >> ${path}/version.info
+svn info  http://svn.dev.tapenjoy.com/slg/engine/game >> ${path}/version.info
+echo ${path} >> ${path}/version.info
+
+cp -R script ${path}/
+cd ${path}/script
+cp ../version.info ./
 rm -rf .svn
+rm -rf robot
 rm -rf client
 rm -rf forqc
-rm -rf robot
-compile.sh 
-cd ..
+compile.sh
+cd ../../
 
-svn co http://svn.dev.tapenjoy.com/slg/engine/misc
-svn co http://svn.dev.tapenjoy.com/slg/engine/net
-svn co http://svn.dev.tapenjoy.com/slg/engine/game
+mkdir -p ${path}/bin
+cp bin/game ${path}/bin/
+cp bin/gate ${path}/bin/
+cp bin/tran ${path}/bin/
 
-cd misc 
-svn info >> ../version.info 
-make 
-cd ..
-
-cd net 
-svn info >> ../version.info 
-make 
-cd ..
-
-cd game 
-svn info >> ../version.info 
-make 
-cd ..
-
-tar -czvf ${path}.tar.gz script ./game/bin/game version.info
+tar -czvf ${path}.tar.gz ${path}
 mv ${path}.tar.gz ../
-
 

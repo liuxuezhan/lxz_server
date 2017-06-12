@@ -3,7 +3,7 @@ module("world_event", package.seeall)
 WorldEventData = WorldEventData or {unlock_score = 0, events = {}}
 WorldEventCategory = WorldEventCategory or {}
 
-function accept_world_event()
+function init_world_event()
 	local events = WorldEventData.events
 	for k, v in pairs(resmng.prop_world_events or {}) do
 		if events[v.ID] == nil then
@@ -19,7 +19,7 @@ function accept_world_event()
 				unit.unlock = 1
 			end
 
-			local cur_time = gTime - _G.gSysStatus.start
+			local cur_time = gTime - get_sys_status("start")
 			local left_time = v.TmOpenServer - cur_time
 			if left_time > 0 then
 				unit.timer = timer.new("world_event", left_time, v.ID)
@@ -34,11 +34,50 @@ function accept_world_event()
 			WorldEventCategory[unit.action][unit.id] = unit
 		else
 			if events[v.ID].timer and events[v.ID].timer > 0 then
-				local dest_time = _G.gSysStatus.start + v.TmOpenServer
+				local dest_time = get_sys_status("start") + v.TmOpenServer
 				timer.adjust(events[v.ID].timer, dest_time)
 			end
 		end
 	end
+end
+
+function reinit_world_event()
+	for k, v in pairs(WorldEventData.events or {}) do
+		if v.timer and v.timer > 0 then
+			timer.del(v.timer)
+		end
+	end
+	WorldEventData = {unlock_score = 0, events = {}}
+	WorldEventCategory = {}
+	gPendingSave.status["world_event_score"].score = 0
+
+	local db = dbmng:getOne()
+    while true do
+        db.world_event:delete({})
+        local info = db:runCommand("getPrevError")
+        if info then break end
+    end
+
+    --清除现有玩家的数据
+    for _, ply in pairs(gPlys or {}) do
+    	ply.world_event_get_id = {}
+    	ply.world_event_stage_award = {}
+    end
+
+	init_world_event()
+end
+
+function is_stage_finish(stage)
+	local is_finish = true
+	for k, v in pairs(resmng.prop_world_events or {}) do
+		if v.Stage == stage then
+			if WorldEventData.events[v.ID].is_finish == 0 then
+				is_finish = false
+				break
+			end
+		end
+	end
+	return is_finish
 end
 
 function get_event_by_action(action)
@@ -63,7 +102,7 @@ end
 
 function packet_world_event_data()
 	local msg = {}
-	msg.tm_open = _G.gSysStatus.start
+	msg.tm_open = get_sys_status("start")
 	msg.unlock_score = WorldEventData.unlock_score
 	msg.data = {}
 	for k, v in pairs(WorldEventData.events or {}) do
@@ -80,6 +119,7 @@ function notify_board(prop_event)
 	if prop_event.Notify ~= nil then
 		Rpc:tips({pid = -1, gid = _G.GateSid}, 2, prop_event.Notify, {prop_event.TITLE})
 		player_t.add_chat({pid = -1, gid = _G.GateSid}, ChatChanelEnum.World, 0, {pid=0}, "", prop_event.Notify, {prop_event.TITLE})
+		Rpc:display_ntf({pid = -1, gid = _G.GateSid}, {mode=DISPLY_MODE.ACHEVEMENT, event_id=prop_event.ID})
 	end
 end
 
@@ -112,19 +152,24 @@ function check_score()
 	end
 end
 
-function check_time(id)
+function check_time(sn, id)
 	local prop_event = resmng.get_conf("prop_world_events", id)
 	if prop_event == nil then
 		return
 	end
 	local event = WorldEventData.events[id]
-	if event ~= nil then
-		event.unlock = 1
-		event.timer = -1
-		gPendingSave.world_event[id] = event
-		notify_board(prop_event)
-		check_score()
+	if event == nil then
+		return
 	end
+	if event.timer ~= sn then
+		return
+	end
+
+	event.unlock = 1
+	event.timer = -1
+	gPendingSave.world_event[id] = event
+	notify_board(prop_event)
+	check_score()
 end
 
 function get_world_event_award(player, id)
@@ -143,7 +188,7 @@ function get_world_event_award(player, id)
 		unlock = true
 	end
 	--判断是否超过解锁时间
-	local cur_time = gTime - _G.gSysStatus.start
+	local cur_time = gTime - get_sys_status("start")
 	if cur_time >= prop_event.TmOpenServer then
 		unlock = true
 	end
@@ -324,11 +369,21 @@ end
 
 
 function gm_finish_world_event(id, num)
-	local unit = WorldEventData[id]
+	--[[local unit = WorldEventData[id]
 	if unit ~= nil then
 		unit.cur_num = num
 		unit.is_finish = 1
         gPendingInsert.world_event[unit.id] = unit
-	end
+	end--]]
+    WorldEventData.unlock_score = 999999
+    for k, v in pairs(WorldEventData.events or {}) do
+        v.unlock = 1
+        v.is_finish = 1
+    end
+
+
+
+
+    
 end
 

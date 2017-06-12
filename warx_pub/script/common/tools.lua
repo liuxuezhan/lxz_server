@@ -855,7 +855,7 @@ function get_next_time()
     return os.time(temp) + 24 * 3600
 end
 
-function can_date(time,cur)--是否跨天
+function can_date(time, cur)--是否跨天
     if (not time) or (time == 0)  then return true end
 
     cur = cur or gTime
@@ -873,13 +873,24 @@ end
 function can_month(time,cur)--是否跨月
 
     if (not time) or (time == 0)  then return true end
+    cur = cur or gTime
     if (not cur) or (cur == 0) then return true end
-    local zone = tm_zone()
+    return (get_diff_days(time, cur) > 30)
+end
 
-    if os.date("%m", cur+zone)~=os.date("%m",time+zone) then
+function can_weekly(time, cur) --是否跨周
+    if (not time) or (time == 0)  then return true end
+    cur = cur or gTime
+    if (not cur) or (cur == 0) then return true end
+    if get_diff_days(time, cur) > 7 then
         return true
     end
-    return false
+
+    local now = os.date("*t", cur)
+    local tm = os.date("*t", time)
+    if tm.day < now.day then
+        return true
+    end
 end
 
 
@@ -1119,6 +1130,7 @@ function ana_item(unit, culture, close_open)
     if prop_tab == nil then
         return nil
     end
+    local src_num = unit.num
     local list = {}
     if prop_tab.Open == 0 or close_open == true then
         unit.icon = prop_tab.Icon
@@ -1146,6 +1158,7 @@ function ana_item(unit, culture, close_open)
                 elseif tmp.type == "equip" then
                     ana_equip(tmp)
                 end
+                tmp.num = tmp.num * src_num
                 table.insert(list, tmp)
             end
         end
@@ -1329,7 +1342,7 @@ function format_time(time)
 end
 
 function can_enter_reszone_lv( lv_castle )
-    if lv_castle <  6 then return 1 end
+    --if lv_castle <  6 then return 1 end
     if lv_castle < 10 then return 2 end
     if lv_castle < 12 then return 3 end
     if lv_castle < 15 then return 4 end
@@ -1338,14 +1351,14 @@ end
 
 function enter_lvreszone_need(lv_pos)
     if lv_pos == 1 then return 0 end
-    if lv_pos == 2 then return 6 end
+    if lv_pos == 2 then return 0 end
     if lv_pos == 3 then return 10 end
     if lv_pos == 4 then return 12 end
     return 15
 end
 
 function can_enter( lv_castle, lv_pos )
-    if lv_castle <  6 then return lv_pos <= 1 end
+    --if lv_castle <  6 then return lv_pos <= 1 end
     if lv_castle < 10 then return lv_pos <= 2 end
     if lv_castle < 12 then return lv_pos <= 3 end
     if lv_castle < 15 then return lv_pos <= 4 end
@@ -1373,7 +1386,7 @@ function check_ply_cross(ply)
     if union then
         return check_union_cross(union)
     end
-    return  ply.cross_gs ~= gMapID and ply.cross_gs ~= 0
+    return  ply.emap ~= gMapID and ply.emap ~= 0
     --return false
 --    local p = {}
 --    if type(ply) == "number" then
@@ -1393,7 +1406,7 @@ end
 
 --------------------------------------------------------------------------------
 -- 常用调试函数，简写函数名
-p = dumpTab
+--p = dumpTab   -- 全局p 容易和很多局部 p 造成混淆不要使用
 
 --判定串的第一个字符是否为数字字符
 function is_valid_chinese_char( s ) 
@@ -1647,6 +1660,7 @@ function push_offline_ntf(audience, msg)
         method = "post", 
         header = "NDMwMDU2NzliZGMyYThjNzE2NTRmODQ0Ojk5YTFjZTYwOTY0MGQ3MGUzOTJiNTUyYg==",  
             -- base64 of "43005679bdc2a8c71654f844:99a1ce609640d70e392b552b",
+--        platform = offline_ntf.get_server_tag(),
         platform = "all",
         audience = audience,
         notification = {

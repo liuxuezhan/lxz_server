@@ -25,7 +25,6 @@ function add_hero(hero)
         LOG("add_hero: no hero.")
         return
     end
-
     _heros[ hero._id ] = hero
 end
 
@@ -308,6 +307,8 @@ function capture(src_hero_id, des_hero_id)
         ERROR("capture: get des_hero failed. des_hero_id = %s.", des_hero_id or "")
         return
     else
+        INFO( "[HERO], capture, pida=%d, heroida=%s, propida=%s,  pidb=%d, heroidb=%s, propidb=%s", src_hero.pid, src_hero._id, src_hero.propid, des_hero.pid, des_hero._id, des_hero.propid )
+
         -- 解除俘虏派遣
         local ply = getPlayer(des_hero.pid)
         if not ply then

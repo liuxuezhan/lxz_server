@@ -32,10 +32,16 @@ function add(p,tm_sn)
 
     if not u.help then u.help={} end
 
-    if u.help[tm_sn] then LOG("已求助:"..tm_sn) return end
+    if u.help[tm_sn] then 
+        INFO("[UNION] union_help pid=%d, uid=%d,已求助: sn=%d",p.pid,p.uid,tm_sn) 
+        return 
+    end
 
     local t = timer.get(tm_sn)
-    if not t then LOG("没有定时器:"..tm_sn) return end
+    if not t then 
+        INFO("[UNION] union_help pid=%d, uid=%d,没有定时器: sn=%d",p.pid,p.uid,tm_sn) 
+        return 
+    end
 
     if (t.what =="build" or t.what =="cure") and p.pid == t.param[1] then
         u.help[tm_sn]={id=tm_sn,log={},limit=p:get_val("CountHelp") } 
@@ -51,7 +57,7 @@ function set_one(p,cur)
     if not u then return end
     if not u.help then return end
     if not u.help[cur] then return end
-    if  u.help[cur].log[p.pid] then LOG("have helped, pid=%d", p.pid) return end
+    if  u.help[cur].log[p.pid] then INFO("[UNION]have helped, pid=%d uid=%d", p.pid,p.uid) return end
 
     local num = tabNum(u.help[cur].log or {} )
 

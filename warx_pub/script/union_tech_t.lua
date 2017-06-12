@@ -18,7 +18,7 @@ end
 
 function create(idx, uid)
     local conf = get_conf(get_class(idx), get_mode(idx), 0)
-    if not conf then LOG("没有军团科技:"..idx) return end
+    if not conf then return end
 
     local idx = conf.Idx
     local data = {
@@ -250,10 +250,10 @@ end
 
 function up_ok(u, tsn, idx)
     local tech = u:get_tech(idx)
-    if not tech then WARN("timer got no tech") return end
+    if not tech then return end
 
     local next_conf = resmng.get_conf("prop_union_tech",tech.id + 1)
-    if not next_conf then INFO("没有下一级:"..tech.id+1) return end
+    if not next_conf then return end
 
     tech.id = next_conf.ID
     tech.exp = tech.exp - next_conf.Exp * next_conf.Star

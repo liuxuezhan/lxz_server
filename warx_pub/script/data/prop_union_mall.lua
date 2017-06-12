@@ -9,7 +9,7 @@ prop_union_mall = {
 
 	[SHOP_ITEM_1] = { ID = SHOP_ITEM_1, Donate = 30000, Val = 30000, ConditionLv = {8,10501}, Itemid = 7010001,},
 	[SHOP_ITEM_2] = { ID = SHOP_ITEM_2, Donate = 75000, Val = 75000, ConditionLv = {8,10501}, Itemid = 10002001,},
-	[SHOP_ITEM_3] = { ID = SHOP_ITEM_3, Donate = 300000, Val = 300000, ConditionLv = {8,10501}, Itemid = 10001001,},
+	[SHOP_ITEM_3] = { ID = SHOP_ITEM_3, Donate = 500000, Val = 500000, ConditionLv = {8,10501}, Itemid = 10001001,},
 	[SHOP_ITEM_4] = { ID = SHOP_ITEM_4, Donate = 7500, Val = 7500, ConditionLv = {8,10501}, Itemid = 7015001,},
 	[SHOP_ITEM_5] = { ID = SHOP_ITEM_5, Donate = 75000, Val = 75000, ConditionLv = {8,10501}, Itemid = 8001001,},
 	[SHOP_ITEM_6] = { ID = SHOP_ITEM_6, Donate = 150000, Val = 150000, ConditionLv = {8,10502}, Itemid = 7024002,},

@@ -186,9 +186,67 @@ function mail_load( self, sn )
     Rpc:mail_load(self, {})
 end
 
+function mail_load_by_idx( self, ids )
+    local pid = self.pid
+    local ms = {}
+    local num = 0
+    local db = self:getDb()
+    local info = db.mail:find( {to=pid, idx={["$in"]=ids}, tm_drop = 0} )
+    local hits = {}
+    while info:hasNext() do
+        local m = info:next()
+        table.insert( ms, m )
+        hits[ m.idx ] = 1
+        num = num + 1
+        if num >= 100 then
+            Rpc:mail_load(self, ms)
+            num = 0
+            ms = {}
+        end
+    end
+    local max_idx = self.mail_max
+
+    for _, idx in pairs( ids ) do
+        if not hits[ idx ] then
+            if idx <= max_idx then
+                local m = { _id=string.format("%d_%d", idx, pid ), idx=idx, tm=-1}
+                num = num + 1
+                table.insert( ms, m )
+            end
+        end
+    end
+
+    if num > 0 then Rpc:mail_load( self, ms ) end
+    Rpc:mail_load(self, {})
+end
+
+function mail_compensate( self )
+    local mail_sys = self.mail_sys or 0
+    if mail_sys < gSysMailSn then
+        local count = #gSysMail -- the bigger sn, be post at tail
+        local news = {}
+        for idx = count, 1, -1 do
+            local v = gSysMail[ idx ]
+            if mail_sys < v.idx then table.insert(news, 1, v)
+            else break end
+        end
+
+        for _, v in ipairs(news) do
+            local m = copyTab(v)
+            m.copy = v._id
+            self:mail_new(m, true)
+        end
+        self.mail_sys = gSysMailSn
+    end
+end
+
 
 -- p:mail_new({from=from, name=name, class=class, title="hello", content="world", its={{1001,100}}})
-function mail_new(self, v, isload)
+function mail_new(self, v, is_compensate)
+    if self.map ~= gMapID then
+        self:add_to_do("mail_new", v, is_compenstate)
+    end
+
     v.its = v.its or 0
     if v.its == 0 then
 
@@ -461,12 +519,12 @@ function mail_all(v)
     gSysMailSn = v._id
     table.insert(gSysMail, v)
 
-    local db = dbmng:getOne()
-    db.mail:insert(v)
+    gPendingInsert.mail[ v._id ] = v
 
     for k, ply in pairs(gPlys) do
         if ply:is_online() then
-            ply:mail_new(copyTab(v))
+            --ply:mail_new(copyTab(v))
+            mail_compensate( ply )
         end
     end
 end

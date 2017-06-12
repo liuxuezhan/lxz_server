@@ -57,6 +57,7 @@ function create(ply, uid, rank)
 
         restore_sum = {0,0,0,0},
         restore_day = {0,0},
+        word = {},
     }
     gPendingSave.union_member[ply.pid] = data
     ply._union = data
@@ -73,14 +74,14 @@ end
 
 
 function add_donate(ply, num,r)
-    if num < 0 then WARN("") return end
+    if num < 0 then ERROR("%d add_donate num err",ply.pid) return end
     ply._union.donate = ply._union.donate + num
     gPendingSave.union_member[ply.pid].donate = ply._union.donate
 
 end
 
 function add_donate_rank(ply, exp,num,r)
-    if num < 0 then WARN("") return end
+    if num < 0 then ERROR("%d add_donate_rank num err",ply.pid) return end
 
 	if r== 1 then
 		for i = DONATE_RANKING_TYPE.DAY, DONATE_RANKING_TYPE.UNION do
@@ -127,6 +128,7 @@ function leave_union(ply)
     data.techexp_data = {0,0,0,0,0,0}
     data.restore_sum = {0,0,0,0}
     data.restore_day = {0,0}
+    data.word = {}
 
     local chg = gPendingSave.union_member[ ply.pid ]
     chg.uid = 0
@@ -140,6 +142,8 @@ function leave_union(ply)
     chg.techexp_data = {0,0,0,0,0,0}
     chg.restore_sum = {0,0,0,0}
     chg.restore_day = {0,0}
+    chg.word = {}
+
 end
 
 
@@ -159,6 +163,7 @@ function join_union(ply, union)
     chg.rank = resmng.UNION_RANK_1
     chg.restore_sum = {0,0,0,0}
     chg.restore_day = {0,0}
+    INFO( "[UNION], join, pid=%d, uid=%d", ply.pid, union.uid )
 end
 
 

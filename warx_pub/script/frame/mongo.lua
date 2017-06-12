@@ -76,12 +76,13 @@ function mongo.client( obj )
 	return setmetatable(obj, client_meta)
 end
 
-function mongo.client2( host, port, sock )
+function mongo.client2( host, port, sock, is_global )
     local obj = {}
     obj.host = host
 	obj.port = obj.port or 27017
 	obj.__id = 0
 	obj.__sock = sock
+    obj.__is_global = is_global or false
 	return setmetatable(obj, client_meta)
 end
 
@@ -137,7 +138,8 @@ end
 --         query = query_bson,
 --         selector = selector_bson,
 --         doc = document
---     }
+--     },
+--     is_global = true or false,
 -- }
 --
 -- extra = {
@@ -145,21 +147,24 @@ end
 --     cmd_data = {
 --         query = query_bson,
 --         selector = selector_bson,
---     }
+--     },
+--     is_global = true or false,
 -- }
 --
 -- extra = {
 --     cmd = "runCommand",
 --     cmd_data = {
 --         bson_cmd = bson_cmd
---     }
+--     },
+--     is_global = true or false,
 -- }
 --
 -- extra = {
 --     cmd = "runCommand2",
 --     cmd_data = {
 --         same with param
---     }
+--     },
+--     is_global = true or false,
 -- }
 function get_reply(request_id, sock, extra)
     --dbmng:pending(sock)
@@ -196,11 +201,17 @@ function mongo.recvReply(sock)
             doc = extra.cmd_data.doc
         end
         local succ, reply_id, doc, cursor = driver.reply(reply, doc)
-        coroutine.resume(co, reply, succ, reply_id, doc, cursor)
+        if co then
+            coroutine.resume(co, reply, succ, reply_id, doc, cursor)
+        else
+            -- mongo reconnect后已经从gCoroPend中删除了co，此时co可能为空
+        end
     else
         WARN("error, recvReply")
     end
 end
+
+gMarkBsonDecode = gMarkBsonDecode or ( setmetatable( {}, {__mode="kv"} ) )
 
 function mongo_db:runCommand(cmd,cmd_v,...)
 	local request_id = self.connection:genId()
@@ -219,24 +230,30 @@ function mongo_db:runCommand(cmd,cmd_v,...)
         cmd_data = {
             bson_cmd = bson_cmd,
         },
+        is_global = self.connection.__is_global,
     }
 	local _, succ, reply_id, doc = get_reply(request_id, sock, extra)
     --LOG("runCommand, get_reply")
 	assert(request_id == reply_id, "Reply from mongod error")
 	-- todo: check succ
-	return bson_decode(doc)
+    local info = bson_decode( doc )
+    gMarkBsonDecode[ info ] = 1
+
+    return info
 end
+
 
 function mongo_db:runCommand2(param)
 	local request_id = self.connection:genId()
 	local sock = self.connection.__sock
 	local pack = driver.query(request_id, 0, self.__cmd, 0, 1, param.bson_cmd)
 	-- todo: check send
-	socket.write(sock, pack)
+    socket.write(sock, pack)
 
     local extra = {
         cmd = "runCommand2",
         cmd_data = param,
+        is_global = self.connection.__is_global,
     }
 
 	local _, succ, reply_id, doc = get_reply(request_id, sock, extra)
@@ -335,6 +352,7 @@ function mongo_collection:findOne(query, selector)
             query = query_bson,
             selector = selector_bson,
         },
+        is_global = self.connection.__is_global,
     }
 	local _, succ, reply_id, doc = get_reply(request_id, sock, extra)
 	assert(request_id == reply_id, "Reply from mongod error")
@@ -387,6 +405,7 @@ function mongo_cursor:hasNext()
                 selector = self.__selector,
                 doc = self.__document,
             },
+            is_global = conn.__is_global,
         }
 		local data, succ, reply_id, doc, cursor = get_reply(request_id, sock, extra)
 		assert(request_id == reply_id, "Reply from mongod error")

@@ -44,6 +44,7 @@ function get_ache_reward(self, idx)
         end
 
         ache_info_req(self)
+        INFO( "[ACHE], pid=%d, idx=%d", self.pid, idx )
     end
 end
 
@@ -61,32 +62,23 @@ function is_already_ache(self, idx)
     end
 end
 
-function do_load_ache( self )
-    local db = self:getDb()
-    local info = db.ache:findOne({_id=self.pid})
-    return info or {}
-end
+function get_tit_point(self, id)
+    if not self._tit_point then 
+        local db = self:getDb()
+        local info = db.tit_point:findOne({_id=self.pid})
+        if not self._tit_point then self._tit_point = info or {} end
 
-function do_load_tit_point( self )
-    local db = self:getDb()
-    local info = db.tit_point:findOne({_id=self.pid})
-
-    local point = 0   -- cal ache point  by ache status
-    for k, v in pairs(info or {}) do
-        if v ~= 0 then
-            local aconf = resmng.get_conf( "prop_achievement", k )
-            if aconf then
-                point = point + aconf.Point
+        local point = 0   -- cal ache point  by ache status
+        for k, v in pairs( self._tit_point ) do
+            if v ~= 0 then
+                local aconf = resmng.get_conf( "prop_achievement", k )
+                if aconf then
+                    point = point + aconf.Point
+                end
             end
         end
+        self.ache_point = point
     end
-    self.ache_point = point
-
-    return info or {}
-end
-
-function get_tit_point(self, id)
-    if not self._tit_point then self._tit_point = self:do_load_tit_point() end
     if id then return self._tit_point[ id ] else return self._tit_point end
 end
 
@@ -99,7 +91,11 @@ function set_tit_point(self, key, val)
 end
 
 function get_ache( self, id )
-    if not self._ache then self._ache = self:do_load_ache() end
+    if not self._ache then
+        local db = self:getDb()
+        local info = db.ache:findOne({_id=self.pid})
+        if not self._ache then self._ache = info or {} end
+    end
     if id then return self._ache[ id ] else return self._ache end
 end
 
@@ -111,14 +107,13 @@ function set_ache( self, key, val)
     Rpc:set_ache( self, key, aches[ key ] )
 end
 
-function do_load_count( self )
-    local db = self:getDb()
-    local info = db.count:findOne({_id=self.pid})
-    return self._count or info or {}
-end
-
 function get_count( self, id )
-    if not self._count then self._count = self:do_load_count() end
+    if not self._count then 
+        local db = self:getDb()
+        local info = db.count:findOne( {_id = self.pid } )
+        if not self._count then self._count = info or {} end
+    end
+
     if id then 
         return self._count[ id ] or 0 
     else 
@@ -200,6 +195,7 @@ function gain_ache( self, idx )
     local conf = self:check_ache( idx )
     if not conf then return end
     self:set_ache( idx, gTime )
+    self:add_tit_point(idx)
     --self.ache_point = (self.ache_point or 0) + conf.Point
     --self:try_upgrade_titles()
     return true

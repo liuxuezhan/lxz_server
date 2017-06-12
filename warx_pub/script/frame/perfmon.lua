@@ -20,14 +20,17 @@ module("perfmon", package.seeall)
 _show_data = _show_data or {sons={}, dirty=false} -- 用于存放记录的数据
 _co_data = _co_data or {}   -- 用于分协程存储每个协程自己的记录数据
 _dead_co_data = _dead_co_data or {sons={}} -- 保存已经死掉的协程的记录数据, 防止_co_data表过大
-_switch = _switch or true   -- 是否生效的总开关
+--_switch = _switch or true   -- 是否生效的总开关
+_switch = _switch or (config.Game == "actx")-- 是否生效的总开关
 _mem_switch = _mem_switch or false  -- 检测内存
 
 local get_ms_time = c_msec
 
 function init()
-    timer._funs["dead_co_check_func"] = dead_co_check_func
-    timer.cycle("dead_co_check_func", 60*10, 60*10)
+    if _switch then
+        timer._funs["dead_co_check_func"] = dead_co_check_func
+        timer.cycle("dead_co_check_func", 60*10, 60*10)
+    end
 end
 
 function dead_co_check_func()
@@ -172,7 +175,9 @@ end
 -- 不调用的后果：递归函数中抛异常不能正确处理，调用栈不平衡，不会进行时间记录
 -- 调用的好处：异常导致的时间无法采集范围压缩到最小
 function on_exception()
-    _on_error("perfmon handle exception")
+    if _switch then
+        _on_error("perfmon handle exception")
+    end
 end
 
 ------------------------------------------------------------------------

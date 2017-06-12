@@ -58,7 +58,7 @@ prop_black_market = {
 	[DEF_BLACK_MARKET_ITEM_49] = { ID = DEF_BLACK_MARKET_ITEM_49, Rate = 250, Buy = {{"item",7023002,1,10000}}, Pay = {{1,6,20}}, Notice = 1, Point = 2,},
 	[DEF_BLACK_MARKET_ITEM_50] = { ID = DEF_BLACK_MARKET_ITEM_50, Rate = 250, Buy = {{"item",2011001,1,10000}}, Pay = {{1,6,20}}, Notice = 1, Point = 2,},
 	[DEF_BLACK_MARKET_ITEM_51] = { ID = DEF_BLACK_MARKET_ITEM_51, Rate = 250, Buy = {{"item",2011002,1,10000}}, Pay = {{1,6,40}}, Notice = 1, Point = 4,},
-	[DEF_BLACK_MARKET_ITEM_52] = { ID = DEF_BLACK_MARKET_ITEM_52, Rate = 83, Buy = {{"item",2011003,1,10000}}, Pay = {{1,6,200}}, Notice = 0, Point = 20,},
+	[DEF_BLACK_MARKET_ITEM_52] = { ID = DEF_BLACK_MARKET_ITEM_52, Rate = 83, Buy = {{"item",2011003,2,10000}}, Pay = {{1,6,200}}, Notice = 0, Point = 20,},
 	[DEF_BLACK_MARKET_ITEM_53] = { ID = DEF_BLACK_MARKET_ITEM_53, Rate = 250, Buy = {{"item",7023005,1,10000}}, Pay = {{1,6,4}}, Notice = 0, Point = 1,},
 	[DEF_BLACK_MARKET_ITEM_54] = { ID = DEF_BLACK_MARKET_ITEM_54, Rate = 250, Buy = {{"item",7023006,1,10000}}, Pay = {{1,6,8}}, Notice = 0, Point = 1,},
 	[DEF_BLACK_MARKET_ITEM_55] = { ID = DEF_BLACK_MARKET_ITEM_55, Rate = 83, Buy = {{"item",7023007,1,10000}}, Pay = {{1,6,200}}, Notice = 0, Point = 20,},

@@ -9,22 +9,40 @@ function do_load_item( self )
         local info = db.item:findOne({_id=self.pid})
         if info then
             for k, v in pairs(info) do
-                if type(k) == "number" then
+                if type(v) == "table" and v[3] > 0 then
                     ms[ tonumber(k) ] = v
                 end
             end
         else
             db.item:insert({_id=self.pid})
         end
-        if not self._item then rawset(self, "_item", ms) end
+        if not self._item then 
+            rawset(self, "_item", ms) 
+            gPendingInsert.item[ self.pid ] = self._item
+        end
     end
+    return self._item
 end
 
 function get_item(self, idx)
     if not self._item then do_load_item( self ) end
-    self._item._n_ = nil
-    if not idx then return self._item
-    else return self._item[ idx ] end
+
+    if not idx then 
+        --local items = {}
+        --local flag = false
+        --for k, v in pairs( self._item ) do
+        --    if type( v ) == "table" and v[3] > 0 then
+        --        items[ k ] = v
+        --    else
+        --        flag = true
+        --    end
+        --end
+        --self._item = items
+        --if flag then gPendingInsert.item[ self.pid ] = items end
+        return self._item
+    else 
+        return self._item[ idx ]
+    end
 end
 
 -- one item = {idx, id, num, extra ...}
@@ -35,12 +53,14 @@ function inc_item(self, id, num, reason)
     local idx = 0
     local total = num
     for k, v in pairs(its) do
-        if v[2] == id and not v[4] then
-            v[3] = v[3] + num
-            hit = true
-            idx = k
-            total = v[3]
-            break
+        if type( v ) == "table" then
+            if v[2] == id and not v[4] then
+                v[3] = v[3] + num
+                hit = true
+                idx = k
+                total = v[3]
+                break
+            end
         end
     end
 
@@ -71,17 +91,30 @@ function inc_item(self, id, num, reason)
 end
 
 function add_item_pend(self, idx)
-    local pid = self.pid
-    local node = _cache_items[ pid ]
-    if not node then
-        node = {}
-        _cache_items[ pid ] = node
-    end
-    local k = tostring(idx)
-    node[ k ] = self._item[ idx ]
-    node._n_ = nil
+    gPendingSave.item[ self.pid ][ idx ] = self._item[ idx ]
+
+    --local pid = self.pid
+    --local node = _cache_items[ pid ]
+    --if not node then
+    --    node = {}
+    --    _cache_items[ pid ] = node
+    --end
+    --local k = tostring(idx)
+    --node[ k ] = self._item[ idx ]
+    --node._n_ = nil
 end
 
+function on_check_pending_item( db, id, chgs )
+    if chgs._a_ or chgs._n_ then
+        WARN( "ITEM, on_check_pending_item, who have ?? ")
+    end
+
+    local ply = getPlayer( id )
+    if ply then
+        Rpc:stateItem(ply, chgs)
+    end
+end
+registe_update_callback( "item", player_t.on_check_pending_item )
 
 --------------------------------------------------------------------------------
 -- Function : 根据格子索引 idx 从 self 的背包中扣除 num 个物品
@@ -175,8 +208,10 @@ function get_item_num(self, id)
     local its = self:get_item()
     local total = 0
     for k, v in pairs(its) do
-        if v[2] == id then
-            total = total + v[3]
+        if type(v) == "table" then
+            if v[2] == id then
+                total = total + v[3]
+            end
         end
     end
     return total
@@ -218,7 +253,9 @@ end
 function clear_item(self)
     local item_list = self:get_item()
     for idx, item in pairs(item_list) do
-        self:dec_item(idx, item[3], VALUE_CHANGE_REASON.DEBUG)
+        if type( item ) == "table" then
+            self:dec_item(idx, item[3], VALUE_CHANGE_REASON.DEBUG)
+        end
     end
 end
 

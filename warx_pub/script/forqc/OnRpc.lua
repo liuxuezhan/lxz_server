@@ -28,7 +28,7 @@ function OnRpc.onLogin( p, pid, name )
     gPlys[ pid ] = p
 
     Rpc:getTime(p,1)
-    print( "onLogin", pid )
+    LOG( "onLogin", pid )
 
     if type( idx ) == "number" then
         --local chg_name = string.format("R_%s", idx )
@@ -67,6 +67,7 @@ function OnRpc.loadData( p, info )
         end
     elseif key == "done" then
         gCountLoadData = gCountLoadData + 1
+        --WARN( "USE_TIME, count=%d, use=%d", gCountLoadData, c_msec() - gActionStart )
         if gCountLoadData % 100 == 0 then
             WARN( "USE_TIME, count=%d, use=%d", gCountLoadData, c_msec() - gActionStart )
         end

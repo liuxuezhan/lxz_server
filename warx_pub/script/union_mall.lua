@@ -3,18 +3,12 @@ module(..., package.seeall)
 
 function add(ply,propid,num)
     local u = unionmng.get_union(ply:get_uid())
-    if not u then 
-        LOG("无军团")
-        return false 
-    end
+    if not u then return false end
     if not u.mall then
         u.mall= { _id=u.uid,add={},buy={},mark={}}
     end
     local c = resmng.get_conf("prop_union_mall",propid)
-    if u.donate < c.Donate*num then
-        LOG("积分不够")
-        return
-    end
+    if u.donate < c.Donate*num then return end
     u.donate = u.donate - c.Donate*num
 
     local cur_num = 0
@@ -74,9 +68,9 @@ end
 
 function buy(ply,propid,num)
     local u = unionmng.get_union(ply:get_uid())
-    if not u then LOG("无军团") return false end
+    if not u then return false end
 
-    if not u.mall then LOG("无商品") return false end
+    if not u.mall then return false end
 
     for _, v in pairs(u.mall.item or {}) do
         if v.propid == propid then

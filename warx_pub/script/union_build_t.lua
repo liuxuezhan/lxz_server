@@ -18,9 +18,9 @@ function load()
                 data.culture = data.culture or 1
                 etypipe.add(data)
             end
-        end
+          end
     end
-end
+  end
 
 function is_hold(e)
     local u = unionmng.get_union(e.uid)
@@ -87,8 +87,8 @@ function create(uid,idx, propid, x, y,name)
         local cc = resmng.get_conf("prop_world_unit",propid)
         if (not cc) or cc.Class ~= BUILD_CLASS.UNION then return end
 
-        if c_map_test_pos_for_ply(x, y, cc.Size) ~= 0 then LOG("军团建筑不在空地") return end
-        if not u:can_build(propid,x,y) then return end
+        if c_map_test_pos_for_ply(x, y, cc.Size) ~= 0 then INFO("[UNION]军团建筑不在空地") return end
+          if not u:can_build(propid,x,y) then return end
 
         idx = #u.build+1
         local _id = string.format("%s_%s", idx, uid)
@@ -140,7 +140,7 @@ function create(uid,idx, propid, x, y,name)
 
         local cc = resmng.get_conf("prop_world_unit",e.propid)
         if (not cc) or cc.Class ~= BUILD_CLASS.UNION then return end
-        if c_map_test_pos_for_ply(x, y, cc.Size) ~= 0 then LOG("军团建筑不在空地") return end
+        if c_map_test_pos_for_ply(x, y, cc.Size) ~= 0 then INFO("[UNION]军团建筑不在空地") return end
         if not u:can_build(e.propid,x,y) then return end
 
         e.eid = get_eid_uion_building()
@@ -179,6 +179,7 @@ function create(uid,idx, propid, x, y,name)
         if cc.Hp == e.hp then union_build_t.buf_open(e) end
     end
     u:add_log(resmng.UNION_EVENT.BUILD_SET, resmng.UNION_MODE.ADD,{propid=e.propid,name=e.name})
+    return true
 end
 
 function remove(e)
@@ -349,7 +350,7 @@ function can_troop(action, p, eid, res)--行军队列发出前判断
         local t = troop_mng.get_troop(dp.my_troop_id)
         if t then
             for pid, _ in pairs(t.arms or {} ) do
-                if pid == p.pid then WARN("") return false end
+                if pid == p.pid then return false end
             end
         end
 
@@ -390,12 +391,12 @@ function can_troop(action, p, eid, res)--行军队列发出前判断
             sum = sum + calc_res(k,num)
         end
         if sum + d.sum.num > d.sum.limit then
-            INFO( "SaveRes, pid=%d, sum = %d, d.sum.num = %d, d.sum.limit = %d", p.pid, sum, d.sum.num, d.sum.limit )
+            INFO( "[UNION]SaveRes, pid=%d, sum = %d, d.sum.num = %d, d.sum.limit = %d", p.pid, sum, d.sum.num, d.sum.limit )
             return false
         end
 
         if sum + d.day.num > d.day.limit then
-            INFO( "SaveRes, pid=%d, sum = %d, d.day.num = %d, d.day.limit = %d", p.pid, sum, d.day.num, d.day.limit )
+            INFO( "[UNION]SaveRes, pid=%d, sum = %d, d.day.num = %d, d.day.limit = %d", p.pid, sum, d.day.num, d.day.limit )
             return false
         end
         return true

@@ -5,9 +5,10 @@ local mod = {}
 function mod.action(_idx)
     require("union_tech_t")
     require("frame/debugger")
-    local name = math.floor(gTime % 1000)
+    local name = tostring(math.random(100,999))
+    lxz(name)
 
-    local p = get_account( 1024 )
+    local p = get_account2( name )
     Rpc:union_quit(p)
 
     loadData(p)
@@ -19,7 +20,7 @@ function mod.action(_idx)
     chat(p, "@buildtop")
     chat(p, "@addbuf=1=-1")
     sync(p)
-    Rpc:union_create(p, tostring(p.pid), tostring(name), 40, 1000)
+    Rpc:union_create(p, "robot"..name, name, 40, 1000)
     wait_for_ack(p, "union_on_create")
     local id =1001
     local info = {}

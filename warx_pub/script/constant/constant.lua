@@ -145,7 +145,7 @@ DEFAULT_PHOTO = {
 
 --- Zhao@2016年4月14日：军团创建条件
 CREATEUNION = {
-    lv = 5,
+    lv = 2,
     cost = 1000
 }
 
@@ -240,7 +240,9 @@ FORBID_SIGNS =
     ['】'] = true, ['｛']= true, ['｝']= true, ['；']= true, ['：']= true, ['‘'] = true,
     ['’']  = true, ['“'] = true, ['”'] = true, ['？']= true, ['。']= true, ['，']= true,
     ['《'] = true, ['》']= true, ['\n']= true, ['\a']= true, ['\b']= true, ['\t']= true,
-    ['\v'] = true, ['\f']= true,
+    ['\v'] = true, ['\f']= true, [' '] = true, ['　']= true, ['～']= true, ['＠']= true,
+    ['＃'] = true, ['￥']= true, ['％']= true, ['＆']= true, ['%*']= true, ['－']= true,
+    ['＝'] = true, ['＋']= true, ['＼']= true, ['｜']= true,
 }
 
 --目标任务阶段奖励
@@ -254,10 +256,57 @@ TASK_TARGET_AWARD =
 --目标任务阶段ID
 TASK_TARGET_ID = 
 {
-    [1] = {130050101,130050102,130050103,130050104,130050105,130050106,130050107},
-    [2] = {130050201,130050202,130050203,130050204,130050205,130050206,130050207,130050208,130050209},
+    [1] = {130050101,130050102,130050103,130050104,130050105,130050106,130050107,130050108},
+    [2] = {130050201,130050202,130050203,130050204,130050205,130050206,130050207,130050208,130050209,130050210},
     [3] = {130050301,130050302,130050303,130050304,130050305,130050306,130050307,130050308,130050309},
-    [4] = {130050401,130050402,130050403,130050404,130050405,130050406,130050407},
+    [4] = {130050401,130050402,130050403,130050404,130050405,130050406,130050407,130050408},
 }
 TASK_TARGET_FINISH_ICON = "task_gongpin"
+
+
+WORLD_EVENT_STAGE_AWARD =
+{
+    [1] = 2024001,
+    [2] = 2024002,
+    [3] = 2024003,
+    [4] = 2024004,
+}
+
+WORLD_EVENT_STAGE_NAME = 
+{
+    [1] = resmng.WE_STAGE_NAME_1,
+    [2] = resmng.WE_STAGE_NAME_2,
+    [3] = resmng.WE_STAGE_NAME_3,
+    [4] = resmng.WE_STAGE_NAME_4,
+}
+
+GACHA_EXCHANGE_1 = {101,201}
+GACHA_EXCHANGE_2 = {102,202}
+
+--主界面按钮排布
+MAINUI_TOP_BTN_LAYER = 
+{
+    ["btn_be_stronger"] = 1,
+    ["btn_goldgift"] = 1,
+    ["btn_operate"] = 1,
+    ["btn_world_event"] = 2,
+    ["DailyTask"] = 1,
+    ["btn_shop_ac"] = 1,
+    ["acitity_btn"] = 1,
+    ["btn_more_btns"] = 1,
+    ["btn_more_btns (1)"] = 2,
+    ["btn_more_btns (2)"] = 2,
+    ["btn_more_btns (3)"] = 2,
+    ["btn_more_btns (4)"] = 2,
+    ["btn_more_btns (5)"] = 2,
+    ["btn_more_btns (6)"] = 2,
+    ["btn_more_btns (7)"] = 2,
+    ["btn_more_btns (8)"] = 2,
+    ["btn_more_btns (9)"] = 2,
+    ["btn_more_btns (10)"] = 2,
+}
+
+
+
+
 

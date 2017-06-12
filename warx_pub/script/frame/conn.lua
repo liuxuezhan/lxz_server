@@ -46,7 +46,7 @@ function toMongo(host, port, db, tips, is_reconnect)
 
         onConnectOk = function (self)
             self.state = 1
-            local t = mongo.client2(self.host, self.port, self.sid)
+            local t = mongo.client2(self.host, self.port, self.sid, self.tips == "Global")
             dbmng:conn_new(self.host, self.port, self.db, self.sid, t[ self.db ], self.tips)
             if self.is_reconnect then
                 mongo_save_mng.on_db_reconnect(self.tips == "Global")

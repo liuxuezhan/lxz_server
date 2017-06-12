@@ -210,7 +210,6 @@ use_item_logic.AddBonus = function(player, id, num, prop_item)
             player:add_bonus(policy, tab, VALUE_CHANGE_REASON.USE_ITEM)
         end
     end
-    print( "use_item", c_msec() - a )
 end
 
 --充值军团礼物

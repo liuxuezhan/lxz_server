@@ -126,6 +126,8 @@ function create_hero(idx, pid, propid)
         player:inc_pow( hero.fight_power )
     end
     heromng.add_hero(hero)
+
+    INFO( "[HERO], create, pid=%d, heroid=%s, propid=%d", pid, _id, propid )
     return hero
 end
 
@@ -356,7 +358,7 @@ function gain_exp(self, exp_num)
 
     -- WARNING: 因为传承时增加的经验值可能比较多，这里没做 exp_num 的上限限制
     local total = self.exp + exp_num
-    LOG("gain_exp: pid = %d, hero_id = %s, self.exp = %d, exp_num = %d", self.pid or -1, self._id or "nil", self.exp or -1, exp_num)
+    INFO("[HERO], gain_exp, pid=%d, heroid=%s, propid=%s, exp=%d, exp_add=%d", self.pid or -1, self._id or "nil", self.propid, self.exp or -1, exp_num)
     local owner = getPlayer(self.pid)
     if owner then
         local maxlv = owner.lv
@@ -380,6 +382,7 @@ function gain_exp(self, exp_num)
                 lv = lv + 1
                 total = total - need
                 up = true
+                INFO("[HERO], gain_exp, pid=%d, heroid=%s, propid=%s, exp=%d, exp_add=%d, lv=%d", self.pid or -1, self._id or "nil", self.propid, self.exp or -1, exp_num, lv)
             end
         end
 
@@ -390,6 +393,7 @@ function gain_exp(self, exp_num)
             self:up_attr()
             --任务
             task_logic_t.process_task(owner, TASK_ACTION.HERO_LEVEL_UP)
+            check_hero_lv_ache(owner)  -- check title ache
         end
         task_logic_t.process_task(owner, TASK_ACTION.HERO_EXP, exp_num)
         return true
@@ -606,6 +610,8 @@ function lv_up(self, count)
     self.lv = self.lv + 1
     self:up_attr()
 
+    INFO( "[HERO], lv_up, pid=%d, heroid=%s, propid=%s, lv=%d", self.pid, self._id, self.propid, self.lv )
+
     -- 继续升级
     return self:lv_up(count + 1)
 end
@@ -637,6 +643,23 @@ function can_star_up(self)
     else
         return true
     end
+end
+
+function check_hero_lv_ache(player)
+    player:try_add_tit_point(resmng.ACH_HERO_LEVEL_1)
+    player:try_add_tit_point(resmng.ACH_HERO_LEVEL_2)
+    player:try_add_tit_point(resmng.ACH_HERO_LEVEL_3)
+    player:try_add_tit_point(resmng.ACH_HERO_LEVEL_4)
+    player:try_add_tit_point(resmng.ACH_HERO_LEVEL_5)
+end
+
+function check_hero_star_ache(player)
+    player:try_add_tit_point(resmng.ACH_HERO_STAR_1)
+    player:try_add_tit_point(resmng.ACH_HERO_STAR_2)
+    player:try_add_tit_point(resmng.ACH_HERO_STAR_3)
+    player:try_add_tit_point(resmng.ACH_HERO_STAR_4)
+    player:try_add_tit_point(resmng.ACH_HERO_STAR_5)
+    player:try_add_tit_point(resmng.ACH_HERO_STAR_6)
 end
 
 
@@ -682,8 +705,11 @@ function star_up(self)
     self.star = self.star + 1
     self:up_attr()
 
+    INFO( "[HERO], star_up, pid=%d, heroid=%s, propid=%s, star=%d", self.pid, self._id, self.propid, self.star )
+
     --任务
     task_logic_t.process_task(player, TASK_ACTION.HAS_HERO_NUM)
+    check_hero_star_ache(player)  -- check title ache
 
     -- 大升星
     local old_talent_skill = self.talent_skill
@@ -759,7 +785,8 @@ function change_basic_skill(self, skill_idx, skill_id, exp)
     self.basic_skill[skill_idx] = {skill_id, exp}
     self.basic_skill = self.basic_skill
 
-    LOG("change_basic_skill: hero._id = %s, skill_idx = %d, skill_id = %d, exp = %d", self._id, skill_idx, skill_id, exp)
+    INFO( "[HERO], change_basic_skill, pid=%d, heroid=%s, propid=%s, skill_idx=%d, skill_id=%d", self.pid, self._id, self.propid, skill_idx, skill_id )
+
     --任务
     local role = getPlayer(self.pid)
     if role ~= nil then

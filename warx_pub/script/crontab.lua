@@ -111,11 +111,12 @@ function send_lt_award()
 end
 
 function cross_act_start()
-    cross_mng.cross_act_start()
+    if gCenterID == gMapID then
+        cross_mng_c.cross_act_start()
+    end
 end
 
 function upload_gs_info()
-    local center_id = 999
     local pack = {}
     pack.pid = gMapID
     pack.power = cal_gs_power()
@@ -133,7 +134,7 @@ function upload_gs_info()
             end
         end
     end
-    Rpc:callAgent(center_id, "upload_gs_info", pack)
+    Rpc:callAgent(gCenterID, "upload_gs_info", pack)
 end
 
 function prepare_boss_attack_city()

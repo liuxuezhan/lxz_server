@@ -298,7 +298,7 @@ function siege(self, dest_eid, arm)
         if dest.pid and dest.pid >= 10000 then
             if ( self.uid ~= dest.uid) or (self.uid == 0 and dest.uid == 0) then
                 local union = unionmng.get_union(self.uid)
-                local tr = get_troop(dest.extra.tid)
+                local tr = troop_mng.get_troop(dest.extra.tid)
                 if tr then
                     for pid, _ in pairs(tr.arms or {}) do
                         local ply = getPlayer(pid)
@@ -933,6 +933,9 @@ function union_mass_join(self, dest_eid, dest_troop_id, arm)
 
     if not self:check_arm(arm, troopT.action)  then return end
     local troopA = troop_mng.create_troop(TroopAction.JoinMass, self, T, arm)
+    if is_monster(dest_tr_target) then
+        troopA:set_extra("dest_tr_target", dest_tr_target.eid)
+    end
     troopA.dest_troop_id = dest_troop_id
     troopA:go()
 
@@ -978,7 +981,8 @@ function declare_tw_status_req(self, dest_eid)
 
         pack.abd_tm = u.abd_city_time
 
-        pack.declare_time = get_table_valid_count(u.declare_wars or {})
+        --pack.declare_time = get_table_valid_count(u.declare_wars or {})
+        pack.declare_time = u.declare_tm
 
         local prop = resmng.prop_tw_consume[city.lv]
 
@@ -1278,6 +1282,20 @@ function check_mass_time(self, time)
         return false
     end
     return true
+end
+
+function kick_hold_defense(self, tid, pid)
+    local troop = troop_mng.get_troop(tid)
+    if not troop then return end
+    if troop.owner_pid ~= self.pid then return end
+
+    if troop.owner_pid == pid then return end
+
+    local tr = troop:split_pid(pid)
+    if tr then
+        tr:back()
+    end
+
 end
 
 --驻守
@@ -2238,10 +2256,11 @@ end
 
 
 function dig( self, x, y, itemid, arm )
+    x = x - 2
+    y = y - 2
+    
     if not self:can_move_to(x, y) then return ack( self, "dig", resmng.E_DISALLOWED, 0 ) end
     if self.count_dig >= 5 then return end
-
-    print( "dig", x, y )
 
     local sx = math.floor( self.x / 16 )
     local sy = math.floor( self.y / 16 )
@@ -2327,9 +2346,7 @@ function massgo( self, tid )
     end
 end
 
-
-function check_first_blood( self, conf, propid )
-    local id = conf.ID
+function get_first_blood(self)
     if not self._first_blood then
         local fs = {}
         local db = dbmng:getOne()
@@ -2341,8 +2358,16 @@ function check_first_blood( self, conf, propid )
                 end
             end
         end
-        if not self._first_blood then self._first_blood = fs end
+        self._first_blood = fs
     end
+    return self._first_blood
+end
+
+
+function check_first_blood( self, conf, propid )
+    local id = conf.ID
+
+    self:get_first_blood()
 
     if self._first_blood[ id ] then return end
     self._first_blood[ id ] = gTime

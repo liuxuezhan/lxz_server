@@ -6,11 +6,6 @@ TIME_ZONE = 0
 -- chat host
 CHAT_HOST = "war_x.org"
 
--- 登录秘钥
-APP_SECRET = "zMvnPIT4fHG4ecte"
-APP_ID = "045fce0de7f9b8ee9bf12e28c2d6d2cd"
-APP_KEY = "4e69fd13cb06ef2c62c712ced980d1e6"
-
 -- login_url
 LOGIN_URL = "http://common.tapenjoy.com/index.php/LoginClass/uploaduserinfo"
 -- chat_url
@@ -60,7 +55,7 @@ VALUE_CHANGE_REASON = {
     BUILD_CONSTRUCT = 20, --修建
     BUILD_UPGRADE   = 21, --建筑升级 
     BUILD_ACC       = 22, --建筑加速
-    LEARN_TECH      = 23, --学习技能
+    LEARN_TECH      = 23, --研究科技
     CANCEL_ACTION  = 24, --取消触发
     WALL_REPAIR    = 25, --修墙
     TROOP_RECALL = 26,  --部队召回
@@ -80,12 +75,12 @@ VALUE_CHANGE_REASON = {
     GENIUS_RESET      = 40, --天赋重置
 
     CASTLE_6_GIFT     = 41, --城堡礼物
-    HERO_NATURE_RESET     = 42, --英雄技能重置
+    HERO_NATURE_RESET     = 42, --英雄性格重置
 
     -- [50, 79] Play
     GATHER = 50,  --采集
     REAP   = 51, --收割
-    TRAIN  = 52, --访问
+    TRAIN  = 52, --招募士兵
     JUNGLE = 53,   --打怪
     SUPPORT_RES = 54, --资源物资
 
@@ -101,7 +96,7 @@ VALUE_CHANGE_REASON = {
 
     VIP_BUY = 75,--	vip购买
 
-    PT_MALL_BUY = 76, --平台购买
+    PT_MALL_BUY = 76, --活动积分购买
     PT_MALL_REFRESH = 77,--平台补给
     KW_MALL_BUY = 78, --王城商城购买
 
@@ -296,6 +291,12 @@ RANK_MODE = {
     GS = 3,
 }
 
+UNION_RANK_MODE = {
+    DAILY = 1, 
+    WEEKLY = 2,
+    PERMANENT = 3,
+}
+
 ACT_TYPE ={
     NPC = 1,
     BOSS = 2,
@@ -447,6 +448,7 @@ MOVE_CITY_MODE = {
     ADVANCED = 1, --高级迁城
     RANDOM = 2, --随机迁城
     GRADING = 4, --资源带迁城
+    UNION = 5,  --军团迁城
 }
 
 -- Hx@2015-12-04 : union state in player eye
@@ -935,6 +937,7 @@ UNION_EVENT = { --  军团事件类型
     REJECT = "union_reject",
     HELP = "help",
     RELATION = "relation",
+    WORD = "word",
 }
 
 EVENT_TYPE = {
@@ -1406,6 +1409,7 @@ OPERATE_PLAYER_DATA = {     --玩家数据存储类型
     ACTION = 2,         --action
     ACTION_AWARD = 3,   --完成action的奖励
     VERSION = 4,        --活动版本
+    FIRST_FLAG = 5,     --第一次进入活动标记，第一次进入活动要算一次所有action
 }
 --运营活动类型
 OPERATE_ACTIVITY_TYPE = {
@@ -1423,6 +1427,7 @@ OPERATE_ACTIVITY_ACTION = {
     OCCUPY_CITY                 = 3,         --军团占领城市
     BLACK_MARKET                = 4,         --黑市购买
     RESOURCE_MARKET             = 5,         --资源兑换
+    COLLECT_GRADE_HERO          = 6,         --收集不通品阶的英雄
 }
 
 g_operate_activity_relation = {
@@ -1431,6 +1436,7 @@ g_operate_activity_relation = {
     ["occupy_city"]             = OPERATE_ACTIVITY_ACTION.OCCUPY_CITY,              --军团占领城市
     ["black_market"]            = OPERATE_ACTIVITY_ACTION.BLACK_MARKET,             --黑市购买
     ["resource_market"]         = OPERATE_ACTIVITY_ACTION.RESOURCE_MARKET,          --资源兑换
+    ["collect_grade_hero"]      = OPERATE_ACTIVITY_ACTION.COLLECT_GRADE_HERO,       --收集不通品阶的英雄
 }
 
 -------------------------------------------------------------------------------------
@@ -1525,6 +1531,7 @@ CLIENT_PARM = {
     ["curguiding"] = 3,
 
     ["guidedclass"] = 800,
+    ["guide_skip_class"] = 801,     -- 具体跳过哪一步引导
 
     ["buildunlock"] = 900,  -- 建筑解锁引导
 }
@@ -1594,6 +1601,8 @@ OFFLINE_UNIT_TYPE = {
 
 PLAYER_INIT = {
     map = 0,
+    emap = 0,
+    smap = 0,
     tm_create = 0,
     lv = 1,
     exp = 0,
@@ -1665,7 +1674,7 @@ PLAYER_INIT = {
     activity_box = {},  --每日活跃度箱子领取,
     daily_refresh_num = 0, --每日任务免费刷新剩余次数,
     daily_refresh_time = 0, --每日任务免费刷新时间,
-    task_target_all_award_index = {0,0,0,0},    --阶段目标任务奖励标记 
+    task_target_all_award_index = {},    --阶段目标任务奖励标记 
 
     def_heros = {},  -- 守城英雄,
 
@@ -1730,6 +1739,7 @@ PLAYER_INIT = {
     yueka_level = 0,        --月卡档次
 
     world_event_get_id = {},    --已经领取奖励的世界事件的ID
+    world_event_stage_award = {},   --世界事件章节奖励
 
     weekly_activitiy_num = 0,   --周限时活动计数
     weekly_activity_info = {{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0}},    --周限时活动标记 {积分,领奖标志,活动开启时主堡等级}
@@ -1794,12 +1804,13 @@ Sub_Func =
 
 DISPLY_MODE = 
 {
-    VIP = 1,                --VIP等级提升
-    ACHEVEMENT = 2,         --成就达成
-    NPC = 3,                --占领npc城市
-    CASTLE = 4,             --城堡升级
-    FIRST_BLOOD = 5,        --叛军首杀
-    NEW_EQUIP = 6,          --新装备获得
+    VIP         = 1,                --VIP等级提升
+    ACHEVEMENT  = 2,                --成就达成
+    NPC         = 3,                --占领npc城市
+    CASTLE      = 4,                --城堡升级
+    FIRST_BLOOD = 5,                --叛军首杀
+    NEW_EQUIP   = 6,                --新装备获得
+    WORLD_EVENT = 7,        --世界事件
 }
 
 

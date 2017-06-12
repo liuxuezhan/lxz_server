@@ -8,7 +8,7 @@ svnnum("$Id$")
 prop_effect_type = {
 
 	["CountSoldier"] = { ID = "CountSoldier", Index = 1, Default = 3000, BuffName = LG_EFFECT_TYPE_NAME_108000000, BuffDesc = LG_EFFECT_TYPE_BUFFDESC_108100000,},
-	["CountTrain"] = { ID = "CountTrain", Index = 2, Default = 10, BuffName = LG_EFFECT_TYPE_NAME_108000001, BuffDesc = LG_EFFECT_TYPE_BUFFDESC_108100001,},
+	["CountTrain"] = { ID = "CountTrain", Index = 2, Default = 5, BuffName = LG_EFFECT_TYPE_NAME_108000001, BuffDesc = LG_EFFECT_TYPE_BUFFDESC_108100001,},
 	["CountTroop"] = { ID = "CountTroop", Index = 3, Default = 1, BuffName = LG_EFFECT_TYPE_NAME_108000002, BuffDesc = LG_EFFECT_TYPE_BUFFDESC_108100002,},
 	["CountCure"] = { ID = "CountCure", Index = 4, Default = 5000, BuffName = LG_EFFECT_TYPE_NAME_108000003, BuffDesc = LG_EFFECT_TYPE_BUFFDESC_108100003,},
 	["CountConsumeCure"] = { ID = "CountConsumeCure", Index = 5, Default = nil, BuffName = LG_EFFECT_TYPE_NAME_108000004, BuffDesc = LG_EFFECT_TYPE_BUFFDESC_108100004,},

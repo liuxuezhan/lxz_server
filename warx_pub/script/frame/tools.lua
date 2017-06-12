@@ -66,16 +66,19 @@ function ERROR(fmt, ...)
     local inf = string.format(fmt, ...)
     local stacks = debug.traceback(inf)
 
-    if config.Game == "actx" then
-        lwarn(stacks)
-    end
     for s in string.gmatch( stacks, "[^%c]+" ) do
-        lwarn("[LUA] " .. s)
+        lwarn( string.format( "[LUA] %s", s ) )
     end
+    lwarn( string.format( "[LuaError] watch,  %s", string.gsub( stacks, "\n\t?", "#012" ) ) )
 end
 
 function STACK(err)
-    lwarn(debug.traceback(err, 2))
+    local stacks = debug.traceback( err, 2 )
+    for s in string.gmatch( stacks, "[^%c]+" ) do
+        lwarn( string.format( "[LUA] %s", s ) )
+    end
+    lwarn( string.format( "[LuaError] catch,  %s", string.gsub( stacks, "\n\t?", "#012" ) ) )
+
     if perfmon and perfmon.on_exception then
         perfmon.on_exception()
     end
@@ -108,7 +111,7 @@ function tabNum(t)
     return num
 end
 
-function is_in_tab(tab, val) 
+function is_in_tab(tab, val)
     for k, v in pairs( tab ) do
         if v == val then return true end
     end
@@ -149,38 +152,40 @@ end
 --------------------------------------------------------------------------------
 dump_mark = {}
 
-function doDumpTab(t, step, max_cnt, dump_cnt, first, fLOG)
+function doDumpTab(t, step, max_cnt, dump_cnt, fLOG)
     if type(t) ~= "table" then
         return fLOG("%s: %s", type(t), tostring(t))
     end
 
-    if first then
-        dump_cnt = 0
+    step = step or 4
+    dump_cnt = dump_cnt or 0
+    max_cnt = max_cnt or 20
+
+    if dump_cnt == 0 then
         dump_mark = {}
-        max_cnt = max_cnt or 20
+        dump_mark[t] = true
     else
-        if max_cnt and (dump_cnt + 1 > max_cnt) then
+        if dump_cnt + 1 > max_cnt then
             return
         end
     end
 
-    step = step or 4
     fLOG("%s{", mkSpace(step*dump_cnt))
     for k, v in pairs(t) do
         if type(v) == "table" then
             if not dump_mark[v] then
                 dump_mark[v] = true
                 fLOG("%s[%s] = %s", mkSpace(step*(dump_cnt+1)), toStr(k), tostring(v))
-                doDumpTab(v, step, max_cnt, dump_cnt+1, false, fLOG)
+                doDumpTab(v, step, max_cnt, dump_cnt+1, fLOG)
             else
                 fLOG("%s[%s] = %s -- already dumped.", mkSpace(step*(dump_cnt+1)), toStr(k), tostring(v))
             end
         else
-            fLOG("%s[%s] = %s", mkSpace(step*(dump_cnt+1)), toStr(k), toStr(v))
+            fLOG("%s[%s] = %s,", mkSpace(step*(dump_cnt+1)), toStr(k), toStr(v))
         end
     end
-    fLOG("%s}", mkSpace(step*dump_cnt))
-    if first then dump_mark = {} end
+    fLOG("%s},", mkSpace(step*dump_cnt))
+    if dump_cnt == 0 then dump_mark = {} end
 end
 
 function do_chat_tab(p, t, step, max_cnt, dump_cnt, first)
@@ -237,7 +242,7 @@ function dumpTab(t, what, max_cnt, ignore_release)
         if type(t) ~= "table" then
             LOG("%s: %s", type(t), tostring(t))
         else
-            doDumpTab(t, nil, max_cnt, 0, true, LOG)
+            doDumpTab(t, nil, max_cnt, 0, LOG)
         end
         LOG("|$$ : %s", what or "Unknown")
     end
@@ -316,6 +321,8 @@ function copyTab(object)
     end  -- function _copy
     return _copy(object)
 end  -- function deepcopy
+
+
 
 --setfenv = setfenv or function(f, t)
 --    f = (type(f) == 'function' and f or debug.getinfo(f + 1, 'f').func)

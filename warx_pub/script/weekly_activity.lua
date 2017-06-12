@@ -1,9 +1,5 @@
 module("weekly_activity", package.seeall)
 
-function get_relative_start()
-	return _G.gSysStatus.start
-end
-
 Day2Index = {
 	[0] = 1,
 	[1] = 2,
@@ -68,12 +64,12 @@ function refresh_data()
 	g_weekly_activity_data.is_started = 1
 end
 
-function init_activity()
+function init_weekly_activity()
 	if g_weekly_activity_data.unlock_time ~= 0 then
         return
     end
 
-    local open_time = get_relative_start()
+    local open_time = get_sys_status("start")
     local time_table = os.date("*t", open_time)
     g_weekly_activity_data.unlock_time = os.time({year = time_table.year, month = time_table.month, day = time_table.day + WEEKLY_ACTIVITY_OPEN_TIME, hour = 0, min = 0, sec = 0})
 
@@ -100,6 +96,36 @@ function init_activity()
     end
     save_weekly_activity()
 
+end
+
+function reinit_weekly_activity()
+	--清空排行榜
+	for k, v in pairs(resmng.prop_weekly_activity or {}) do
+		rank_mng.clear(v.RankID)
+	end
+
+	g_weekly_activity_data = {
+		data_list = {},
+		current_index = 0,
+		start_time = 0,
+		unlock_time = 0,
+		activity_num = 0,
+		is_started = 0,
+	}
+
+    local db = dbmng:getOne()
+    while true do
+        db.status:delete( {_id="weekly_activity"} )
+        local info = db:runCommand("getPrevError")
+        if info then break end
+    end
+
+    for _, ply in pairs(gPlys or {}) do
+    	ply.weekly_activitiy_num = 0
+    	ply.weekly_activity_info = {{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0}}
+    end
+
+	init_weekly_activity()
 end
 
 function on_day_pass()
@@ -256,6 +282,7 @@ function send_rank_award(aid)
 				local total_score = ply:get_weekly_activity_total()
 				if total_score >= prop_tab.Cond then
 					ply:send_system_notice(prop_tab.MailId, {}, {temp_rank, g_weekly_activity_data.current_index}, award_tab)
+					WARN("weekly activity send rank award, pid=%d, rankid=%d", pid, rank_id)
 				end
 			end
             temp_rank = temp_rank + 1
@@ -285,18 +312,21 @@ function send_score_award(ply, index, aid)
 		ply_info[2] = 1
 		ply.weekly_activity_info = ply.weekly_activity_info
 		ply:send_system_notice(prop_tab.Mail, {}, {g_weekly_activity_data.current_index}, prop_tab.Award1)
+		WARN("weekly activity send score award1, pid=%d", ply.pid)
 	end
 	--第二档
 	if ply_info[1] >= prop_tab.Cond2 and ply_info[2] < 2 then
 		ply_info[2] = 2
 		ply.weekly_activity_info = ply.weekly_activity_info
 		ply:send_system_notice(prop_tab.Mail, {}, {g_weekly_activity_data.current_index}, prop_tab.Award2)
+		WARN("weekly activity send score award2, pid=%d", ply.pid)
 	end
 	--第三档
 	if ply_info[1] >= prop_tab.Cond3 and ply_info[2] < 3 then
 		ply_info[2] = 3
 		ply.weekly_activity_info = ply.weekly_activity_info
 		ply:send_system_notice(prop_tab.Mail, {}, {g_weekly_activity_data.current_index}, prop_tab.Award3)
+		WARN("weekly activity send score award3, pid=%d", ply.pid)
 	end
 end
 

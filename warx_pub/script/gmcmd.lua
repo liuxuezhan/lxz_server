@@ -2,7 +2,7 @@ module( "gmcmd", package.seeall )
 
 
 function do_cmd(cmd)
-    dumpTab(cmd, "gm cmd")
+    INFO("[GM] gm cmd %s " , Json.encode(cmd or {}))
     local gm_type = cmd.cmd
 
     local cmd_item = gmcmd_table[ gm_type ]
@@ -57,7 +57,7 @@ end
 function addexp(pids, exp)
     local ply = getPlayer(tonumber(pids[1]))
     if ply then
-        local num = tonumber(param[2])
+        local num = tonumber(exp)
         ply:add_exp(num)
         return {code = 1, msg = "success"}
     end
@@ -309,8 +309,9 @@ function on_pay(pids, num)
     num = tonumber(num)
     local ply = getPlayer(pids[1])
     if ply then
-        ply:on_pay(num)
-        return {code = 1, msg = "success"}
+        local ret = ply:on_pay(num)
+        --local ret = remote_func(ply.emap, "agent_on_pay", {"player", ply.pid, num, true, gMapID}) 
+        return {code = 1, msg = ret}
     else
         return {code = 0, msg = "no ply"}
     end
@@ -484,11 +485,39 @@ function ply(pids, ...)
         local msg = {} 
         for _, v in pairs({...}) do
             --lxz(v)
-            if v ~= "arm" then table.insert(msg ,{v,p:get_one(v) or {}} ) end
+            if v == "arm" then 
+            else 
+                table.insert(msg ,{v,p:get_one(v) or {}} ) 
+            end
         end
-        return {code = 0, msg = msg}
+        return {code = 1, msg = msg}
     else
         return {code = 0, msg = "no ply"}
+    end
+end
+
+function union(pids, ...)
+    local u = unionmng.get_union(tonumber(pids[1]))
+    if u then
+        local _members = u:get_members()
+        local msg = { 
+                        name = u.name,
+                        alias= u.alias,
+                        num  = u.membercount,
+                        pow  = u:union_pow(),
+                        leader = getPlayer(u.leader).name,
+                        language = u.language,
+                        members = {},
+                    }
+        for _, p in pairs(_members or {}) do
+            if not R0 and player_t.get_rank(p) == resmng.UNION_RANK_0 then
+            else
+                table.insert(msg.members,{p.name,p:get_castle_lv(),p.pow})
+            end
+        end
+        return {code = 1, msg = msg}
+    else
+        return {code = 0, msg = "no union"}
     end
 end
 
@@ -510,6 +539,12 @@ function add_buf(pids, id, count)
     else
         return {code = 0, msg = "no ply"}
     end
+end
+
+function set_sys_val(pids, key, v)
+    local val = tonumber(v)
+    set_sys_status(key, val)
+    return {code = 1, msg = "success"}
 end
 
 function set_val(pids, key, v)
@@ -556,6 +591,27 @@ function skill(pids, skill)
     end
 end
 
+function resend_order(pids)
+    local p = getPlayer(tonumber(pids[1]))
+    if p then
+        Rpc:gm_resend_order(p)
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
+function kaifu(pids)
+    set_sys_status("start", gTime)
+    world_event.reinit_world_event()
+    weekly_activity.reinit_weekly_activity()
+    operate_activity.reinit_operate_activity()
+    lost_temple.init_lt()
+    king_city.init_kw()
+    rank_mng.reset_rank()
+    return {code = 1, msg = "success"}
+end
+
 
 function totool(pids)
     local send = {}
@@ -588,6 +644,7 @@ gmcmd_table = {
     ["build_lv"]         = { 4,              build_lv,         "建筑升级",                     "build_lv=class=mode=lv=pid" },
     ["blockaccount"]         = { 4,              block_account,         "禁止玩家登录",                     "blockaccount=time=pid" },
     ["ply"]         = { 4,              ply,         "查询玩家数据",                     "what" },
+    ["union"]         = { 4,              union,         "查询军团数据",                     "what" },
     ["addbuf"]         = { 4,              add_buf,         "给玩家加buf",                     "addbuf=1=-1" },
     ["setval"]         = { 4,              set_val,         "设置玩家属性",                     "set_val=key=1" },
     ["setef"]         = { 4,              set_ef,         "设置玩家ef属性",                     "set_ef=key=1" },
@@ -609,6 +666,8 @@ gmcmd_table = {
     ["endkw"]         = { 4,              end_kw,         "王城战结束",                     "endkw" },
     ["peacekw"]         = { 4,              end_kw,         "王城战结束",                     "endkw" },
     ["trykw"]         = { 4,              try_kw,         "王城战解锁",                     "endkw" },
+    ["setsysval"]         = { 4,              set_sys_val,         "设置系统全局变量",                     "setsysval=key=val" },
+    ["kaifu"]         = { 4,              kaifu,         "开服重置数据",                     "kaifu" },
     ---- 测试使用
     ["buylist"]         = { 4,              buylist,         "生成购买列表",                     "buylist" },
     ["pay"]         = { 4,              pay,         "模拟购买",                     "pay=product_id" },
@@ -635,6 +694,7 @@ gmcmd_table = {
     ["jpushall1"] = {4, jpush_all_ntf, "推送所以用户通知", "pushntf=idx"},
     ["docheck"] = {4, do_check, "强制docheck操作", "docheck"},
     ["totool"] = {4, totool, "to_tool", "totool"},
+    ["resendorder"] = {4, resend_order, "通知客户端重发订单", "resendorder"},
 
 
 }

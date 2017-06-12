@@ -168,6 +168,14 @@ function clean_timer()
 end
 
 function update_ply_score(key, score)
+    local ply = getPlayer(key)
+    if ply then
+        local u = ply:get_union()
+        if u then
+            u:add_score_in_u(key, ACT_TYPE.LT, score)
+        end
+    end
+
     local org_score = rank_mng.get_score(10, key) or 0
     score = score + org_score
     rank_mng.add_data(10, key, {score})
@@ -189,7 +197,7 @@ function try_start_lt()
         local prepare_time =  1800
         if not  player_t.debug_tag then
             if actState == LT_STATE.LOCK then
-                if ( gTime + prepare_time - _G.gSysStatus.start or 0) >= prop.Spantime  then
+                if ( gTime + prepare_time - get_sys_status("start") or 0) >= prop.Spantime  then
                     timer.new("start_lt", prepare_time)
                     lt_ntf(resmng.LT_OPEN)
                 end
@@ -207,6 +215,23 @@ function try_start_lt()
             lt_ntf(resmng.LT_OPEN)
         end
     end
+end
+
+function init_lt()
+    for k, v in pairs(citys or {}) do
+        local city = get_ety(v)
+        if city then
+            close_temple(city)
+        end
+    end
+    seq_citys = {}
+    actState = 0
+    gPendingSave.status["lostTemple"].actState  = actState
+    start_time = gTime
+    gPendingSave.status["lostTemple"].end_time = start_time
+    end_time = gTime
+    gPendingSave.status["lostTemple"].end_time = end_time
+    clear_timer()
 end
 
 function lt_ntf(notify_id)
@@ -291,7 +316,7 @@ function gen_temple_by_propid(propid)
 end
 
 function gen_normal_temples()
-    local num = 300
+    local num = 600
     local index = math.floor(math.sqrt(6400 * 16 * 16 / num))
     for i = 1, 80 * 16 , index do
         for j = 1, 80 * 16, index  do
@@ -308,9 +333,9 @@ function gen_elite_temples()
             local prop = resmng.prop_world_unit[bandId]
             local grade = 1
             if k == 1 then grade = 3 else grade = 2 end
-            print("gen lt ", k, i, v[2], grade)
+           -- INFO("[LT] gen lt ", k, i, v[2], grade)
             if prop then
-                print("npc city band pos ", prop.X, prop.Y, prop.ID)
+                INFO("[LT] npc city band pos %d %d %d", prop.X, prop.Y, prop.ID)
                 respawn(math.floor(prop.X/16), math.floor(prop.Y/16), grade, bandId, false)
             end
         end
@@ -371,8 +396,7 @@ function respawn(tx, ty, grade, bandId, ntf_tag)
                 m.band_id = bandId
                 remove_pool(bandId)
             end
-            print("lost temple pos ", m.x, m.y, m.eid)
-            -- debug
+            INFO("[LT] lost temple pos x = %d, y = %d, eid = %d", m.x, m.y, m.eid)
             mark(m)
             local union = unionmng.get_union(m.uid)
             if union then
@@ -499,8 +523,21 @@ function after_fight(ackTroop, defenseTroop)
         --npc_city.try_hold_troop(city, ackTroop)
 
         new_defender_state(city, ackTroop)
-        union_hall_t.battle_room_update_ety(OPERATOR.UPDATE, city)
         etypipe.add(city)
+
+        union_hall_t.battle_room_update_ety(OPERATOR.UPDATE, city)
+        if city.grade == 3 then
+            local conf = resmng.prop_act_notify[resmng.LT_OCCUPY] 
+            if conf then
+                if conf.Notify then
+                    Rpc:tips({pid=-1,gid=_G.GateSid}, 2, conf.Notify,{city.x, city.y, union.alias, union.name})
+                end
+
+                if conf.Chat1 then
+                    player_t.add_chat({pid=-1,gid=_G.GateSid}, 0, 0, {pid=0}, "", conf.Chat1, {city.x, city.y, union.alias, union.name})
+                end
+            end
+        end
     end
     --mark(npcCity)
 end
@@ -613,6 +650,19 @@ function finish_grap_state(self)
 
     rem_ety(self.eid)
     citys[self.eid] = nil
+
+    if self.grade == 3 then
+        local conf = resmng.prop_act_notify[resmng.LT_GATHER] 
+        if conf then
+            if conf.Notify then
+                Rpc:tips({pid=-1,gid=_G.GateSid}, 2, conf.Notify,{self.x, self.y, union.alias, union.name})
+            end
+
+            if conf.Chat1 then
+                player_t.add_chat({pid=-1,gid=_G.GateSid}, 0, 0, {pid=0}, "", conf.Chat1, {self.x, self.y, union.alias, union.name})
+            end
+        end
+    end
 
     add_pool(self.band_id)
     update_act_tag() 
@@ -737,8 +787,9 @@ function send_score_award()
             local plys = rank_mng.get_range(10, v.Rank[1], v.Rank[2])
             for idx, pid in pairs(plys or {}) do
                 local ply = getPlayer(tonumber(pid))
+                local score = rank_mng.get_score(10, tonumber(pid)) or 0
+                INFO("[LT] lost temple person rank %d, %d, %d", num, tonumber(pid), score) 
                 if ply then
-                    local score = rank_mng.get_score(10, tonumber(pid)) or 0
                     local Award = find_rank_prop(k, score, prop)
                     if Award then
                         ply:send_system_notice(10011, {}, {num}, Award.Award)

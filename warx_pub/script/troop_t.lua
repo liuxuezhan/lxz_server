@@ -935,7 +935,7 @@ function add_tr_ef(self, bufid)
             end
         end
     end
-    print(string.format("add_tr_buf, bufid=%d", bufid))
+    INFO(string.format("add_tr_buf, bufid=%d", bufid))
     self.ef_extra = t
 end
 
@@ -952,7 +952,7 @@ function rem_tr_ef(self, bufid)
             end
         end
     end
-    print(string.format("rem_tr_buf, bufid=%d", bufid))
+    INFO(string.format("rem_tr_buf, bufid=%d", bufid))
     self.ef_extra = t
 end
 
@@ -1190,6 +1190,13 @@ function add_soldier(self, id, num)
     live[ id ] = (live[ id ] or 0) + num
 end
 
+function rem_hero(self)
+    local arms = self.arms or {}
+    for _, arm in pairs(arms or {}) do
+        arm.heros = {0,0,0,0}
+    end
+    self.arms = arms
+end
 
 function rem_soldier(self, id, num)
     if num < 1 then return end

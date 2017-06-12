@@ -45,6 +45,7 @@ end
 function distribute_operation(player, task_data, func, ...)
     local key = g_task_func_relation[func]
     if do_task[key] ~= nil then
+        INFO( "[TASK], pid=%d, process_task=%s, key=%s", player.pid, task_data.task_id, key)
         return do_task[key](player, task_data, ...)
     end
 end
@@ -373,21 +374,6 @@ end
 
 --持有英雄数量
 do_task[TASK_ACTION.HAS_HERO_NUM] = function(player, task_data, con_quality, con_star, con_num)
-    
-    player:try_add_tit_point(resmng.ACH_NUM_HERO)
-    player:try_add_tit_point(resmng.ACH_HERO_QUALITY_1)
-    player:try_add_tit_point(resmng.ACH_HERO_QUALITY_2)
-    player:try_add_tit_point(resmng.ACH_HERO_QUALITY_3)
-    player:try_add_tit_point(resmng.ACH_HERO_QUALITY_4)
-    player:try_add_tit_point(resmng.ACH_HERO_QUALITY_5)
-    player:try_add_tit_point(resmng.ACH_HERO_QUALITY_6)
-    player:try_add_tit_point(resmng.ACH_HERO_STAR_1)
-    player:try_add_tit_point(resmng.ACH_HERO_STAR_2)
-    player:try_add_tit_point(resmng.ACH_HERO_STAR_3)
-    player:try_add_tit_point(resmng.ACH_HERO_STAR_4)
-    player:try_add_tit_point(resmng.ACH_HERO_STAR_5)
-    player:try_add_tit_point(resmng.ACH_HERO_STAR_6)
-    
     local real_num = 0
     local hero_list = player:get_hero()
     for k, v in pairs(hero_list) do
@@ -418,13 +404,6 @@ end
 
 --提升英雄等级
 do_task[TASK_ACTION.HERO_LEVEL_UP] = function(player, task_data, con_level)
-
-    player:try_add_tit_point(resmng.ACH_HERO_LEVEL_1)
-    player:try_add_tit_point(resmng.ACH_HERO_LEVEL_2)
-    player:try_add_tit_point(resmng.ACH_HERO_LEVEL_3)
-    player:try_add_tit_point(resmng.ACH_HERO_LEVEL_4)
-    player:try_add_tit_point(resmng.ACH_HERO_LEVEL_5)
-
     local highest = 0
     local hero_list = player:get_hero()
     for k, v in pairs(hero_list) do
@@ -598,14 +577,6 @@ end
 
 --收集品质装备
 do_task[TASK_ACTION.GET_EQUIP] = function(player, task_data, con_grade, con_num, equip_id, real_num)
-
-    player:try_add_tit_point(resmng.ACH_EQUIP_QUALITY_1)
-    player:try_add_tit_point(resmng.ACH_EQUIP_QUALITY_2)
-    player:try_add_tit_point(resmng.ACH_EQUIP_QUALITY_3)
-    player:try_add_tit_point(resmng.ACH_EQUIP_QUALITY_4)
-    player:try_add_tit_point(resmng.ACH_EQUIP_QUALITY_5)
-    player:try_add_tit_point(resmng.ACH_EQUIP_QUALITY_6)
-
     local num = 0
     if equip_id == nil or real_num == nil then
         --遍历找一下满足条件的装备
@@ -1131,6 +1102,7 @@ do_task[TASK_ACTION.PANJUN_SCORE] = function(player, task_data, con_score, real_
     end
     --return update_task_process(task_data, con_score, real_score)
     add_task_process(player, task_data, con_score, real_score)
+    return true
 end
 
 --遗迹塔获得贤者之石

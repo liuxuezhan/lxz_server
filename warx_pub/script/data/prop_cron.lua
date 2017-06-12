@@ -1,7 +1,7 @@
 module("resmng")
 prop_cron = {
     [2] = {game="*", boot=nil, min="17", hour="5", day="*", month="*", wday="*", action="clean", arg={1, "hello"}},
-    [3] = {game="*", boot=true, min="*", hour="5", day="*", month="*", wday="*", action="setDayStart", arg={1, "hello"}},
+    [3] = {game="*", boot=true, min="0", hour="0", day="*", month="*", wday="*", action="setDayStart", arg={1, "hello"}},
     [4] = {game="*", boot=nil, min="0", hour="0", day="*", month="*", wday="*", action="union_donate_summary", arg={}},
     [5] = {game="*", boot=true, min="0", hour="0", day="*", month="*", wday="*", action="on_day_pass", arg={}},
     [6] = {game="*", boot=nil, min="0", hour="4", day="*", month="*", wday="*", action="start_tw", arg={}},

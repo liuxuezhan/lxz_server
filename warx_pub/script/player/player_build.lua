@@ -245,7 +245,7 @@ function construct(self, x, y, build_propid)
                 Rpc:stateBuild(self, t._pro)
                 self:mark_build_queue( idx )
 
-                LOG("construct: pid = %d, build.propid = %d, build.x = %d, build.y = %d", self.pid, build_propid, x, y)
+                LOG("[BUILD], construct, pid=%d, propid=%d, x=%d, y=%d ", self.pid, build_propid, x, y)
                 return
             else
                 ERROR("construct: get build_idx failed, pid = %d, node.Class = %d, node.Mode = %d.", self.pid, node.Class, node.Mode)
@@ -292,7 +292,7 @@ function upgrade(self, idx)
 
                     self:mark_build_queue( idx )
 
-                    LOG("upgrade: pid = %d, build.propid = %d, build.idx = %d", self.pid, build.propid, idx)
+                    LOG("[BUILD], upgrade, pid=%d, propid=%d", self.pid, id )
                     return
                 end
             end
@@ -318,6 +318,7 @@ function do_upgrade(self, build_idx)
     local node = resmng.get_conf("prop_build", build.propid)
     if node then
         local id = node.ID + 1
+        INFO("[BUILD], do_upgrade, pid=%d, propid=%d", self.pid, id)
         local dst = resmng.get_conf("prop_build", id)
         self:add_to_do( "notify_build_upgrade", id)
         if dst then
@@ -358,7 +359,7 @@ function do_upgrade(self, build_idx)
                     pack.lv = dst.Lv
                     self:add_to_do("display_ntf", pack)
 
-                    if dst.Lv >= 6 then self:rem_buf( resmng.BUFF_SHELL_ROOKIE ) end
+                    --if dst.Lv >= 6 then self:rem_buf( resmng.BUFF_SHELL_ROOKIE ) end
 
                     --开启建筑
                     for k, v in pairs(resmng.prop_citybuildview) do
@@ -467,7 +468,7 @@ function one_key_upgrade_build(self, build_idx)
 
             local gold_need = calc_cons_value(cons_need_buy) + calc_acc_gold(dura)
             if gold_need > 0 and gold_need > self.gold then
-                INFO("one_key_upgrade_build: pid = %d, player.gold(%d) < gold_need(%d)", self.pid, self.gold, gold_need)
+                LOG("one_key_upgrade_build: pid = %d, player.gold(%d) < gold_need(%d)", self.pid, self.gold, gold_need)
                 return
             else
                 -- 扣除 cons_have 和 gold_need
@@ -523,6 +524,7 @@ function doTimerBuild(self, tsn, build_idx, arg_1, arg_2, arg_3, arg_4)
                     build.extra.next_time = self:get_online_award_next_time()
                     build.extra = build.extra
                 end
+                INFO("[BUILD], doTimerBuild, create, pid=%d, propid=%d", self.pid, build.propid)
             end
 
             -- offline ntf
@@ -531,6 +533,7 @@ function doTimerBuild(self, tsn, build_idx, arg_1, arg_2, arg_3, arg_4)
         elseif state == BUILD_STATE.UPGRADE then
             self:clear_build_queue( build.idx )
             self:do_upgrade(build_idx)
+            INFO("[BUILD], doTimerBuild, upgrade, pid=%d, propid=%d", self.pid, build.propid)
 
             -- offline ntf
             local build = self:get_build(build_idx)
@@ -550,6 +553,7 @@ function doTimerBuild(self, tsn, build_idx, arg_1, arg_2, arg_3, arg_4)
             self._build[ build_idx ] = nil
             Rpc:stateBuild( self, { idx=build.idx, delete=true } )
             build:clr()
+            INFO("[BUILD], doTimerBuild, destroy, pid=%d, propid=%d", self.pid, build.propid)
 
         elseif state == BUILD_STATE.WORK then
             local conf = resmng.get_conf("prop_build", build.propid)
@@ -570,6 +574,8 @@ function doTimerBuild(self, tsn, build_idx, arg_1, arg_2, arg_3, arg_4)
                     offline_ntf.post(resmng.OFFLINE_NOTIFY_RESEARCH, self, id)
 
                     self:add_count( resmng.ACH_COUNT_RESEARCH, 1 )
+
+                    INFO("[BUILD], doTimerBuild, learn_tech, pid=%d, propid=%d, techid=%d", self.pid, build.propid, id)
 
                 elseif conf.Mode == BUILD_FUNCTION_MODE.HOSPITAL then
                     -- 医疗所(治疗)
@@ -595,6 +601,8 @@ function doTimerBuild(self, tsn, build_idx, arg_1, arg_2, arg_3, arg_4)
 
                             local newbuf = self:add_buf(buff_id, buff_time)
                             build:set_extra("buff", {id=buff_id, start=gTime, over=newbuf[3]})
+
+                            INFO("[BUILD], doTimerBuild, kill_hero, pid=%d, propid=%d, heroid=%s, hero_propid=%d", self.pid, build.propid, hero._id, hero.propid)
                         end
                     end
 
@@ -606,6 +614,7 @@ function doTimerBuild(self, tsn, build_idx, arg_1, arg_2, arg_3, arg_4)
                     build:clr_extra("forge")
                     build:clr_extra("silver")
                     self:add_to_do( "display_ntf", { mode=DISPLY_MODE.NEW_EQUIP, propid=tid } )
+                    INFO("[BUILD], doTimerBuild, forge, pid=%d, propid=%d, tid=%s", self.pid, build.propid, id)
                 end
 
             elseif conf.Class == BUILD_CLASS.RESOURCE then
@@ -631,6 +640,8 @@ function doTimerBuild(self, tsn, build_idx, arg_1, arg_2, arg_3, arg_4)
 
                     -- offline ntf
                     offline_ntf.post(resmng.OFFLINE_NOTIFY_RECRUIT, self)
+
+                    INFO("[BUILD], doTimerBuild, train, pid=%d, propid=%d, armid=%d, armnum=%d", self.pid, build.propid, extra.id, extra.num )
 
                 end
             end
@@ -698,6 +709,8 @@ function acc_build(self, build_idx, acc_type)
         return
     end
 
+    INFO("[BUILD], acc_build, pid=%d, propid=%d, acctype=%s", self.pid, build.propid, acc_type or 0)
+
     build.tmOver = gTime
     timer.adjust( tm._id, gTime )
 
@@ -762,6 +775,8 @@ function item_acc_build(self, build_idx, item_idx, num)
     if build.tmOver <= gTime + 1 then
         Rpc:acc_build( self, build_idx, state, ACC_TYPE.ITEM )
     end
+
+    INFO("[BUILD], item_acc_build, pid=%d, propid=%d, itemid=%s, itemnum=%d, secs=%s", self.pid, build.propid, conf.ID, num, conf.Param * num )
 
     return conf.Param * num
 end
@@ -1259,12 +1274,7 @@ function get_castle_lv(self)
     end
 
     local conf = resmng.get_conf("prop_build", castle.propid)
-    if not conf then
-        WARN("get_castle_lv: no way!!!, pid=%d", self.pid)
-        return 1
-    else
-        return conf.Lv
-    end
+    return conf.Lv
 end
 
 
@@ -1478,6 +1488,7 @@ function black_market_buy(self, idx)
             end
         end
     end
+    INFO( "[BUILD], black_market_buy, pid=%d, propid=%d, idx=%d", self.pid, build.propid, idx )
 end
 
 ----------------------mall
@@ -1593,6 +1604,8 @@ function get_mall(ply, mode)
     end
     local mall = build:get_extra(POINT_MALL_TYPE[mode])
     if not mall or need_refresh(mall) then
+        mall = mall or {}
+        INFO("[ACT_MALL] mall need refresh pid = %d, mode = %d, born_tm = %d, gTime = %d", ply.pid, mode, mall.born_time or gTime, gTime)
 
         local itemPool = init_pool(mode)
         mall = init_shelf(itemPool, mode)
@@ -1614,11 +1627,17 @@ end
 
 function mall_buy(self, mode, idx)
     local build = self:get_mall_build(mode)
+    if not build then
+        return
+    end
     local mall = self:get_mall(mode)
     if mall then
         local shelf = mall.shelf
         if not shelf then return end
         local item = shelf[ idx ]
+        if not item then
+            return
+        end
         local conf = resmng.get_conf("prop_mall_item", item.itemId)
         if conf and item.state ~= 1 then
             if self:condCheck(conf.Pay) then
@@ -1626,20 +1645,13 @@ function mall_buy(self, mode, idx)
                 self:add_bonus("mutex_award", conf.Buy, VALUE_CHANGE_REASON.PT_MALL_BUY,1, false)
                 --任务
                 task_logic_t.process_task(self, TASK_ACTION.MARKET_BUY_NUM, 1, 1)
+                INFO( "[BUILD], mall_buy, pid=%d, propid=%d, mode=%s, idx=%s", self.pid, build.propid, mode, idx )
 
-
-                --[[if conf.Notice == 1 then
-                local mlist = msglist.get("black_market")
-                if not mlist then mlist = msglist.new("black_market", 100, 1) end
-                if mlist then
-                local msg = mlist:msg_add({self.name, conf.ID, 0})
-                end
-                end--]]
                 item.state = 1
                 shelf[idx] = item
-
                 return
             end
+            build:set_extra(POINT_MALL_TYPE[mode], mall)
         end
     end
 end
@@ -1679,6 +1691,7 @@ function black_market_refresh(self)
         local items = do_refresh_black_market_items()
         build:set_extra("items", items)
         build:set_extra("nfresh", nfresh)
+        INFO( "[BUILD], black_market_refresh, pid=%d, propid=%d, nfresh=%d", self.pid, build.propid, nfresh )
     end
 end
 
@@ -1703,6 +1716,7 @@ function refresh_mall_req(self, mode)
         mall.nrefresh = nrefresh
         build:set_extra(POINT_MALL_TYPE[mode], mall)
         kw_mall_info_req(self, mode)
+        INFO( "[BUILD], refresh_mall_req, pid=%d, propid=%d, nfresh=%d", self.pid, build.propid, nrefresh )
     end
 end
 
@@ -1715,6 +1729,8 @@ function open_field( self, index )
     if self:condCheck(node.Cond) and self:consCheck(node.Cons) then
         self:consume(node.Cons, 1, VALUE_CHANGE_REASON.BUILD_CONSTRUCT)
         self.field = index
+
+        INFO( "[BUILD], open_field, pid=%d, index=%d", self.pid, index )
 
         --任务
         task_logic_t.process_task(self, TASK_ACTION.OPEN_RES_BUILD, self.field)
@@ -1784,6 +1800,7 @@ function destroy_build( self, build_idx )
         self:mark_build_queue( build_idx )
 
         reply_ok( self, "destroy_build", 0 )
+        INFO( "[BUILD], destroy_build, pid=%d, propid=%d", self.pid, build.propid )
     end
 end
 
@@ -2075,11 +2092,6 @@ function wall_fire( self, dura )
     if not wall then return end
     if dura < 0 then return end
 
-    --todo test
-    --if dura > 40 then dura = 40 end
-    --hp = hp - speed_f * ( gTime - tmStart_f )
-    --
-
     local prop = resmng.get_conf( "prop_build", wall.propid )
     if not prop then return end
     local max = prop.Param.Defence
@@ -2168,6 +2180,7 @@ function wall_fire( self, dura )
         end
     end
     dumpTab( wall.extra, "wall_fire" )
+    INFO( "[BUILD], wall_fire, pid=%d, propid=%d, dura=%d, hp=%s, speed_f=%s, tmOver_f=%s", self.pid, wall.propid, dura, hp, speed_f, tmOver_f)
 end
 
 
@@ -2180,6 +2193,8 @@ function wall_repair( self, mode ) -- mode == 0; free, mode == 1, use gold; mode
 
     local prop = resmng.get_conf( "prop_build", wall.propid )
     local max = prop.Param.Defence
+
+    INFO( "[BUILD], wall_repair, pid=%d, propid=%d, mode=%d, hp=%s, max=%s", self.pid, wall.propid, mode, hp, max )
 
     if mode == 0 then
         local last = wall:get_extra( "last" ) or 0
@@ -2222,6 +2237,8 @@ function wall_outfire( self )
     self:wall_fire( 0 )
     wall:clr_extras( { "speed_f", "tmStart_f", "tmOver_f", "tmSn_f" } )
     self:rem_state( CastleState.DeFire )
+    INFO( "[BUILD], wall_outfire, pid=%d, propid=%d", self.pid, wall.propid )
+
 end
 
 

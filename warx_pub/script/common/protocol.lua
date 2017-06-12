@@ -58,6 +58,7 @@ Server = {
 
     --  聊天
     chat = "int chanelid, string word, int chatid",      --chanelId: enum in common/define/ChatChanelEnum;   word:the word you say;     chatid:聊天流水号，服务器会在onError方法中返回
+    chat_report = "pack p,string reason",
     fetch_chat = "int channel,int sn,int count",
     chat_p2p = "int pid, string word",
     --chat_with_audio = "int chanelid, byte[] stream",      --TODO
@@ -72,6 +73,8 @@ Server = {
     qryAround = "",
 
 	--troop
+    --
+    get_eye_info_by_propid = "int propid",  --通过propid 查找
     get_eye_info = "int eid",--获取地图单位详细信息
     get_room_troop = "int rid,int pid", --获取战争的行军队列数据
     get_eid_troop = "int eid,int pid", --获取建筑的行军队列数据
@@ -96,6 +99,7 @@ Server = {
     union_mass_join = "int dest_eid, int dest_troop_id, pack arm",        --参与集结
     massgo = "int tid", -- 集结出发
     hold_defense = "int dest_eid, pack arm",  --驻守
+    kick_hold_defense = "int tr_id, int ply_id",  --踢驻防
     support_arm = "int dest_eid, pack arm",  --士兵援助
     support_res = "int dest_eid, pack res",
     gather = "int dest_eid, pack arm",   --采集
@@ -156,6 +160,7 @@ Server = {
     -- mail
     --mail_load = "int class, int id, int is_new",
     mail_load = "int idx",
+    mail_load_by_idx = "pack ids",  -- idx s
     mail_read_by_sn = "pack sns",
     mail_drop_by_sn = "pack sns",
     mail_fetch_by_sn ="pack sns",
@@ -178,26 +183,31 @@ Server = {
     agent_remove_eye = "int pid",
     ack_tool = "int sn, pack info",
     gm_cmd = "string callback_pid, string gm_type, pack content",
+    -- ply change gs
+    ply_change_server = "int map, int x, int y",
+    change_server = "int map, int x, int y, pack data, pack timers, pack union_pro, pack troop, pack mails",
+    change_server_ack = "int map, int pid, int param",
     -- cross gs
-    agent_migrate = "int map, int x, int y, pack data, pack task, pack timers, pack union_pro, pack troop",
+    agent_migrate = "int map, int x, int y, pack data, pack timers, pack union_pro, pack troop, pack mails",
     agent_migrate_ack = "int map, int pid, int param",
-    agent_migrate_back = "int map, int x, int y, pack data, pack task, pack timers, pack union_pro, pack troop",
+    agent_migrate_back = "int map, int x, int y, pack data, pack timers, pack union_pro, pack troop, pack todos, pack mails",
     agent_migrate_back_ack = "int map, int pid, int param",
     agent_syn_call = "int id, string func, pack arg",
     agent_syn_call_ack = "int id, pack ret",
-    agent_login = "int pid",
+    agent_login = "int pid, pack info",
     cross_act_ntf = "int ntf_id, pack param1, pack param2",
-    --upload_gs_info = "pack union_info",
     cross_npc_info_req = "int pid",  -- gs to cross mng
     cross_act_st_cast = "pack info",
     --cross act
     upload_gs_info = "pack info",
+    --upload_union_info = "pack info",
     cross_gm = "pack info",
     refugee_occu_change = "int pid, int mode, pack info",
+    refugee_end = "", -- refugee act end
     post_cross_score = "pack info",
     cross_act_st_req = "",
     upload_act_score = "int action, int val, pack info",
-    send_cross_award = "int mode, int reward_mode, int id, pack award ",
+    send_cross_award = "int mode, int reward_mode, int id, pack award , pack param",
 
     -- allience
     -- tech = {info={{idx,id,exp,tmOver},{...}},mark={idx,idx}}
@@ -220,6 +230,7 @@ Server = {
     union_destory = "",
     union_enlist_set = "int check,string text,int lv,int pow",   --设置招募规则
     union_list = "string name",         --获取军团列表
+    union_list2 = "",         --推荐军团列表
     union_apply = "int uid",            --申请加入
     union_reject = "int pid",            --拒绝申请
 
@@ -238,8 +249,9 @@ Server = {
     union_donate = "int idx, int type",     --科技捐献
     union_donate_clear = "",                --清除科技捐献冷却时间
     union_buildlv_donate = "int mode",       --建筑捐献
-    union_log = "int idx, int mode",        --获取联盟日志
+    union_log = "int idx, string mode",        --获取联盟日志
     union_donate_rank = "int what",         --捐献排名
+    union_ply_rank_req = "int mode",           -- 军团内玩家排名
     union_mall_add = "int propid,int num",   --军团长采购道具
     union_mall_mark = "int propid,int flag",  --军团成员标记要买的道具
     union_mall_buy = "int propid,int num",    --军团成员买道具
@@ -532,6 +544,10 @@ Server = {
     dbg_set = "string key, string val",
     dbg_ask = "string key", 
     get_target_all_award = "int index",
+    get_world_event_stage_award = "int index",
+
+    ip_rule = "unsigned int cmd, unsigned int ip",
+
 }
 
 
@@ -648,6 +664,7 @@ Client = {
 
     union_destory = "",                      --- 军团解散
     union_list = "string key,Array Struct UnionInfo infos",                ---读取军团列表
+    union_list2 = "pack info",                --推荐军团列表
     union_task_add = "pack info",     --获取军团悬赏任务列表
     union_task_get = "pack info",     --获取军团悬赏任务列表
     union_mission_get = "pack info",     --获取军团定时任务
@@ -667,6 +684,7 @@ Client = {
     union_log = "pack info",            --获取联盟日志
     --union_donate_rank = "pack info",  --捐献排名
     union_donate_rank = "Struct UnionRank pack", --捐献排名
+    union_ply_rank_ack = "int mode, pack info",           -- 军团内玩家排名
     union_member_mark = "int pid, string mark", --联盟标记
     union_buildlv_donate = "pack info",       --更新建筑捐献
     union_mall_buy = "int propid,int num",     --军团成员买道具
@@ -762,6 +780,7 @@ Client = {
     notify_bonus = "pack info",
     -----------------------------------------------------
     -- pay cash
+    gm_resend_order = "",
     get_can_buy_list_ack = "pack info",
     
     --act info
@@ -907,6 +926,8 @@ Client = {
     echo = "int time",
 
     dbg_show = "pack info",
+    activate = "",
+
 }
 
 CrossQuery = {

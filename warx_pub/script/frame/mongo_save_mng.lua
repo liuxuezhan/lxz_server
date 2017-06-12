@@ -7,6 +7,7 @@ SAVE_STATE_NONE = 0
 SAVE_STATE_SENT = 1
 
 _switch = _switch or (config.Game == "actx")-- 总开关， 不支持动态修改
+--_switch = true
 _running_coro_cnt = _running_coro_cnt or 0  -- 记录当前正在进行数据库写操作的协程数量
 _coro_pool = _coro_pool or {}               -- 用于执行数据库写操作的协程
 _save_data = _save_data or {}               -- 用于缓存数据库写操作数据的table
@@ -15,7 +16,14 @@ _ack_tick = _ack_tick or {game_db = {}, global_db = {}}                 -- 用�
 _ack_window_data = _ack_window_data or {game_db = {}, global_db = {}}   -- 用于数据库写请求基于帧数和ack的流控的数据
 
 COMMON_WRITE_CONCERN = {w=1, wtimeout=5000} -- 故意不使用j=true的选项，3.2后默认50ms刷一次，参考：https://docs.mongodb.com/manual/core/journaling/
-ACK_WINDOW_SIZE = 2                         -- 用于设置同时向mongo发起几帧的写数据请求，最小为1
+
+if ACK_WINDOW_SIZE == nil then
+    if config.Game == "actx" then           -- act机器人压力测试途中，大并发登录时，这里会成为瓶颈，所以放开到100
+        ACK_WINDOW_SIZE = 100
+    else
+        ACK_WINDOW_SIZE = 2                         -- 用于设置同时向mongo发起几帧的写数据请求，最小为1
+    end
+end
 
 --_save_data = {
 --    game_db = {
@@ -738,21 +746,24 @@ function on_db_reconnect(is_global)
 
     -- release co who pending on db action and restore mongo_save_mng no ack write ops
     local redo_cmd = setmetatable({array = {}}, __mt_save_frame)
-    for k, v in pairs(gCoroPend["db"]) do
+    local db_coro_pend = gCoroPend["db"]
+    for k, v in pairs(db_coro_pend) do
         if type(v) == "table" then
             local extra = v[2]
-            if extra.cmd == "runCommand2" then
-                local param = extra.cmd_data
-                table.insert(redo_cmd[param.frame], param)
-                log_redo_sql(param)
-            else
-                log_other_sql(extra)
+            if extra.is_global == is_global then
+                if extra.cmd == "runCommand2" then
+                    local param = extra.cmd_data
+                    table.insert(redo_cmd[param.frame], param)
+                    log_redo_sql(param)
+                else
+                    log_other_sql(extra)
+                end
+                db_coro_pend[k] = nil
             end
         else
             ERROR("zhoujy_error: this is impossible!")
         end
     end
-    gCoroPend["db"] = {}
 
     if #redo_cmd.array > 0 then
         if #redo_cmd.array > 1 then
@@ -794,6 +805,10 @@ function on_db_reconnect(is_global)
                 end
             end
         end
+    end
+
+    if not is_global and config.Game == "actx" then
+        xpcall(playermng.on_db_reconnect, STACK)
     end
     WARN("zhoujy_warning: handle mongo reconnect done, is_global=%s", is_global)
 end

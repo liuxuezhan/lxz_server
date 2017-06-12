@@ -1,0 +1,12 @@
+--
+-- $Id$
+--
+
+module( "resmng" )
+svnnum("$Id$")
+
+CROSS_UNION_RANK_AWARD_1 = 1
+CROSS_UNION_RANK_AWARD_2 = 2
+CROSS_UNION_RANK_AWARD_3 = 3
+CROSS_UNION_RANK_AWARD_4 = 4
+CROSS_UNION_RANK_AWARD_5 = 5

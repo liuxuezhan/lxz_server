@@ -1246,35 +1246,36 @@ function init_troop(T)
             if hid ~= 0 then
                 local h = heromng.get_fight_attr(hid)
                 if h and h.num > 0 then 
+                    if t.arms[ mode ] then
+                        local node_a = t.arms[ mode ] 
+                        local objs = node_a.objs or {}
+                        if not objs[ mode ] then
+                            t.heroid[ mode ] = h.id
+                            t.herohp[ mode ] = h.num
+                            t.heros[ mode ] = h
 
-                    local node_a = t.arms[ mode ]
-                    local objs = node_a.objs
-                    if not objs[ mode ] then
-                        t.heroid[ mode ] = h.id
-                        t.herohp[ mode ] = h.num
-                        t.heros[ mode ] = h
+                            local node = { id = hid, mode=mode, num = h.num, Atk = h.prop.Atk, Imm = h.prop.Imm, Lv = h.prop.Lv, Hp = h.prop.Hp, Pow = h.prop.Pow, pids = {}, fit_per = h.fit_per, skill=h.skill, skills=h.skills }
+                            node.num0 = node.num
+                            node.hero = hid
+                            node.cul = h.cul
+                            node.per = h.per
+                            objs[ mode  ] = node
 
-                        local node = { id = hid, mode=mode, num = h.num, Atk = h.prop.Atk, Imm = h.prop.Imm, Lv = h.prop.Lv, Hp = h.prop.Hp, Pow = h.prop.Pow, pids = {}, fit_per = h.fit_per, skill=h.skill, skills=h.skills }
-                        node.num0 = node.num
-                        node.hero = hid
-                        node.cul = h.cul
-                        node.per = h.per
-                        objs[ mode  ] = node
+                            t.heroid[ mode ] = h.id
+                            t.herohp[ mode ] = h.num
+                            t.heros[ mode ] = node
 
-                        t.heroid[ mode ] = h.id
-                        t.herohp[ mode ] = h.num
-                        t.heros[ mode ] = node
+                            node.pids[ pid ] = { num0 = h.num }
+                            node_a.num = node_a.num + node.num
+                            if pid == 0 then 
+                                t.arms[ mode ].ef = copyTab( h.ef ) 
+                            elseif pid >= 10000 then
+                                hero_t.gPendingRecalcPow[ hid ] = 1
 
-                        node.pids[ pid ] = { num0 = h.num }
-                        node_a.num = node_a.num + node.num
-                        if pid == 0 then 
-                            t.arms[ mode ].ef = copyTab( h.ef ) 
-                        elseif pid >= 10000 then
-                            hero_t.gPendingRecalcPow[ hid ] = 1
-
-                            local hero = heromng.get_hero_by_uniq_id( hid )
-                            if hero then
-                                hero_t.mark_recalc( hero )
+                                local hero = heromng.get_hero_by_uniq_id( hid )
+                                if hero then
+                                    hero_t.mark_recalc( hero )
+                                end
                             end
                         end
                     end

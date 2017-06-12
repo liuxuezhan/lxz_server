@@ -31,7 +31,9 @@ function add(ply,propid,src,d_propid,pid)--加入军团礼物
     local d = ply.union_item 
     d.cur_idx = (d.cur_idx or 0)  + 1
     local t = {idx=d.cur_idx ,propid=propid,tm=gTime,src=src,d_propid=d_propid,pid=pid }
-    d.item[t.idx] = t
+    local item = d.item or {}
+    item[t.idx] = t
+    d.item = item
     gPendingSave.union_item[ply.pid].item = d.item 
 end
 

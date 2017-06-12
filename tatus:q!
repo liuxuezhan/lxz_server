@@ -1,6 +1,0 @@
-[1mdiff --git a/k-vim b/k-vim[m
-[1m--- a/k-vim[m
-[1m+++ b/k-vim[m
-[36m@@ -1 +1 @@[m
-[31m-Subproject commit 4d5ee5acbe8163d77bac107abe7d10a36b56d382[m
-[32m+[m[32mSubproject commit 4d5ee5acbe8163d77bac107abe7d10a36b56d382-dirty[m

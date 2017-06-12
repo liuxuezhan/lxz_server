@@ -1,9 +1,5 @@
 module("operate_activity", package.seeall)
 
-function get_relative_start()
-	return _G.gSysStatus.start
-end
-
 --抽象类、派生类实现 start
 BaseClass = {_name_=""}
 function BaseClass:GetName()
@@ -217,7 +213,7 @@ function CActivityBase:calc_stamp(con_tb)
 	if class == "relative" then
 		local con_day = con_tb[2]
 		local con_hour = con_tb[3]
-		local open_time = get_relative_start()
+		local open_time = get_sys_status("start")
 		local time_table = os.date("*t", open_time)
 		stamp = os.time({year = time_table.year, month = time_table.month, day = time_table.day + con_day, hour = con_hour, min = 0, sec = 0})
 
@@ -386,6 +382,19 @@ function CActivityBase:refresh_player_by_version(player)
 
 end
 
+function CActivityBase:first_start(player)
+	if self.is_start ~= 1 then
+		return
+	end
+	if player:get_operate_first_flag(self.activity_id) == true then
+		return
+	end
+	for k, v in pairs(OPERATE_ACTIVITY_ACTION) do
+		self:process_action(player, v)
+	end
+	player:set_operate_first_flag(self.activity_id)
+end
+
 function CActivityBase:process_action(player, action, ...)
 	if self.is_start ~= 1 or self.is_end ~= 0 or self.action_array[action] ~= true then
 		return
@@ -422,10 +431,17 @@ function CActivityBase:finish_action(action, player, prop_action, ...)
 	elseif action == OPERATE_ACTIVITY_ACTION.RESOURCE_MARKET then--资源兑换
 		return self:action_resource_market(player, prop_action, ...)
 
+	elseif action == OPERATE_ACTIVITY_ACTION.COLLECT_GRADE_HERO then--收集不通品阶的英雄
+		return self:action_collect_grade_hero(player, prop_action, ...)
+
 	end
 end
 
 function CActivityBase:action_gacha(player, prop_action, real_type, real_num)
+	if real_type == nil or real_num == nil then
+		return
+	end
+
 	local action, con_type = unpack(prop_action.Action)
 	if con_type ~= real_type then
 		return 0
@@ -437,6 +453,9 @@ function CActivityBase:action_gacha(player, prop_action, real_type, real_num)
 end
 
 function CActivityBase:action_kill_soldier(player, prop_action, real_type, real_num)
+	if real_type == nil or real_num == nil then
+		return
+	end
 	local action, con_type = unpack(prop_action.Action)
 	if con_type ~= 0 and con_type ~= real_type then
 		return 0
@@ -451,6 +470,9 @@ function CActivityBase:action_occupy_city(player, prop_action, real_type, real_n
 end
 
 function CActivityBase:action_black_market(player, prop_action, real_num)
+	if real_num == nil then
+		return
+	end
 	--更新玩家数据
 	player:set_operate_info(self.activity_id, OPERATE_PLAYER_DATA.ACTION, prop_action.ID, real_num)
 	
@@ -458,13 +480,30 @@ function CActivityBase:action_black_market(player, prop_action, real_num)
 end
 
 function CActivityBase:action_resource_market(player, prop_action, real_num)
+	if real_num == nil then
+		return
+	end
 	--更新玩家数据
 	player:set_operate_info(self.activity_id, OPERATE_PLAYER_DATA.ACTION, prop_action.ID, real_num)
 	
 	return OPERATE_SCORE_TYPE_INC, (prop_action.Score * real_num)
 end
 
-
+function CActivityBase:action_collect_grade_hero(player, prop_action)
+	local action, con_quality = unpack(prop_action.Action)
+    local real_num = 0
+    local hero_list = player:get_hero()
+    for k, v in pairs(hero_list or {}) do
+        if con_quality == 0 then
+            real_num = real_num + 1
+        elseif con_quality ~= 0 and con_quality == v.quality then
+        	real_num = real_num + 1
+        end
+    end
+	--更新玩家数据
+	player:update_operate_info(self.activity_id, OPERATE_PLAYER_DATA.ACTION, prop_action.ID, real_num)
+	return OPERATE_SCORE_TYPE_INC, (prop_action.Score * real_num)
+end
 
 
 

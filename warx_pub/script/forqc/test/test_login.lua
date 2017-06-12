@@ -9,24 +9,6 @@ UDID = "CD8F97F83071828DAB5623B8DD47FB4D"
 
 _G.Json = require("frame/json")
 
-
-function post_to( url, data )
-    local tmpfile = string.format( "download.%d", gTime )
-    os.execute( "rm -rf ".. tmpfile )
-
-    print( url )
-
-    local info = Json.encode( data )
-    local cmd = string.format( "curl -X POST -s -o %s -d \'%s\' %s", tmpfile, info, url )
-
-    os.execute( cmd )
-    local f = io.open( tmpfile, "r" )
-    if not f then return end
-    local str = f:read()
-    os.execute( "rm -rf ".. tmpfile )
-    return Json.decode( str )
-end
-
 function get_ver()
     local tmpfile = string.format( "download.%d", gTime )
     os.execute( "rm -rf ".. tmpfile )
@@ -156,6 +138,7 @@ function t1.action( idx )
     node.map = server_id
     node.account = node.uid
     node.idx = idx
+    node.did = UDID
     gHavePlayers[ idx ] = node
 
     local sid = connect(ip, 8001, 0, 0 )

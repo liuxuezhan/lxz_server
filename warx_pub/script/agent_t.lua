@@ -19,7 +19,7 @@ function agent_remove_eye( self, pid )
 end
 
 function agent_syn_call(self, id, func, arg)
-    --print("sync all ", id, func, arg)
+    print("sync all ", id, func, arg)
     local map_id = self.pid
     if arg[1] == "union" then
         local uid = arg[2]
@@ -71,10 +71,16 @@ function agent_syn_call_ack(self, id, ret)
     coroutine.resume(co, ret)
 end
 
-function agent_login(self, pid)
-    ply = getPlayer(pid)
+function agent_login(self, pid, info)
+    local ply = getPlayer(pid)
     if ply then
         ply:login(pid)
+        if info then
+            ply.token = info.token
+            gPendingSave.player[ ply.pid ].token = info.token
+            ply.ip = info.ip
+            ply.sockid = info.sockid
+        end
     end
 end
 
@@ -97,31 +103,42 @@ function clear_ply_info(pid)
     local equip = ply._equip or {}
     for k, v in pairs(equip) do
         v:clr()
-        gPendingSave.equip[ k ] = v
+        --gPendingSave.equip[ k ] = v
     end
     ply._equip = nil
 
     local item = ply.item or {}
-    gPendingSave.item[ pid ] = nil
+    gPendingDelete.item[ ply.pid ] = 0
     ply.item = nil
 
     local count = ply._count or {}
-    for k, v in pairs(count) do
-        gPendingSave.count[ ply.pid ][k] = nil
-    end
+    gPendingDelete.count[ ply.pid ] = 0
     ply._count = nil
 
+    gPendingDelete.title[ ply.pid ] = 0
+    gPendingDelete.tit_point[ ply.pid ] = 0
+
     local ache = ply._ache or {}
-    for k, v in pairs(ache) do
-        gPendingSave.ache[ ply.pid ][k] = nil
-    end
+    gPendingDelete.ache[ ply.pid ] = 0
     ply._ache = nil
 
     troop_mng.delete_troop(ply.my_troop_id)
 
-    local db = ply:getDb()
-    db.task:delete({_id=ply.pid}) 
+    gPendingDelete.finished_task[ply.pid] = 0
+    
+    local cur_list = ply:get_cur_task_list()
+    for k, v in pairs(cur_list or {}) do
+        local _id = ply.pid.."_"..v.task_id
+        gPendingDelete.task[_id] = 0
+    end
+    ply._cur_task_list = nil
+
+    ply.first_blood = nil
+    gPendingDelete.first_blood[ply.pid] = 0
+
     rem_ety(ply.eid)
+    remPlayer(ply.pid)
+    gPendingDelete.player[ply.pid] = 0
 end
 
 function agent_migrate_ack(self, pid, map, ret)
@@ -133,8 +150,12 @@ function agent_migrate_ack(self, pid, map, ret)
             pushInt(self.pid)
             pushInt(ply.pid)
             pushOver()
-            ply.cross_gs = self.pid
-            Rpc:callAgent(self.pid, "agent_login", pid)
+            ply.map = self.pid
+            local info = {}
+            info.token = ply.token
+            info.sockid = ply.sockid
+            info.ip = ply.ip
+            Rpc:callAgent(self.pid, "agent_login", pid, info)
             return
         end
         --local ply = getPlayer(pid)
@@ -189,17 +210,166 @@ function agent_migrate_ack(self, pid, map, ret)
     end
 end
 
+function change_server( self, pid, x, y, data , timers, union_pro, troop, mails)
+    -- 是否有空位    
+    local from = self.pid
+  --  if c_map_test_pos( x, y, 4 ) ~= 0 then
+  --      Rpc:callAgent( from, "change_server_ack", pid, gMapID, -1 ) 
+  --      return
+  --  end
 
-    function agent_migrate( self, pid, x, y, data , task, timers, union_pro, troop)
+    local eid = get_eid_ply()
+    local pro = data._pro
+    local tm_login = pro.tm_login
+    pro.eid = eid
+    pro.map = gMapID
+    pro.emap = gMapID
+    local ply = player_t.new( pro )
+    ply.x = x
+    ply.y = y
+    ply.uid = nil
+    ply.sockid = data.sockid 
+    ply.tm_login = tm_login or gTime
+    rawset( ply, "eid", eid )
+
+    local build = data._build or {}
+    local bs = {}
+    for k, v in pairs( build or {}) do
+        b = v._pro
+        bs[ b.idx ] = build_t.new( b )
+    end
+    ply._build = bs
+
+    local hs = {}
+    for k, v in pairs(data._hero or {}) do
+        h = v._pro
+        local hero = hero_t.new(h)
+        hs[h.idx] = hero
+        heromng.add_hero(hero)
+    end
+    ply._hero = hs
+
+    local equip = data._equip or {}
+    local es = {}
+    for k, v in pairs(equip or {}) do
+        local id = getId("equip")
+        v._id = id
+        gPendingSave.equip[ id ] = v
+        es[id] = v
+    end
+    --ply._equip = es
+
+    local item = data._item or {}
+    ply._item = {}
+    for k, _ in pairs(item) do
+        ply:add_item_pend(k)
+    end
+
+    local count = data._count or {}
+    for k, v in pairs(count or {}) do
+        gPendingSave.count[ ply.pid ][k] = v
+    end
+    --ply._count = count
+
+    local ache = data._ache or {}
+    for k, v in pairs(ache or {}) do
+        gPendingSave.ache[ ply.pid ][k] = v
+    end
+    --ply._ache = ache
+
+    local tit_point = data._tit_point or {}
+    for k, v in pairs(tit_point or {}) do
+        gPendingSave.tit_point[ ply.pid ][k] = v
+    end
+
+    gPendingSave.title[ ply.pid ] = data._title
+    
+    --ply._tit_point = tit_point
+    --ply.ache_point = data.ache_point
+
+    ply:initEffect()
+
+    ply:clear_task()   -- task
+    gPendingSave.finished_task[ply.pid] = data._finish_task_list
+    local cur_task_list = data._cur_task_list or {}
+    for k, v in pairs(cur_task_list or {}) do
+        local _id = ply.pid.."_"..v.task_id
+        gPendingSave.task[_id] = v
+    end
+
+    local _first_blood = data._first_blood or{}
+    gPendingSave.first_blood[ply.pid] = _first_blood
+
+    for _, mail in pairs(mails or {}) do
+        gPendingSave.mail[mail._id] = mail
+    end
+
+
+    --player_t._cache[pid] = pro
+    gEtys[ eid ] = ply
+    ply.size = 4
+    ply.token = token
+    gPendingSave.player[ ply.pid ].token = token
+    etypipe.add(ply)
+
+    local tr = ply:get_my_troop()
+    if tr then
+        for pid, arm in pairs(troop.arms or {}) do
+            tr:add_arm(pid, arm)
+        end
+    end
+
+    for k, v in pairs(timers) do
+        timer._sns[v._id] = v
+        timer.newTimer(v)
+        timer.mark(v)
+    end
+
+    for _, mail in pairs(mails or {}) do
+        gPendingSave.mail[mail._id] = mail
+    end
+
+    Rpc:callAgent( self.pid, "change_server_ack", pid, self.pid, pid ) 
+
+    --if ply then
+    --    pushHead(_G.GateSid, 0, 9)  -- set server id
+    --    pushInt(ply.sockid)
+    --    pushInt(self.pid)
+    --    pushInt(ply.pid)
+    --    pushOver()
+    --    player_t.login( ply, ply.pid )
+    --end
+end
+
+function change_server_ack(self, pid, map, ret)
+    if ret ~= -1 then
+        local ply = getPlayer(pid)
+        if ply then
+            pushHead(_G.GateSid, 0, 9)  -- set server id
+            pushInt(ply.sockid)
+            pushInt(self.pid)
+            pushInt(ply.pid)
+            pushOver()
+
+            Rpc:callAgent(self.pid, "agent_login", pid, {})
+            ply:union_quit()
+            clear_ply_info(pid)
+            return
+        end
+    end
+end
+
+
+function agent_migrate( self, pid, x, y, data , timers, union_pro, troop, mails)
     --print("jump to server ", pid)
-        -- 是否有空位    
-        local from = self.pid
-        --if c_map_test_pos( x, y, 4 ) ~= 0 then
-        --    Rpc:callAgent( from, "agent_migrate_ack", pid, gMapID, -1 ) 
-        --    return
-        --end
+    -- 是否有空位    
+    local from = self.pid
+    --if c_map_test_pos( x, y, 4 ) ~= 0 then
+    --    Rpc:callAgent( from, "agent_migrate_ack", pid, gMapID, -1 ) 
+    --    return
+    --end
 
-        local eid = get_eid_ply()
+    local eid = get_eid_ply()
 
     local pro = data._pro
     local tm_login = pro.tm_login
@@ -212,7 +382,7 @@ end
     ply.tm_login = tm_login or gTime
     rawset( ply, "eid", eid )
 
-    ply._union = data._union
+    --ply._union = data._union
     gPendingSave.union_member[ply.pid] = ply._union
 
     local build = data._build or {}
@@ -241,11 +411,11 @@ end
         gPendingSave.equip[ id ] = v
         es[id] = v
     end
-    ply._equip = es
+    --ply._equip = es
 
 
     local item = data._item or {}
-    ply._item = item
+    ply._item = {}
     for k, _ in pairs(item) do
         ply:add_item_pend(k)
     end
@@ -254,13 +424,23 @@ end
     for k, v in pairs(count or {}) do
         gPendingSave.count[ ply.pid ][k] = v
     end
-    ply._count = count
+    --ply._count = count
 
     local ache = data._ache or {}
     for k, v in pairs(ache or {}) do
         gPendingSave.ache[ ply.pid ][k] = v
     end
-    ply._ache = ache
+    --ply._ache = ache
+
+    local tit_point = data._tit_point or {}
+    for k, v in pairs(tit_point or {}) do
+        gPendingSave.tit_point[ ply.pid ][k] = v
+    end
+
+    gPendingSave.title[ ply.pid ] = data._title
+    
+    --ply._tit_point = tit_point
+    --ply.ache_point = data.ache_point
 
     --local arm = data.arm
     --local troop = troop_mng.create_troop(TroopAction.DefultFollow, ply, ply)
@@ -268,27 +448,34 @@ end
     --for id, num in pairs( arm ) do
     --    troop:add_soldier( id, num )
     --end
+    --
     ply:initEffect()
 
-    ply:clear_task()
-    for k, v in pairs(task) do
-        gPendingSave.task[v._id] = v
+    ply:clear_task()   -- task
+    gPendingSave.finished_task[ply.pid] = data._finish_task_list
+    local cur_task_list = data._cur_task_list or {}
+    for k, v in pairs(cur_task_list or {}) do
+        local _id = ply.pid.."_"..v.task_id
+        gPendingSave.task[_id] = v
     end
 
+    local _first_blood = data._first_blood or{}
+    gPendingSave.first_blood[ply.pid] = _first_blood
 
-    player_t._cache[pid] = pro
+
+    --player_t._cache[pid] = pro
     gEtys[ eid ] = ply
     ply.size = 4
+    ply.token = token
+    gPendingSave.player[ ply.pid ].token = token
     etypipe.add(ply)
 
-    local tr = ply:init_my_troop()
+    local tr = ply:get_my_troop()
     if tr then
-        for k, v in pairs(troop.arms or {}) do
-            tr:add_arm(k, v)
+        for pid, arm in pairs(troop.arms or {}) do
+            tr:add_arm(pid, arm)
         end
     end
-
-    ply.my_troop_id = tr._id
 
     for k, v in pairs(timers) do
         timer._sns[v._id] = v
@@ -301,11 +488,23 @@ end
         local u = union2_t.new(union_pro)
         union = u
         u.map_id = self.pid
+        u.npc_citys = {}
+        u.mc_act_ply = {} -- 参见本次mc活动玩家
+        u.mc_ply_rank = {} -- 参见本次mc活动玩家
+        u.mc_reward_pool = {}  -- 本次mc奖励
+        u.mc_trs = {}          --mc出发的攻打npc部队
+        u.mc_reward_pool = {}
+        u.can_atk_citys = {}
+        u.declare_wars = {}
         unionmng.add_union2(u)
     end
     local members = union._members or {}
     members[ply.pid] = ply
     union._members = members
+
+    for _, mail in pairs(mails or {}) do
+        gPendingSave.mail[mail._id] = mail
+    end
 
     Rpc:callAgent( self.pid, "agent_migrate_ack", pid, self.pid, pid ) 
 
@@ -319,6 +518,7 @@ end
     --end
 
 end
+
 function agent_migrate_back_ack(self, pid, map, ret)
     if ret ~= -1 then
         local ply = getPlayer(pid)
@@ -328,8 +528,9 @@ function agent_migrate_back_ack(self, pid, map, ret)
             pushInt(self.pid)
             pushInt(ply.pid)
             pushOver()
-            ply.cross_gs = self.pid
-            Rpc:callAgent(self.pid, "agent_login", pid)
+            -- ply.cross_gs = self.pid
+
+            --Rpc:callAgent(self.pid, "agent_login", pid, {})
             clear_ply_info(pid)
             return
         end
@@ -338,7 +539,7 @@ function agent_migrate_back_ack(self, pid, map, ret)
     end
 end
 
-function agent_migrate_back( self, pid, x, y, data , task, timers, union_pro, troop)
+function agent_migrate_back( self, pid, x, y, data , timers, union_pro, troop, todos, mails)
     --print("jump to server ", pid)
     -- 是否有空位    
     local from = self.pid
@@ -411,6 +612,13 @@ function agent_migrate_back( self, pid, x, y, data , task, timers, union_pro, tr
     end
     ply._ache = ache
 
+    local tit_point = data._tit_point or {}
+    for k, v in pairs(tit_point or {}) do
+        gPendingSave.tit_point[ self.pid ][k] = v
+    end
+    ply._tit_point = tit_point
+    ply.ache_point = data.ache_point
+
     --local arm = data.arm
     --local troop = troop_mng.create_troop(TroopAction.DefultFollow, ply, ply)
     --ply.my_troop_id = troop._id
@@ -420,28 +628,43 @@ function agent_migrate_back( self, pid, x, y, data , task, timers, union_pro, tr
     ply:initEffect()
 
     ply:clear_task()
-    for k, v in pairs(task) do
-        gPendingSave.task[v._id] = v
+    gPendingSave.finished_task[self.pid] = data._finish_task_list
+    local cur_task_list = data._cur_task_list or {}
+    for k, v in pairs(cur_task_list or {}) do
+        local _id = ply.pid.."_"..v.task_id
+        gPendingSave.task[_id] = v
     end
 
     player_t._cache[pid] = pro
     gEtys[ eid ] = ply
     ply.size = 4
     etypipe.add(ply)
+    gPendingSave.player[ ply.pid ].token = token
+    etypipe.add(ply)
 
-    local tr = ply:init_my_troop()
+    local tr_old = ply:get_my_troop()
+    troop_mng.delete_troop(tr_old)
+    ply.my_troop_id = nil
+
+    local tr= ply:get_my_troop()
     if tr then
         for k, v in pairs(troop.arms or {}) do
             tr:add_arm(k, v)
         end
     end
 
-    ply.my_troop_id = tr._id
-
-    for k, v in pairs(timers) do
+    for k, v in pairs(timers or {}) do
         timer._sns[v._id] = v
         timer.newTimer(v)
         timer.mark(v)
+    end
+
+    for _, v in pairs(todos or {}) do
+        gPendingInsert.todo[v._id] = v
+    end
+
+    for _, mail in pairs(mails or {}) do
+        gPendingSave.mail[mail._id] = mail
     end
 
     --local union = unionmng.get_union(ply.uid)
@@ -454,6 +677,7 @@ function agent_migrate_back( self, pid, x, y, data , task, timers, union_pro, tr
     --local members = union._members or {}
     --members[ply.pid] = ply
     --union._members = members
+    ply.map = gMapID
 
     Rpc:callAgent( self.pid, "agent_migrate_back_ack", pid, self.pid, pid ) 
 end
@@ -463,7 +687,7 @@ end
 ---cross act
 
 function cross_act_ntf(self, ntf_id, ...)
-    arg = { ... } or {}
+    local arg = { ... } or {}
     local prop = resmng.get_conf("prop_cross_act_notify", ntf_id)
     if prop then
         if prop.Notify then
@@ -494,6 +718,10 @@ function upload_gs_info(self, gs_info)
     cross_mng_c.upload_gs_info(gs_info)
 end
 
+--function upload_union_info(self, union)
+--    cross_mng_c.upload_union_info(union)
+--end
+
 function cross_gm(self, pack)
     if pack[2] == "1" then
         cross_mng_c.cross_act_prepare()
@@ -511,11 +739,11 @@ function cross_gm(self, pack)
         cross_refugee_c.cross_refugee_end()
     end
     if pack[2] == "debug" then
-        cross_mng_c.debug_tag = cross_mng.debug_tag * -1
+        cross_mng_c.debug_tag = cross_mng_c.debug_tag * -1
     end
 end
 
-function refugee_end(self, pack)
+function refugee_end(self)
     refugee.clear_all_refugee()
 end
 
@@ -567,7 +795,7 @@ do_send_award = {}
 do_send_award[RANK_MODE.PLY] = function(mail_num, id, award, param)
     local ply = getPlayer(id)
     if ply then
-        ply:send_system_notice(mail_num, param, v.Award)
+        ply:send_system_notice(mail_num, param or {}, {},award)
     end
 end
 
@@ -575,7 +803,7 @@ do_send_award[RANK_MODE.UNION] = function(mail_num, id, award, param)
     local union = unionmng.get_union(id)
     if union then
         for _, ply in pairs(union._members or {}) do
-            ply:send_system_notice(mail_num, param, v.Award)
+            ply:send_system_notice(mail_num, param or {}, {}, award)
         end
     end
 end
@@ -622,15 +850,25 @@ do_gm_cmd["pay"] = function(param)
         local info =db.order:findOne({_id = param.order_id})
         if not info then
 
-            info = {_id = param.order_id,}
+            info = { _id = param.order_id,
+            info = param,
+        }
             gPendingInsert.order[ info._id ] = info 
 
-            local result = ply:on_pay( product_id, true )
+            local result = {}
+
+            if ply.emap == ply.map then
+                result = ply:on_pay( product_id, true )  -- 本服充值
+            else
+                result = remote_func(ply.map, "agent_on_pay", {"player", ply.pid, product_id, true, gMapID})  -- 夸服pay
+            end
 
             if result.code == 1 then 
                 local prop = resmng.prop_buy[product_id]
                 if prop then
-                    ply:pre_tlog("PayFlow",prop.NewPrice or 0,((prop.Gold or 0) + (prop.ExtraGold or 0)),param.order_id ,"null")
+                    local rmb =  prop.NewPrice or 0
+                    ply.rmb = (ply.rmb or 0) + rmb 
+                    ply:pre_tlog("PayFlow",rmb,((prop.Gold or 0) + (prop.ExtraGold or 0)),param.order_id ,"null")
                 else
                     ply:pre_tlog("PayFlow",product_id,0,param.order_id ,"null")
                 end
@@ -657,7 +895,7 @@ function gm_add_union_item(ply, awards)
     local union = unionmng.get_union(ply.uid)
     if union then
         for _, mem in pairs(union._members or {}) do
-             union_item.add(mem, awards, UNION_ITEM.CITY, 0)
+            union_item.add(mem, awards, UNION_ITEM.CITY, 0)
         end
     end
 end
@@ -678,7 +916,7 @@ do_gm_cmd["senditem"] = function(param)
         LOG("GM CMD senditem param error ~p", param)
         return {code = 0, msg = "param error"}
     end
-    
+
     local item = {}
 
     for k, v in pairs(param.item or {}) do

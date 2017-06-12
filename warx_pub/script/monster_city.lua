@@ -8,6 +8,7 @@ module_class(
     eid = 0,
     pid = 0,
     uid = 0,
+    --hp = 100,
     can_atk_uid = 0,
     band_eid = 0,
     propid = 0,
@@ -41,6 +42,15 @@ end
 
 function try_update_ply_hurt(key, score, union)
     local inc_score = score
+
+    local ply = getPlayer(key)
+    if ply then
+        local u = ply:get_union()
+        if u then
+            u:add_score_in_u(key, ACT_TYPE.MC, score)
+        end
+    end
+
     local org_score = rank_mng.get_score(8, key) or 0
     score = score + org_score
     rank_mng.add_data(8, key, {score})
@@ -51,7 +61,7 @@ function try_update_ply_hurt(key, score, union)
     -- 军团内积分
     local mc_act_ply = union.mc_act_ply or {}
     local mc_ply_rank = union.mc_ply_rank or {}
-    mc_ply_rank[key] = (mc_ply_rank[key] or 0 )+ score
+    mc_ply_rank[key] = score
     mc_ply_rank.version = gTime
     mc_act_ply[key] = key
     union.mc_act_ply = mc_act_ply
@@ -159,8 +169,8 @@ end
 
 function gen_monster_city(atkEid)
     local npcCity = get_ety(atkEid)
-    LOG("gen monster city atk eid %d  npc %d", atkEid, npcCity.eid)
     if npcCity then
+    LOG("gen monster city atk eid %d  npc %d", atkEid, npcCity.eid )
         local _id = get_eid_monster_city()
         local m = {}
         m._id = _id
@@ -287,6 +297,7 @@ function gen_defense_city(city, prop)
     LOG("defense city eid %d %d %d", m.eid, m.x , m.y)
     etypipe.add(m)
     timer.new("remove_mc", 2 * 60 * 60, m.eid)
+    m:get_my_troop()
     return m
 end
 
@@ -508,6 +519,16 @@ function gen_monster_and_atk(city, prop)
         end
         --tr:add_arm(0, {live_soldier = arm, heros = prop.Heros})
         tr:add_arm(0, {live_soldier = arm, heros = prop.Heros or {0,0,0,0}})
+
+        if tr.mcStage == 20 then  --最后一波
+            for _, id in pairs(city.remain_troop or {}) do
+                local remain_tr = troop_mng.get_troop(id)
+                if remain_tr then
+                    remain_tr:rem_hero()
+                    remain_tr:merge(tr)
+                end
+            end
+        end
     end
 
     if tr then
@@ -547,6 +568,12 @@ function get_my_troop(self)
         tr.mcid = self.propid
     end
     if tr then 
+        local bandCity = get_ety(self.band_eid)
+        if bandCity then
+            local remain_troop = bandCity.remain_troop or {}
+            table.insert(remain_troop, tr._id)
+            bandCity.remain_troop = remain_troop
+        end
         return tr
     end
 end
@@ -634,6 +661,7 @@ function after_been_atk(atkTroop, defenseTroop)
                 end
             end
         end
+        troop_mng.delete_troop(defenseTroop._id)
         rem_ety(mc.eid)  -- 打赢消失
     else
         etypipe.add(mc)
@@ -643,9 +671,6 @@ function after_been_atk(atkTroop, defenseTroop)
     end
 end
 
-local function mc_sort(a, b)
-    return a > b
-end
 
 function send_union_act_award(union)
     for k, v in pairs(union.mc_act_ply or {}) do
@@ -671,29 +696,30 @@ function send_union_act_award(union)
 
 end
 
-function send_act_award(mc)
-    for k, v in pairs(mc.act_plys or {}) do
-        local ply = getPlayer(k)
-        local npc = get_ety(mc.atk_eid)
-        local npc_name = ""
-        if npc then
-            local prop = resmng.prop_world_unit[npc.propid]
-            if prop then
-                npc_name = prop.Name
-            end
-        end
-        
-        if ply then
-            ply:send_system_notice(10006, {}, {npc_name}, mc.mc_reward_pool or {})
-        end
-
-    end
-end
+--function send_act_award(mc)
+--    for k, v in pairs(mc.act_plys or {}) do
+--        local ply = getPlayer(k)
+--        local npc = get_ety(mc.atk_eid)
+--        local npc_name = ""
+--        if npc then
+--            local prop = resmng.prop_world_unit[npc.propid]
+--            if prop then
+--                npc_name = prop.Name
+--            end
+--        end
+--        
+--        if ply then
+--            ply:send_system_notice(10006, {}, {npc_name}, mc.mc_reward_pool or {})
+--        end
+--
+--    end
+--end
 
 --怪物城攻击玩家占领npc
 function after_fight(atkTroop, defenseTroop)
     local mc = get_ety(atkTroop.owner_eid)
     if mc and check_atk_win(atkTroop, defenseTroop) then
+    INFO("[MC] monster atk npc pid = %d, eid = %d, is_mass = %s, is_win = %s", atkTroop.owner_pid, atkTroop.target_eid, atkTroop.is_mass, true)
         local npcCity = get_ety(atkTroop.target_eid)
         local union = unionmng.get_union(defenseTroop.owner_uid)
 
@@ -701,12 +727,16 @@ function after_fight(atkTroop, defenseTroop)
             local city_pro = resmng.prop_world_unit[npcCity.propid]
             if city_pro then
                 king_city.common_ntf(resmng.MC_LOSE, {union.name, city_pro.Name, union.alias}, union)
+                local _members = union:get_members()
+                for _, ply in pairs(_members or {}) do
+                    ply:send_system_notice(resmng.MAIL_10063, {city_pro.Name}, {city_pro.Name})
+                end
             end
 
-            local citys = union.npc_citys or {}
-            citys[npcCity.eid]  = nil
-            union.npc_citys = citys
-            npcCity:reset_npc()
+          --  local citys = union.npc_citys or {}
+          --  citys[npcCity.eid]  = nil
+          --  union.npc_citys = citys
+          --  npcCity:reset_npc()
            -- timer.del(union.mc_timer)
        end
 
@@ -719,6 +749,9 @@ function after_fight(atkTroop, defenseTroop)
        end
 
        rem_ety(mc.eid)
+       for _, id in pairs(mc.remain_troop or {}) do
+           troop_mng.delete_troop(id)
+       end
 
    else
        if  defenseTroop.mkdmg == 0 then
@@ -745,6 +778,7 @@ function after_fight(atkTroop, defenseTroop)
     end
 
     troop_mng.delete_troop(atkTroop._id)
+    
 end
 
 ----增加活跃玩家列表
@@ -991,9 +1025,10 @@ function send_score_award()
             local plys = rank_mng.get_range(8, v.Rank[1], v.Rank[2])
             for idx, pid in pairs(plys or {}) do
                 local score = rank_mng.get_score(8, tonumber(pid)) or 0
+                INFO("[MC] person rank %d, %d, %d", v.Rank[1] + idx - 1, tonumber(pid), score)
                     local ply = getPlayer(tonumber(pid))
                     if ply then
-                        ply:send_system_notice(10009, {}, {idx}, v.Award)
+                        ply:send_system_notice(10009, {}, {v.Rank[1] + idx - 1}, v.Award)
                     end
             end
         end
@@ -1005,15 +1040,17 @@ function send_score_award()
             local unions = rank_mng.get_range(7, v.Rank[1], v.Rank[2])
             for idx, uid in pairs(unions or {}) do
                 uid = tonumber(uid)
+                local s = rank_mng.get_score(7, uid) or 0 
+                INFO("[MC] union rank %d, %d, %d", v.Rank[1] + idx - 1, uid, s)
                 local union = unionmng.get_union(uid)
                 if union then
                     local _members = union:get_members()
                     for pid, ply in pairs(_members or {}) do
                         local score = rank_mng.get_score(8, tonumber(pid)) or 0
-                            local ply = getPlayer(tonumber(pid))
-                            if ply then
-                                ply:send_system_notice(10010, {}, {idx}, v.Award)
-                            end
+                        local ply = getPlayer(tonumber(pid))
+                        if ply then
+                            ply:send_system_notice(10010, {}, {v.Rank[1] + idx -1}, v.Award)
+                        end
                     end
                 end
             end
@@ -1022,16 +1059,22 @@ function send_score_award()
 
     local us = unionmng.get_all()
     for _, union in pairs(us or {}) do
-        local mc_ply_rank = copyTab(union.mc_ply_rank)
-        table.sort(mc_ply_rank, mc_sort)
+        --local mc_ply_rank = copyTab(union.mc_ply_rank)
+        local mc_ply_rank = mc_sort(union.mc_ply_rank)
         local idx = 1
         for k, v in pairs(resmng.prop_mc_rank_award or {}) do
             for i = v.Rank[1], v.Rank[2] , 1 do
-                local pid = table.remove(mc_ply_rank)
-                local ply = getPlayer(tonumber(pid))
-                if ply then
-                    ply:send_system_notice(10007, {}, {idx}, v.Award) 
-                    idx = idx + 1
+                local ply_score = table.remove(mc_ply_rank)
+                if ply_score then
+                    local ply = getPlayer(ply_score[1])
+                    INFO("[MC] peason rank in union %d, %d, %d", idx , ply_score[1], ply_score[2])
+                    if ply then
+                        ply:send_system_notice(10007, {}, {idx}, v.Award) 
+                        idx = idx + 1
+                    end
+                end
+                if #mc_ply_rank <= 0 then
+                    break
                 end
             end
         end
@@ -1040,12 +1083,39 @@ function send_score_award()
 
 end
 
+function do_sort(a, b)
+    if a[2] == b[2] then
+        return a[1] > b[2]
+    end
+    return a[2] > b[2]
+end
+
+function mc_sort(mc_ply_rank)
+    local rank = {}
+    for k, v in pairs(mc_ply_rank or {}) do
+        if k ~= "version" then
+            local ply_score = {k, v}
+            table.insert(rank, ply_score)
+        end
+    end
+    table.sort(rank, do_sort)
+    return rank
+end
+
 function rem_all_mc()
     for _, mc in pairs(citys or {}) do
         if type(mc) == "number" then
+            local ety = get_ety(mc)
+            if ety then
+                troop_mng.delete_troop(ety.my_troop_id)
+            end
             rem_ety(mc)
         else
             for _, v in pairs(mc or {}) do
+                local ety = get_ety(v)
+                if ety then
+                    troop_mng.delete_troop(ety.my_troop_id)
+                end
                 rem_ety(v)
             end
         end

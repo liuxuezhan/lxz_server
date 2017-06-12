@@ -40,10 +40,10 @@ end
 
 function get_cons(ply,mode,flag)
     local u = unionmng.get_union(ply.uid)
-    if not u then WARN("") return end
+    if not u then return end
 
     local l = get_buildlv(ply.uid, mode)
-    if not l then WARN("") return end
+    if not l then return end
 
 
     if not ply._union.buildlv[mode] then
@@ -52,10 +52,10 @@ function get_cons(ply,mode,flag)
 
     if can_date(ply._union.buildlv[mode].open_tm,gTime) or flag then
         ply._union.buildlv[mode].open_tm =gTime
-        if not  u.god then WARN("") return end
+        if not  u.god then  return end
 
         local god = resmng.get_conf("prop_union_god",u.god.propid )
-        if not god then WARN("") return end
+        if not god then  return end
 
         local c = resmng.get_conf("prop_union_buildlv",l.id )
         if not c  then return end
@@ -65,10 +65,12 @@ function get_cons(ply,mode,flag)
         elseif god.Mode == CULTURE_TYPE.WEST then i=(c.West)
         elseif god.Mode == CULTURE_TYPE.SOUTH then i=(c.South)
         elseif god.Mode == CULTURE_TYPE.NORTH then i=(c.North)
-        else WARN("union_buildlv文明错误:"..god.Mode) return end
+        else return end
 
         local cons = player_t.bonus_func["mutual_award"](ply, i)
-        if (not cons)  or (not next(cons)) then WARN("捐献物品随机错误:"..l.id..":"..god.Mode) end
+        if (not cons)  or (not next(cons)) then 
+            INFO("[UNION]get_cons pid=%d,uid=%d i=%d,mode=%d,conf err",ply.pid,ply.uid,l.id,god.Mode) 
+        end
 
         ply._union.buildlv[mode].cons=cons
         gPendingSave.union_member[ply.pid] = ply._union
@@ -149,7 +151,7 @@ function add_buildlv_donate(ply, mode)
         gPendingSave.union_buildlv[ply.uid] = u.buildlv
     else
         c = resmng.get_conf("prop_union_buildlv",u.buildlv.data[mode].id)
-        if not c  then WARN("") return end
+        if not c  then return end
     end
 
     for _, v in pairs(c.BonusID) do

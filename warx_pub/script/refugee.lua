@@ -23,8 +23,6 @@ module_class("refugee",
 }
 )
 
-
-
 function checkin(m)
     local zx = math.floor(m.x / 16)
     local zy = math.floor(m.y / 16)
@@ -264,12 +262,11 @@ function finish_grap(self)
 end
 
 function post_refugee_score(pid, eid, propid)
-    center_id = 999
     local pack = {}
     pack.mode = ACT_NAME.REFUGEE
     local info = {pid = pid, eid = eid, propid = propid}
     pack.info = info
-    Rpc:callAgent(center_id, "post_cross_score", pack)
+    Rpc:callAgent(gCenterID, "post_cross_score", pack)
 end
 
 function loop()

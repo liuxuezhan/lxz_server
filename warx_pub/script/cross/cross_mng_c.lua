@@ -6,6 +6,8 @@ act_state = act_state or 0   -- 活动状态 见 define
 
 gs_pool = gs_pool or {}    -- game server 信息表
 
+--u_pool = u_pool or {}      -- 军团基本信息发奖时用
+
 power_pool = power_pool or {} -- 战斗力匹配池
 
 group_pool = group_pool or {}  -- 分组
@@ -35,6 +37,14 @@ function load_data()
     season = info1.season or 0
     act_state = info1.act_state  or 0
     timer_id = info1.timer_id  or 0
+
+    --local u_info = db.union_t:find({})
+    --while u_info:hasNext() do
+    --    local u = u_info:next()
+    --    if u then
+    --        u_pool[u._id] = u
+    --    end
+    --end
 end
 
 function upload_gs_info(gs_info)
@@ -62,13 +72,17 @@ function upload_gs_info(gs_info)
     info._id = gs._id
     power_pool[gs._id] = info
 end
+
+--function upload_union_info(union)
+--    u_pool[union._id] = union
+--    gPendingSave.status["union_t"][union._id] = union
+--end
     
 function cross_act_prepare()
     season = season + 1
     gPendingSave.status["cross_act"].season = season
     group_pool = {}
     gPendingSave.status["cross_act"].group_pool = group_pool
-
     act_state = CROSS_STATE.PREPARE
     gPendingSave.status["cross_act"].act_state = act_state
 
@@ -161,7 +175,7 @@ function make_act_ntf()
             if ahead > 0 then
                 local time_str = format_time(v.BeforeTime)
                 local timerId1 = timer.new("cross_act_notify", ahead, k, time_str)
-                local timerId2 = timer.new("make_group_ntf", ahead, k, time_str)
+            --    local timerId2 = timer.new("make_group_ntf", ahead, k, time_str)
             end
         end
     end
@@ -188,15 +202,17 @@ function cross_act_notify(ntf_id, time_str)
 end
 
 function cross_act_fight()
-    act_state = CROSS_STATE.FIGHT
+    --cross_rank_c.clear_rank()   -- clear rank first
+
+    act_state = CROSS_STATE.FIGHT  -- set state
     gPendingSave.status["cross_act"].act_state = act_state
 
-    local time = 2 * 24 * 3600
+    local time = 2 * 24 * 3600   -- set timer
     timer.del(timer_id)
     timer_id = timer.new("cross_act", time, CROSS_STATE.PEACE)
     gPendingSave.status["cross_act"].timer_id = timer_id
 
-    cross_act_st_cast()
+    cross_act_st_cast()    --cast status
 
 end
 
@@ -211,7 +227,7 @@ function cross_act_st_cast()
     pack[ACT_NAME.CROSS_NPC] = act
 
     act = {}
-    act.state = cross_refugee.state
+    act.state = cross_refugee_c.act_state
     pack[ACT_NAME.REFUGEE] = act
     send_all_gs("cross_act_st_cast", pack)
 end
@@ -227,7 +243,7 @@ function cross_act_st_req(gs_id)
     pack[ACT_NAME.CROSS_NPC] = act
 
     act = {}
-    act.state = cross_refugee.act_state
+    act.state = cross_refugee_c.act_state
     pack[ACT_NAME.REFUGEE] = act
 
     Rpc:callAgent(gs_id, "cross_act_st_cast", pack)
@@ -317,5 +333,13 @@ function cross_npc_info(gs_id, pid)
     pack.info = info
 
     Rpc:callAgent(gs_id, "cross_npc_info_ack", pack)
+end
+
+function cross_act_end()
+    act_state = CROSS_STATE.PEACE
+    gPendingSave.status["cross_act"].act_state = act_state
+    cross_refugee_c.cross_refugee_end()
+    cross_act_st_cast()
+    cross_rank_c.send_rank_award()
 end
 

@@ -26,15 +26,15 @@ function check_troop( tm_shutdown )
         local owner = get_ety( troop.owner_eid )
         local target = get_ety( troop.target_eid )
 
-        local action = troop.action
-        local baction = action % 100
-
         if not target then
             valid = false
         elseif not owner then
             valid = false
             
         else
+            local action = troop.action
+            local baction = action % 100
+
             if troop:is_go() or troop:is_back() then
                 if troop.tmOver and troop.tmOver > tm_shutdown then
                     local v = troop
@@ -612,7 +612,7 @@ gTroopActionTrigger[TroopAction.SiegeUnion] = function(troop)
 end
 
 function back_sinew(troop)
-    if troop.is_mass  == 1 then
+    if troop.is_mass  == 1 or troop.dest_troop_id then
         for pid, _ in pairs(troop.arms or {}) do
             local ply = getPlayer(pid)
             if ply then
@@ -675,6 +675,7 @@ gTroopActionTrigger[TroopAction.SiegeMonster] = function(ack_troop)
 	local defense_troop = dest:get_my_troop()
 
 	local win = fight.pvp(TroopAction.SiegeMonster, ack_troop, defense_troop)
+    INFO("[BOSS] ply atk monster pid = %d, eid = %d, hp = %f, is_mass = %s", ack_troop.owner_pid, dest.eid, dest.hp, ack_troop.is_mass)
 
     monster.calc_hp( dest, defense_troop )
     local finfo = fight.gFightReports[ ack_troop.eid ]
@@ -798,9 +799,10 @@ gTroopActionTrigger[TroopAction.SiegeMonster] = function(ack_troop)
 
         local is_first = is_first_blood( dest )
 
+		local ply 
         for pid, _v in pairs(ack_troop.arms or {}) do
             if pid >= 10000 and is_first_blood then
-                local ply = getPlayer( pid )
+                ply = getPlayer( pid )
                 if ply then
                     ply:check_first_blood( is_first, dest.propid )
                 end
@@ -809,6 +811,7 @@ gTroopActionTrigger[TroopAction.SiegeMonster] = function(ack_troop)
         end
 
         monster.increase_kill_score(dest)
+        ply:pre_tlog("ActBoss",dest.grade)
 
     else
         dest:mark()
@@ -960,11 +963,23 @@ gTroopActionTrigger[TroopAction.JoinMass] = function(troop)
     if ply == nil then return end
 
     local dest_troop = get_troop(troop.dest_troop_id)
-    if dest_troop == nil then return troop:back() end
+    if dest_troop == nil then 
+        local dest_tr_target = troop:get_extra("dest_tr_target")
+        if is_monster(dest_tr_target) then
+            back_sinew(troop)
+        end
+        ply:send_system_notice(resmng.MAIL_10065)
+        return troop:back() 
+    end
 
-    if not (dest_troop.owner_uid > 0 and dest_troop.owner_uid == ply.uid) then return troop:back() end
+    if not (dest_troop.owner_uid > 0 and dest_troop.owner_uid == ply.uid) then 
+        return troop:back() 
+    end
 
-    if not dest_troop:is_ready() then return troop:back() end
+    if not dest_troop:is_ready() then
+        ply:send_system_notice(resmng.MAIL_10065)
+        return troop:back() 
+    end
     --dest_troop:rem_mark_id(troop._id) --删除标记在目标troop上的troopid
     troop:merge(dest_troop)
 
@@ -2078,8 +2093,6 @@ gTroopActionTrigger[TroopAction.TaskAtkPly] = function(ack_troop)
         for pid, arm in pairs(ack_troop.arms or {}) do
             local tmp_ply = getPlayer(pid)
             if tmp_ply ~= nil then
-                local tmp = copyTab(content)
-                tmp.ack_mail.res_flag = 1
                 tmp_ply:mail_new({from=0, name="", class=MAIL_CLASS.FIGHT, mode=ack_mode, title="", content=content, its={}})
             end
         end
@@ -2289,21 +2302,6 @@ gTroopActionTrigger[TroopAction.TaskSpyPly] = function(ack_troop)
     --任务
 end
 
---参加集结
-gTroopActionTrigger[TroopAction.JoinMass] = function(troop)
-    local ply = getPlayer(troop.owner_pid)
-    if ply == nil then return end
-
-    local dest_troop = get_troop(troop.dest_troop_id)
-    if dest_troop == nil then return troop:back() end
-
-    if not (dest_troop.owner_uid > 0 and dest_troop.owner_uid == ply.uid) then return troop:back() end
-
-    if not dest_troop:is_ready() then return troop:back() end
-    --dest_troop:rem_mark_id(troop._id) --删除标记在目标troop上的troopid
-    troop:merge(dest_troop)
-end
-
 gTroopActionTrigger[TroopAction.Declare] = function(troop)
     delete_troop(troop._id)
 
@@ -2348,6 +2346,7 @@ gTroopActionTrigger[TroopAction.LostTemple] = function(ack_troop)
     if win == true then
         watch_tower.building_def_clear(dest, defense_troop)
     end
+    INFO("[LT] ply atk lt pid = %d, eid = %d, is_mass = %s, is_win = %s", ack_troop.owner_pid, dest.eid, ack_troop.is_mass, win)
 
     local dmg_prop = resmng.prop_damage_rate[resmng.LT]
     local dmg_rate = 0.945
@@ -2487,6 +2486,7 @@ gTroopActionTrigger[TroopAction.SiegeNpc] = function(ack_troop)
 	--开战
 	fight.pvp(TroopAction.SiegeNpc, ack_troop, defense_troop)
     local win = defense_troop:is_no_live_arm()
+    INFO("[NPC] ply atk npc pid = %d, eid = %d, is_mass = %s, is_win = %s", ack_troop.owner_pid, dest.eid, ack_troop.is_mass, win)
 
     if win == true then
         local pack = {}
@@ -2498,7 +2498,7 @@ gTroopActionTrigger[TroopAction.SiegeNpc] = function(ack_troop)
     end
 
     ---cross rank
-    cross_score.process_troop(RANK_ACTION.NPC_DMG, troop)
+    cross_score.process_troop(RANK_ACTION.NPC_DMG, ack_troop)
     cross_score.process_troop(RANK_ACTION.NPC_DMG, defense_troop)
 
     local dmg_prop = resmng.prop_damage_rate[resmng.TW]
@@ -2606,6 +2606,7 @@ gTroopActionTrigger[TroopAction.King] = function(troop)
     end
 
     king_city.after_fight(troop, defense_troop)
+    INFO("[KW] ply atk king city pid = %d, eid = %d, is_mass = %s, is_win = %s", troop.owner_pid, dest.eid, troop.is_mass, win)
     deal_no_arm_troop(troop, defense_troop) 
     union_hall_t.battle_room_remove( troop )
 
@@ -2746,7 +2747,6 @@ gTroopActionTrigger[TroopAction.MonsterAtkPly] = function(ack_troop)
     mark_support_arm( defense_troop, ack_troop )
 
 
-    local copy_tr = copyTab(defense_troop)
     local dmg_prop = resmng.prop_damage_rate[resmng.MC]
     local dmg_rate = 0.95
     if dmg_prop then
@@ -2763,7 +2763,13 @@ end
 gTroopActionTrigger[TroopAction.SiegeMonsterCity] = function(ack_troop)
 	local dest = get_ety(ack_troop.target_eid)
     if not dest then
-        ack_troop:back()
+        delete_troop(ack_troop._id)
+        return
+    end
+
+    local mc = union_t.get_monster_city(dest.eid)
+    if not mc then
+        delete_troop(ack_troop._id)
         return
     end
 
@@ -2782,10 +2788,14 @@ gTroopActionTrigger[TroopAction.SiegeMonsterCity] = function(ack_troop)
     if city_pro and u then
         if win and not check_atk_win(ack_troop, defense_troop) then
             king_city.common_ntf(resmng.MC_SUPPORT, {city_pro.Name}, u)
+
+            local _members = u:get_members()
+            for _, ply in pairs(_members or {}) do
+                ply:send_system_notice(resmng.MAIL_10062, {}, {city_pro.Name})
+            end
         end
     end
 
-    local copy_tr = copyTab(defense_troop)
     local dmg_prop = resmng.prop_damage_rate[resmng.MC]
     local dmg_rate = 0.95
     if dmg_prop then
@@ -2796,25 +2806,37 @@ gTroopActionTrigger[TroopAction.SiegeMonsterCity] = function(ack_troop)
 
     monster_city.after_fight(ack_troop, defense_troop)
 
-    --if not check_atk_win(ack_troop, defense_troop) then
-        local prop = resmng.prop_mc_stage[ack_troop.mcStage]
-        if prop then
-            if ack_troop.mcStage == prop.NextStage then
-                local union = unionmng.get_union(defense_troop.owner_uid)
-                if union then
-                    local city = union_t.get_monster_city(dest.eid)
-                    if city then
-                        --monster_city.send_act_award(city)
-                        if is_last_mc_fight(ack_troop, defense_troop) then
-                            monster_city.send_union_act_award(union)
-                            union.monster_city_stage = 0
+    local prop = resmng.prop_mc_stage[ack_troop.mcStage]
+    if prop then
+        if ack_troop.mcStage == prop.NextStage then
+            local union = unionmng.get_union(defense_troop.owner_uid)
+            if union then
+                if not check_atk_win(ack_troop, defense_troop) then
+                    if union then
+                        local conf = resmng.get_conf("prop_act_notify", resmng.MC_SUCCESS)
+                        if conf then
+                            if conf.Chat2 then
+                                local npc_conf = resmng.prop_world_unit[dest.propid]
+                                if npc_conf then
+                                    union:union_chat("", conf.Chat2, {npc_conf.Name})
+                                end
+                            end
                         end
-                        monster_city.rem_mc_by_npc(dest.eid)
                     end
+                end
+
+                local city = union_t.get_monster_city(dest.eid)
+                if city then
+                    --monster_city.send_act_award(city)
+                    if is_last_mc_fight(ack_troop, defense_troop) then
+                        monster_city.send_union_act_award(union)
+                        union.monster_city_stage = 0
+                    end
+                    monster_city.rem_mc_by_npc(dest.eid)
                 end
             end
         end
-    --end
+    end
 
     deal_no_arm_troop(ack_troop, defense_troop) 
 
@@ -2835,6 +2857,37 @@ end
 
 function check_atk_win(atkTroop, defenseTroop)
     return defenseTroop:is_no_live_arm()
+end
+
+function calc_lost_hp_by_prop(troop, Arms)
+    local cur = 0
+    local max = 0
+    local arm = {}
+    for _, v in pairs(Arms or {}) do
+        arm[ v[1] ] = v[2]
+    end
+
+    for id, num in pairs(arm or {}) do
+        local prop = resmng.get_conf("prop_arm", id)
+        if prop then
+            max = max + prop.Pow * num
+        end
+    end
+
+    for _, arm in pairs(troop.arms) do
+        local live = arm.live_soldier or {}
+        for id, num in pairs(live) do
+            local prop = resmng.get_conf("prop_arm", id)
+            if prop then
+                cur = cur + prop.Pow * num
+            end
+        end
+    end
+    if max == 0 then
+        return 0
+    end
+    return math.floor((max-cur) * 10000 / max + 0.1) / 100
+
 end
 
 function calc_lost_hp(troop)
@@ -3080,10 +3133,15 @@ send_report[TroopAction.AtkMC] = function(atk_troop, defense_troop)
     report.win = atk_troop.win
     local dest = get_ety(atk_troop.target_eid)
     if dest then
+        local prop = resmng.prop_world_unit[dest.propid]
+        if not prop then
+            return
+        end
         report.monster = dest.propid
         report.x = dest.x
         report.y = dest.y
-        report.hp_lost = calc_lost_hp(defense_troop)
+        --report.hp_lost = calc_lost_hp(defense_troop)
+        report.hp_lost = calc_lost_hp_by_prop(defense_troop, prop.Arms)
         report.hp = 100 - report.hp_lost
     end
 
@@ -3643,6 +3701,7 @@ function do_kick_mass(troop, pid)
             one:back()
 
             if troop.action == TroopAction.SiegeMonster then A:inc_sinew( 10 ) end
+            A:send_system_notice(resmng.MAIL_10067)
             return one
         end
 
@@ -3655,13 +3714,13 @@ function do_kick_mass(troop, pid)
                     if A then
                         A:troop_recall( tid, true )
                         if troop.action == TroopAction.SiegeMonster then A:inc_sinew( 10 ) end
+                        A:send_system_notice(resmng.MAIL_10067)
                         return one
                     end
                 end
             end
         end
     end
-
 end
 
 function dismiss_mass(troop)
@@ -3687,6 +3746,7 @@ function dismiss_mass(troop)
                 local one = create_troop(TroopAction.JoinMass, A, T, arm)
                 one.curx, one.cury = get_ety_pos( T )
                 one:back()
+                A:send_system_notice(resmng.MAIL_10066, {}, {T.name})
             end
         end
     end
@@ -3704,6 +3764,7 @@ function dismiss_mass(troop)
                         if A then
                             A:troop_recall( tid, true )
                             if action == TroopAction.SiegeMonster then A:inc_sinew( 10 ) end
+                            A:send_system_notice(resmng.MAIL_10066, {}, {T.name})
                         end
                     end
                 end

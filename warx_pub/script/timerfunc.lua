@@ -1,8 +1,20 @@
 module("timer")
 
 _funs["cron"] = function(sn)
-    INFO( "crontab_timer, sn = %d, %s", sn, os.date("%c", gTime) )
     timer.cron_base_func()
+
+    if gTime - gThreadActionTime > 10 then
+        if gInit ~= "InitCompensate" then
+            if gTime - gThreadActionTime > 10 then
+                if gThreadAction and gThreadActionState == "idle" and coroutine.status( gThreadAction ) == "suspended" then
+
+                else
+                    gThreadAction = nil
+                    global_save()
+                end
+            end
+        end
+    end
 
     set_sys_status( "tick", gTime )
     set_sys_status( "cron", gTime )
@@ -26,7 +38,25 @@ _funs["cron"] = function(sn)
         end
     end
 
-    player_t.pre_tlog(0,"GameSvrState",config.GameHost,(player_t.g_online_num or 0),(get_sys_status("start") or 0) ,0 )
+    local plys = player_t.gOnlines
+    local now = gTime
+    local total = 0
+
+    for pid, p in pairs( plys ) do
+        local offset = gTime - ( p.tick or 0 ) 
+        if offset < 70 then
+            total = total + 1
+        elseif offset < 140 then
+            total = total + 1
+            Rpc:activate(p)
+        else
+            plys[ pid ] = nil
+        end
+    end
+
+    player_t.g_online_num = total
+    INFO( "[Online], %d", total )
+    player_t.pre_tlog(nil,"GameSvrState",config.GameHost,(player_t.g_online_num or 0),(get_sys_status("start") or 0) ,0 )
 end
 
 _funs["monitor"] = function(sn, num)
@@ -124,6 +154,7 @@ _funs["npc_city"] = function(sn, eid, state)
             npc_city.fight_state(npcCity)
         elseif  state == TW_STATE.DECLARE then
             npc_city.declare_state(npcCity)
+            npc_city.def_success(npcCity)
         end
     end
 
@@ -403,14 +434,18 @@ _funs["check"] = function(sn, pid)
     if not ply then return end
     if ply.tm_check ~= sn then return end
 
-    LOG( "[check], pid=%d", pid )
+    local offset = gTime - ( ply.tick or 0 )
+    LOG( "[check], pid=%d, offset=%d", pid, offset )
     ply:initEffect()
 
-    if ply:is_online() then
-        ply.tm_check = timer.new( "check", 3600, pid )
+    if offset < 120 then
+        ply.tm_check = timer.new( "check", 2400, pid )
 
-    elseif gTime - ply.tm_logout < 7200 then
-        ply.tm_check = timer.new( "check", 3600, pid )
+    elseif offset < 1200 then
+        ply.tm_check = timer.new( "check", 2400, pid )
+        if ply.tm_logout < ply.tm_login and ply.tm_login > gBootTime then
+            player_t.onBreak( ply )
+        end
 
     else
         LOG( "[check], pid=%d, off", pid )
@@ -420,6 +455,15 @@ _funs["check"] = function(sn, pid)
         ply.tm_check = nil
         ply:clear_task()
 
+        local home = troop_mng.get_troop( ply.my_troop_id )
+        if home then
+            for pid, arm in pairs( home.arms or {} ) do
+                local info = {}
+                info.live_soldier = arm.live_soldier
+                info.pid = pid
+                home.arms[ pid ] = info
+            end
+        end
     end
 end
 
@@ -443,21 +487,21 @@ end
 
 _funs["cross_act_notify"] = function(sn, notify_id, time)
     time = time or "24"
-    cross_mng.cross_act_notify(notify_id, time)
+    cross_mng_c.cross_act_notify(notify_id, time)
 end
 
 _funs["make_group_ntf"] = function(sn, notify_id, time)
     time = time or 0
-    cross_mng.cross_act_notify(notify_id, time)
+    cross_mng_c.make_group_ntf(notify_id)
 end
 
 _funs["cross_act"] = function(sn, state)
     if state == CROSS_STATE.FIGHT then
-        cross_mng.cross_act_fight()
+        cross_mng_c.cross_act_fight()
     elseif state == CROSS_STATE.PEACE then
-        cross_mng.cross_act_end()
+        cross_mng_c.cross_act_end()
     elseif state == CROSS_STATE.PREPARE then
-        cross_mng.cross_act_prepare()
+        cross_mng_c.cross_act_prepare()
     end
 end
 
@@ -471,5 +515,7 @@ end
 
 
 _funs["world_event"] = function(sn, id)
-    world_event.check_time(id)
+    world_event.check_time(sn, id)
 end
+
+

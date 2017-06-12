@@ -31,7 +31,7 @@ function check(u)
                 tm = v.tm
                 id = k
             end
-       else
+        else
             in_num = in_num + 1
         end
     end
@@ -41,9 +41,7 @@ function check(u)
         gPendingSave.union_word[u.uid] = u.word
     end
 
-    if in_num == 100  then
-        return false
-    end
+    if in_num == 100  then return false end
 
     return true
 end
@@ -52,15 +50,11 @@ function list(pid,u)
     if not u.word then return {} end
     local list ={}
     for k, v in pairs(u.word.log or {}) do
-        local d = copyTab(v)
-        local p = getPlayer(v.pid)
-        d.word = nil
-        d.name = p.name
         local _members = u:get_members() or {}
         if v.type ==0 then
-            table.insert(list,d)
+            table.insert(list,info(v))
         elseif _members[pid] then
-            table.insert(list,d)
+            table.insert(list,info(v))
         end
     end
     return list
@@ -71,14 +65,22 @@ function get(p,u,wid)
     local _members = u:get_members() or {}
     for k, v in pairs(u.word.log or {}) do
         if v.wid == wid then
-            if v.type ==0 then
-                return  v
-            elseif _members[p.pid] then
-                return  v
-            end
+            if v.type ==0 then return  v
+            elseif _members[p.pid] then return  v end
         end
     end
     return {}
+end
+
+function info(d)
+    local v = copyTab(d)
+    local p = getPlayer(v.pid)
+    if not p then return end
+    v.name = p.name
+    local u = unionmng.get_union(p.uid)
+    if u then v.u_alias = u.alias end
+    v.word = nil
+    return v 
 end
 
 function add(p,uid,title,word)
@@ -88,17 +90,18 @@ function add(p,uid,title,word)
     local u = unionmng.get_union(uid)
     if not u then return end
 
-    if not u.word then
-        u.word={_id=uid,log={}}
-    end
+    if not u.word then u.word={_id=uid,log={}} end
+
     if not check(u) then return  0 end
     u.wid = (u.wid or 0) + 1
     local type = 0
     local _members = u:get_members() or {}
     if _members[p.pid] then type = 1 end
-    table.insert(u.word.log,{wid=u.wid,pid=p.pid,title=title,word=word,tm=gTime,type=type})
+    local d = {wid=u.wid,pid=p.pid,title=title,word=word,tm=gTime,type=type}
+    table.insert(u.word.log,d)
     gPendingSave.union_word[uid] = u.word
-    return {wid=u.wid,pid=p.pid,name=p.name,title=title,word=word,tm=gTime,type=type}
+    u:notifyall(resmng.UNION_EVENT.WORD, resmng.UNION_MODE.ADD,{d.wid},p )
+    return info(d)
 end
 
 function clear(uid)--删除军团时清除数据
@@ -133,6 +136,7 @@ function update(p,wid,title,word)
             u.word.log[k].word = word
             u.word.log[k].tm = gTime
             gPendingSave.union_word[u.uid] = u.word
+            u:notifyall(resmng.UNION_EVENT.WORD, resmng.UNION_MODE.UPDATE,{v.wid},p )
             return
         end
     end
@@ -150,7 +154,7 @@ function top(p,wid,flag)
                 u.word.log[k].tm_top = nil
             end
             gPendingSave.union_word[u.uid] = u.word
-            return v
+            return info(v)
         end
     end
 end

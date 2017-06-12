@@ -103,10 +103,9 @@ function check_tit_add(self, idx)
     if not result then return end
 
     for k, v in pairs(conf.Achievement or {}) do
-        --result = self:check_ache(v)
         if self:check_ache(v) then
             result = true
-            INFO("tit indx and score ", propid, self.ache_pint)
+            INFO("tit indx and score %d, %d", propid, self.ache_point)
         else
             result = self:check_ach(v)
         end
@@ -154,7 +153,6 @@ function use_title_req(self, title)
     if type(real_lv) == "table"  then -- not title
         return
     end
-
 
     if real_lv ~= lv then --
         return

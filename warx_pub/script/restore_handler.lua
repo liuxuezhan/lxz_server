@@ -6,19 +6,30 @@ function load_player()
     local total = 0
     while info:hasNext() do
         local data = info:next()
-        if data.tm_login > (data.tm_logout or 0) then data.tm_logout = gTime - 1 end
+        if (data.tm_login or 0) > (data.tm_logout or 0) then data.tm_logout = gTime - 1 end
         if (not data.culture) or data.culture < 1 or data.culture > 4 then data.culture = 1 end
 
         if  data.pid and data.account then
             local token = data.token
             data.token = nil
 
-            local p = player_t.new(data)
-            player_t._cache[ data.pid ] = nil
-            rawset( p, "token", token )
+            local p = player_t.wrap( data )
+            gPlys[ data.pid ] = p
+            local acc = gAccounts[ data.account ]
+            if not acc then
+                acc = {}
+                gAccounts[ data.account ] = acc
+            end
+            acc[ data.pid ] = { data.map, data.smap or gMapID }
+
             rawset(p, "eid", data.eid)
+            rawset(p, "pid", data.pid)
             rawset(p, "size", 4)
+
+            rawset(p, "token", token )
             rawset(p, "uname", "")
+
+            rawset( p, "tm_unload", gTime )
             
             gEtys[ p.eid ] = p
 
@@ -234,6 +245,38 @@ function load_count()
     end
 end
 
+function load_chat()
+    local db = dbmng:getOne()
+    local chats = {}
+    local info = db.status:findOne({_id="chat"})
+    if info then
+        for k, v in pairs( info ) do
+            if type( k ) == "number" then
+                chats[ k ] = v
+                local uid = math.floor( k / 10 )
+                if uid >= 10000 then
+                    if not unionmng.get_union(uid) then
+                        chats[ k ] = nil
+                    end
+                end
+            end
+        end
+    end
+
+    for k, v in pairs( chats ) do
+        if v.sn >= 2147483647 then
+            local idx = 0
+            for _, n in pairs( v.list ) do
+                idx = idx + 1
+                n[1] = idx
+            end
+            v.sn = idx
+        end
+    end
+
+    player_t.gChat = chats
+end
+
 function restore_timer()
     local db = dbmng:getOne()
     db.timer:delete({delete=true})
@@ -300,15 +343,15 @@ function post_init()
     INFO("-- init_rank done  ---")
 
     INFO("-- accpet world events ---------")
-    world_event.accept_world_event()
+    world_event.init_world_event()
     INFO("-- accpet world events done  ---")
 
     INFO("-- init weekly activity ---------")
-    weekly_activity.init_activity()
+    weekly_activity.init_weekly_activity()
     INFO("-- init weekly activity done  ---")
 
     INFO("-- init operate activity ---------")
-    operate_activity.init_activity()
+    operate_activity.init_operate_activity()
     INFO("-- init operate activity done  ---")
     
     INFO("-- init daily task filter ---------")
@@ -347,11 +390,13 @@ function action()
     INFO("-- load_operate_activity done --------")
     --monitoring(MONITOR_TYPE.LOADDATA, "load_operate_activity")
 
+
     INFO("-- load_union --------------")
     union_t.load()
     union2_t.load()
     INFO("-- load_union done ---------")
     --monitoring(MONITOR_TYPE.LOADDATA, "load_union")
+
 
     INFO("-- load_union_member -------")
     union_member_t.load()
@@ -372,6 +417,11 @@ function action()
     union_tech_t.load()
     INFO("-- load_union_tech done ----")
     --monitoring(MONITOR_TYPE.LOADDATA, "load_union_tech")
+    --
+    
+    INFO("-- load_chat -------------")
+    load_chat()
+    INFO("-- load_chat done --------")
     
     INFO("-- load_build --------------")
     load_build()

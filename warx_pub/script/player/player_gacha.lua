@@ -200,7 +200,7 @@ function do_yinbi_one(self, msg_send)
 	else
 		if self.silver < prop_yinbi.Price then
             msg_send.result = 3
-            msg_send.silver = prop_yinbi.Price - self.silver
+            msg_send.silver = prop_yinbi.Price
             return
         end
         local con = {{resmng.CLASS_RES, resmng.DEF_RES_SILVER, prop_yinbi.Price}}
@@ -243,7 +243,7 @@ function do_yinbi_ten(self, msg_send)
 
 	if self.silver < prop_yinbi.ComboPrice then
         msg_send.result = 3
-        msg_send.silver = prop_yinbi.ComboPrice - self.silver
+        msg_send.silver = prop_yinbi.ComboPrice
         return
     end
     local con = {{resmng.CLASS_RES, resmng.DEF_RES_SILVER, prop_yinbi.ComboPrice}}
@@ -352,6 +352,9 @@ function do_jinbi_ten(self, msg_send)
 	    	self.gacha_jinbi_index = 1
 	    end
 	    local group_id = group[self.gacha_jinbi_index]
+	    if group_id == GACHA_EXCHANGE_1[1] then
+	    	group_id = GACHA_EXCHANGE_1[2]
+	    end
 	    self.gacha_jinbi_index = self.gacha_jinbi_index + 1
 
 	    local bonus_policy, bonus, focus = self:random_gacha(group_id)
@@ -461,6 +464,9 @@ function do_hunxia_ten(self, msg_send)
 	    	self.gacha_hunxia_index = 1
 	    end
 	    local group_id = group[self.gacha_hunxia_index]
+	   	if group_id == GACHA_EXCHANGE_2[1] then
+	    	group_id = GACHA_EXCHANGE_2[2]
+	    end
 	    self.gacha_hunxia_index = self.gacha_hunxia_index + 1
 
         local bonus_policy, bonus, focus = self:random_gacha(group_id)

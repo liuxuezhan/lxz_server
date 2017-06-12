@@ -1,4 +1,9 @@
 
+-- 登录秘钥
+APP_SECRET = "zMvnPIT4fHG4ecte"
+APP_ID = "045fce0de7f9b8ee9bf12e28c2d6d2cd"
+APP_KEY = "4e69fd13cb06ef2c62c712ced980d1e6"
+
 gCoroWaitForAck = gCoroWaitForAck or {}
 gCoroWaitForTime = gCoroWaitForTimer or {}
 gHavePlayers = gHavePlayers or {}
@@ -204,13 +209,15 @@ function onConnectComp( self )
         
         local info = {}
         info.server_id = config.Map
-        info.cival = ( idx % 4 ) + 1
+        info.cival = ( idx % 4 ) 
+        if info.cival == 0 then info.cival = 4 end
         info.pid = 0
         info.token_expire = gTime + 36000
         info.extra = ""
         info.time = gTime
         info.token = c_md5( node.account )
         info.open_id = node.account
+        info.did = "robot_" .. idx
 
         info.signature = c_md5( APP_KEY .. tostring( info.token_expire ) .. info.extra .. tostring( info.time ) .. info.token .. info.open_id )
         info.version = 10000000
@@ -226,12 +233,21 @@ function onConnectComp( self )
         info.time = self.timestamp
         info.token = self.token
         info.open_id = self.uid
+        info.did = self.did
         info.signature = self.sig
         info.version = 10000000
         Rpc:firstPacket( self, info.server_id, info )
 
+    elseif self.action == "ip_rule" then
+        pushHead2s( self.gid, hashStr( "firstPacket" ) )
+        pushInt( hashStr( "ip_rule" ) )
+        pushInt( hashStr( "ip_rule_add_white" ) )
+        pushInt( c_inet_addr( "192.168.101.40" ) )
+        pushOver()
+
     else
         print( "onConnectComp, what?", self.action )
+
 
     end
 end

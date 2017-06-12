@@ -8,7 +8,7 @@ function process_troop(action, troop)
 
     if troop.owner_pid ~= 0 and troop.owner_uid ~= 0 then
         for pid, arm in pairs(troop.arms or {}) do
-            local dmg = arm.dmg
+            local dmg = arm.mkdmg or 0
             process_score(action, pid, troop.owner_uid, dmg)
         end
     end
@@ -25,18 +25,17 @@ function process_score(action, ...)
 end
 
 function upload_act_score(action, val, ...)
-    local center_id = 999
-    local pack = pack(...)
-    Rpc:callAgent(center_id, "upload_act_score", action, val, pack)
+    local pack = { ... } or {}
+    Rpc:callAgent(gCenterID, "upload_act_score", action, val, pack)
 end
 
 do_score = {}
 
 do_score[RANK_ACTION.NORMAL] = function (action, pid, uid, dmg)
 
-    local score = dmg
+    local score = math.floor(dmg)
     local ply = getPlayer(pid)
-    local gs_id = ply.map
+    local gs_id = ply.emap
 
     if ply and check_ply_cross(ply) then
         upload_act_score(action, score, pid, uid, gs_id)
@@ -46,9 +45,9 @@ end
 
 do_score[RANK_ACTION.CURE] = function (action, pid, uid, dmg)
 
-    local score = dmg * 0.86
+    local score = math.floor(dmg * 0.86)
     local ply = getPlayer(pid)
-    local gs_id = ply.map
+    local gs_id = ply.emap
 
     if ply and check_ply_cross(ply) then
         upload_act_score(action, score, pid, uid, gs_id)
@@ -58,21 +57,21 @@ end
 
 do_score[RANK_ACTION.NPC_DMG] = function (action, pid, uid, dmg)
 
-    local score = dmg * 0.11
+    local score = math.floor(dmg * 0.11)
     local ply = getPlayer(pid)
-    local gs_id = ply.map
+    local gs_id = ply.emap
 
-    if ply and check_ply_cross(ply) then
+    --if ply and check_ply_cross(ply) then
         upload_act_score(action, score, pid, uid, gs_id)
-    end
+    --end
 
 end
 
 do_score[RANK_ACTION.KING_DMG] = function (action, pid, uid, dmg)
 
-    local score = dmg * 7.5
+    local score = math.floor(dmg * 7.5)
     local ply = getPlayer(pid)
-    local gs_id = ply.map
+    local gs_id = ply.emap
 
     if ply and check_ply_cross(ply) then
         upload_act_score(action, score, pid, uid, gs_id)

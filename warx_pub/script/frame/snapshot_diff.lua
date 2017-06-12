@@ -173,7 +173,7 @@ snapshot_diff = {
             self:print_line()
             return
         end
-        
+
         if not self.module_earlier or not self.module_later then
             self.module_earlier = {
                 statistics = {},
@@ -232,7 +232,7 @@ snapshot_diff = {
             print("error: you must input module_name")
             return
         end
-        
+
         -- 如果later中存在，那么就输出later与earlier的差异数据
         -- 如果later中不存在，那么就输出earlier中的数据
         local org_data = self.data_later
@@ -296,7 +296,7 @@ snapshot_diff = {
             print("error: you must input module_name")
             return
         end
-        
+
         -- 如果later中存在，那么就输出later与earlier的差异数据
         -- 如果later中不存在，那么就输出earlier中的数据
         local org_data = self.data_later
@@ -475,7 +475,7 @@ snapshot_diff = {
                         desc = string.format("%s%s", desc, str_temp)
                     end
                 end
-                
+
             end
         end
 
@@ -586,24 +586,26 @@ snapshot_diff = {
         print(string.format(fmt, ...))
     end,
 
-    doDumpTab = function(self, t, step, max_cnt, dump_cnt, first)
+    doDumpTab = function(self, t, step, max_cnt, dump_cnt)
         if type(t) ~= "table" then
             self:LOG("%s: %s", type(t), tostring(t))
             return
         end
         local dump_mark = self.dump_mark
 
-        if first then
-            dump_cnt = 0
+        dump_cnt = dump_cnt or 0
+        max_cnt = max_cnt or 20
+        step = step or 4
+
+        if dump_cnt == 0 then
             dump_mark = {}
-            max_cnt = max_cnt or 20
+            dump_mark[t] = true
         else
-            if max_cnt and (dump_cnt + 1 > max_cnt) then
+            if dump_cnt + 1 > max_cnt then
                 return
             end
         end
 
-        step = step or 4
         self:LOG("%s{", self:mkSpace(step*dump_cnt))
         for k, v in pairs(t) do
             if type(v) == "table" then
@@ -622,7 +624,7 @@ snapshot_diff = {
             end
         end
         self:LOG("%s}", self:mkSpace(step*dump_cnt))
-        if first then dump_mark = {} end
+        if dump_cnt == 0 then dump_mark = {} end
     end,
 
     dumpTab = function(self, t, what, max_cnt)
@@ -631,7 +633,7 @@ snapshot_diff = {
             if type(t) ~= "table" then
                 self:LOG("%s: %s", type(t), tostring(t))
             else
-                self:doDumpTab(t, nil, max_cnt, 0, true)
+                self:doDumpTab(t, nil, max_cnt, 0)
             end
             self:LOG("|$$ : %s", what or "Unknown")
         end

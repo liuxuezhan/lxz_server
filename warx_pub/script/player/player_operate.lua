@@ -30,6 +30,24 @@ function set_operate_version(self, activity_id, version)
     self.operate_activity[activity_id][OPERATE_PLAYER_DATA.VERSION] = version
 end
 
+function set_operate_first_flag(self, activity_id)
+    if self.operate_activity[activity_id] == nil then
+        self.operate_activity[activity_id] = {}
+    end
+    self.operate_activity[activity_id][OPERATE_PLAYER_DATA.FIRST_FLAG] = true
+    self.operate_activity = self.operate_activity
+end
+
+function get_operate_first_flag(self, activity_id)
+    if self.operate_activity[activity_id] == nil then
+        return nil
+    end
+    if self.operate_activity[activity_id][OPERATE_PLAYER_DATA.FIRST_FLAG] == nil then
+        return nil
+    end
+    return true
+end
+
 function set_operate_info(self, activity_id, type, key, value)
     if self.operate_activity[activity_id] == nil then
         self.operate_activity[activity_id] = {}
@@ -44,6 +62,29 @@ function set_operate_info(self, activity_id, type, key, value)
         data[key] = 0
     end
     data[key] = data[key] + value
+
+    --活动计数标记赋值
+    if info[OPERATE_PLAYER_DATA.VERSION] == nil then
+        local activity = operate_activity.get_activity_by_id(activity_id)
+        if activity ~= nil then
+            info[OPERATE_PLAYER_DATA.VERSION] = activity.version
+        end
+    end
+
+    self.operate_activity = self.operate_activity
+end
+
+function update_operate_info(self, activity_id, type, key, value)
+    if self.operate_activity[activity_id] == nil then
+        self.operate_activity[activity_id] = {}
+    end
+    local info = self.operate_activity[activity_id]
+    if info[type] == nil then
+        info[type] = {}
+    end
+
+    local data = info[type]
+    data[key] = value
 
     --活动计数标记赋值
     if info[OPERATE_PLAYER_DATA.VERSION] == nil then

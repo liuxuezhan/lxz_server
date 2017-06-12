@@ -68,6 +68,11 @@ watchtower_attacked[29] = function(msg, src)
 end
 
 function get_watchtower_info(troop, dest_load, player)
+    local base_action = troop:get_base_action()
+    if WatchTowerAction[base_action] == nil then
+        return
+    end
+
     local ack = get_ety(troop.owner_eid)
     local def = get_ety(troop.target_eid)
     if ack == nil or def == nil then
@@ -253,8 +258,10 @@ function packet_watchtower_info(player)
             if is_build(build) == true then
                 for id, action in pairs(build.troop_comings or {}) do
                     local troop = troop_mng.get_troop(id)
-                    if troop.owner_uid ~= player.uid then
-                        get_watchtower_info(troop, nil, player)
+                    if troop then
+                        if troop.owner_uid ~= player.uid then
+                            get_watchtower_info(troop, nil, player)
+                        end
                     end
                 end
             end
@@ -493,7 +500,7 @@ function building_def_clear(build, troop)
             if k ~= 0 then
                 local ply = getPlayer(k)
                 if ply ~= nil then
-                    Rpc:rm_compensation_info(ply, coming._id)
+                    Rpc:rm_compensation_info(ply, id)
                 end
             end
         end

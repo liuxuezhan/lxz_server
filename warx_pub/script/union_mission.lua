@@ -24,7 +24,7 @@ function load()--启动加载
         local u = unionmng.get_union(d._id)
         --if u then u.task = new(d)
         if u then u.task = tab_auto(d)
-        else WARN("没有军团："..d._id) end
+        else end
     end
 end
 
@@ -47,18 +47,7 @@ function set(p,idx)--领取军团任务
         if sum < 3 then 
             one.state = TASK_STATUS.TASK_STATUS_ACCEPTED  
             one.num = 0
-
-            local c = resmng.get_conf("prop_union_task",one.class*1000 + u.task.lv)
-            if not c then WARN("没有任务:"..one.class) return end
-
-            --[[
-            if c.Class == UNION_MISSION_CLASS.ACTIVE then
-                for k,v in pairs (u:get_members() or {}) do
-                    --if get_diff_days(gTime, v.cross_time) > 0 then ok(v,UNION_MISSION_CLASS.ACTIVE,v.activity) end
-                    ok(v,UNION_MISSION_CLASS.ACTIVE,v.activity) 
-                end
-            end
-            --]]
+            u:add_log(resmng.UNION_EVENT.MISSION,resmng.UNION_MODE.GET,{ name=p.name, propid = one.class*1000 +  u.task.lv  })
         else
             one.state = TASK_STATUS.TASK_STATUS_UPDATE  
             one.tm = gTime + 1 *60*60
@@ -183,10 +172,11 @@ end
 function ok(p,cond,num)
     local u = unionmng.get_union(p.uid)
     if not u then return end
-    for _,v in pairs (u.task.cur ) do
+    if not u.task then return end
+    for _,v in pairs (u.task.cur or {} ) do
         if v.state == TASK_STATUS.TASK_STATUS_ACCEPTED then 
             local c = resmng.get_conf("prop_union_task",v.class*1000 + u.task.lv )
-            if not c then WARN("没有任务:"..v.class) return end
+            if not c then return end
             if cond == c.Class then
                 if v.num + num >= c.Count then
                     v.state = TASK_STATUS.TASK_STATUS_FINISHED 
@@ -223,7 +213,7 @@ function add(p, idx)--领取军团任务奖励
     local star = 0
     for _,v  in pairs(u.task.cur) do
         local c = resmng.get_conf("prop_union_task",v.class*1000+u.task.lv)
-        if not c  then WARN("没有配置任务:"..u.uid) return end
+        if not c  then return end
         if v.state ==  TASK_STATUS.TASK_STATUS_FINISHED and v.num >= c.Count then star = star + c.Stars end
     end
 

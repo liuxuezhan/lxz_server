@@ -174,6 +174,7 @@ function attach_check_pending(example)
     end
 end
 
+-- WARNING: _example不要动态reload修改，除非配合内存中现有数据的升级
 function attach_wrap_(env, base)
     env._base = base
 
@@ -232,7 +233,11 @@ function attach_wrap_(env, base)
         env.init(cp)
         local function trans(d, t)
             for k, v in pairs(t) do
-                if env._example and env._example[k] ~= nil then d._pro[k] = v else d[k] = v end
+                if env._example and env._example[k] ~= nil then
+                    d._pro[k] = v
+                else
+                    rawset(d, k, v)
+                end
             end
         end
         trans(cp, rawget(t, "_pro") or {})
