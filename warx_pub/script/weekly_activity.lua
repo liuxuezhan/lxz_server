@@ -136,7 +136,7 @@ function on_day_pass()
 	if diff >= 7 then
         --排行榜发奖
         local aid = g_weekly_activity_data.data_list[g_weekly_activity_data.current_index]
-        send_rank_award(aid)
+        if aid then send_rank_award(aid) end
         
         --总榜发奖
         send_rank_award(resmng.WEEKLY_ACTIVITY_1000) --总榜id是1000
