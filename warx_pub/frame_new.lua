@@ -85,7 +85,11 @@ gDbNum = 1
 function loadMod()
     require("frame/tools")
 
---  require("frame/socket")
+    dofile( c_get_conf() )
+
+    if not config.Release then require("frame/debugger") end
+
+    require("frame/socket")
 
     if config.NO_DB then
         require("nodb/_conn")
@@ -93,7 +97,8 @@ function loadMod()
         _G.mongo = require("nodb/_mongo")
     else
         require("frame/conn")
-        require("warx_pub/dbmng")
+        require("frame/dbmng")
+        _G.mongo = require("frame/mongo")
     end
 
     require("frame/crontab")
@@ -106,11 +111,11 @@ function loadMod()
 
     doLoadMod("packet", "frame/rpc/packet")
     doLoadMod("MsgPack", "frame/MessagePack")
-    doLoadMod("Array", "warx_pub/rpc/array")
+    doLoadMod("Array", "frame/rpc/array")
+    doLoadMod("Struct", "frame/rpc/struct")
+    doLoadMod("RpcType", "frame/rpc/rpctype")
+    doLoadMod("Rpc", "frame/rpc/rpc")
 
-    doLoadMod("Struct", "warx_pub/rpc/struct")
-    doLoadMod("RpcType", "warx_pub/rpc/rpctype")
-    doLoadMod("Rpc", "warx_pub/rpc/rpc")
 
     --if config.Game ~= "actx" then
     --    require("frame/player_t")
@@ -132,7 +137,6 @@ end
 
 function handle_network(sid)
     local pktype = pullInt()
-    pktype = gNetPt.NET_MSG_CONN_COMP 
     local p = gConns[ sid ]
     if p then
         if pktype ==  gNetPt.NET_MSG_CLOSE then
@@ -246,7 +250,6 @@ function do_threadPK()
         local gateid, tag
         while true do
             gateid, tag = pullNext()
-            gateid, tag = 1,1 
             if gateid then
                 break
             else
@@ -285,14 +288,8 @@ function do_threadPK()
         end
 
         if tag then
-            --[[
             if gTagFun[ tag ] then
                 gTagFun[ tag ](gateid)
-            end
-            --]]
-            for sid, _ in pairs(gConns) do
-                gTagFun[ 1 ](sid)
-                gTagFun[ 2 ](sid)
             end
         else
             local pid = pullInt()
@@ -471,9 +468,8 @@ function clean_replay()
     local db = dbmng:getOne()
     if db then
         local time = gTime - (86400 * 3)
-    local time = gTime - (86400 * 3)
-    db.replay:delete({["1"] = {["$lt"] = time}})
-end
+        db.replay:delete({["1"] = {["$lt"] = time}})
+    end
 end
 
 local SignalDefine = {
@@ -561,14 +557,14 @@ function main_loop(sec, msec, fpk, ftimer, froi, signal)
 
         if gInit == "StateBeginInit" then
             gInit = "InitFrameAction"
-            frame_init()
+            action(frame_init)
 
         elseif gInit == "InitFrameDone" then
             gInit = "InitGameData"
             action( restore_game_data )
         
         elseif gInit == "InitCompensate" then
-            local real = gCompensation
+            local real = c_time_real()
             if gCompensation < real then
                 if c_get_troop_count() < 1 then
                     local recent = timer.get_recently()
@@ -620,17 +616,16 @@ function main_loop(sec, msec, fpk, ftimer, froi, signal)
             end
 
             if init_game_data then init_game_data() end
-            --c_set_init( 0 )
+
+            c_set_init( 0 )
             thanks()
             gInit = nil
             gBootTime = gTime
 
-            --[[
             local t = debug.tablemark(10)
             for k, v in pairs( t ) do
                 INFO( "MarkTable, Start, %s", v )
             end
-            --]]
         
         elseif gInit == "Shutdown" then
             set_sys_status( "tick", gTime )
@@ -706,10 +701,11 @@ function main_loop(sec, msec, fpk, ftimer, froi, signal)
     end
 
     if #gActions > 0 then
-        while #gActions > 0 do
-            local node = table.remove(gActions, 1)
-            if node[2] then
-                node[1](unpack(node[2]))
+        while true do
+            local co = getCoroPool("action")
+            local flag, what = coroutine.resume(co)
+            if flag then
+                if what == "ok" then break end
             else
                 LOG("ERROR %s", what)
             end
@@ -805,7 +801,7 @@ end
 
 function check_tool_ack()
     local dels = {}
-    for k, v in pairs(gPendingToolAck or {} ) do
+    for k, v in pairs(gPendingToolAck) do
         if gTime - v._t_ >= 100 then
             dels[k] = v
         end
@@ -1177,7 +1173,6 @@ end
 
 
 function init(sec, msec)
-    require("warx_pub/etc/config")
     gTime = math.floor(sec)
     gMsec = math.floor(msec)
     gMapID = getMap()
@@ -1235,15 +1230,30 @@ function init(sec, msec)
 
     load_game_module()
 
+    debug.settablemark(1)
+
     LOG("start: gTime = %d, gMsec = %d", gTime, gMsec)
 
     Rpc:init("server")
-    --Rpc.localF[ 6 ] = Rpc.localF[ hashStr("onBreak") ]
-
+    Rpc.localF[ 6 ] = Rpc.localF[ hashStr("onBreak") ]
 
     if config.Tips then
         c_init_log(config.Tips)
     end
+
+    --local dbname = string.format("warx_%d", gMapID)
+    local name = config.Game or "warx"
+    local dbname = string.format("%s_%d", name, gMapID)
+    for i = 1, gDbNum, 1 do
+        conn.toMongo(config.DbHost, config.DbPort, dbname, nil, false)
+    end
+
+    local dbnameG = string.format("%sG", name)
+    if config.DbHostG then
+        conn.toMongo(config.DbHostG, config.DbPortG, dbnameG, "Global", false)
+    end
+
+    conn.toGate(config.GateHost, config.GatePort)
 
     begJob()
 

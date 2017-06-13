@@ -21,14 +21,13 @@ function conn_new(self, host, port, dbname, sock, db, tips)
 end
 
 function getOne(self, policy)
-    
     if not g_db_s then
         local mongo = require "lualib/mongo"
 
         local v  = _list.db_server1.db1 
         v.host = v.host or g_host 
-        --v.host =  "192.168.100.12" 
-        v.host =  "192.168.101.223" 
+        v.host =  "192.168.100.12" 
+        --v.host =  "192.168.101.223" 
         --v.host =  "192.168.67.135" 
         lxz(v)
         g_db_s = mongo.client(v)

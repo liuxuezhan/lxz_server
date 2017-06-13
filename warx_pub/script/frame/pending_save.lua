@@ -12,6 +12,7 @@ gThreadAction = gThreadAction or false
 gThreadActionState = gThreadActionState or "unable"
 gThreadActionTime = gThreadActionTime or 0
 
+local bson = require "bson"
 local bson_encode_order = bson.encode_order
 
 function registe_update_callback( tab, func )
