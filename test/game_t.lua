@@ -112,11 +112,7 @@ skynet.start(function()
         open_fd(fd)	-- may raise error here
         lxz(string.format("connect from %s (fd = %d)", addr, fd))
         local ok, err = pcall(accept, fd, addr)
-        if not ok then
-            if err then
-                lxz(err)
-            end
-        end
+        if not ok then if err then lxz(err) end end
         close_fd(fd)
     end
     )

@@ -7,6 +7,7 @@ function load_game_module()
     end
     gMapID = getMap()
     gMapNew = 1
+    gCenterID = config.CENTER_ID or 999
     c_roi_init()
     c_roi_set_block("common/mapBlockInfo.bytes")
     gSysMailSn = 0
@@ -18,6 +19,7 @@ function load_game_module()
     do_reload()
 
 end
+
 
 gTimeReload = gTimeReload or 0
 function do_load2( mod )
@@ -42,6 +44,9 @@ function do_reload()
 
     do_load("timerfunc")
     do_load("public_t")
+    do_load("secret")
+
+    --do_load("frame/player_t")
     do_load("player_t")
     do_load("player/player_item")
     do_load("player/player_mail")
@@ -100,7 +105,6 @@ function do_reload()
     do_load("kw_mall")
     do_load("use_item_logic")
     do_load("rank_mng")
-    --do_load("rankmng")
     do_load("cross/gs_t")
     do_load("cross/cross_mng_c")
     do_load("cross/cross_refugee_c")
@@ -113,7 +117,6 @@ function do_reload()
     do_load("wander")
     do_load("pay_mall")
     do_load("world_event")
-    --do_load("operate_activity")
     do_load("weekly_activity")
     do_load("subscribe_ntf")
     do_load("tribute_exchange")
@@ -134,6 +137,10 @@ function reload()
     do_reload()
 end
 
+function tool()
+    gmcmd.to_tool()
+end
+
 function tool_test()
     for i=1 , 500 , 1 do
         --to_tool(0, {type = "login_server", cmd = "upload_ply_info", appid = APP_ID, open_id = tostring(i), pid = tostring(i), logic = tostring(gMapID), level = tostring(1), name = "tool_test", custom = "1", token = 1, signature=1})
@@ -150,6 +157,10 @@ function chat_test()
 end
 
 function restore_game_data()
+    if config.RestorePending then
+        restore_pending( config.RestorePending )
+    end
+
     local rt = restore_handler.action()
     if rt == "Compensation" then
         _G.gInit = "InitCompensate"
@@ -391,13 +402,26 @@ function do_rem_ety(eid)
             --    super_boss = 0
             --end
             --if e.marktm then gPendingDelete.monster[ eid ] = 0 end
+            troop_mng.delete_troop(e.my_troop_id)
             gPendingDelete.monster[ eid ] = 0
 
         elseif is_monster_city(e) then
+            local tr = troop_mng.get_troop(e.my_troop_id)
+            if tr then
+                if tr.owner_pid == 0 then
+                    troop_mng.delete_troop(e.my_troop_id)
+                end
+            end
             monster_city.rem_mc_in_citys(e)
             gPendingDelete.monster_city[ eid ] = 0
 
         elseif is_lost_temple(e) then
+            local tr = troop_mng.get_troop(e.my_troop_id)
+            if tr then
+                if tr.owner_pid == 0 then
+                    troop_mng.delete_troop(e.my_troop_id)
+                end
+            end
             gPendingDelete.lost_temple[ eid ] = 0
 
         elseif is_king_city(e) then
@@ -469,15 +493,31 @@ end
 
 
 function test(id)
-    break_player( 2290016 )
+    --player_t.mail_all({class=3, mode=0, title="hello", content="world", its=nil} )
 
+    local p = getPlayer( 20000 )
+    Rpc:activate(p )
+
+    --local a = bson.encode_order( "update", "status", "updates", {hello="world", a=1}, "ordered", false)
+    --local b,c,d,e,f,g = bson.decode( a )
+    --for k, v in pairs( b ) do
+    --    print( k, v )
+    --end
+
+
+    --for i = 1, 50, 1 do
+    --    player_t.add_chat({pid=-1, gid=_G.GateSid}, 0, 0, {pid=0}, "ok "..i, 0, {})
+    --end
+
+
+    --break_player( 2290016 )
+    --gmcmd.kaifu()
 
     --gPendingSave.test[ "hello" ] = { _id="hello", foo="bar" }
 
     --local str0 = c_encode_aes( "4e69fd13cb06ef2c62c712ced980d1e6", "1234567890123456", Json.encode( { hello="foo", world=1} ) )
     --local str1 = c_encode_base64( str0 )
     --print( str1 )
-
 
     --local ply = getPlayer( 2020000 )
     --local eid = get_near( ply.x+2, ply.y+2, 2001002 )
@@ -533,26 +573,12 @@ function on_shutdown()
             print( "save troop", troop._id, troop.curx or troop.sx, troop.cury or troop.sy, troop.tmCur )
         end
     end
+    gPendingSave.status.chat = player_t.gChat
+
+    --set_sys_status( "chat", player_t.gChat )
+
     _G.gInit = "SystemSaving"
 end
-
-function check_pending_before_shutdown()
-    if not gPendingModule then
-        --gPendingModule = { player_t, build_t, hero_t, union_t, npc_city, monster_city, king_city, lost_temple }
-        gPendingModule = { player_t }
-    end
-
-    local mods = gPendingModule
-    local update = false
-    for _, mod in pairs( mods ) do
-        for k, v in pairs( mod._cache ) do
-            INFO( "shutdown, save %s : %s, n = %d", mod._name, k, v._n_ or 0 )
-            update = true
-        end
-    end
-    return update
-end
-
 
 function mem_info()
     local heap, alloc, mlua, mbuf, mobj, nbuf = c_get_engine_mem()
@@ -571,18 +597,39 @@ function ack(self, funcname, code, reason)
         return
     end
     local hash = Rpc.localF[funcname].id
+    INFO("pid=%d,uid=%d,func:%s, code:%s, reason:%s",self.pid,self.uid, funcname, code, reason)
     Rpc:onError(self, hash, code, reason)
 end
 
+function copyTab2(object)
+    local lookup_table = {}
+    local function _copy(object)
+        if type(object) ~= "table" then
+            return object
+        elseif lookup_table[object] then
+            return lookup_table[object]
+        end
+        local new_table = {}
+        lookup_table[object] = new_table
+        for index, value in pairs(object) do
+            new_table[_copy(index)] = _copy(value)
+        end
+        return new_table
+    end
+    return _copy(object)
+end
 
-function module_class( name, example ) 
+function module_class( name, example, table_name ) 
     local mod = _G[ name ]
     _ENV = mod
 
     local _example = example
     local _name = name
+    local _table_name = table_name or name
+
     mod._example = _example
     mod._name = _name
+    mod._table_name = _table_name
 
     local mt = {
         __index = function ( t, k )
@@ -590,7 +637,7 @@ function module_class( name, example )
             if _example[ k ] then
                 local v = _example[ k ]
                 if type( v ) == "table" then
-                    t._pro[ k ] = copyTab( v )
+                    t._pro[ k ] = copyTab2( v )
                     return t._pro[ k ]
                 else
                     return v
@@ -602,13 +649,12 @@ function module_class( name, example )
         __newindex = function( t, k, v )
             if _example[ k ] then
                 t._pro[ k ] = v
-                _G.gPendingSave[ _name ][ t._id ][ k ] = v
+                _G.gPendingSave[ _table_name ][ t._id ][ k ] = v
             else
                 rawset( t, k, v )
             end
         end
     }
-
 
     function wrap( t )
         return setmetatable( { _pro = t }, mt )
@@ -616,7 +662,7 @@ function module_class( name, example )
 
     function new( t )
         if not t._id  then return MARK( "no _id") end
-        gPendingInsert[ _name ][ t._id ] = t
+        gPendingInsert[ _table_name ][ t._id ] = t
         local self = { _pro = t }
         setmetatable( self, mt )
         self:init()
@@ -624,7 +670,7 @@ function module_class( name, example )
     end
 
     function clr( t )
-        gPendingDelete[ _name ][ t._id ] = 1
+        gPendingDelete[ _table_name ][ t._id ] = 1
     end
 
     function init( self )
@@ -691,16 +737,6 @@ function remove_id(tab, id)
     end
 end
 
-function to_tool( sn, info )
-    --[[
-    if sn == 0 then sn = getSn("to_tool")  end
-    local val = {}
-    val._t_ = gTime
-    val.info = info
-    gPendingToolAck[sn] = val
-    Rpc:qry_tool( gAgent, sn ,info )
-    --]]
-end
 
 gReplayMax = 0
 function get_replay_id()
@@ -773,8 +809,7 @@ end
 
 function upload_act_score(mode, key, val)
     local class = 1
-    local center_id = 999
-    Rpc:callAgent(center_id, "upload_act_score", class, mode, key, val)
+    Rpc:callAgent(gCenterID, "upload_act_score", class, mode, key, val)
 end
 
 function arm_id( culture, id )
@@ -790,6 +825,7 @@ function make_sure_save( )
     local co = coroutine.running()
     local node = gGlobalSaveThread
     while true do
+        coro_mark( co, "pend" )
         coroutine.yield()
         node[2] = 1
         node[3] = gTime

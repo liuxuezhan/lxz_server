@@ -157,7 +157,7 @@ function create(account, map, pid, culture)
     --gPendingInsert.item[ pid ] = {}
     
     -- register chat accout
-    create_chat_account(ply)
+    --create_chat_account(ply)
     ply:add_buf( resmng.BUFF_SHELL, 24 * 3600 )
 
     ply:init_offline_ntf_list()
@@ -551,8 +551,10 @@ function firstPacket2(self, sockid, server_id, info)
         return
     end
 
+    --[[
     INFO( "firstPacket2, from=%s, sockid=%d, ip=%s, open_id=%s, pid=%d, did=%s, cival=%d, signature=%s, time=%s, toke=%s, token_expire=%s, version=%s, extra=%s",
     from_map, sockid , ip, open_id, pid, info.did, cival, signature,  time, token,  token_expire, version, extra )
+    --]]
 
     if is_block_account( open_id ) then
         Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.BLOCK_ACCOUNT)
@@ -583,11 +585,13 @@ function firstPacket2(self, sockid, server_id, info)
         end
     end
 
+    --[[
     if verify_signature(open_id, token, token_expire, time, extra, signature) == false then
         Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.TOKEN_INVAILD)
         INFO( "firstPacket2, token_invalid, from=%s, sockid=0x%08x, civil=%d, pid=%d, token=%s, time=%d, open_id=%s, did=%s, signature = %s, token=%s", from_map,  sockid , cival, pid, token, time, open_id, info.did or "unknonw", signature, token)
         return
     end
+    --]]
 
     if verify_time(time) == false then
         Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.TOKEN_OUT_OF_DATE)
@@ -5968,7 +5972,6 @@ function chat_account_info_req(self)
 end
 
 function create_chat_account(ply)
-    --to_tool(0, {type = "chat", cmd = "create_chat", user = tostring(ply.pid), host = CHAT_HOST, password = tostring(ply.pid)})
    to_tool(0, {url = config.Chat_url or CHAT_URL, type = "chat", method = "post", cmd = "create_chat", user = tostring(ply.pid), host = CHAT_HOST,password = tostring(ply.pid)})
 end
 

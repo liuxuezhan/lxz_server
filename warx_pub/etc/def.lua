@@ -243,3 +243,9 @@ function c_get_conf()
 end
 
 
+function c_encode_aes( ...)
+    return ""
+end
+function c_encode_base64( ... )
+    return ""
+end

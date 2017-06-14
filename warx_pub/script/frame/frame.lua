@@ -794,6 +794,7 @@ function ack_tool(pid, sn, data)
 end
 
 function to_tool( sn, info )
+    --[[
     if sn == 0 then sn = getSn("to_tool")  end
     local val = {}
     val._t_ = gTime
@@ -801,6 +802,7 @@ function to_tool( sn, info )
     gPendingToolAck[sn] = val
     Rpc:qry_tool( gAgent, sn ,info )
     return sn
+    --]]
 end
 
 function check_tool_ack()
