@@ -1408,7 +1408,7 @@ function getId(what)
         t.wait = 0
     end
 
-    local id = t.at * 10000 + t.sn
+    local id = (t.at or 1) * 10000 + t.sn
     t.sn = t.sn + 1
 
     local n = gPendingSave.uniq[ what ]
