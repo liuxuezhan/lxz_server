@@ -22,7 +22,8 @@ end
 
 function getOne(self, policy)
     if not g_db_s then
-        local mongo = require "lualib/mongo"
+        --local mongo = require "lualib/skynet/db/mongo"
+        local mongo = require "skynet.db.mongo"
 
         local v  = _list.db_server1.db1 
         v.host = v.host or g_host 
@@ -53,7 +54,7 @@ function getByTips(self, tips)
 end
 
 function getGlobal(self)
-    local mongo = require "mongo" --删除warx的mongo
+    local mongo = require "skynet.db.mongo" --删除warx的mongo
     local name,v  = "warx",_list.db_server1.db1 
     local db = mongo.client(v)
     return db[name]

@@ -1,6 +1,6 @@
 package.path = package.path..";./?.lua"
 local skynet = require "skynet"
-local socket = require "socket"
+local socket = require "skynet.socket"
 local assert = assert
 
 local socket_id	-- listen socket

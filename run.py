@@ -29,8 +29,6 @@ if __name__ == "__main__":
     print name
     lua_path = "skynet/?.lua;"\
                + "skynet/lualib/?.lua;"\
-               + "skynet/lualib/skynet/?.lua;"\
-               + "skynet/lualib/skynet/db/?.lua;"\
                + "lualib/?.lua;"\
                + "lib/rpc/?.lua;"\
                + "lib/?.lua;"\
