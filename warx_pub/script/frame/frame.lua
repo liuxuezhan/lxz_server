@@ -865,6 +865,7 @@ function global_save()
                     end
                     local oid = chgs._id
                     chgs._id = id
+                    lxz(tab,chgs)
                     db[ tab ]:update({_id=id}, {["$set"] = chgs }, true)
                     chgs._id = oid
                 else
