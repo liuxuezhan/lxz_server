@@ -10,4 +10,4 @@ echo "日志名：$timestamp"
 
 git add . 
 git commit -m "$timestamp" 
-git push --recurse-submodules=on-demand --force
+git push --recurse-submodules=on-demand 
