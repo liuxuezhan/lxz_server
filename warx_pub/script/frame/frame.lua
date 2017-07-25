@@ -865,12 +865,6 @@ function global_save()
                     end
                     local oid = chgs._id
                     chgs._id = id
-                    for k, v in pairs(chgs) do
-                        if type(k) == "number" then 
-                            lxz(tab,k,v)
-                            chgs[k] = nil
-                        end
-                    end
                     db[ tab ]:update({_id=id}, {["$set"] = chgs }, true)
                     chgs._id = oid
                 else
