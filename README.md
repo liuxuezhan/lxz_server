@@ -6,7 +6,6 @@
 | 我的代码库  | [github](https://liuxuezhan@github.com/liuxuezhan/skynet.git)   [开源中国](https://liuxuezhan@github.com/liuxuezhan/skynet.git)    [csdn](https://liuxuezhan@github.com/liuxuezhan/skynet.git) [coding](https://liuxuezhan@github.com/liuxuezhan/skynet.git)  |
 | 本地管理 |  [mongo](http://192.168.1.100/rockmongo/index.php?action=admin.index)    [个人主页](http://192.168.1.100/wordpress/wp-admin/update-core.php)   [印象笔记](https://app.yinxiang.com/Home.action#n=c22c8e69-b47d-47b9-9cc1-30850cf5b9b4&ses=4&sh=2&sds=5&)   | 
 | mongo |  [rockmongo](https://github.com/iwind/rockmongo.git)  [php_mongo](http://pecl.php.net/package/mongo) [中文社区](http://www.mongoing.com/) | 
-| skynet参考 | [skynet研究](http://skynetdoc.com/)  [skynet源码](https://github.com/cloudwu/skynet )   | 
 |  python |   [资源大全](https://github.com/jobbole/awesome-python-cn) | 
 | vim配置 |   [vim](https://github.com/humiaozuzu/dot-vimrc.git) | 
 |  lua | [库](http://luaforge.net/tags/) [应用库](http://lua-users.org/wiki/LuaDirectory)  [zlib](https://github.com/brimworks/lua-zlib)  [5.3手册](http://cloudwu.github.io/lua53doc/manual.html#lua_getmetatable) | 
@@ -20,6 +19,85 @@
 | ansible |  [模块](http://blog.csdn.net/modoo_junko/article/category/3084431) [应用](https://galaxy.ansible.com/explore#/) | 
 | 图表 | [百度图表](https://github.com/ecomfe/echarts)   [淘宝图表](http://www.oschina.net/p/G2) [淘宝图片裁剪](https://github.com/exinnet/tclip) | 
 | 其他 | [网易公开课](http://open.163.com/)  [开源黄页](http://www.oschina.net/company) [IT牛人博客](http://www.udpwork.com/)  [编程书籍](http://siberiawolf.com/free_programming/index.html) | 
+
+
+## skynet ##
+rwlock.h  读写锁
+skynet_error.c 错误处理
+
+内存分配，默认使用jemalloc
+malloc_hook.h
+malloc_hookhook.c 
+skynet_malloc.h
+
+启动流程
+skynet_imp.h
+skynet_main.c 
+skynet_start.c 
+
+Skynet主要功能，初始化组件、加载服务和通知服务
+skynet.h
+skynet_server.h
+skynet_server.c
+
+设置和获得lua的环境变量
+skynet_env.h 
+skynet_env.c
+
+简单的用一个数组，然后通è查询服务模块是否在数组中。
+skynet_module.h
+skynet_module.c
+
+服务编号管理
+skynet_handle.h
+skynet_handle.c
+
+启动节点服务，以及注册和发消息给远程节点。
+skynet_harbor.h
+skynet_harbor.c
+
+监视服务
+skynet_monitor.h  
+skynet_monitor.c
+
+消息队列
+skynet_mq.h
+skynet_mq.c
+
+定时器
+skynet_timer.h
+skynet_timer.c
+
+网络接口
+skynet_socket.h
+skynet_socket.c
+
+网络模块
+socket_server.h
+socket_server.c
+socket_poll.h
+socket_epoll.h
+socket_kqueue.h
+
+service_master.c主服务，负责管理harbor节点
+service_harbor.c节点服务，与其他节点互通。
+service_gate.c网关服务，管理Socket。
+service_logger.c日志服务
+
+加载lua编写的服务。核心服务。
+Service_lua.h
+service_snlua.c
+
+databffer.h数据缓冲
+hashid.h散列
+
+lua-skynet.c  核心库，skynet.core
+lua-seri.c 序列化
+
+lua-netpack.c 网络封包，协议使用。
+lua-socket.c 封装了socket-skiperver给lua使用
+lua-clientsocket.c 客户端socket封装
+lua-memory.c分配内存
 
 ## ansible ##
 ```
@@ -42,16 +120,6 @@ ansible-playbook site.yml -vv --skip-tags="ali"
 
 ## vim ##
 ### 配置 ###
-```
-mv ~/.vim ~/.vim.orig
-mv ~/.vimrc ~/.vimrc.orig
-git clone git://github.com/humiaozuzu/dot-vimrc.git ~/.vim
-ln -s ~/.vim/vimrc ~/.vimrc
-git clone https://github.com/gmarik/vundle.git ~/.vim/bundle/vundle
-```
-:BundleInstall    
-.bashrc增加export TERM="screen-256color"
-```
 [Solarized Dark]
 text=839496
 cyan(bold)=93a1a1
