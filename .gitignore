@@ -17,6 +17,7 @@ tags
 3rd/lua/luac
 /cservice
 /luaclib
+/lua-cjson
 *.so
 *.dSYM
 .DS_Store
