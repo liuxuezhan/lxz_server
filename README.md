@@ -22,55 +22,23 @@
 
 
 ## skynet ##
-rwlock.h  读写锁
-skynet_error.c 错误处理
-
-内存分配，默认使用jemalloc
-malloc_hook.h
-malloc_hookhook.c 
-skynet_malloc.h
+目录
+```
+[lualib]==>[lualib-src]==>[skynet-src]
+```
 
 启动流程
-skynet_imp.h
-skynet_main.c 
-skynet_start.c 
-
-Skynet主要功能，初始化组件、加载服务和通知服务
-skynet.h
-skynet_server.h
-skynet_server.c
-
-设置和获得lua的环境变量
-skynet_env.h 
-skynet_env.c
-
-简单的用一个数组，然后通è查询服务模块是否在数组中。
-skynet_module.h
-skynet_module.c
-
-服务编号管理
-skynet_handle.h
-skynet_handle.c
-
-启动节点服务，以及注册和发消息给远程节点。
-skynet_harbor.h
-skynet_harbor.c
-
-监视服务
-skynet_monitor.h  
-skynet_monitor.c
-
-消息队列
-skynet_mq.h
-skynet_mq.c
-
-定时器
-skynet_timer.h
-skynet_timer.c
-
-网络接口
-skynet_socket.h
-skynet_socket.c
+skynet_main.c  加载配置文件 
+skynet_start.c 启动4个主线程 
+skynet_server.c 创建skynet服务和call通信 
+skynet_env.c 设置和获得lua的环境变量
+skynet_module.c 简单的用一个数组，然后通è查询服务模块是否在数组中。
+skynet_handle.c 服务编号管理
+skynet_harbor.c 启动节点服务，以及注册和发消息给远程节点。
+skynet_monitor.c 监视服务
+skynet_mq.c 消息队列
+skynet_timer.c 定时器
+skynet_socket.c 网络接口
 
 网络模块
 socket_server.h
@@ -98,6 +66,14 @@ lua-netpack.c 网络封包，协议使用。
 lua-socket.c 封装了socket-skiperver给lua使用
 lua-clientsocket.c 客户端socket封装
 lua-memory.c分配内存
+
+rwlock.h  读写锁
+skynet_error.c 错误处理
+
+内存分配，默认使用jemalloc
+malloc_hook.h
+malloc_hookhook.c 
+skynet_malloc.h
 
 ## ansible ##
 ```

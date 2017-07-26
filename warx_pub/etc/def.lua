@@ -1,8 +1,8 @@
 -----------------------------------warx项目专用----------------------------------------------
 -- 原warx 的socket由c语言引擎统一队列处理 ，移植后由lua分发处理
-json = require "json"
+json = require "cjson"
 require "mytool"
-g_host = "192.168.98.226"
+g_host = "192.168.100.12"
 
 _list={
 
@@ -15,7 +15,7 @@ _list={
 
 }
 
-g_warx_t = {   port = 8001, maxclient=3000, room ="room1", db_name = "db_server1" } 
+g_warx_t = {   port = 80010, maxclient=3000, room ="room1", db_name = "db_server1" } 
 
 getfenv = getfenv or function(f)
     f = (type(f) == 'function' and f or debug.getinfo(f + 1, 'f').func)

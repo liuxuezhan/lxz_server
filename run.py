@@ -18,7 +18,7 @@ def get_ip(ifname):
 
 if __name__ == "__main__":
    #ip = socket.gethostbyname(socket.gethostname())
-    ip = get_ip("wlan0")
+    ip = get_ip("enp3s0")
     if len(sys.argv) < 2:
         print "输入路径"
         exit()
