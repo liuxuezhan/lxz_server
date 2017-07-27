@@ -1,16 +1,13 @@
 *.o
 *.a
-<<<<<<< HEAD
 *.log
 *.swp
 resmng
 *.so
 *.dSYM
-.DS_Store
 .svn
 tags
 !/lib/install
-=======
 /skynet
 /skynet.pid
 3rd/lua/lua
@@ -21,4 +18,4 @@ tags
 *.so
 *.dSYM
 .DS_Store
->>>>>>> upstream/master
+/lua-serialize
