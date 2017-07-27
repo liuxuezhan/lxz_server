@@ -104,9 +104,8 @@ local function pre(fd,addr)
 end
 
 skynet.start(function()
---    local console = skynet.newservice("console")
- --   skynet.newservice("debug_console",80000)
- 
+    --skynet.newservice("debug_console",80000)
+
     require "debugger"
     skynet.newservice("lualib/mongo_t",g_warx_t.db_name)--数据库写中心
     socket_id = socket.listen(g_warx_t.host or g_host, g_warx_t.port)
@@ -118,6 +117,7 @@ skynet.start(function()
         main_loop(os.time(), os.time(), 0, 0, 0, 0)
     end
 
+    skynet.newservice("warx_pub/client")
     socket.start ( socket_id , function(fd, addr)
         open_fd(fd)	-- may raise error here
         lxz(string.format("connect from %s (fd = %d)", addr, fd))
