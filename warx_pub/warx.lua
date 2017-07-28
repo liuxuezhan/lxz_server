@@ -45,7 +45,7 @@ function CMD.close()
 end
 
 function CMD.login(data)
-    data = json.decode(data) 
+    data = msg.pack(data) 
     ply._d[data.name]=data
 end
 
@@ -66,7 +66,7 @@ local function accept(fd, addr)
     while 1 do
         local ret = read(fd)
         if ret then
-            local d = json.decode(copyTab(ret))
+            local d = msg.unpack(copyTab(ret))
             if d then
                 lxz(d.f)
                 if d.f == "firstPacket2" then
@@ -107,7 +107,7 @@ skynet.start(function()
     --skynet.newservice("debug_console",80000)
 
     require "debugger"
-    skynet.newservice("lualib/mongo_t",g_warx_t.db_name)--数据库写中心
+    skynet.newservice("lib/mongo_t",g_warx_t.db_name)--数据库写中心
     socket_id = socket.listen(g_warx_t.host or g_host, g_warx_t.port)
     save_db()
     require "warx_pub/script/frame/frame"

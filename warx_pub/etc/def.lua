@@ -1,7 +1,6 @@
 -----------------------------------warx项目专用----------------------------------------------
 -- 原warx 的socket由c语言引擎统一队列处理 ，移植后由lua分发处理
-json = require "cjson"
-json.encode_sparse_array(true,1,0)  
+msg = require "msg"
 require "mytool"
 g_host = "192.168.100.12"
 
