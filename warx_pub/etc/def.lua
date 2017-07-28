@@ -1,7 +1,7 @@
 -----------------------------------warx项目专用----------------------------------------------
 -- 原warx 的socket由c语言引擎统一队列处理 ，移植后由lua分发处理
-msg = require "msg"
-require "mytool"
+lualib_serializable = require "lualib_serializable"
+require "lualib_mytool"
 g_host = "192.168.100.12"
 
 _list={

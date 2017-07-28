@@ -45,7 +45,7 @@ function CMD.close()
 end
 
 function CMD.login(data)
-    data = msg.pack(data) 
+    data = lualib_serializable.pack(data) 
     ply._d[data.name]=data
 end
 
@@ -66,7 +66,7 @@ local function accept(fd, addr)
     while 1 do
         local ret = read(fd)
         if ret then
-            local d = msg.unpack(copyTab(ret))
+            local d = lualib_serializable.unpack(copyTab(ret))
             if d then
                 lxz(d.f)
                 if d.f == "firstPacket2" then

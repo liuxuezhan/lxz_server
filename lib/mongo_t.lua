@@ -1,7 +1,7 @@
 local skynet = require "skynet"
 local mongo = require "skynet.db.mongo"
 local bson = require "bson"
-require "base"
+require "lualib_database"
 
 local server_name = ...
 _db = {}

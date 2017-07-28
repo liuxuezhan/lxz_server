@@ -1,5 +1,5 @@
 local skynet = require "skynet"
-require "base"
+require "lualib_mytool"
 local socket = require "client.socket"
 
 
