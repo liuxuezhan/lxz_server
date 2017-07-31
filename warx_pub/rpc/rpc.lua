@@ -258,7 +258,7 @@ local function callRpc( rpc, name, plA, ... )
         end
     end
 
-    local socket = require "socket"
+    local socket = require "skynet.socket"
     local pack = {name=name,args={...}, }
     --lxz(pack)
     pack = lualib_serializable.pack(pack)

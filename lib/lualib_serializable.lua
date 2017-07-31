@@ -1,4 +1,5 @@
 local json = require "cjson"
+json.safe = require "cjson.safe"
 json.encode_sparse_array(true,1,0)  
 local msg = {}
 
@@ -93,10 +94,10 @@ function msg.pack(src,tab)
 end
 
 function msg.unpack(src,tab)
+    if not json.safe.decode(src) then  return end
+    lxz(src)
     src = json.decode(src)
-    if tab then
-        src = msg.unzip(tab,src)
-    end
+    if tab then src = msg.unzip(tab,src) end
     return src
 end
 

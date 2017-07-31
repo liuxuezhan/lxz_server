@@ -61,6 +61,7 @@ hashid.h散列
 
 lua-skynet.c  核心库，skynet.core
 lua-seri.c 序列化
+lua-profile.c 监控 
 
 lua-netpack.c 网络封包，协议使用。
 lua-socket.c 封装了socket-skiperver给lua使用
