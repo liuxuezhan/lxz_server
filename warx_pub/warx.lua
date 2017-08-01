@@ -93,15 +93,15 @@ skynet.start(function()
         main_loop(os.time(), os.time(), 0, 0, 0, 0)
     end
 
-    --skynet.newservice("warx_pub/client")
     socket.start ( socket_id , function(fd, addr)
         open_fd(fd)	-- may raise error here
-        lxz(string.format("connect from %s (fd = %d)", addr, fd))
+        lxz(string.format("connect from %s (fd = %d),cur=%d", addr, fd,client_number))
         local ok, err = pcall(accept, fd, addr)
         if not ok then if err then lxz(fd, err) end end
-        lxz(string.format("disconnect from %s (fd = %d)", addr, fd))
         close_fd(fd)
+        lxz(string.format("disconnect from %s (fd = %d),cur=%d", addr, fd,client_number))
     end
     )
+    skynet.newservice("warx_pub/client")
 end)
 
