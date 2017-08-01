@@ -64,6 +64,18 @@ function addexp(pids, exp)
     return {code = 0, msg = "no ply"}
 end
 
+function set_sys_option( pids, key, val )
+    player_t.set_sys_option( key, val )
+    return { code = 1, msg = "success" }
+end
+
+
+function set_sys_status( pids, key, val )
+    _G.set_sys_status( key, val )
+    return { code = 1, msg = "success" }
+end
+
+
 function build_exp(pids, mode, exp)
     local ply = getPlayer(tonumber(pids[1]))
     if ply then
@@ -415,11 +427,13 @@ function push_ntf(pids, string)
     if ply then
         --local audience = "all"
         local audience = {
-               ["registration_id"] = {ply.jpush_id or "170976fa8ab2a7a1663"}
+               ["registration_id"] = {ply.jpush_id or "170976fa8ab2a7a1663"},
+               ["fcm_id"] = ply.fcm_id or "dpB9gVO1yFw:APA91bGS4moZRBuz80fHm0K1TSqu6zZesnLLhgMlHbOYLLK5zBk5eG5_5CFnm8v1S_i3Sw8bEtNqLkwUxc57NrKqf3ZD70m08r69YZTtRbeD6OMzCOTHm01yqYxx-l-AXH-gF3FqQmCD"
                 --["registration_id"] = {"170976fa8ab2a7a1663"}
             --    ["registration_id"] = {}
         }
-        push_offline_ntf(audience, string)
+        --push_offline_ntf(audience, string)
+        fcm(audience, string)
         --offline_ntf.post(resmng.OFFLINE_NOTIFY_TIME_ACTIVITY)
         return {code = 1, msg = "success"}
     else
@@ -428,17 +442,12 @@ function push_ntf(pids, string)
 end
 
 function jpush_all_ntf(pids, string)
-    local ply = getPlayer(pids[1])
-    if ply then
-        --local audience = "all"
-        local audience = {}
-        audience.tag_and = {get_server_tay()}
-        push_offline_ntf(audience, string)
-        --offline_ntf.post(resmng.OFFLINE_NOTIFY_TIME_ACTIVITY)
-        return {code = 1, msg = "success"}
-    else
-        return {code = 0, msg = "no ply"}
-    end
+    --local audience = "all"
+    local audience = {}
+    audience.tag_and = {offline_ntf.get_server_tag()}
+    push_offline_ntf(audience, string)
+    --offline_ntf.post(resmng.OFFLINE_NOTIFY_TIME_ACTIVITY)
+    return {code = 1, msg = "success"}
 end
 
 function addcount(pids, s_id, s_num)
@@ -601,6 +610,17 @@ function resend_order(pids)
     end
 end
 
+function hero_task_req(pids, what)
+    local p = getPlayer(tonumber(pids[1]))
+    if p then
+        p:get_hero_task_list_req()
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+
+end
+
 function kaifu(pids)
     set_sys_status("start", gTime)
     world_event.reinit_world_event()
@@ -609,6 +629,15 @@ function kaifu(pids)
     lost_temple.init_lt()
     king_city.init_kw()
     rank_mng.reset_rank()
+    return {code = 1, msg = "success"}
+end
+
+function online_num(pids)
+    return {code = 1, msg = string.format("online ply num = %d", player_t.g_online_num)}
+end
+
+function tips(pids, word)
+    Rpc:tips({pid=-1,gid=_G.GateSid}, 2, resmng.OPERATION_PUSH, {word})
     return {code = 1, msg = "success"}
 end
 
@@ -640,6 +669,8 @@ gmcmd_table = {
     ["nospeak"]         = { 4,              nospeak,         "禁言",                     "nospeak=time=pid" },
     ["nologin"]         = { 4,              nologin,         "禁止登录",                     "nologin=time=pid" },
     ["addexp"]         = { 4,              addexp,         "加经验",                     "addexp=num=pid" },
+    ["set_sys_option"]         = { 4,              set_sys_option,         "加经验",                     "set_sys_option=key=val" },
+    ["set_sys_status"]         = { 4,              set_sys_status,         "加经验",                     "set_sys_status=NoCreate=true" },
     ["build_exp"]         = { 4,              build_exp,         "加军团建筑经验",                     "build_exp=mode=num=pid" },
     ["build_lv"]         = { 4,              build_lv,         "建筑升级",                     "build_lv=class=mode=lv=pid" },
     ["blockaccount"]         = { 4,              block_account,         "禁止玩家登录",                     "blockaccount=time=pid" },
@@ -650,6 +681,8 @@ gmcmd_table = {
     ["setef"]         = { 4,              set_ef,         "设置玩家ef属性",                     "set_ef=key=1" },
     ["addef"]         = { 4,              ef_add,         "设置玩家属性",                     "ef_add=key=1" },
     ["skill"]         = { 4,              skill,         "学习技能",                     "skill=1" },
+    ["onlinenum"] = { 4,              online_num,         "在线人数",               "onlinenum" },
+    ["tips"] = { 4,              tips,         "跑马灯",                     "tips=kdic," },
 ------活动相关
     ["refreshboss"]         = { 4,              refreshboss,         "刷玩家周边boss",                     "refreshboss" },
     ["starttw"]         = { 4,              start_tw,         "攻城掠地开启",                     "starttw" },
@@ -695,6 +728,7 @@ gmcmd_table = {
     ["docheck"] = {4, do_check, "强制docheck操作", "docheck"},
     ["totool"] = {4, totool, "to_tool", "totool"},
     ["resendorder"] = {4, resend_order, "通知客户端重发订单", "resendorder"},
+    ["herotask"] = {4, hero_task_req, "请求hero task 列表", "herotask=what"},
 
 
 }

@@ -1,5 +1,7 @@
 module("task_logic_t", package.seeall)
 
+gPendingTask = gPendingTask or {}
+
 --[[
 local task_info = {}
 task_info.task_id = 0
@@ -10,10 +12,63 @@ task_info.task_current = 0
 task_info.task_daily_num = 0
 --]]
 
+--function process_task(player, task_action, ...)
+--    if player == nil then return end
+--
+--    local st = c_msec()
+--    local task_data_array = player:get_task_by_action(task_action)
+--    for k, v in pairs(task_data_array or {}) do
+--        if v.task_status == TASK_STATUS.TASK_STATUS_ACCEPTED then
+--            local task_info = nil
+--            if v.task_type == TASK_TYPE.TASK_TYPE_DAILY then
+--                task_info = resmng.prop_task_daily[v.task_id]
+--            else
+--                task_info = resmng.prop_task_detail[v.task_id]
+--            end
+--            if task_info ~= nil then
+--                local con_tab = copyTab(task_info.FinishCondition)
+--                for i, j in pairs({...}) do
+--                    table.insert(con_tab, j)
+--                end
+--                local res = distribute_operation(player, v, unpack(con_tab))
+--                if res == true then
+--                    player:add_save_task_id(v.task_id)
+--                end
+--            end
+--        end
+--    end
+--    player:do_save_task()
+--    --LOG("taskstatics:process action:"..task_action.." time:"..(c_msec()-st))
+--end
+
 function process_task(player, task_action, ...)
-    if player == nil then
-        return
+    if not player then return end
+    if player._cur_task_list then
+        do_process_task( player, task_action, ... )
+    else
+        local pid = player.pid
+        local node = gPendingTask[ pid ]
+        if not node then
+            node = {}
+            gPendingTask[ pid ] = node
+            action( handle_pending_task, pid )
+        end
+        table.insert( node, { task_action, ... } )
     end
+end
+
+function handle_pending_task( pid )
+    local p = getPlayer( pid )
+    if p then
+        local node = gPendingTask[ pid ]
+        gPendingTask[ pid ] = nil
+        for _, v in pairs( node ) do
+            do_process_task( p, table.unpack( v ) )
+        end
+    end
+end
+
+function do_process_task( player, task_action, ... )
     local st = c_msec()
     local task_data_array = player:get_task_by_action(task_action)
     for k, v in pairs(task_data_array or {}) do
@@ -37,9 +92,7 @@ function process_task(player, task_action, ...)
         end
     end
     player:do_save_task()
-    --LOG("taskstatics:process action:"..task_action.." time:"..(c_msec()-st))
 end
-
 
 
 function distribute_operation(player, task_data, func, ...)
@@ -419,13 +472,19 @@ end
 
 --学习英雄技能
 do_task[TASK_ACTION.LEARN_HERO_SKILL] = function(player, task_data, con_pos)
-
-
     local hero_list = player:get_hero()
     for k, v in pairs(hero_list) do
-        local skill = v.basic_skill[con_pos]
-        if skill ~= nil and skill[1] > 0 then
-            return update_task_process(task_data, 1, 1)
+        if con_pos == 0 then
+            for _, s in pairs(v.basic_skill or {}) do
+                if s ~= nil and s[1] > 0 then
+                    return update_task_process(task_data, 1, 1)
+                end
+            end
+        else
+            local skill = v.basic_skill[con_pos]
+            if skill ~= nil and skill[1] > 0 then
+                return update_task_process(task_data, 1, 1)
+            end
         end
     end
     return false
@@ -543,8 +602,8 @@ do_task[TASK_ACTION.GATHER] = function(player, task_data, con_type, con_num, con
     if con_type ~= 0 and con_type ~= real_type then
         return false
     end
-
-    add_task_process(player, task_data, con_num, real_num)
+    local count = real_num * (RES_RATE[real_type] or 1)
+    add_task_process(player, task_data, con_num, count)
     return true
 end
 
@@ -1119,4 +1178,49 @@ do_task[TASK_ACTION.TROOP_TO_KING_CITY] = function(player, task_data, con_num, r
         return false
     end
     return update_task_process(task_data, con_num, 1)
+end
+
+--特定英雄到达等级
+do_task[TASK_ACTION.SPECIAL_HERO_LEVEL] = function(player, task_data, con_id, con_level)
+    local lv = 0
+    local hero_list = player:get_hero()
+    for k, v in pairs(hero_list or {}) do
+        if v.propid == con_id then
+            lv = v.lv
+            break
+        end
+    end
+    if lv > 0 then
+        return update_task_process(task_data, con_level, lv)
+    end
+    return false
+end
+
+--特定英雄升星
+do_task[TASK_ACTION.SPECIAL_HERO_STAR] = function(player, task_data, con_id, con_star)
+    local star = 0
+    local hero_list = player:get_hero()
+    for k, v in pairs(hero_list or {}) do
+        if v.propid == con_id then
+            local prop_star = resmng.get_conf("prop_hero_star_up", v.star)
+            star = prop_star.StarStatus[1]
+            break
+        end
+    end
+    if star > 0 then
+        return update_task_process(task_data, con_star, star)
+    end
+    return false
+end
+
+--特定英雄性格重置
+do_task[TASK_ACTION.HERO_NATURE_RESET] = function(player, task_data, con_id, con_num, real_id, real_num)
+    if real_num == nil then
+        return false
+    end
+    if con_id ~= 0 and con_id ~= real_id then
+        return false
+    end
+    add_task_process(player, task_data, con_num, 1)
+    return true
 end

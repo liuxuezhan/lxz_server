@@ -5,6 +5,25 @@ TOTAL_RATE = 10000
 BLACK_MARKET_REFRESH_COST = {0,0,0,0,5,10,20,40,80,120,120,160,160,320,320,640,640,1000,1000,1000}
 
 RES_RATE = { 1, 1, 5, 20 }
+--清理玩家
+PLY_CLEAR = 
+{
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+}
 
 RANGE_LV = { 3380, 1104, 816, 528, 240, 16 }
 BUY_SILVER_COST = 150  -- 购买银币比率恒定150:1
@@ -145,7 +164,7 @@ DEFAULT_PHOTO = {
 
 --- Zhao@2016年4月14日：军团创建条件
 CREATEUNION = {
-    lv = 2,
+    lv = 3,
     cost = 1000
 }
 
@@ -182,7 +201,7 @@ UNION_TIMINGTASK_CONFIG = {1,5,10}
 --重置英雄性格道具ID
 RESET_HERO_NATURE_ITEM = resmng.ITEM_4006001
 
-TRIBUTE_EXCHANGE_LOOP = 7200
+TRIBUTE_EXCHANGE_LOOP = 86400
 TRIBUTE_EXCHANGE_TAX = 10
 
 WEEKLY_ACTIVITY_CIRCULATION = 0 --周限时活动间隔周数
@@ -217,7 +236,7 @@ CHA_LIMIT =
     Union_Notice        = {1,180},              --军团公告
     Union_Words_Topic   = {1,30},               --军团留言-主题
     Union_Words_Content = {1,600},              --军团留言-正文
-    Union_Title_Grant   = {1,18},               --授予头衔
+    Union_Title_Grant   = {0,18},               --授予头衔
     Union_Set_RankName  = {1,18},               --修改阶级称谓
     Union_Name          = {6,12},               --创建军团名称
     Union_Alias         = {3,3},                --创建军团简称
@@ -262,6 +281,14 @@ TASK_TARGET_ID =
     [4] = {130050401,130050402,130050403,130050404,130050405,130050406,130050407,130050408},
 }
 TASK_TARGET_FINISH_ICON = "task_gongpin"
+--目标推荐任务
+TARGET_RECOMMEND = 
+{
+    [1] = {130050106, 130050107},
+    [2] = {130050206, 130050208},
+    [3] = {130050305, 130050308},
+    [4] = {130050404, 130050408},
+}
 
 
 WORLD_EVENT_STAGE_AWARD =
@@ -294,10 +321,10 @@ MAINUI_TOP_BTN_LAYER =
     ["btn_shop_ac"] = 1,
     ["acitity_btn"] = 1,
     ["btn_more_btns"] = 1,
-    ["btn_more_btns (1)"] = 2,
-    ["btn_more_btns (2)"] = 2,
-    ["btn_more_btns (3)"] = 2,
-    ["btn_more_btns (4)"] = 2,
+    ["btn_lordrank"] = 2,
+    ["btn_goldnotice"] = 2,
+    ["btn_lord_achieve"] = 2,
+    ["btn_tansuo"] = 2,
     ["btn_more_btns (5)"] = 2,
     ["btn_more_btns (6)"] = 2,
     ["btn_more_btns (7)"] = 2,
@@ -306,7 +333,33 @@ MAINUI_TOP_BTN_LAYER =
     ["btn_more_btns (10)"] = 2,
 }
 
+SHOW_UNION_POWER = 
+{
+    --1就是显示位置
+    ChgRankAlias = {1,resmng.UNION_MEMBER_POWER_1},
+	ChgFlag = {2,resmng.UNION_MEMBER_POWER_2},
+	Trans = {3,resmng.UNION_MEMBER_POWER_3},
+	Impeach = {4,resmng.UNION_MEMBER_POWER_4},
+	TechUp = {5,resmng.UNION_MEMBER_POWER_5},
+	BuildUp = {6,resmng.UNION_MEMBER_POWER_6},
+	BuildPlace = {7,resmng.UNION_MEMBER_POWER_7},
+	Diplomacy = {8,resmng.UNION_MEMBER_POWER_8},
+	SetNoteIn = {9,resmng.UNION_MEMBER_POWER_9},
+	ChgRecruit = {10,resmng.UNION_MEMBER_POWER_10},
+	Invite = {11,resmng.UNION_MEMBER_POWER_11},
+	MemMark = {12,resmng.UNION_MEMBER_POWER_12},
+	Mission= {13,resmng.UNION_MEMBER_POWER_13},
+	ChgRank = {14,resmng.UNION_MEMBER_POWER_14},
+	Kick = {15,resmng.UNION_MEMBER_POWER_15},
+	Donate = {16,resmng.UNION_MEMBER_POWER_16},
+	MemHelp = {17,resmng.UNION_MEMBER_POWER_17},
+	MemSoldier = {18,resmng.UNION_MEMBER_POWER_18},
+	MemRes = {19,resmng.UNION_MEMBER_POWER_19},
+	MemExit = {20,resmng.UNION_MEMBER_POWER_20},
+	MailAll = {21,resmng.UNION_MEMBER_POWER_21},
+	
+}
 
-
-
+--可跨服迁城的时间
+CROSS_SERVER_MOVE_TIME = 3 * 86400
 

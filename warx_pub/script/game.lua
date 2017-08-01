@@ -16,6 +16,8 @@ function load_game_module()
     gDelayAction = {}
     white_list = {}
 
+    Rpc.reload_protocol_define = function() do_load("war_pub/rpc/protocol") end
+    Rpc.reload_user_struct_define = function() do_load("war_pub/rpc/struct") end
     do_reload()
 
 end
@@ -39,14 +41,15 @@ function do_reload()
     do_load("constant/constant")
     do_load("common/define")
     do_load("common/tools")
+
     do_load("common/protocol")
     do_load("common/struct")
+    Rpc:init("server")
 
     do_load("timerfunc")
     do_load("public_t")
     do_load("secret")
 
-    --do_load("frame/player_t")
     do_load("player_t")
     do_load("player/player_item")
     do_load("player/player_mail")
@@ -63,6 +66,8 @@ function do_reload()
     do_load("player/player_title")
     do_load("player/player_pay_mall")
     do_load("player/player_operate")
+    do_load("player/player_hero_road")
+    do_load("player/player_hero_task")
     do_load("agent_t")
     do_load("build_t")
     do_load("player/player_troop")
@@ -95,6 +100,7 @@ function do_reload()
     do_load("union_mission")
     do_load("union_word")
     do_load("union_buildlv")
+    do_load("union_hero_task")
     do_load("new_union")
     do_load("triggers")
     do_load("daily_task_filter")
@@ -220,9 +226,6 @@ function get_eid(mode)
             return eid
         end
     end
-end
-
-function mark_eid( eid )
 end
 
 
@@ -493,10 +496,135 @@ end
 
 
 function test(id)
-    --player_t.mail_all({class=3, mode=0, title="hello", content="world", its=nil} )
+    --gPendingInsert.test[1] = {a="b", c="d"}
+    --gPendingInsert.test[1] = {e="f"}
 
-    local p = getPlayer( 20000 )
-    Rpc:activate(p )
+
+    local rids = {
+        1502480137,
+        2109937726,
+        157621797,
+        1923780972,
+        196969287,
+        1433481197,
+        206363805,
+        393583197,
+        1102596737,
+        359104097,
+    }
+
+    for k, v in ipairs( rids ) do
+        local node = Rpc.localF[ v ]
+        print( v, node.name )
+    end
+
+    local ns = {
+        {798001119, 890, 1244, 1397},
+        {135185993, 2, 3, 1500},
+        {1472712897, 72, 108, 1500},
+        {393583197, 3028, 4801, 1585},
+        {1524610729, 10, 16, 1600},
+        {183746984, 646, 1039, 1608},
+        {1569020298, 320, 524, 1637},
+        {96213039, 123, 207, 1682},
+        {975817409, 124, 214, 1725},
+        {2010336858, 46, 83, 1804},
+        {1102596737, 3059, 5763, 1883},
+        {1090649378, 1, 2, 2000},
+        {400966909, 23, 46, 2000},
+        {2068420318, 12, 25, 2083},
+        {359104097, 3109, 7212, 2319},
+        {1553452151, 3, 7, 2333},
+        {798787189, 31, 75, 2419},
+        {2121008823, 301, 751, 2495},
+        {326180269, 4, 10, 2500},
+        {294628538, 5, 13, 2600},
+        {514716984, 5, 13, 2600},
+        {157621797, 1414, 3730, 2637},
+        {1168354026, 3, 8, 2666},
+        {575404459, 29, 79, 2724},
+        {259854322, 96, 280, 2916},
+        {1071939102, 6, 18, 3000},
+        {1551716341, 7, 22, 3142},
+        {2018864233, 14, 46, 3285},
+        {201287549, 33, 121, 3666},
+        {1056903569, 17, 64, 3764},
+        {2093118677, 1, 4, 4000},
+        {456538552, 1, 4, 4000},
+        {97893147, 7, 30, 4285},
+        {748250112, 223, 980, 4394},
+        {206363805, 2237, 9863, 4409},
+        {1815056972, 6, 28, 4666},
+        {1019996971, 1, 5, 5000},
+        {1086361970, 461, 2354, 5106},
+        {2078887350, 10, 52, 5200},
+        {1526195904, 6, 32, 5333},
+        {678995975, 66, 363, 5500},
+        {1506482774, 16, 115, 7187},
+        {1472690236, 12, 90, 7500},
+        {799185316, 29, 229, 7896},
+        {1080338257, 3, 36, 12000},
+        {247548640, 4, 51, 12750},
+        {159043482, 10, 130, 13000},
+        {1433481197, 1672, 23200, 13875},
+        {888840546, 3, 59, 19666},
+        {565925220, 1, 21, 21000  },
+
+    }
+    for k, v in ipairs( ns ) do
+        local node = Rpc.localF[ v[1] ]
+        print( string.format( "count=%d, avg=%d, use=%d, name=%s ", v[2], v[4], v[3], node.name ) )
+    end
+
+
+    --local name = "hello1"
+    --local code = want_insert_unique_name( "name_ply", name, { pid=1, } )
+    --print( "code=", code, name )
+
+
+
+    --local p = getPlayer( 3560000 )
+    --local u = unionmng.get_union( p.uid )
+    --dumpTab( u.help, "union_help" )
+
+    --local p = getPlayer( 3560002 )
+    --if p then
+    --    union_help.set( p, 4391 )
+    --end
+
+
+    --gPendingInsert.test[1] = {foo="world"}
+    --gPendingSave.test[1] = {}
+    
+    --local p = getPlayer( 3370136 )
+    --p._count = nil
+    --p:add_count(1,1)
+    --p:clear_task()
+    --if p._cur_task_list then
+    --    WARN( "should not see this" )
+    --end
+
+    --print( p:get_device_grade( "iphone", "opengl", 100, 1 ) )
+    --p:add_exp(100)
+
+    --Rpc:tips(p, 1, resmng.TIPS_OVERLAP, {})
+    --player_t.mail_all({class=3, mode=0, title="hello", content="world", its=nil} )
+    --player_t.gClientExtra = "Rpc:init()"
+    --local info 
+    --for i = 1, 1024, 1 do
+    --    local db = dbmng:getOne()
+    --    info = db:runCommand( "getLastError" )
+    --end
+    --dumpTab(info, "TableMark" )
+
+    --local s = debug.tablemark(1024)
+    --for k, v in pairs( s ) do
+    --    INFO( "TableMark, %s", v)
+    --end
+    
+
+    --local node = {{hello="foo"}, {foo="bar"}}
+    --Rpc:union_search( p, "hello", node )
 
     --local a = bson.encode_order( "update", "status", "updates", {hello="world", a=1}, "ordered", false)
     --local b,c,d,e,f,g = bson.decode( a )
@@ -573,9 +701,7 @@ function on_shutdown()
             print( "save troop", troop._id, troop.curx or troop.sx, troop.cury or troop.sy, troop.tmCur )
         end
     end
-    gPendingSave.status.chat = player_t.gChat
-
-    --set_sys_status( "chat", player_t.gChat )
+    if next( player_t.gChat ) then gPendingSave.status.chat = player_t.gChat end
 
     _G.gInit = "SystemSaving"
 end
@@ -643,11 +769,20 @@ function module_class( name, example, table_name )
                     return v
                 end
             end
-            if _G[ _name ][ k ] then return _G[ _name ][ k ] end
+            return rawget( _G[ _name ], k )
+            -- todo is it ok?
+            --return _G[ _name ][ k ]
         end,
-        
+       
         __newindex = function( t, k, v )
             if _example[ k ] then
+                if type(v) ~= "table" then
+                    if t._pro[k] ~= v then
+                        t._pro[ k ] = v
+                        _G.gPendingSave[ _table_name ][ t._id ][ k ] = v
+                        return
+                    end
+                end
                 t._pro[ k ] = v
                 _G.gPendingSave[ _table_name ][ t._id ][ k ] = v
             else
@@ -725,6 +860,7 @@ function init_game_data()
     local db = dbmng:getOne()
     db.mail:delete( { tm_drop = { [ "$gt" ] = 0, [ "$lt" ] = tm_drop } } )
     db.mail:delete( { tm = { [ "$lt" ] = tm_delete } } )
+    player_t.clear_outline() 
 end
 
 
@@ -904,4 +1040,31 @@ function insert_global( tab, key, info )
     info._a_ = 1
     update_global( tab, key, info)
 end
+
+gOnlines = gOnlines or {}
+function mark_access( pid )
+    local node = gOnlines[ pid ]
+    if not node then
+        gOnlines[ pid ] = {gTime, gTime}
+    else
+        node[2] = gTime
+    end
+end
+
+
+function getPlayer(pid)
+    if pid then
+        if pid >= 10000 then
+            local p = gPlys[ pid ]
+            if p then
+                rawset( p, "_access", gTime )
+            end
+            return p
+
+        elseif pid > 0 then
+            return { pid=pid }
+        end
+    end
+end
+
 

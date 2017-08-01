@@ -131,7 +131,10 @@ function load_task_from_db(self)
         end
         
         --漏掉的已完成任务容错
-        if unit.task_type == TASK_TYPE.TASK_TYPE_TRUNK or unit.task_type == TASK_TYPE.TASK_TYPE_BRANCH then
+        if unit.task_type == TASK_TYPE.TASK_TYPE_TRUNK or 
+            unit.task_type == TASK_TYPE.TASK_TYPE_BRANCH or 
+            unit.task_type == TASK_TYPE.TASK_TYPE_HEROROAD then
+            
             if unit.task_status == TASK_STATUS.TASK_STATUS_FINISHED then
                 tmp_cur_task_list[unit.task_id] = nil
                 local _id = self.pid.."_"..unit.task_id
@@ -268,6 +271,10 @@ function add_task_data(self, task_info)
 
     elseif unit.task_type == TASK_TYPE.TASK_TYPE_TARGET then
         func = unpack(resmng.prop_task_detail[unit.task_id].FinishCondition)
+
+    elseif unit.task_type == TASK_TYPE.TASK_TYPE_HEROROAD then
+        func = unpack(resmng.prop_task_detail[unit.task_id].FinishCondition)
+
     end
     unit.task_action = g_task_func_relation[func]
 
@@ -298,7 +305,10 @@ function do_save_task(self)
         end
 
         if data.task_status == TASK_STATUS.TASK_STATUS_FINISHED then
-            if data.task_type == TASK_TYPE.TASK_TYPE_TRUNK or data.task_type == TASK_TYPE.TASK_TYPE_BRANCH then
+            if data.task_type == TASK_TYPE.TASK_TYPE_TRUNK or 
+                data.task_type == TASK_TYPE.TASK_TYPE_BRANCH or 
+                data.task_type == TASK_TYPE.TASK_TYPE_HEROROAD then
+
                 self:do_delete_task(data.task_id)
                 self:do_finish_task(data.task_id)
             else
@@ -313,14 +323,26 @@ function do_save_task(self)
     self:notify_task_change(list)
 end
 
-function finish_task(self, task_id)
+function can_finish_task(self, task_id)
     local info = self:get_task_by_id(task_id)
     if info == nil or info.task_status ~= TASK_STATUS.TASK_STATUS_CAN_FINISH then
-        return
+        return false
     end
     local prop_task = resmng.prop_task_detail[task_id]
     if prop_task == nil then
-        return
+        return false
+    end
+    return true
+end
+
+function finish_task(self, task_id)
+    local info = self:get_task_by_id(task_id)
+    if info == nil or info.task_status ~= TASK_STATUS.TASK_STATUS_CAN_FINISH then
+        return false
+    end
+    local prop_task = resmng.prop_task_detail[task_id]
+    if prop_task == nil then
+        return false
     end
 
     info.task_status = TASK_STATUS.TASK_STATUS_FINISHED
@@ -333,9 +355,11 @@ function finish_task(self, task_id)
     self:add_bonus(bonus_policy, bonus, VALUE_CHANGE_REASON.REASON_TASK)
 
     --开启建筑
-    self:open_build_by_task(task_id)
+    --self:open_build_by_task(task_id)
 
     self:pre_tlog("QuestComplete", task_id)
+
+    return true
 end
 
 function can_take_task(self, task_id)

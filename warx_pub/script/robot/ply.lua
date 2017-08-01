@@ -484,19 +484,12 @@ function build_up(self,class, mode,lv,num,quick)
             if  c  then
                 while lv >= c.Lv do
                     local f = self:condCheck(c.Cond)
-                    if not f  then
-                        return false
-                    end
-                    if not quick then
-                        Rpc:one_key_upgrade_build(self,b.idx)
-                    else
-                        Rpc:upgrade(self,b.idx)
-                    end
+                    if not f  then return false end
+                    if not quick then Rpc:one_key_upgrade_build(self,b.idx)
+                    else Rpc:upgrade(self,b.idx) end
                     i = i + 1
                     c = resmng.prop_build[b.propid+i]
-                    if  not c then
-                        break
-                    end
+                    if  not c then break end
                 end
             end
         end

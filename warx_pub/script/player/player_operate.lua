@@ -99,6 +99,7 @@ end
 
 --rpc
 function operate_activity_list(self)
+    self:operate_check_all_version()
     operate_activity.packet_activity_list(self)
 end
 
@@ -120,13 +121,6 @@ function operate_on_day_pass(self)
         local activity = operate_activity.get_activity_by_id(id)
         if activity == nil or activity.is_end == 1 then
             table.insert(clear_list, id)
-        else
-            if info[OPERATE_PLAYER_DATA.VERSION] ~= nil then
-                if activity.version ~= info[OPERATE_PLAYER_DATA.VERSION] then
-                    self.operate_activity[id] = {}
-                    self.operate_activity[id][OPERATE_PLAYER_DATA.VERSION] = activity.version
-                end
-            end
         end
     end
 
@@ -135,3 +129,36 @@ function operate_on_day_pass(self)
     end
     self.operate_activity = self.operate_activity
 end
+
+function operate_check_all_version(self)
+    for id, info in pairs(self.operate_activity or {}) do
+        local activity = operate_activity.get_activity_by_id(id)
+        if activity ~= nil then
+            if info[OPERATE_PLAYER_DATA.VERSION] ~= nil then
+                if activity.version ~= info[OPERATE_PLAYER_DATA.VERSION] then
+                    self.operate_activity[id] = {}
+                    self.operate_activity[id][OPERATE_PLAYER_DATA.VERSION] = activity.version
+                end
+            end
+        end
+    end
+end
+
+function operate_check_version(self, activity)
+    if activity == nil then
+        return
+    end
+    local id = activity.activity_id
+    local info = self.operate_activity[id]
+    if info == nil then
+        return
+    end
+    
+    if info[OPERATE_PLAYER_DATA.VERSION] ~= nil then
+        if activity.version ~= info[OPERATE_PLAYER_DATA.VERSION] then
+            self.operate_activity[id] = {}
+            self.operate_activity[id][OPERATE_PLAYER_DATA.VERSION] = activity.version
+        end
+    end
+end
+

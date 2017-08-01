@@ -34,6 +34,11 @@ actState = actState or 0
 cityPool = cityPool or {}
 citys = citys or {}
 seq_citys = seq_citys or {}
+map_lts = map_lts -- 不要加 {}
+
+function reset_map_lt_info()
+    map_lts = nil
+end
 
 --每个npccity 的 lv  等于 poolRule k 的
 poolRule = {
@@ -152,6 +157,7 @@ function add_seq_citys(city)
         table.insert(citys, city.eid)
         seq_citys[prop.Mode] = citys
     end
+    reset_map_lt_info()
 end
 
 function clear_citys_timer()
@@ -232,6 +238,7 @@ function init_lt()
     end_time = gTime
     gPendingSave.status["lostTemple"].end_time = end_time
     clear_timer()
+    reset_map_lt_info()
 end
 
 function lt_ntf(notify_id)
@@ -274,7 +281,7 @@ function start_lt()
     set_timer(LT_STATE.DOWN)
 
     --offline ntf
-    offline_ntf.post(resmng.OFFLINE_NOTIFY_TOWER)
+    --offline_ntf.post(resmng.OFFLINE_NOTIFY_TOWER)
 
     update_lt_ntf()  -- 推送更新通知
 end
@@ -477,6 +484,7 @@ function end_lt()
     send_score_award()
     -- debug
     --set_timer(LT_STATE.ACTIVE)
+    reset_map_lt_info()
     update_lt_ntf()  -- 推送更新通知
 end
 
@@ -526,20 +534,22 @@ function after_fight(ackTroop, defenseTroop)
         etypipe.add(city)
 
         union_hall_t.battle_room_update_ety(OPERATOR.UPDATE, city)
+        local conf
         if city.grade == 3 then
-            local conf = resmng.prop_act_notify[resmng.LT_OCCUPY] 
-            if conf then
-                if conf.Notify then
-                    Rpc:tips({pid=-1,gid=_G.GateSid}, 2, conf.Notify,{city.x, city.y, union.alias, union.name})
-                end
+            conf = resmng.prop_act_notify[resmng.LT_OCCUPY] 
+        elseif city.grade == 2 then
+            conf = resmng.prop_act_notify[resmng.LT_OCCUPY_MID] 
+        end
+        if conf then
+            if conf.Notify then
+                Rpc:tips({pid=-1,gid=_G.GateSid}, 2, conf.Notify,{city.x, city.y, union.alias, union.name})
+            end
 
-                if conf.Chat1 then
-                    player_t.add_chat({pid=-1,gid=_G.GateSid}, 0, 0, {pid=0}, "", conf.Chat1, {city.x, city.y, union.alias, union.name})
-                end
+            if conf.Chat1 then
+                player_t.add_chat({pid=-1,gid=_G.GateSid}, 0, 0, {pid=0}, "", conf.Chat1, {city.x, city.y, union.alias, union.name})
             end
         end
     end
-    --mark(npcCity)
 end
 
 function deal_cross(self)

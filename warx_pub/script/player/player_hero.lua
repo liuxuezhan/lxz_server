@@ -350,6 +350,9 @@ function destroy_hero(self, hero_idx)
                 end
             end
         end
+
+        --运营活动
+        operate_activity.process_operate_activity(self, OPERATE_ACTIVITY_ACTION.COLLECT_GRADE_HERO)
     end
 end
 
@@ -1255,7 +1258,7 @@ function get_prisoners_info(self)
             if info then 
                 info.status = HERO_STATUS_TYPE.BEING_EXECUTED
                 table.insert(infos, info) 
-                count = count + 1
+                --count = count + 1
             end
         end
     end
@@ -1306,7 +1309,6 @@ function kill_hero(self, hero_id, buff_idx)
     if not hero then return end
 
     fpow = hero:calc_hero_pow_body()
-    print( "kill_hero,", hero_id, fpow, hero.hp, hero.max_hp, hero.fight_power )
 
     local buff_id = false
     for k, v in ipairs( resmng.prop_sacrifice_hero ) do
@@ -1325,12 +1327,13 @@ function kill_hero(self, hero_id, buff_idx)
     hero.buff_idx = buff_idx
     hero.tmStart = gTime
     hero.tmOver = tmOver
-
-    altar.state   = BUILD_STATE.WORK
+    
+    altar.state = BUILD_STATE.WORK
     altar.tmStart = gTime
-    altar.tmOver  = tmOver
-    altar.tmSn    = timer.new("build", kill_time, self.pid, altar.idx, tmOver, buff_id, buff_time)
-    altar:set_extra("kill", {id=hero._id, start=gTime, over=tmOver, buff_idx=buff_idx})
+    altar:set_extra( "count", kill_time )
+    altar:recalc()
+
+    altar:set_extra("kill", {id=hero._id, start=gTime, over=tmOver, buff_idx=buff_idx, buff_id=buff_id, buff_time=buff_time})
 
     -- notify client.
     self:get_prisoners_info()
@@ -1597,5 +1600,7 @@ function reset_nature( self, hero_idx )
     }
     table.remove(nature_type, hero.personality)
     hero.personality = nature_type[math.random(1, 3)]
+    --任务
+    task_logic_t.process_task(self, TASK_ACTION.HERO_NATURE_RESET, hero.propid, 1)
 end
 

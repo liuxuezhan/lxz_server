@@ -35,7 +35,7 @@ function toGate(host, port)
 end
 
 
-function toMongo(host, port, db, tips, is_reconnect)
+function toMongo(host, port, db, user, pwd, mechanism, tips, is_reconnect)
     local mt = {
         onClose = function (self)
             self.state = 0
@@ -45,9 +45,9 @@ function toMongo(host, port, db, tips, is_reconnect)
         end,
 
         onConnectOk = function (self)
-            self.state = 1
+            --self.state = 1
             local t = mongo.client2(self.host, self.port, self.sid, self.tips == "Global")
-            dbmng:conn_new(self.host, self.port, self.db, self.sid, t[ self.db ], self.tips)
+            dbmng:conn_new(self.host, self.port, self.db, self.user, self.pwd, self.mechanism, self.sid, t[ self.db ], self.tips)
             if self.is_reconnect then
                 mongo_save_mng.on_db_reconnect(self.tips == "Global")
             end
@@ -55,13 +55,13 @@ function toMongo(host, port, db, tips, is_reconnect)
 
         onConnectFail = function (self) 
             LOG("connect Mongo  %s:%d fail", self.host, self.port)
-            timer.new("toMongo", 5, self.host, self.port, self.db, self.tips, self.is_reconnect)
+            timer.new("toMongo", 5, self.host, self.port, self.db, self.user, self.pwd, self.mechanism, self.tips, self.is_reconnect)
             gConns[ self.sid ] = nil
         end,
     }
     mt.__index = mt
     local sid = connect(host, port, 0, 2)
-    local t = { host=host, port=port, sid=sid, state=0, db=db, tips=tips, action="db", is_reconnect=is_reconnect}
+    local t = { host=host, port=port, sid=sid, state=0, db=db, user=user, pwd=pwd, mechanism=mechanism, tips=tips, action="db", is_reconnect=is_reconnect}
     gConns[ sid ] = t
     return setmetatable(t, mt)
 end

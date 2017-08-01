@@ -520,7 +520,6 @@ end
 function do_skill_fire(Target, hero, A, As, Ds, Func, ...)
     if vfunc_skill[ Func ] then
         vfunc_skill[ Func ](Target, hero, A, As, Ds, ...)
-        LOG( "do_skill_fire, Func= %s", Func )
     end
 end
 
@@ -1212,8 +1211,10 @@ function init_troop(T)
     T.win = nil
     for pid, arm in pairs(T.arms) do
         arm.dead_soldier = {}
+        arm.kill_soldier = {}
         arm.mkdmg = 0
         arm.lost = 0
+        arm.amend = nil
         
         local kill = {0,0,0,0}
         for id, num in pairs(arm.live_soldier or {}) do
@@ -1629,7 +1630,7 @@ function calc_kill(action, troop, troop0, make_dmg, lost_powD, kill_num, kill_lv
             if pid >= 10000 then
                 local p = getPlayer( pid )
                 if p then
-                    local action = troop0.action % 100
+                    --local action = troop0.action % 100
 
                     if ispvp and ( not ( action == TroopAction.LostTemple or action == TroopAction.SiegeNpc ) ) then
                         p:add_count( resmng.ACH_COUNT_KILL, node.nkill )

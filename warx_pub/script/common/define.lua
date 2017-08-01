@@ -23,6 +23,7 @@ LOGIN_ERROR =
     VERSION_NOT_MATCH = 7,
     NO_CHARACTER = 8,
     BLOCK_ACCOUNT = 9,
+    FULL = 10,
 }
 
 -- 数值变化原因
@@ -148,6 +149,7 @@ VALUE_CHANGE_REASON = {
     REASON_OPERATE_EXCHANGE         = 1027,          --兑换活动
     REASON_OPERATE_SINGLE           = 1028,          --单一活动类型领奖
     REASON_OPERATE_TASK             = 1029,          --运营活动任务领奖
+    REASON_HERO_ROAD_CHAPTER        = 1030,          --英雄之路章节奖励
 
     --扣除资源
     REASON_DEC_RES = 2000,
@@ -178,6 +180,18 @@ VALUE_CHANGE_REASON = {
     REASON_DEC_ITEM_RESET_SKILL     = 4003,          --重置技能
     REASON_DEC_ITEM_CHANGE_HEAD     = 4004,          --改变头像
     REASON_DEC_ITEM_OPERATE_EXCHANGE= 4005,          --兑换活动
+
+    --英雄任务
+    REFRESH_HERO_TASK = 5000,
+    ACC_HERO_TASK = 5001,
+    HERO_TASK_NORMAL = 5002,
+    HERO_TASK_EVENT = 5003,
+
+    --hero equip
+    HERO_EQUIP_STAR_UP = 6000,
+    HERO_EQUIP_LV_UP = 6001,
+    HERO_EQUIP_MAKE = 6002,
+    HERO_EQUIP_DECOMPOSE = 6003,
 }
 
 
@@ -199,6 +213,9 @@ resmng.CLASS_TRUNKTASK = 13     --需要正在做这个主线任务
 resmng.CLASS_CULTURE = 14     --需要属于这个文明
 resmng.CLASS_GUIDED = 15     --需要完成这个引导class
 resmng.CLASS_CASTLE_MAX = 16     --需要城堡等级小于等于这个值
+resmng.CLASS_CASTLE_MIN = 17     --需要城堡等级小于等于这个值
+resmng.CLASS_TASK_FINISH = 18     --需要完成这个主线任务
+resmng.CLASS_BRANTCHTASK = 19     --需要正在做这个支线任务
 resmng.CLASS_RES_PROTECT = 101	--物品类型101保护资源
 
 
@@ -608,6 +625,7 @@ TroopAction = {
     Dig = 46, --挖宝
     SiegeDig = 47, --攻击挖宝
     Exchange = 48, --贡品兑换
+    HeroTask = 49, --英雄修炼任务
 }
 
 WatchTowerAction = {
@@ -940,6 +958,41 @@ UNION_EVENT = { --  军团事件类型
     WORD = "word",
 }
 
+UNION_EVENT_LOG = {
+    [ UNION_EVENT.MEMBER ] = {
+        [ UNION_MODE.ADD ] = 1,
+        [ UNION_MODE.DELETE ] = 1,
+        [ UNION_MODE.RANK_UP ] = 1,
+        [ UNION_MODE.RANK_DOWN ] = 1,
+        [ UNION_MODE.TITLE ] = 1,
+    },
+
+    [ UNION_EVENT.TECH ] = {
+        [ UNION_MODE.ADD ] = 1,
+    },
+
+    [ UNION_EVENT.BUILDLV ] = {
+        [ UNION_MODE.UPDATE ] = 1,
+    },
+
+    [ UNION_EVENT.BUILD_SET ] = {
+        [ UNION_MODE.ADD ] = 1,
+    },
+
+    [ UNION_EVENT.MISSION ] = {
+        [ UNION_MODE.GET ] = 1,
+        [ UNION_MODE.OK ] = 1,
+    },
+
+    [ UNION_EVENT.TASK ] = {
+        [ UNION_MODE.ADD ] = 1,
+    },
+
+    [ UNION_EVENT.FIGHT ] = {
+        [ UNION_MODE.ADD ] = 1,
+    },
+}
+
 EVENT_TYPE = {
     UNION_CREATE = 1,
     UNION_DESTORY = 2,
@@ -1150,6 +1203,7 @@ TASK_TYPE = {
     TASK_TYPE_DAILY         = 3,    --日常任务
     TASK_TYPE_UNION         = 4,    --军团任务
     TASK_TYPE_TARGET        = 5,    --目标任务
+    TASK_TYPE_HEROROAD      = 6,    --英雄之路 
 }
 -- 任务前置类型
 TASK_COND_TYPE = {
@@ -1166,6 +1220,7 @@ TASK_STATUS = {
     TASK_STATUS_CAN_FINISH          = 4,    --可以领取
     TASK_STATUS_FINISHED            = 5,    --已完成（已领取）
     TASK_STATUS_UPDATE              = 6,    --重置
+    TASK_STATUS_DOING              = 7,    --英雄修炼专用（进行中，可加速）
 }
 
 UNION_MISSION_CLASS = {
@@ -1250,6 +1305,9 @@ TASK_ACTION = {
     VISIT_HERO                      = 61,    --拜访英雄
     GET_TASK_ITEM                   = 62,    --任务上缴物品
     WORSHIP_GOD                     = 63,    --任务上缴物品
+    SPECIAL_HERO_LEVEL              = 64,    --特定英雄到达等级
+    SPECIAL_HERO_STAR               = 65,    --特定英雄升星
+    HERO_NATURE_RESET               = 66,    --特定英雄性格重置
 
 }
 -- 打开UI任务
@@ -1330,6 +1388,9 @@ g_task_func_relation = {
 ["spy_special_ply"] = TASK_ACTION.SPY_SPECIAL_PLY,                 --侦查特定玩家
 ["worship_god"] = TASK_ACTION.WORSHIP_GOD,                         --膜拜战神
 ["get_task_item"] = TASK_ACTION.GET_TASK_ITEM,                     --收集任务道具
+["special_hero_level"] = TASK_ACTION.SPECIAL_HERO_LEVEL,           --特定英雄到达等级
+["special_hero_star"] = TASK_ACTION.SPECIAL_HERO_STAR,             --特定英雄升星
+["hero_nature_reset"] = TASK_ACTION.HERO_NATURE_RESET,             --特定英雄性格重置
 }
 -------------------------------------------------------------
 --奖励
@@ -1588,9 +1649,9 @@ end
 
 
 SEARCH_RANGE = {
-[1] = {{0,0}},
-[2] = {{1,0},{1,1},{0,1},{-1,1},{-1,0},{-1,-1},{0,-1},{1,-1}},
-[3] = {{2,0},{2,1},{2,2},{1,2},{0,2},{-1,2},{-2,2},{-2,1},{-2,0},{-2,-1},{-2,-2},{-1,-2},{0,-2},{1,-2},{2,-2},{2,-1}},
+{{0,0}},
+{{1,0},{1,1},{0,1},{-1,1},{-1,0},{-1,-1},{0,-1},{1,-1}},
+{{2,0},{2,1},{2,2},{1,2},{0,2},{-1,2},{-2,2},{-2,1},{-2,0},{-2,-1},{-2,-2},{-1,-2},{0,-2},{1,-2},{2,-2},{2,-1}},
 }
 
 OFFLINE_UNIT_TYPE = {
@@ -1644,6 +1705,8 @@ PLAYER_INIT = {
     monster_gold = 0,
     showequip = 1,
     pow = 0,
+    jpush_id = "",
+    fcm_id = "",
 
     cds = {},
     bufs = {},
@@ -1747,9 +1810,14 @@ PLAYER_INIT = {
     operate_activity = {},  --运营活动
 
     siege_dig = 0,  -- 攻击挖宝次数
-    count_dig = 0,  -- 当日挖宝次数
+    --count_dig = 0,  -- 当日挖宝次数
 
     sub_ntf_list = {}, --  推送通知列表
+
+    hero_road_cur_chapter = 0, --英雄之路当前进行章节
+    hero_road_chapter = {}, --英雄之路章节数据
+
+    tributes = {0,0,0,0}
 }
 
 map_city_zone = {
@@ -1796,6 +1864,16 @@ map_city_zone = {
     [40] = 4001001
 }
 
+reszone_vertex_postion =
+{
+    [1] = {{0,0}, {0,1280}, {1280,1280},{1280,0}},
+    [2] = {{224,224}, {224,1055}, {1055,1055}, {1055,224}},
+    [3] = {{320,320}, {320,959}, {959,959}, {959,320}},
+    [4] = {{416,416}, {416,863}, {863,863}, {863,416}},
+    [5] = {{512,512}, {512,767}, {767,767}, {767,512}},
+    [6] = {{608,608}, {608,671}, {671,671}, {671,608}},
+}
+
 Sub_Func = 
 {
     LT_POP = 1,
@@ -1813,4 +1891,18 @@ DISPLY_MODE =
     WORLD_EVENT = 7,        --世界事件
 }
 
+--英雄之路章节状态
+HERO_ROAD_CHAPTER_STATE = 
+{
+    ACCEPTED = 1,--已经接受任务
+    FINISHED = 2,--完成其中某条任务 ,没有全部完成
+    ALL_FINISHED = 3,--完成所有任务
+}
+
+HERO_TASK_MODE =
+{
+    CUR_LIST = "cur_hero_task_list",
+    ACCPET_LIST = "accept_hero_task_list",
+    HELP_LIST = "help_hero_task_list",
+}
 

@@ -58,18 +58,26 @@ function INFO(fmt, ...)
 end
 
 function WARN(fmt, ...)
-    local s = string.format(fmt, ...)
+    local s = string.format("[WARN]"..fmt, ...)
     lwarn(s)
 end
 
-function ERROR(fmt, ...)
+local function _INNER_ERROR(tips, fmt, ...)
     local inf = string.format(fmt, ...)
     local stacks = debug.traceback(inf)
 
     for s in string.gmatch( stacks, "[^%c]+" ) do
         lwarn( string.format( "[LUA] %s", s ) )
     end
-    lwarn( string.format( "[LuaError] watch,  %s", string.gsub( stacks, "\n\t?", "#012" ) ) )
+    lwarn( string.format( "[%s] watch,  %s", tips, string.gsub( stacks, "\n\t?", "#012" ) ) )
+end
+
+function ERROR(fmt, ...)
+    _INNER_ERROR("LuaError", fmt, ...)
+end
+
+function FATAL(fmt, ...)
+    _INNER_ERROR("FatalError", fmt, ...)
 end
 
 function STACK(err)
@@ -175,7 +183,8 @@ function doDumpTab(t, step, max_cnt, dump_cnt, fLOG)
         if type(v) == "table" then
             if not dump_mark[v] then
                 dump_mark[v] = true
-                fLOG("%s[%s] = %s", mkSpace(step*(dump_cnt+1)), toStr(k), tostring(v))
+                --fLOG("%s[%s] = %s", mkSpace(step*(dump_cnt+1)), toStr(k), tostring(v))
+                fLOG("%s[%s] =", mkSpace(step*(dump_cnt+1)), toStr(k))
                 doDumpTab(v, step, max_cnt, dump_cnt+1, fLOG)
             else
                 fLOG("%s[%s] = %s -- already dumped.", mkSpace(step*(dump_cnt+1)), toStr(k), tostring(v))
@@ -184,7 +193,11 @@ function doDumpTab(t, step, max_cnt, dump_cnt, fLOG)
             fLOG("%s[%s] = %s,", mkSpace(step*(dump_cnt+1)), toStr(k), toStr(v))
         end
     end
-    fLOG("%s},", mkSpace(step*dump_cnt))
+    if dump_cnt > 0 then
+        fLOG("%s},", mkSpace(step*dump_cnt))
+    else
+        fLOG("%s}", mkSpace(step*dump_cnt))
+    end
     if dump_cnt == 0 then dump_mark = {} end
 end
 
@@ -321,8 +334,6 @@ function copyTab(object)
     end  -- function _copy
     return _copy(object)
 end  -- function deepcopy
-
-
 
 --setfenv = setfenv or function(f, t)
 --    f = (type(f) == 'function' and f or debug.getinfo(f + 1, 'f').func)
@@ -539,3 +550,69 @@ function break_player( pid )
     pushInt(gMapID)
     pushOver()
 end
+
+
+function get_render_level_with_gpu(gpuname, frenquency, devicename, corecount)
+    for k, v in pairs(resmng.propDeviceGPU) do
+        local cfg = v
+        if string.find(gpuname, cfg.Vender) then
+            if not cfg.Model then
+                return cfg.RenderLevel
+            end
+            if string.find(gpuname, cfg.Model) then
+                if cfg.LevelGroup then
+                    local renderlevel = {}
+                    renderlevel = cfg.RenderLevel
+                    if corecount == cfg.ReduceCoreCount then       -- mediaTek  10 core CPU
+                        if cfg.Reduce then
+                            frenquency = frenquency - (cfg.Reduce-1)*100
+                        end
+                    end
+
+                    if cfg.KeyWord then
+                        if string.find(devicename, cfg.KeyWord) then         -- samsung device   mali-T880
+                            return cfg.KeyLOD
+                        end
+                    end
+                    if not renderlevel[2] then         --the renderlevel only one, reduce  calculate below
+                        return renderlevel[1]
+                    end
+                    if frenquency >= cfg.FrenquencyBegin then         -- high frenquency , the renderlevel is first
+                        return renderlevel[1]
+                    end
+                    local fre = cfg.FrenquencyBegin - frenquency           -- calculate level
+                    fre = math.ceil(fre/cfg.Step) + 1
+                    if not renderlevel[fre] then
+                        return renderlevel[#renderlevel]
+                    else
+                        return renderlevel[fre]
+                    end
+                end
+                return cfg.RenderLevel
+            end
+        end
+    end
+
+    return 0
+end
+
+function get_render_level(device, gpu, frenquency, core)
+    local render_level = resmng.propDevice["default"].RenderLevel
+    local conf = resmng.propDevice[device]
+    if conf then
+        render_level = conf.RenderLevel
+
+    else
+        INFO("get_render_level new device(%s)", device)
+
+        local gpu_render_level = get_render_level_with_gpu(gpu, frenquency, device, core)
+        if gpu_render_level > 0 then
+            render_level = gpu_render_level
+        else
+            INFO("get_render_level new gpu(%s)", gpu)
+        end
+    end
+
+    return render_level
+end
+

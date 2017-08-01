@@ -211,7 +211,7 @@ function mongo.recvReply(sock)
     end
 end
 
-gMarkBsonDecode = gMarkBsonDecode or ( setmetatable( {}, {__mode="kv"} ) )
+gMarkBsonDecode = gMarkBsonDecode or ( setmetatable( {}, {__mode="k"} ) )
 
 function mongo_db:runCommand(cmd,cmd_v,...)
 	local request_id = self.connection:genId()

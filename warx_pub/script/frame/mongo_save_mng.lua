@@ -729,6 +729,7 @@ function log_other_sql(extra)
 end
 
 function on_db_reconnect(is_global)
+    if not _switch then return end
     WARN("zhoujy_warning: will handle mongo reconnect, is_global=%s", is_global)
     -- reset _ack_tick
     if is_global then

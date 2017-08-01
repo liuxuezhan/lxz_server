@@ -525,7 +525,7 @@ etypipe[EidType.Monster]=       {"propid", "eid", "x", "y", "hp", "level","born"
 etypipe[EidType.UnionBuild] =   {"propid", "eid", "x", "y", "uid","alias", "uflag", "sn","idx","hp","state","name","val","culture","holding","speed_b","speed_f","tmStart_b","tmStart_f","speed_g","tmStart_g" }
 etypipe[EidType.NpcCity]=       {"propid", "eid", "x", "y", "state", "startTime","endTime", "unions", "randomAward", "declareUnions", "getAwardMember"}
 etypipe[EidType.KingCity]=      {"propid", "eid", "x", "y", "state", "status","startTime", "endTime", "occuTime","uid", "uname", "uflag", "ualias"}
-etypipe[EidType.MonsterCity]=   {"propid", "eid", "x", "y", "state", "class", "startTime", "endTime", "uid", "be_atked_list", "can_atk_uid"}
+etypipe[EidType.MonsterCity]=   {"propid", "eid", "x", "y", "state", "class", "startTime", "endTime", "uid", "be_atked_list", "can_atk_uid", "grade"}
 etypipe[EidType.Camp]    =      {"propid", "eid", "x", "y", "pid", "uid", "name", "uname", "uflag"}
 etypipe[EidType.LostTemple]=    {"propid", "eid", "x", "y", "state", "startTime", "endTime", "uid", "uname", "born", "uflag", "ualias"}
 etypipe[EidType.CLOWN]=         {"propid", "eid", "x", "y" }
@@ -573,6 +573,17 @@ function etypipe.add(data)
         WARN("what type, etypipe.add??")
         dumpTab(data, "etypipe.add error")
         return
+    end
+
+    if is_npc_city(data) then
+        npc_city.reset_map_pack()
+    end
+
+    if is_king_city(data) then
+        local lv = resmng.prop_world_unit[data.propid].Lv
+        if lv == CITY_TYPE.KING_CITY then
+            npc_city.reset_map_pack()
+        end
     end
 
     if is_troop(data) then 
@@ -1516,7 +1527,7 @@ function is_valid_name( s )
             if( is_program_keyword( first_char ) == true )then
                 return false
             elseif( is_alpha_num_char( first_char ) == false )then
-                if( is_punctuation_char( first_char ) == false )then
+                if( is_punctuation_char( first_char ) == true )then
                     return false
                 end
             end
@@ -1644,50 +1655,6 @@ function get_npc_state()
     return state, startTime, endTime
 end
 
-function push_offline_ntf(audience, msg)
-    --if get_table_valid_count(audience.registration_id)  == 0 then
-    --   audience = {
-    --        ["registration_id"] = {"1a0018970a9588a5521"}
-    --    }
-    --end
-
-    print("do jpush %s, %s", audience.registration_id, msg)
-    INFO("do jpush %s, %s", audience.registration_id, msg)
-    to_tool( 0, { 
-        type = "common", 
-        mode = "jpush", 
-        url = "https://api.jpush.cn/v3/push", 
-        method = "post", 
-        header = "NDMwMDU2NzliZGMyYThjNzE2NTRmODQ0Ojk5YTFjZTYwOTY0MGQ3MGUzOTJiNTUyYg==",  
-            -- base64 of "43005679bdc2a8c71654f844:99a1ce609640d70e392b552b",
---        platform = offline_ntf.get_server_tag(),
-        platform = "all",
-        audience = audience,
-        notification = {
-            alert = msg,
-            android = {
-                alert = msg,
-                extras = {
-                    android_key1 = "android-value1",
-                }
-            },
-            ios = {
-                alert = msg,
-                sound = "sound.caf",
-                ["content-available"] = true,
-                badge = "+1",
-               -- extras = {
-               -- },
-            }
-        },
-        options = {
-            time_to_live = 0,
-            apns_production = config.JpuahMode or "false"
-        }
-    })
-end
-
-
 --屏蔽字
 ------------------------------------------------------------------------------
 function string.replace(str, tofind, toreplace)
@@ -1700,13 +1667,22 @@ end
 --客户端用
 ------------------------
 function is_include_filter(str)
-    local filter_map = resmng.prop_filterData
-    for _, v in pairs(filter_map) do
-        if string.find(str, v[2]) then 
-            return true
+    if resmng.prop_filterData then
+        local filter_map = resmng.prop_filterData
+        for _, v in pairs(filter_map) do
+            if string.find(str, v[2]) then 
+                return true
+            end
+        end
+        return false
+    else
+        local filter_map = resmng.prop_filter
+        for _, v in pairs( filter_map ) do
+            if string.find( str, v.Filter ) then 
+                return true
+            end
         end
     end
-    return false
 end
 
 --屏蔽字替换
@@ -1735,5 +1711,16 @@ end
 ------------------------
 ------------------------
 ------------------------------------------------------------------------------
-
+function check_name_avalible(str)
+    if str == "" then
+        return false, resmng.LORD_NAME_INPUT_EMPTY
+    elseif not is_inputlen_avaliable(str,CHA_LIMIT.Lord_Name) then            
+        return false, resmng.LORD_NAME_INPUT_TOOLONG
+    elseif not check_signs_valid(str) then
+        return false, resmng.LORD_NAME_CHARACTOR_FORBID
+    elseif is_include_filter(str) then
+        return false, resmng.PLAYER_NAME_TIPS
+    end
+    return true
+end
 

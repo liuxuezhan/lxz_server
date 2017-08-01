@@ -28,6 +28,14 @@ function init()
     end
 end
 
+function rem_person_data(pid)
+    for k, v in pairs(resmng.prop_rank or {}) do
+        if v.IsPerson then
+            rem_data(k, pid)
+        end
+    end
+end
+
 function reset_rank()
     for k, v in pairs( resmng.prop_rank ) do
         clear( k )
@@ -325,10 +333,11 @@ function clear( idx )
         node.ranks = nil
         node.time = 0
         local tab = string.format( "rank%d", idx )
-        local db = dbmng:getOne()
-        db[ tab ]:delete( {} )
-        gPendingSave[ tab ] = nil
-        local info = db:runCommand("getLastError")
+        --local db = dbmng:getOne()
+        --db[ tab ]:delete( {} )
+        --gPendingSave[ tab ] = nil
+        --local info = db:runCommand("getLastError")
+        delete_col(tab)
         skiplist.clear( idx )
     end
 end

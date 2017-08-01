@@ -31,7 +31,10 @@ function after_ply_loggin(ply)
             table.sort(tbl, function(a, b ) return (a.ntodo < b.ntodo) end)
             for _, v in ipairs(tbl) do
                 gPendingDelete.todo[ v._id ] = 1
-                player_t[ v.command ]( ply, table.unpack( v.args ) )   
+                xpcall(player_t[ v.command ], function(e)
+                        WARN("[todo_error]e = [%s], v.command = [%s]", e, v.command)
+                        dumpTab(v.args, "todo_error", 2)
+                    end, ply, table.unpack(v.args))   
             end
         end
         ply.ntodo = 0
@@ -39,7 +42,7 @@ function after_ply_loggin(ply)
 end
 
 function is_online(pid)
-    return playermng.is_online(pid)
+    return playermng.is_online(pid, true)
 end
 
 function get_ply(pid)

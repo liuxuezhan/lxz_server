@@ -1,7 +1,7 @@
 module("Protocol")
 
 Server = {
-    firstPacket = "int id, string account, string pasw",
+    firstPacket2 = "int sockid, int server_id, pack info, string ip",
     login = "",
     onBreak = "",
     getTime = "",

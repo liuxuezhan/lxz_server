@@ -389,11 +389,8 @@ function get_near_lv_pos(tx, ty, target_lv)
 end
 
 function respawn(tx, ty, grade, npc_id)
-    if tx <= 0 then
-        tx = 1 
-    end
-    if ty <= 0 then
-        ty = 1
+    if tx < 0 or ty < 0 then
+        return
     end
     --local civil = c_get_civil_lv(tx, ty)
     local lv = c_get_zone_lv(tx, ty)
@@ -430,6 +427,7 @@ function respawn(tx, ty, grade, npc_id)
 
     if grade ~= BOSS_TYPE.NORMAL then
         INFO("[Monster] gen boss prop x = %d, y = %d, date = %d, civil = %d, grade = %d, lv = %d", tx, ty, date, civil, grade, lv)
+        --print("[Monster] gen boss prop x = %d, y = %d, date = %d, civil = %d, grade = %d, lv = %d", tx, ty, date, civil, grade, lv)
     end
 
     --local prop = get_conf(bossMod, bossLv)
@@ -729,6 +727,8 @@ function do_check(zx, zy, isloop)
                 end
             end
         end
+
+        --print("normal monster num ", normalNum)
 
         distrib[ idx ] = news
 

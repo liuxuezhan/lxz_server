@@ -6,15 +6,12 @@ function load()--启动加载
     local info = db.union_word:find({})
     while info:hasNext() do
         local d = info:next()
-        local u = unionmng.get_union(d._id)
+        local u = unionmng.get_union(d.uid)
         if u then
-            u.word = d
-            u.wid = 0 --当前留言的最大序号
-            for _, v in pairs(u.word.log or {}) do
-                if v.wid > u.wid then
-                    u.wid=v.wid
-                end
-            end
+            u.word = u.word or { } 
+            u.wid = u.wid or 0 
+            u.word[d.wid] = d
+            if d.wid > u.wid then u.wid = d.wid  end
         end
     end
 end
@@ -24,8 +21,8 @@ function check(u)
     local in_num = 0
     local id = 0
     local tm = math.huge
-    for k, v in pairs(u.word.log or {}) do
-        if v.type ==0 then
+    for k, v in pairs(u.word or {}) do
+        if v.type == 0 then
             out_num = out_num + 1
             if v.tm < tm then
                 tm = v.tm
@@ -37,8 +34,9 @@ function check(u)
     end
 
     if out_num == 100  then
-        u.word.log[id]=nil
-        gPendingSave.union_word[u.uid] = u.word
+        local d = u.word[id]
+        gPendingDelete.union_word[d._id] = 1
+        d=nil
     end
 
     if in_num == 100  then return false end
@@ -49,12 +47,13 @@ end
 function list(pid,u)
     if not u.word then return {} end
     local list ={}
-    for k, v in pairs(u.word.log or {}) do
+    for k, v in pairs(u.word or {}) do
         local _members = u:get_members() or {}
+        local d = info(v,pid)
         if v.type ==0 then
-            table.insert(list,info(v))
+            table.insert(list,d)
         elseif _members[pid] then
-            table.insert(list,info(v))
+            table.insert(list,d)
         end
     end
     return list
@@ -63,23 +62,36 @@ end
 function get(p,u,wid)
     if not u.word then return end
     local _members = u:get_members() or {}
-    for k, v in pairs(u.word.log or {}) do
-        if v.wid == wid then
-            if v.type ==0 then return  v
-            elseif _members[p.pid] then return  v end
-        end
+    local d = u.word[wid] 
+    if d.type ==0 then 
+        d[p.pid] = 1
+        gPendingSave.union_word[d._id][p.pid] = 1 
+        return  d
+    elseif _members[p.pid] then 
+        d[p.pid] = 1
+        gPendingSave.union_word[d._id][p.pid] = 1 
+        return  d 
     end
     return {}
 end
 
-function info(d)
-    local v = copyTab(d)
-    local p = getPlayer(v.pid)
-    if not p then return end
+function info(d,pid)
+    local v = {} 
+    v.tm = d.tm
+    v.pid = d.pid
+    v.title = d.title
+    v.type = d.type
+    v.wid = d.wid
+    v.word = d.word
+    v.uid = d.uid
+    local p = getPlayer(d.pid)
+    if not p then return {}  end
     v.name = p.name
     local u = unionmng.get_union(p.uid)
     if u then v.u_alias = u.alias end
     v.word = nil
+    if d[pid] then  v.read = 1 
+    else v.read = 0 end
     return v 
 end
 
@@ -90,73 +102,67 @@ function add(p,uid,title,word)
     local u = unionmng.get_union(uid)
     if not u then return end
 
-    if not u.word then u.word={_id=uid,log={}} end
+    u.word = u.word or {} 
 
     if not check(u) then return  0 end
-    u.wid = (u.wid or 0) + 1
+    u.wid = (u.wid or 0)   + 1
     local type = 0
     local _members = u:get_members() or {}
     if _members[p.pid] then type = 1 end
-    local d = {wid=u.wid,pid=p.pid,title=title,word=word,tm=gTime,type=type}
-    table.insert(u.word.log,d)
-    gPendingSave.union_word[uid] = u.word
+    local d = {_id=u.uid..u.wid, uid=u.uid, wid=u.wid, pid=p.pid,title=title,word=word,tm=gTime,type=type}
+    d[p.pid] = 1
+    u.word[d.wid] = d
+    gPendingSave.union_word[d._id] = d 
     u:notifyall(resmng.UNION_EVENT.WORD, resmng.UNION_MODE.ADD,{d.wid},p )
-    return info(d)
+    return info(d,p.pid)
 end
 
 function clear(uid)--删除军团时清除数据
-    gPendingDelete.union_word[uid] = 0
+    local u = unionmng.get_union(uid)
+    if not u then return end
+    for _, d in pairs(u.word or {}) do
+        gPendingDelete.union_word[d._id] = 0
+    end
 end
 
 function del(p,wid)
     local u = unionmng.get_union(p:get_uid())
     if not u.word then return end
-    for k, v in pairs(u.word.log or {}) do
-        if v.wid == wid then
-            if  p.pid ~= v.pid then
-                if not union_t.is_legal(p, "Updateinwords") then return resmng.E_DISALLOWED end
-            end
-            u.word.log[k]= nil
-            gPendingSave.union_word[p.uid] = u.word
-            return
-        end
+    local d = u.word[wid]
+    if  p.pid ~= d.pid then
+        if not union_t.is_legal(p, "Updateinwords") then return resmng.E_DISALLOWED end
     end
+    gPendingDelete.union_word[d._id] = 0 
+    u.word[wid] = nil
+    u:notifyall(resmng.UNION_EVENT.WORD, resmng.UNION_MODE.DELETE, {wid},p )
+    return
 end
 
 function update(p,wid,title,word)
     local u = unionmng.get_union(p:get_uid())
     if not u.word then return end
-    for k, v in pairs(u.word.log or {}) do
-        if v.wid == wid then
-            if  p.pid ~= v.pid then
-                if not union_t.is_legal(p, "Updateinwords") then return resmng.E_DISALLOWED end
-            end
-            u.word.log[k].pid = p.pid
-            u.word.log[k].title= title
-            u.word.log[k].word = word
-            u.word.log[k].tm = gTime
-            gPendingSave.union_word[u.uid] = u.word
-            u:notifyall(resmng.UNION_EVENT.WORD, resmng.UNION_MODE.UPDATE,{v.wid},p )
-            return
-        end
+    local d = u.word[wid]
+    if  p.pid ~= d.pid then
+        if not union_t.is_legal(p, "Updateinwords") then return resmng.E_DISALLOWED end
     end
+    d.pid = p.pid
+    d.title= title
+    d.word = word
+    d.tm = gTime
+    gPendingInsert.union_word[d._id] = d 
+    u:notifyall(resmng.UNION_EVENT.WORD, resmng.UNION_MODE.UPDATE,{d.wid},p )
+    return
 end
 
 function top(p,wid,flag)
     local u = unionmng.get_union(p:get_uid())
     if not u.word then return end
-    for k, v in pairs(u.word.log or {}) do
-        if v.wid == wid then
-            if not union_t.is_legal(p, "Updateinwords") then return resmng.E_DISALLOWED end
-            if flag == 1 then
-                u.word.log[k].tm_top = gTime
-            else
-                u.word.log[k].tm_top = nil
-            end
-            gPendingSave.union_word[u.uid] = u.word
-            return info(v)
-        end
-    end
+    if not union_t.is_legal(p, "Updateinwords") then return resmng.E_DISALLOWED end
+    local d = u.word[wid]
+    if flag == 1 then d.tm_top = gTime
+    else d.tm_top = nil end
+    gPendingSave.union_word[d._id] = d 
+    return info(d,p.pid)
 end
 
 

@@ -27,16 +27,17 @@ function OnRpc.onLogin( p, pid, name )
     p.online = gTime
     gPlys[ pid ] = p
 
+    --p.tmStart = c_msec()
+
     Rpc:getTime(p,1)
     LOG( "onLogin", pid )
 
-    if type( idx ) == "number" then
-        --local chg_name = string.format("R_%s", idx )
-        local chg_name = make_name.make_name()
-        if name ~= chg_name then
-            change_name( p, chg_name )
-        end
-    end
+    --if type( name ) == "number" then
+    --    local chg_name = make_name.make_name()
+    --    if name ~= chg_name then
+    --        change_name( p, chg_name )
+    --    end
+    --end
 end
 
 function OnRpc.getTime( p,tag,tm,sm)
@@ -100,14 +101,27 @@ function OnRpc.stateBuild( p, info )
         for k, v in pairs( info ) do
             build[ k ] = v
         end
+        if p.eventBuildUpdated then
+            p.eventBuildUpdated(p, build)
+        end
     else
         p._build[ info.idx ] = info
+        if p.eventNewBuild then
+            p.eventNewBuild(p, info)
+        end
     end
 end
 
 function OnRpc.statePro( p, info )
     for k, v in pairs( info ) do
         p[ k ] = v
+        if "tech" == k then
+            if p.eventTechUpdated then p.eventTechUpdated(p, v) end
+        elseif "bufs" == k then
+            if p.eventBufUpdated then p.eventBufUpdated(p, v) end
+        elseif "genius" == k then
+            if p.eventGeniusUpdated then p.eventGeniusUpdated(p, v) end
+        end
     end
 end
 
@@ -122,8 +136,14 @@ function OnRpc.stateTroop( p, info )
     if not p._troop then p._troop = {} end
     if info.delete then
         p._troop[ id ] = nil
+        if p.eventTroopDeleted then
+            p.eventTroopDeleted(p, id)
+        end
     else
         p._troop[ id ] = info 
+        if p.eventTroopUpdated then
+            p.eventTroopUpdated(p, id, info)
+        end
     end
 end
 
@@ -144,6 +164,9 @@ function OnRpc.addEty( p, info )
     local obj = etypipe.parse( info )
     p._etys[ obj.eid ] = obj
     p._tick_add_ety = c_msec()
+    if p.eventNewEntity then
+        p.eventNewEntity(p, obj)
+    end
 end
 
 
@@ -152,8 +175,18 @@ function OnRpc.addEtys( p, info )
         OnRpc.addEty( p, v )
     end
     p._tick_add_ety = c_msec()
+    if p.eventNewEntities then
+        p.eventNewEntities(p)
+    end
 end
 
+function OnRpc.remEty(p, eid)
+    local obj = p._etys[eid]
+    if nil == obj then
+        return
+    end
+    p._etys[eid] = nil
+end
 
 function OnRpc.upd_arm( p, info )
     p._arm = info
@@ -251,6 +284,42 @@ function OnRpc.finish_task_resp(p, ret)
     p.task_resp = ret
 end
 
+function OnRpc.update_task_info(p, info)
+    if nil == p._task then
+        return
+    end
+
+    for _, v in ipairs(info) do
+        local old_task = nil
+        for k, v1 in pairs(p._task.cur or {}) do
+            if v.task_id == v1.task_id then
+                p._task.cur[k] = v
+                old_task = v1
+                break
+            end
+        end
+        if TASK_STATUS.TASK_STATUS_FINISHED == v.task_status then
+            if TASK_TYPE.TASK_TYPE_TRUNK == v.task_type or
+                TASK_TYPE.TASK_TYPE_BRANCH == v.task_type then
+                for k, t in pairs(p._task.cur) do
+                    if t.task_id == v.task_id then
+                        p._task.cur[k] = nil
+                        break
+                    end
+                end
+                table.insert(p._task.finish, v.task_id)
+            end
+        end
+        if nil == old_task then
+            table.insert(p._task.cur, v)
+        end
+        if p.eventTaskInfoUpdated then
+            p:eventTaskInfoUpdated(v, old_task)
+        else
+        end
+    end
+end
+
 function OnRpc.union_task_get(p, info)
     p.union_task = info
 end
@@ -324,6 +393,12 @@ end
 
 function OnRpc.get_characters( p, info )
     dumpTab( info, "get_characters" )
+end
+
+
+function OnRpc.get_npc_map_ack( p, info )
+    --pause()
+    dumpTab( info, "get_npc_map_ack" )
 end
 
 return OnRpc

@@ -84,40 +84,6 @@ RpcType.pack = {
 }
 
 RpcType.array = {
-	_write=function( packet, v )
-	    v:write(packet)
-	end,
-	_read=function( packet )
-	    local array = Array()
-	    array:read(packet)
-	    return array
-	end,
-	_check=function( v )
-	    return Array:check(v)
-	end,
-}
-
-RpcType.struct = {
-	_write=function( packet, v )
-	    v:write(packet)
-	end,
-	_read=function( packet )
-	    local struct = Struct()
-	    struct:read(packet)
-	    return struct
-	end,
-	_check=function( v )
-	    return Struct:check(v)
-	end,
-}
-
-RpcType.__struct = {
-    helloTest = "int id, int pid, string text",
-}
-
-
-
-RpcType.Array = {
     _write=function( packet, value, idx, define )
         local what = define[ idx ]
         local node = RpcType[ what ]
@@ -127,10 +93,12 @@ RpcType.Array = {
             packet:WriteUint( 0 )
 
             for k, v in pairs( value ) do
-                node._write( packet, value[ k ], idx+1, define )
+                node._write( packet, v, idx+1, define )
                 count = count + 1
             end
             pushIntAt( offset, count )
+        else
+            error(string.format("invalid rpc_type! what=%s", what))
         end
     end,
 
@@ -149,14 +117,16 @@ RpcType.Array = {
     end
 }
 
-RpcType.Struct = {
+RpcType.struct = {
     _write=function( packet, value, idx, define )
         local stype = define[ idx ]
         local node = RpcType._struct[ stype ]
         if node then
-            for k, v in ipairs( node ) do
+            for i, v in ipairs( node ) do
                 RpcType[ v.t ]._write( packet, value[ v.n ], 1, v.d )
             end
+        else
+            error(string.format("invalid rpc_type! stype=%s", stype))
         end
     end,
 
@@ -164,15 +134,20 @@ RpcType.Struct = {
         local stype = define[ idx ]
         local node = RpcType._struct[ stype ]
         local res = {}
+        local remain_len = nil
         if node then
             for k, v in ipairs( node ) do
-                res[ v.n ] = RpcType[ v.t ]._read( packet, 1, v.d )
+                -- checkBuf是为了兼容act项目的网页客户端登录
+                remain_len = packet:checkBuf()
+                if remain_len and remain_len > 0 then
+                    res[ v.n ] = RpcType[ v.t ]._read( packet, 1, v.d )
+                else
+                    break
+                end
             end
         end
         return res
     end
 }
 
-
 return RpcType
-

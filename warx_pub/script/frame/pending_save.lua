@@ -12,7 +12,6 @@ gThreadAction = gThreadAction or false
 gThreadActionState = gThreadActionState or "unable"
 gThreadActionTime = gThreadActionTime or 0
 
-local bson = require "bson"
 local bson_encode_order = bson.encode_order
 
 function registe_update_callback( tab, func )
@@ -212,8 +211,16 @@ function global_saver()
 
         local one = gPendingActions[ 1 ]
         local info = db:runCommand2( {bson_cmd=one} )
+
         if info then
-            if info.code then
+            if info.ok and info.ok == 1 then
+                if info.errmsg or info.writeErrors or info.writeConcernError then
+                    WARN( "[DB], mongo_errord" )
+                    dumpTab(info, "check_save", 100, true)
+                    dumpTab(bson.decode( one ), "check_save", 100, true)
+
+                end
+            else
                 WARN( "[DB], mongo_errord" )
                 dumpTab(info, "check_save", 100, true)
             end
@@ -230,6 +237,7 @@ function global_saver()
                 gThreadActionState = "retire"
                 gThreadActionTime = 0
                 WARN( "[GLOBAL_SAVER], retire, %s", tostring(co) )
+                return
             end
         end
     end
@@ -277,17 +285,42 @@ end
 
 function restore_pending(filename)
     WARN( "[RESTORE_PENDING], %s", filename )
-    local code, tab = pcall( dofile( filename ) )
+    local code, tab = pcall( dofile, filename  )
     if not code then
-        WARN( "[RESTORE_PENDING], %s, error", filename )
+        WARN( "[RESTORE_PENDING], %s, error: %s, %s", filename, code, tab )
         os.execute( "exit -1" )
     end
 
     for _, v in ipairs( tab ) do
-        table.insert( gPendingActions, bson_encode_order( v[1], v[2], v[1].."s", v[3], "ordered", false, "writeConcern", COMMON_WRITE_CONCERN  ) )
+        local op = v[1]
+        local tab = v[2]
+        
+        if op == "update" then
+            for _, node in pairs( v[3] ) do
+                local id = node.q._id
+                if node.u[ "$set" ] then
+                    gPendingSave[ tab ][ id ] = node.u[ "$set" ]
+                else
+                    gPendingInsert[ tab ][ id ] = node.u
+                end
+            end
+        elseif op == "delete" then
+            for _, node in pairs( v[3] ) do
+                local id = node.q._id
+                gPendingDelete[ tab ][ id ] = 1
+            end
+        end
     end
     dumpTab( tab, "restore_pending" )
     global_save()
     os.execute( string.format( "mv %s %s.done", filename, filename ) )
+end
+
+function delete_col(tab)
+    gPendingSave[tab] = nil
+    local actions = gPendingActions
+    LOG( "[DB] delete collection %s", tab)
+    local docs_del = {{ q={}, limit=0 }}
+    table.insert( actions, bson_encode_order( "delete", tab, "deletes",docs_del, "ordered", false, "writeConcern", COMMON_WRITE_CONCERN ) ) 
 end
 

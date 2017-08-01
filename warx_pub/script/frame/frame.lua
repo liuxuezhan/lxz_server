@@ -55,7 +55,7 @@ function thanks()
         WARN( v )
     end
     INFO("[GameStart], map=%s,time=%s", tostring(config.SERVER_ID),tms2str(gTime))
-    if config.TlogSwitch then 
+    if config.TlogSwitch then
         local info = table.concat({"GameStart",config.SERVER_ID,tms2str(gTime)}, '|')
         c_tlog(info)
     end
@@ -85,7 +85,11 @@ gDbNum = 1
 function loadMod()
     require("frame/tools")
 
---  require("frame/socket")
+  -- dofile( c_get_conf() )
+
+    if config.Debugger then require("frame/debugger") end
+
+    --require("frame/socket")
 
     if config.NO_DB then
         require("nodb/_conn")
@@ -108,7 +112,6 @@ function loadMod()
     doLoadMod("MsgPack", "frame/MessagePack")
     doLoadMod("Array", "warx_pub/rpc/array")
 
-    doLoadMod("Struct", "warx_pub/rpc/struct")
     doLoadMod("RpcType", "warx_pub/rpc/rpctype")
     doLoadMod("Rpc", "warx_pub/rpc/rpc")
 
@@ -241,7 +244,7 @@ gActionQue = {}
 gActionCur = {}
 function do_threadPK()
     local co = coroutine.running()
-
+    local func_access = mark_access
     while true do
         local gateid, tag
         while true do
@@ -279,7 +282,6 @@ function do_threadPK()
                         end
                     end
                 end
-
                 putCoroPool("pk")
             end
         end
@@ -322,6 +324,7 @@ function do_threadPK()
                     if p then
                         rawset( p, "gid", gateid )
                         rawset( p, "tick", gTime )
+                        if func_access then func_access( pid ) end
 
                         if gActionQue[ pid ] then
                             LOG("%d, RpcR, pid=%d, func=%s, in queue", gFrame, pid, fname)
@@ -429,7 +432,7 @@ function wait_connect_complete()
                 break
             end
         end
-        if not ok then 
+        if not ok then
             wait(1)
         end
     end
@@ -460,7 +463,7 @@ function frame_init()
     gInit = "InitFrameDone"
     begJob()
 
-    if config.TlogSwitch then 
+    if config.TlogSwitch then
         c_tlog_start( "../etc/tlog.xml" )
     end
 
@@ -471,9 +474,8 @@ function clean_replay()
     local db = dbmng:getOne()
     if db then
         local time = gTime - (86400 * 3)
-    local time = gTime - (86400 * 3)
-    db.replay:delete({["1"] = {["$lt"] = time}})
-end
+        db.replay:delete({["1"] = {["$lt"] = time}})
+    end
 end
 
 local SignalDefine = {
@@ -566,7 +568,7 @@ function main_loop(sec, msec, fpk, ftimer, froi, signal)
         elseif gInit == "InitFrameDone" then
             gInit = "InitGameData"
             action( restore_game_data )
-        
+
         elseif gInit == "InitCompensate" then
             local real = gCompensation
             if gCompensation < real then
@@ -602,7 +604,7 @@ function main_loop(sec, msec, fpk, ftimer, froi, signal)
             action( crontab.initBoot )
 
         elseif gInit == "InitCronBootDone" then
-            crontab.initBoot()
+            --crontab.initBoot()
             clean_replay() --清理战斗录像
 
             local hit = false
@@ -813,9 +815,15 @@ function check_tool_ack()
         end
     end
 
+    local num = 0
     for k, v in pairs(dels) do
         gPendingToolAck[k] = nil
-        resend_to_tool(k, v.info)
+        if num <= 5000 then
+            resend_to_tool(k, v.info)
+        else
+            ERROR("resent to tool too much ", Json.encode(v or {}))
+        end
+        num = num + 1
     end
 
 end

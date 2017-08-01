@@ -467,12 +467,14 @@ function building_recalc(build)
     end
     for id, action in pairs(build.troop_comings or {}) do
         local troop = troop_mng.get_troop(id)
-        if troop.owner_uid ~= hold_troop.owner_uid or (troop.owner_uid == 0 and hold_troop.owner_uid == 0 ) then
-            for k, v in pairs(hold_troop.arms or {}) do
-                if k ~= 0 then
-                    local ply = getPlayer(k)
-                    if ply ~= nil then
-                        get_watchtower_info(troop, nil, ply)
+        if troop then
+            if troop.owner_uid ~= hold_troop.owner_uid or (troop.owner_uid == 0 and hold_troop.owner_uid == 0 ) then
+                for k, v in pairs(hold_troop.arms or {}) do
+                    if k ~= 0 then
+                        local ply = getPlayer(k)
+                        if ply ~= nil then
+                            get_watchtower_info(troop, nil, ply)
+                        end
                     end
                 end
             end

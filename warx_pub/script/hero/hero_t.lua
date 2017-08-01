@@ -393,6 +393,8 @@ function gain_exp(self, exp_num)
             self:up_attr()
             --任务
             task_logic_t.process_task(owner, TASK_ACTION.HERO_LEVEL_UP)
+            task_logic_t.process_task(owner, TASK_ACTION.SPECIAL_HERO_LEVEL)
+
             check_hero_lv_ache(owner)  -- check title ache
         end
         task_logic_t.process_task(owner, TASK_ACTION.HERO_EXP, exp_num)
@@ -526,7 +528,7 @@ function can_lv_up(self)
     else
         if self.lv > player.lv then 
             WARN("can_lv_up: hero[%s], hero.lv = %d >= player.lv = %d", self._id, self.lv, player.lv)
-            player:add_debug("can not lv up")
+            --player:add_debug("can not lv up")
             return false 
         end
 
@@ -537,7 +539,7 @@ function can_lv_up(self)
             if not need then return false end
             if self.exp >= need then 
                 ERROR("can_lv_up: hero[%s], hero.lv = %d >= player.lv = %d, have=%d, need=%d", self._id, self.lv, player.lv, self.exp, need)
-                player:add_debug("can not lv up")
+                --player:add_debug("can not lv up")
                 return false 
             end
         end
@@ -690,14 +692,14 @@ function star_up(self)
     else
         local piece_have = player:get_item_num(hero_basic_conf.PieceID)
         if piece_have < star_up_conf.StarUpPrice then
-            ERROR("star_up: hero[%s], piece[%d] not enough, have %d, need %d", self._id, hero_basic_conf.PieceID, piece_have, star_up_conf.StarUpPrice)
+            WARN("star_up: hero[%s], piece[%d] not enough, have %d, need %d", self._id, hero_basic_conf.PieceID, piece_have, star_up_conf.StarUpPrice)
             return
         end
     end
 
     -- 扣除碎片
     if not player:dec_item_by_item_id(hero_basic_conf.PieceID, star_up_conf.StarUpPrice, VALUE_CHANGE_REASON.HERO_SATR_UP) then
-        ERROR("star_up: player[%s], delete piece failed, piece_id = %d, count =  %d", self.pid, hero_basic_conf.PieceID, star_up_conf.StarUpPrice)
+        WARN("star_up: player[%s], delete piece failed, piece_id = %d, count =  %d", self.pid, hero_basic_conf.PieceID, star_up_conf.StarUpPrice)
         return
     end
 
@@ -709,6 +711,8 @@ function star_up(self)
 
     --任务
     task_logic_t.process_task(player, TASK_ACTION.HAS_HERO_NUM)
+    task_logic_t.process_task(player, TASK_ACTION.SPECIAL_HERO_STAR)
+    
     check_hero_star_ache(player)  -- check title ache
 
     -- 大升星

@@ -1,8 +1,13 @@
 --玩家军团信息模块
 module(..., package.seeall)
-function load()
+function load(pid)
     local db = dbmng:getOne()
-    local info = db.union_member:find({})
+    local info 
+    if pid then
+        info = db.union_member:find({_id=pid})
+    else
+        info = db.union_member:find({})
+    end
     while info:hasNext() do
         local data = info:next()
         local p = getPlayer(data._id)

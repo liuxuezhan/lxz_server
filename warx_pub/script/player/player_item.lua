@@ -268,7 +268,7 @@ end
 --------------------------------------------------------------------------------
 function split_cons(self, cons)
     if not cons then
-        ERROR("split_cons: no cons.")
+        WARN( "split_cons, no cons, pid=%d", self.pid )
         return
     end
 

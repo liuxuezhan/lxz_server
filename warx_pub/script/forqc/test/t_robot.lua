@@ -73,47 +73,6 @@ function do_first_build(p)
     end
 end
 
-function build_or_upgrade(p, build_id)
-    local idx, propid = find_build_idx(p, build_id)
-    if propid == build_id then
-        return 
-    end
-
-    if idx == -1 then
-        return 
-    elseif idx == 0 then
-        construct(p, build_id)
-    else
-        if build_id == 4 and p.field == 2 then
-             Rpc:open_field(p, p.field + 1)
-        end
-        upgrade(p, idx, propid + 1)
-    end
-end
-
-function find_build_idx(p, propid)
-    local lv = 0
-    local idx = 0
-    local build_id = 0
-    local prop = resmng.prop_build[propid]
-    for k, v in pairs(p._build or {}) do
-        local build_prop =  resmng.prop_build[v.propid]
-        if build_prop.Class == prop.Class and build_prop.Mode == prop.Mode and build_prop.Lv <= prop.Lv then
-            if not build_prop then
-            end
-            if lv == 0 or build_prop.Lv > lv then
-                lv = build_prop.Lv
-                idx = k
-                build_id = v.propid
-            end
-        elseif build_prop.Class == prop.Class and build_prop.Mode == prop.Mode and build_prop.Lv <= prop.Lv then
-            idx = -1
-            build_id = v.propid
-        end
-    end
-    return idx, build_id
-end
-
 
 do_action = {}
 

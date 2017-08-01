@@ -18,7 +18,7 @@ module_class("union2_t", {
     note_in = "",
     note_out = "",
     npc_citys = {}, -- 领土争夺占领的城市
-    can_atk_citys = {}, --玩家攻击的城市
+    --can_atk_citys = {}, --玩家攻击的城市
     atk_id = 0,  -- 领土争夺好招攻击的对象
     def_id =  0, -- 领土争夺好招防御的对象
     declare_wars = {}, -- 宣战的城市
@@ -44,6 +44,7 @@ module_class("union2_t", {
     mc_ply_rank = {}, -- 参见本次mc活动玩家
     mc_reward_pool = {},  -- 本次mc奖励
     mc_trs = {},          --mc出发的攻打npc部队
+    mc_grade = 1,
     last_join_act_tm = 0,
     act_rank = {},
 })
@@ -160,11 +161,17 @@ end
 -- 怪物攻城 monster_city
 -- 设置军团在怪物攻城中的状态
 
-function set_mc_start(self, time, ply)
+function set_mc_start(self, time, grade, ply)
     if ply then
 --        ply:add_debug("cross gs can not join mc")
         return
     end
+
+    local langs = {
+        resmng.MC_DIFFICULTY_SETTING_LOW,
+        resmng.MC_DIFFICULTY_SETTING_MID,
+        resmng.MC_DIFFICULTY_SETTING_HIGH,
+    }
 
     local state, npc_startTime, npc_endTime = npc_city.get_npc_state()
 
@@ -193,11 +200,6 @@ function set_mc_start(self, time, ply)
             end
         end
 
-        local _members = self:get_members()
-        for _, player in pairs(_members or {}) do
-            player:send_system_notice(resmng.MAIL_10064, {}, {ply.name, time})
-        end
-
         local mc_ntf_time = leftTime - 30 * 60
         if mc_ntf_time <= 0 then
             mc_ntf_time = 10
@@ -210,7 +212,12 @@ function set_mc_start(self, time, ply)
         self.mc_ntf_timer = timer.new("mc_notify", mc_ntf_time, resmng.MC_PREPARE, self.uid)
 
         self.mc_timer = timer.new("monster_city", leftTime, self.uid, 1)
+        self.mc_grade = grade
         self.monster_city_stage = 0
+        local _members = self:get_members()
+        for _, player in pairs(_members or {}) do
+            player:send_system_notice(resmng.MAIL_10064, {}, {ply.name, time, langs[grade]})
+        end
     else
         return false
     end
@@ -240,7 +247,7 @@ end
 
 function add_mc_reward(self, rewards) 
     local pool = self.mc_reward_pool or {}
-    for k, v in pairs(rewards) do
+    for k, v in pairs(rewards or {}) do
         if v[2] then
             if v[2] == 11 then
                 self.mc_point = self.mc_point + v[3]
@@ -308,6 +315,7 @@ function set_default_start(self)
 
     self.mc_ntf_timer = timer.new("mc_notify", mc_ntf_time, resmng.MC_PREPARE, self.uid)
     self.mc_timer = timer.new("monster_city", time, self.uid, 1)
+    self.mc_grade = 1
     self.monster_city_stage = 0
 end
 
@@ -637,7 +645,8 @@ function union_can_atk_citys(self)
            citys =  leader:player_nearly_citys()
         end
     end
-    self.can_atk_citys = citys
+    --self.can_atk_citys = citys
+    return citys
 end
 
 
@@ -1054,12 +1063,20 @@ function get_invite(self, pid)
     -- can not do
 end
 
-function notifyall(self, what, mode, data)
+function notifyall(self, what, mode, data,ply)
     local pids = {}
     local _members = self:get_members()
     for _, p in pairs(_members or {}) do
-        if player_t.is_online(p) then
-            table.insert(pids, p.pid)
+        if p ~= ply then
+            if player_t.is_online(p) then
+                table.insert(pids, p.pid)
+            end
+            if what == resmng.UNION_EVENT.WORD then
+                p._union.word = p._union.word or {} 
+                gPendingSave.union_member[p.pid].word = gPendingSave.union_member[p.pid].word  or {} 
+                p._union.word[data[1]]=1   
+                gPendingSave.union_member[p.pid].word[data[1]] = 1 
+            end
         end
     end
     if #pids == 0 then return end

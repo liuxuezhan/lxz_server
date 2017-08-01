@@ -10,11 +10,6 @@ function load_player()
         if (not data.culture) or data.culture < 1 or data.culture > 4 then data.culture = 1 end
 
         if  data.pid and data.account then
-            local token = data.token
-            data.token = nil
-
-            local p = player_t.wrap( data )
-            gPlys[ data.pid ] = p
             local acc = gAccounts[ data.account ]
             if not acc then
                 acc = {}
@@ -22,32 +17,44 @@ function load_player()
             end
             acc[ data.pid ] = { data.map, data.smap or gMapID }
 
-            rawset(p, "eid", data.eid)
-            rawset(p, "pid", data.pid)
-            rawset(p, "size", 4)
+            if data.eid ~= 0 then 
+                local token = data.token
+                data.token = nil
 
-            rawset(p, "token", token )
-            rawset(p, "uname", "")
+                local p = player_t.wrap( data )
+                gPlys[ data.pid ] = p
 
-            rawset( p, "tm_unload", gTime )
-            
-            gEtys[ p.eid ] = p
+                rawset(p, "eid", data.eid)
+                rawset(p, "pid", data.pid)
+                rawset(p, "size", 4)
 
-            count = count + 1
-            if count >= 100 then
-                total = total + 100
-                LOG("load player %d", total)
-                count = 0
+                rawset(p, "token", token )
+                rawset(p, "uname", "")
+
+                if p.eid ~= 0 then gEtys[ p.eid ] = p end
+
+                count = count + 1
+                if count >= 100 then
+                    total = total + 100
+                    LOG("load player %d", total)
+                    count = 0
+                end
             end
         end
     end
     total = total + count
+    player_t.gTotalCreate = total
 end
 
 
-function load_build()
+function load_build(pid)
     local db = dbmng:getOne()
-    local info = db.build_t:find({})
+    local info 
+    if pid then
+        info = db.build_t:find({pid=pid})
+    else
+        info = db.build_t:find({})
+    end
     local count = 0
     while info:hasNext() do
         local b = info:next()
@@ -153,9 +160,14 @@ function load_clown()
     end
 end
 
-function load_hero()
+function load_hero(pid)
     local db = dbmng:getOne()
-    local info = db.hero_t:find({})
+    local info 
+    if pid then 
+        info = db.hero_t:find({pid=pid})
+    else
+        info = db.hero_t:find({})
+    end
     while info:hasNext() do
         local b = info:next()
         local p = getPlayer(b.pid)
@@ -171,6 +183,7 @@ end
 function load_sys_status()
     local db = dbmng:getOne()
     local info = db.status:findOne({_id=gMapID})
+    dumpTab(info, "SysStatus")
     if not info then
         info = {_id=gMapID, start=gTime, ids={}}
         db.status:insert(info)
@@ -204,7 +217,7 @@ function init_effect()
                 v.uflag = u.flag
             end
         end
-        etypipe.add(v)
+        if v.eid ~= 0 then etypipe.add(v) end
         count = count + 1
         if count % 100 == 0 then INFO( "init_effect, count = %d", count ) end
     end
@@ -274,6 +287,15 @@ function load_chat()
     end
 
     player_t.gChat = chats
+end
+
+
+function load_first_kill()
+    local db = dbmng:getOne()
+    local info = db.status:findOne({_id="first_kill"})
+    if info then
+        troop_mng.g_first_kill = info
+    end
 end
 
 function restore_timer()
@@ -359,6 +381,16 @@ function post_init()
 end
 
 function action()
+
+    local index_info = {
+        build_t = { build_pid_idx = { pid=1}, },
+        equip = { equip_pid_idx = { pid=1}, },
+        hero_t = { equip_pid_idx = { pid=1}, },
+        mail = { mail_to_idx = { to=1}, },
+        task = { task_pid_idx = { pid=1}, },
+    }
+    --dbmng:index_update( index_info, false )
+
     --monitoring(MONITOR_TYPE.LOADDATA, "before load data")
     INFO("-- load_sys_status ---------")
     load_sys_status()
@@ -505,6 +537,10 @@ function action()
     INFO("-- restore_equip done-")
     --monitoring(MONITOR_TYPE.LOADDATA, "restore_equip")
 
+    INFO("-- load_count -----")
+    load_count()
+    INFO("-- load_count done-")
+
     --INFO("-- init_effect -------------")
     --local count = init_effect()
     --INFO("-- init_effect done -------- %d", count)
@@ -541,11 +577,6 @@ function action()
     INFO("-- unoin_relation done -----")
     --monitoring(MONITOR_TYPE.LOADDATA, "unoin_relation")
 
-    INFO("-- unoin_help -----")
-    union_help.load()--
-    INFO("-- unoin_help done -----")
-    --monitoring(MONITOR_TYPE.LOADDATA, "unoin_help")
-
     INFO("-- unoin_god -----")
     union_god.load()--
     INFO("-- unoin_god done -----")
@@ -566,6 +597,10 @@ function action()
     INFO("-- white list done-----")
     --monitoring(MONITOR_TYPE.LOADDATA, "white_list")
 
+
+    INFO("-- first kill -----")
+    load_first_kill()
+    INFO("-- first kill done -----")
 
     INFO("-- tribute_exchange -----")
     load_tribute_exchange()

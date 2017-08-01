@@ -17,7 +17,7 @@ module_class("union_t", {
     note_in = "",
     note_out = "",
     npc_citys = {}, -- 领土争夺占领的城市
-    can_atk_citys = {}, --玩家攻击的城市
+    --can_atk_citys = {}, --玩家攻击的城市
     atk_id = 0,  -- 领土争夺好招攻击的对象
     def_id =  0, -- 领土争夺好招防御的对象
     declare_wars = {}, -- 宣战的城市
@@ -43,6 +43,7 @@ module_class("union_t", {
     mc_ply_rank = {}, -- 参见本次mc活动玩家
     mc_reward_pool = {},  -- 本次mc奖励
     mc_trs = {},          --mc出发的攻打npc部队
+    mc_grade = 1,
     last_join_act_tm = 0,
     act_rank = {},
 })
@@ -132,7 +133,17 @@ end
 -- 怪物攻城 monster_city
 -- 设置军团在怪物攻城中的状态
 
-function set_mc_start(self, time, ply)
+function set_mc_start(self, time, grade, ply)
+    if grade > 3 or grade <= 0 then
+        return
+    end
+    
+    local langs = {
+        resmng.MC_DIFFICULTY_SETTING_LOW,
+        resmng.MC_DIFFICULTY_SETTING_MID,
+        resmng.MC_DIFFICULTY_SETTING_HIGH,
+    }
+
     local state, npc_startTime, npc_endTime = npc_city.get_npc_state()
 
     if state ~= TW_STATE.PACE then  
@@ -146,23 +157,21 @@ function set_mc_start(self, time, ply)
         --    return
         --end
 
+        local leftTime = get_left_time({time, 30})
+        if gTime + leftTime > npc_endTime then
+            return
+        end
         timer.del(self.mc_timer)
         timer.del(self.mc_ntf_timer)
-        local leftTime = get_left_time({time, 30})
         self.mc_start_time = {time, 30}
-        self.set_mc_time = npc_endTime - 5400
+        self.set_mc_time = npc_endTime
         -- to do
         --
         local prop = resmng.get_conf("prop_act_notify", resmng.MC_TIMESET)
         if prop then
             if prop.Chat2 then
-                self:union_chat("", prop.Chat2, {ply.name, time})
+                self:union_chat("", prop.Chat2, {ply.name, time, langs[grade]})
             end
-        end
-
-        local _members = self:get_members()
-        for _, player in pairs(_members or {}) do
-            player:send_system_notice(resmng.MAIL_10064, {}, {ply.name, time})
         end
 
         local mc_ntf_time = leftTime - 30 * 60
@@ -177,7 +186,12 @@ function set_mc_start(self, time, ply)
         self.mc_ntf_timer = timer.new("mc_notify", mc_ntf_time, resmng.MC_PREPARE, self.uid)
 
         self.mc_timer = timer.new("monster_city", leftTime, self.uid, 1)
+        self.mc_grade = grade
         self.monster_city_stage = 0
+        local _members = self:get_members()
+        for _, player in pairs(_members or {}) do
+            player:send_system_notice(resmng.MAIL_10064, {}, {ply.name, time, langs[grade]})
+        end
     else
         return false
     end
@@ -185,7 +199,10 @@ end
 
 function mc_notify(self, notify_id)
 
-    self.set_mc_time = gTime  -- when default timer set do set 
+    if self.set_mc_time < gTime then
+        self.set_mc_time = gTime + 5400  -- when default timer set do set 
+    end
+
     self.mc_act_ply = {}
     self.mc_reward_pool = {}
 
@@ -207,7 +224,7 @@ end
 
 function add_mc_reward(self, rewards) 
     local pool = self.mc_reward_pool or {}
-    for k, v in pairs(rewards) do
+    for k, v in pairs(rewards or {}) do
         if v[2] then
             if v[2] == 11 then
                 self.mc_point = self.mc_point + v[3]
@@ -275,6 +292,7 @@ function set_default_start(self)
 
     self.mc_ntf_timer = timer.new("mc_notify", mc_ntf_time, resmng.MC_PREPARE, self.uid)
     self.mc_timer = timer.new("monster_city", time, self.uid, 1)
+    self.mc_grade = 1
     self.monster_city_stage = 0
 end
 
@@ -324,6 +342,8 @@ function get_mc_rank(self, version)
 end
 
 function set_mc_state(self, stage)
+    npc_city.reset_do_mc_citys()
+
     local prop = {}
     if not stage then
         prop = resmng.prop_mc_stage[self.monster_city_stage]
@@ -373,6 +393,7 @@ function set_mc_state(self, stage)
     if mc_num == 0 then
         monster_city.send_union_act_award(self)
         self.monster_city_stage = 0
+        npc_city.reset_do_mc_citys()
         return
     end
 
@@ -601,7 +622,8 @@ function union_can_atk_citys(self)
            citys =  leader:player_nearly_citys()
         end
     end
-    self.can_atk_citys = citys
+    --self.can_atk_citys = citys
+    return citys
 end
 
 
@@ -640,25 +662,25 @@ function create(A, name, alias, language, propid)
         tm_buf_over = 0,
     }
 
-    local union = new(data)
-    if not union_god.set(union,propid) then return end
+    local u = new(data)
+    if not union_god.set(u,propid) then return end
 
-    union.flag = 1
+    u.flag = 1
     local conf = resmng.get_conf( "prop_union_god", propid )
-    if conf then union.flag = conf.Mode end
+    if conf then u.flag = conf.Mode end
 
-    unionmng.add_union(union)
+    unionmng.add_union(u)
 
-    union:add_member(A,A)
+    u:add_member(A,A)
     A:set_rank(resmng.UNION_RANK_5)
 
     gPendingSave.union_log[id] = {_id=id}
 
     insert_global( "unions", id, { name=name, alias=alias, tmCreate=gTime, map=gMapID} )
 
-    player_t.pre_tlog(nil,"UnionList",union.uid,union.name,union.language,0)
+    player_t.pre_tlog(nil,"UnionList",u.uid,u.name,u.language,0,tostring(u.mc_start_time[1]))
 
-    return union
+    return u
 end
 
 function on_check_pending(db, _id, chgs)
@@ -738,7 +760,7 @@ end
 -- count == -1, means a buf forever
 function add_buf(self, bufid, count)
     if count <= 0 and count ~= -1 then
-        INFO( "[UNION]add_buf, pid=%d, buf=%d, count=%d", self.uid, bufid, count)
+        INFO( "[UNION]add_buf pid=%d, uid=%d, buf=%d, count=%d", self.pid,self.uid, bufid, count)
         return
     end
 
@@ -880,44 +902,46 @@ function get_info(self)
 end
 
 
-function destory(self)
+function destory(u)
 
-    if self:is_new() then return end
+    if u:is_new() then return end
+
 
     local dels = {}
-    for k, v in pairs(self.build) do table.insert( dels, k ) end
-    for _, k in pairs( dels ) do union_build_t.remove( self.build[ k ] ) end
+    for k, v in pairs(u.build) do table.insert( dels, k ) end
+    for _, k in pairs( dels ) do union_build_t.remove( u.build[ k ] ) end
     
-    for _, A in pairs(self._members) do
+    for _, A in pairs(u._members) do
         A:set_uid()
     end
 
-    union_word.clear(self.uid)
-    union_mall.clear(self.uid)
-    union_buildlv.clear(self.uid)
-    union_mission.clear(self)
-    union_task.clear(self.uid)
-    union_tech_t.clear(self.uid)
-    union_help.clear(self.uid)
-    union_relation.clear(self.uid)
-    union_god.clear(self.uid)
+    union_word.clear(u.uid)
+    union_mall.clear(u.uid)
+    union_buildlv.clear(u.uid)
+    union_mission.clear(u)
+    union_task.clear(u.uid)
+    union_tech_t.clear(u.uid)
+    union_relation.clear(u.uid)
+    union_god.clear(u.uid)
 
 
-    gPendingDelete.union_log[ self.uid ] = 0
-    gPendingDelete.union_t[ self.uid ] = 0
+    gPendingDelete.union_log[ u.uid ] = 0
+    gPendingDelete.union_t[ u.uid ] = 0
 
     for k, v in pairs(resmng.prop_rank) do
-        if v.IsPerson ~= 1 then rank_mng.rem_data( k, self.uid ) end
+        if v.IsPerson ~= 1 then rank_mng.rem_data( k, u.uid ) end
     end
-    INFO("[Union] destory, uid:%s", self.uid)
-    player_t.pre_tlog(nil,"UnionList",self.uid,self.name,self.language,2)
+    INFO("[Union] destory, uid:%s", u.uid)
+    local db = dbmng:getGlobal()
+    if db then db.name_union:delete( {_id=u.name} ) end
+    player_t.pre_tlog(nil,"UnionList",u.uid,u.name,u.language,2,tostring(u.mc_start_time[1]))
 end
 
 
 function add_member(self, A,B)
     if self.membercount >= self:get_memberlimit() then
         INFO( "[UNION], add_member, full, uid=%d, pid=%d", self.uid, A.pid )
-        return
+        return -1
     end
 
     if self:has_member(A) then return resmng.E_ALREADY_IN_UNION end
@@ -950,13 +974,34 @@ function add_member(self, A,B)
     task_logic_t.process_task(A, TASK_ACTION.OCC_NPC_CITY)
     send_chat_invite(self.chat_room, A)
 
-    return resmng.E_OK
+    return 0
 end
 
 function rm_member(self, A,kicker)
     kicker = kicker or {}
     self:has_member(A) 
     A:recall_all()
+
+    local troop = A:get_my_troop()
+    if troop then
+
+        for pid, _ in pairs(  troop.arms or {} ) do
+            if pid  ~= A.pid then
+                local dest = getPlayer( pid )
+                dest:troop_recall( troop._id, true )
+            end
+        end
+
+        for tid, action in pairs( A.troop_comings or {} ) do
+            if action == TroopAction.SupportArm then
+                local tr = troop_mng.get_troop( tid )
+                if tr and tr:is_go() and tr.dest_troop_id == troop._id then
+                    local dest = getPlayer( tr.owner_pid )
+                    dest:troop_recall( tid, true )
+                end
+            end
+        end
+    end
 
     local store = A._union and A._union.restore_sum
     if store then
@@ -970,14 +1015,22 @@ function rm_member(self, A,kicker)
             end
         end
         if total > 0 then
+            local one  
+            local l = math.huge
             for k, v in pairs( self.build or {} ) do
                 if is_union_restore( v.propid ) and v.state == BUILD_STATE.WAIT then
-                    local troop = troop_mng.create_troop(TroopAction.GetRes, A, v)
-                    troop.curx, troop.cury = get_ety_pos(v)
-                    troop:back()
-                    troop:add_goods( gains, VALUE_CHANGE_REASON.REASON_UNION_GET_RESTORE )
-                    break
+                    local z = math.pow(math.abs(A.x-v.x),2) + math.pow(math.abs(A.y-v.y),2)
+                    if l > z then
+                        one = v
+                        l = z
+                    end
                 end
+            end
+            if one then
+                local troop = troop_mng.create_troop(TroopAction.GetRes, A, one)
+                troop.curx, troop.cury = get_ety_pos(one)
+                troop:back()
+                troop:add_goods( gains, VALUE_CHANGE_REASON.REASON_UNION_GET_RESTORE )
             end
         end
     end
@@ -1067,7 +1120,8 @@ function remove_apply(self, pid)
     local k = self:get_apply(pid)
     if k then
         self.applys[k]=nil
-        gPendingSave.union_t[self.uid].applys = self.applys
+        local chg = gPendingSave.union_t[self.uid]
+        chg.applys = self.applys
         return true
     end
     return false
@@ -1075,16 +1129,13 @@ end
 
 function get_apply(self, pid)
     if not pid then return end
-
-    for k, v in pairs(self.applys) do
-        if pid == v.pid then
-            if (v.tm + 60*60*48) > gTime then
-                return k
-            else
-                self.applys[k]=nil
-                gPendingSave.union_t[self.uid].applys = self.applys
-                return
-            end
+    local v =  self.applys[pid] 
+    if v then
+        if (v.tm + 60*60*48) > gTime then return pid
+        else
+            self.applys[pid]=nil
+            gPendingSave.union_t[self.uid].applys = self.applys
+            return
         end
     end
 end
@@ -1095,7 +1146,7 @@ function add_apply(self, B)
     if self:get_apply(B.pid) then return end
 
     local data = {pid=B.pid, tm=gTime}
-    table.insert(self.applys, data)
+    self.applys[data.pid]=data
     gPendingSave.union_t[self.uid].applys = self.applys
 
     local data = B:get_union_info()
@@ -1161,7 +1212,7 @@ function add_invite(self, pid)
 
     local k, v = self:get_invite(pid)
     if not v then
-        table.insert(self.invites, {tm=gTime,pid=pid})
+        self.invites[pid] = {tm=gTime,pid=pid}
         gPendingSave.union_t[self.uid].invites = self.invites
     else
         self.invites[k].tm = gTime
@@ -1170,14 +1221,13 @@ function add_invite(self, pid)
 end
 
 function get_invite(self, pid)
-    for k, v in pairs(self.invites) do
-        if v.pid == pid then
-            if gTime > (v.tm+60*60*24*2)  then
-                self:remove_invite( k)
-                return
-            else
-                return k, v
-            end
+    local v = self.invites[pid]
+    if v then
+        if gTime > (v.tm+60*60*24*2)  then
+            self:remove_invite( pid)
+            return
+        else
+            return pid, v
         end
     end
 end
@@ -1185,36 +1235,53 @@ end
 function notifyall(self, what, mode, data,ply)
     local pids = {}
     for _, p in pairs(self._members) do
-      if p ~= ply then
-        if p:is_online() then 
-          table.insert(pids, p.pid) 
+        if p ~= ply then
+            if p:is_online() then 
+                table.insert(pids, p.pid) 
+            end
+            if what == resmng.UNION_EVENT.WORD then
+                if mode == resmng.UNION_MODE.DELETE then 
+                    p._union.word = p._union.word or {} 
+                    gPendingSave.union_member[p.pid].word = gPendingSave.union_member[p.pid].word  or {} 
+                    p._union.word[data[1]]=nil   
+                    gPendingSave.union_member[p.pid].word = p._union.word
+                else
+                    p._union.word = p._union.word or {} 
+                    gPendingSave.union_member[p.pid].word = gPendingSave.union_member[p.pid].word  or {} 
+                    p._union.word[data[1]]=1   
+                    gPendingSave.union_member[p.pid].word[data[1]] = 1 
+                end
+            end
         end
-        if what == resmng.UNION_EVENT.WORD then
-          p._union.word = p._union.word or {} 
-          gPendingSave.union_member[p.pid].word = gPendingSave.union_member[p.pid].word  or {} 
-          p._union.word[data[1]]=1   
-          gPendingSave.union_member[p.pid].word[data[1]] = 1 
-        end
-      end
     end
     if #pids == 0 then return end
     Rpc:union_broadcast(pids, what, mode, data)
-    if (what ==resmng.UNION_EVENT.MEMBER and mode ==resmng.UNION_MODE.ADD )
-        or (what ==resmng.UNION_EVENT.MEMBER and mode ==resmng.UNION_MODE.DELETE )
-        or (what ==resmng.UNION_EVENT.MEMBER and mode ==resmng.UNION_MODE.RANK_UP )
-        or (what ==resmng.UNION_EVENT.MEMBER and mode ==resmng.UNION_MODE.RANK_DOWN )
-        or (what ==resmng.UNION_EVENT.MEMBER and mode ==resmng.UNION_MODE.TITLE and data.title~="" )
-        or (what ==resmng.UNION_EVENT.TECH and mode ==resmng.UNION_MODE.ADD )
-        or (what ==resmng.UNION_EVENT.BUILDLV and mode ==resmng.UNION_MODE.UPDATE )
-        or (what ==resmng.UNION_EVENT.BUILD_SET and mode ==resmng.UNION_MODE.ADD )
-        or (what ==resmng.UNION_EVENT.MISSION and mode ==resmng.UNION_MODE.GET )
-        or (what ==resmng.UNION_EVENT.MISSION and mode ==resmng.UNION_MODE.OK )
-        or (what ==resmng.UNION_EVENT.TASK and mode ==resmng.UNION_MODE.ADD )
-        or (what ==resmng.UNION_EVENT.FIGHT and mode ==resmng.UNION_MODE.ADD )
-     then
-         self:add_log(what, mode,data)
+
+
+    local t = UNION_EVENT_LOG
+    if t[ what ] and t[ what ][ mode ] then
+        if (what ==resmng.UNION_EVENT.MEMBER and mode ==resmng.UNION_MODE.TITLE ) then
+            if data.title == "" then return end
+        end
+         self:add_log(what, mode, data)
     end
-    INFO( "[UNION] notifyall uid=%d what=%s mode=%d ",self.uid,what,mode )
+
+    --if (what ==resmng.UNION_EVENT.MEMBER and mode ==resmng.UNION_MODE.ADD )
+    --    or (what ==resmng.UNION_EVENT.MEMBER and mode ==resmng.UNION_MODE.DELETE )
+    --    or (what ==resmng.UNION_EVENT.MEMBER and mode ==resmng.UNION_MODE.RANK_UP )
+    --    or (what ==resmng.UNION_EVENT.MEMBER and mode ==resmng.UNION_MODE.RANK_DOWN )
+    --    or (what ==resmng.UNION_EVENT.MEMBER and mode ==resmng.UNION_MODE.TITLE and data.title~="" )
+    --    or (what ==resmng.UNION_EVENT.TECH and mode ==resmng.UNION_MODE.ADD )
+    --    or (what ==resmng.UNION_EVENT.BUILDLV and mode ==resmng.UNION_MODE.UPDATE )
+    --    or (what ==resmng.UNION_EVENT.BUILD_SET and mode ==resmng.UNION_MODE.ADD )
+    --    or (what ==resmng.UNION_EVENT.MISSION and mode ==resmng.UNION_MODE.GET )
+    --    or (what ==resmng.UNION_EVENT.MISSION and mode ==resmng.UNION_MODE.OK )
+    --    or (what ==resmng.UNION_EVENT.TASK and mode ==resmng.UNION_MODE.ADD )
+    --    or (what ==resmng.UNION_EVENT.FIGHT and mode ==resmng.UNION_MODE.ADD )
+    -- then
+    --     self:add_log(what, mode,data)
+    --end
+    --INFO( "[UNION] notifyall uid=%d what=%s mode=%d ",self.uid,what,mode )
 end
 
 
@@ -1430,35 +1497,7 @@ local function log_qfind(t, sn)
     return qfind(1, #t)
 end
 
-function get_log_by_mode(self, mode, sn)
-
-    local result = {}
-    if #self.log == 0 then return result end
-
-    local idx = 0
-    if sn ~= 0 then
-        idx = log_qfind(self.log, sn)
-        if not idx then return result end
-    end
-
-    while idx < #self.log do
-        idx = idx + 1
-
-        local log = self.log[idx]
-        if log and log.mode == mode then
-            if #result >= 20 then break end
-            table.insert(result, log)
-        end
-    end
-    return result
-end
-
-function set_note_in(self,pid,what)
-    self.note_in = what
-    local p = getPlayer(pid)
-end
-
-function get_log_by_sn(self, sn)
+function get_log_by_sn(self, sn,mode)
     local result = {}
     if not self.log then return {} end
 
@@ -1474,11 +1513,20 @@ function get_log_by_sn(self, sn)
         local log = self.log[idx]
         if log then
             if #result >= 20 then break end
-            table.insert(result, log)
+            if mode == "" then
+                table.insert(result, log)
+            elseif mode == log.mode then
+                table.insert(result, log)
+            end
         end
         idx = idx - 1
     end
     return result
+end
+
+function set_note_in(self,pid,what)
+    self.note_in = what
+    local p = getPlayer(pid)
 end
 
 

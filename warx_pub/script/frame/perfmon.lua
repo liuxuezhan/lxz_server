@@ -50,7 +50,7 @@ function dead_co_check_func()
 end
 
 function need_record()
-    return _switch-- and not config.Release
+    return _switch
 end
 
 function start(module_name, key)
@@ -222,7 +222,7 @@ function _new_node(up_node, module_name)
         total_count = 0,
         total_time = 0,
         loop_deep = 0,  -- 递归深度
-        
+
         key_temp = "",
         start_tick_temp = 0,
 
@@ -295,7 +295,7 @@ function _merge_one_node(show_node, co_node)
     if show_node.total_count ~= 0 then
         show_node.avg_time = show_node.total_time / show_node.total_count
     end
-    
+
     show_node.all_mem = show_node.all_mem + co_node.all_mem
     show_node.min_mem = math.min(co_node.min_mem, show_node.min_mem)
     show_node.max_mem = math.max(co_node.max_mem, show_node.max_mem)
@@ -362,9 +362,9 @@ function _print_log_str(node)
     --dumpTab(node)
 
     local mem_str = string.format(
-        "[mem:%s:%s:%s],", 
-        math.round((node.min_mem or 0) * 1024), 
-        math.round((node.avg_mem or 0) * 1024), 
+        "[mem:%s:%s:%s],",
+        math.round((node.min_mem or 0) * 1024),
+        math.round((node.avg_mem or 0) * 1024),
         math.round((node.max_mem or 0) * 1024))
 
     local split_str = "-------------------------------------------------------------------"

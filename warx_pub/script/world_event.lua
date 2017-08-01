@@ -106,7 +106,8 @@ function packet_world_event_data()
 	msg.unlock_score = WorldEventData.unlock_score
 	msg.data = {}
 	for k, v in pairs(WorldEventData.events or {}) do
-		table.insert(msg.data, v)
+		msg.data[v.id] = v
+		--table.insert(msg.data, v)
 	end
 	return msg
 end
@@ -146,6 +147,7 @@ function check_score()
 					gPendingSave.world_event[v.ID] = event
 					flag = true
 					notify_board(v)
+					Rpc:broadcast_world_event_proccess({pid=-1,gid=_G.GateSid}, v)--通知红点数据
 				end
 			end
 		end
@@ -225,6 +227,7 @@ function process_world_event(action, ...)
 			    end
 			    if v.is_finish == 1 and v.unlock == 1 then
 					check_score()
+					Rpc:broadcast_world_event_proccess({pid=-1,gid=_G.GateSid}, v)--通知红点数据
 			    end
 			end
 		end

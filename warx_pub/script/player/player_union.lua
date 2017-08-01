@@ -132,7 +132,7 @@ function union_select(self, uid,what)
         end
     elseif what == "word" then
         result.val = union_word.list(self.pid,union)
-        result.log = self._union.word or {} 
+        --result.log = self._union.word or {} 
         --Rpc:tips(self, resmng.BLACKMARCKET_TEXT_NEED_TIPS,{})
     elseif what == "ef" then
         local _ef = union:get_ef()
@@ -148,43 +148,44 @@ function union_select(self, uid,what)
 end
 
 function union_search(self, what)
-    local l = {}
+    local d = {}
+    local d2 = {}
     local num = 50
     local u = unionmng.get_union(self:get_uid())
     if not u then  return end
 
     if what ~= "" then
-        local info = dbmng:getOne().player:find({name={["$regex"]=what}})
-        while info:hasNext() do
-            local p = info:next()
-            local v = getPlayer(p.pid)
-            if (v.uid == 0)and (not u:get_invite(v.pid)) and (not u:has_member(v)) and (not u:get_apply(v.pid)) then
-                l[v.pid]={pid=v.pid,name=v.name,language=v.language,photo=v.photo,uid=v.uid, pow=v:get_pow()}
+        local code = check_name_avalible( what )
+        if code ~= true then return end
+        if is_sys_name( what ) then return end
+
+        for _,v in pairs(gPlys or {} ) do
+            if v.pid >= 10000 and string.find(v.name,what) and (v.uid == 0)and (not u:get_invite(v.pid)) 
+                and (not u:has_member(v)) and (not u:get_apply(v.pid)) then
+                if #d < num then
+                    d[v.pid]={pid=v.pid,name=v.name,language=v.language,photo=v.photo,uid=v.uid, pow=v:get_pow()}
+                else break end
             end
         end
     else
-        local info = dbmng:getOne().player:find({language=u.language,uid=0})
-        while info:hasNext() do
-            local p = info:next()
-            local v = getPlayer(p.pid)
-            if (not u:get_invite(v.pid)) and (not u:has_member(v)) and (not u:get_apply(v.pid)) then
-                l[v.pid]={pid=v.pid,name=v.name,language=v.language,photo=v.photo, pow=v:get_pow()}
-                if #l > num then break end
+        for _,v in pairs(gPlys or {}) do
+            if v.pid >= 10000 and v.uid==0 and (not u:get_invite(v.pid)) 
+                and (not u:has_member(v)) and (not u:get_apply(v.pid)) then
+                if language==v.language then
+                    d[v.pid]={pid=v.pid,name=v.name,language=v.language,photo=v.photo, pow=v:get_pow()}
+                    if #d > num then break end
+                else d2[v.pid] = v  end
             end
         end
-        if #l < num then
-            local info = dbmng:getOne().player:find({language={["$ne"]=u.language},uid=0})
-            while info:hasNext() do
-                local p = info:next()
-                local v = getPlayer(p.pid)
-                if (not u:get_invite(v.pid)) and (not u:has_member(v)) and (not u:get_apply(v.pid)) then
-                    l[v.pid]={pid=v.pid,name=v.name,language=v.language,photo=v.photo, pow=v:get_pow()}
-                    if #l > num then break end
-                end
+
+        if #d < num then
+            for _,v in pairs(d2 or {})  do
+                d[v.pid]={pid=v.pid,name=v.name,language=v.language,photo=v.photo, pow=v:get_pow()}
+                if #d > num then break end
             end
         end
     end
-    Rpc:union_search(self,what,l)
+    Rpc:union_search(self,what,d)
 end
 
 function union_relation_set(self,uid,val)
@@ -262,11 +263,15 @@ function union_create(self, name, alias, language, mars)
         end
     end
 
-
-    if self:get_castle_lv() <= resmng.CREATEUNION.lv   then
+    if self:get_castle_lv() < resmng.CREATEUNION.lv   then
         if not self:do_dec_res(resmng.DEF_RES_GOLD, resmng.CREATEUNION.cost, VALUE_CHANGE_REASON.UNION_CREATE ) then
             return
         end
+    end
+
+    local code = want_insert_unique_name( "name_union", name, { pid=self.pid, account=self.account, map=gMapID, time=gTime, alias=alias, action="create"} )
+    if code ~= 0 then
+        ack(self, "union_create", resmng.E_DUP_ALIAS) return
     end
 
     local union = union_t.create(self, name, alias, language, mars)
@@ -356,7 +361,7 @@ function union_set_info(self, info)
 
     if union_t.is_legal(self, "ChgFlag") and info.language then
         u.language = info.language
-        player_t.pre_tlog(nil,"UnionList",u.uid,u.name,u.language,1)
+        player_t.pre_tlog(nil,"UnionList",u.uid,u.name,u.language,1,tostring(u.mc_start_time[1]))
     end
 
 
@@ -557,6 +562,10 @@ function union_list(self,name)
 
     local ret = {name = name,list={}}
     if name ~= "" then
+        local code = check_name_avalible( name )
+        if code ~= true then return end
+        if is_sys_name( name ) then return end
+
         local data = dbmng:getOne().union_t:find({name={["$regex"]=name}})
         while data:hasNext() do
             local u = data:next()
@@ -732,12 +741,9 @@ function union_accept_invite(self, uid)
         return
     end
 
-    for k, v in pairs(u.invites) do
-        if v.pid == self.pid then
-            u:remove_invite(k)
-        end
-    end
-    u:add_member(self,self)
+    u:remove_invite(self.pid)
+    local ret = u:add_member(self,self) 
+    if ret == -1 then Rpc:tips(self, 1,resmng.UNION_FIRST_TIPS_FULL ,{}) end
 end
 
 function union_reject_invite(self, uid)
@@ -752,6 +758,7 @@ function union_reject_invite(self, uid)
         return
     end
 
+    u:remove_invite(self.pid) 
     for k, v in pairs(u.invites) do
         if v.pid == self.pid then
             u:remove_invite(k)
@@ -761,23 +768,17 @@ end
 
 function union_member_rank(self, pid, r)
 
-    if check_ply_cross(self) then
-        ack(self, "union_member_rank", resmng.E_DISALLOWED) return
-    end
+    if check_ply_cross(self) then ack(self, "union_member_rank", resmng.E_DISALLOWED) return end
 
     local B = getPlayer(pid)
-    if not B then
-        ack(self, "union_member_rank", resmng.E_NO_PLAYER) return
-    end
+    if not B then ack(self, "union_member_rank", resmng.E_NO_PLAYER) return end
 
     local u = unionmng.get_union(self:get_uid())
-    if (not u) or u:is_new() then
-        ack(self, "union_member_rank", resmng.E_NO_UNION) return
-    end
+    if (not u) or u:is_new() then ack(self, "union_member_rank", resmng.E_NO_UNION) return end
 
     if not u:has_member(self, B) then return  end
 
-    if self:get_rank() >= r and self:get_rank() > B:get_rank()  then
+    if self:get_rank() > r and self:get_rank() > B:get_rank()  then
         B:set_rank(r)
     end
 end
@@ -1139,11 +1140,7 @@ function union_log(self, sn, mode)
         sn = sn,
         val = {},
     }
-    if mode == "" then
-        result.val = union:get_log_by_sn(sn)
-    else
-        result.val = union:get_log_by_mode(mode, sn)
-    end
+    result.val = union:get_log_by_sn(sn,mode)
     Rpc:union_log(self, result)
 end
 --}}}
@@ -1735,6 +1732,7 @@ end
 
 function fill_player_info_by_arm(self, arm, troop_action, owner_pid)
     if arm == nil then return end
+    if arm.pid < 10000 then return end
     local player = getPlayer(arm.pid)
     if player == nil then return end
 
@@ -2076,16 +2074,17 @@ function union_help_get(self )
     Rpc:union_help_get(self, union_help.get(self))
 end
 
-function union_help_add(self ,sn)
-    if check_ply_cross(self) then
-        ack(self, "union_help_add", resmng.E_DISALLOWED) return
-    end
+function union_help_get_detail(self )
+    Rpc:union_help_get_detail(self, union_help.get_detail(self))
+end
 
+function union_help_add(self ,sn)
     union_help.add(self,sn)
 end
 
-function union_help_set(self ,sn)
-    union_help.set(self,sn)
+
+function union_help_sets(self ,sns)
+    union_help.sets(self,sns)
 end
 
 function union_word_top(self ,wid,f)
@@ -2321,7 +2320,3 @@ function get_res_count( ply )--计算总存储量
     end
     return sum
 end
-
-
-
-

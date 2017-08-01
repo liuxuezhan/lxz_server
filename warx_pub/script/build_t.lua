@@ -30,24 +30,43 @@ end
 function on_check_pending(db, _id, chgs)
     local idx, pid = string.match(_id, "(%d+)_(%d+)")
     local p = getPlayer(tonumber(pid))
-    if p then
+    if p and rawget( p, "_build") then
         chgs.idx = tonumber(idx)
         Rpc:stateBuild(p, chgs)
+        local build = p:get_build( chgs.idx )
+        if build then
+            local pid = p.pid or -1
+            local propid = build.propid or -1
+            local state = build.state or -1
+            local tmOver = build.tmOver or -1
+            INFO( "[stateBuild], pid=%s, id=%s, state=%s, tmOver=%s", pid, propid, state, tmOver )
+
+            if pid == -1 or propid == -1 or state == -1 or tmOver == -1 
+            then
+                WARN( "[BuildError], _id=%s", _id )
+                dumpTab( build, "[BuildError]", 100, true )
+            end
+
+            if type( pid ) ~= "number" or 
+                type( propid ) ~= "number" or
+                type( state ) ~= "number" or
+                type( tmOver ) ~= "number" 
+            then
+                WARN( "[BuildError], _id=%s", _id )
+                dumpTab( build, "[BuildError]", 100, true )
+            end
+        end
     end
 end
-
-function is_hospital( self )
-    local idx_min = BUILD_FUNCTION_MODE.HOSPITAL * 100
-    local idx_max = (BUILD_FUNCTION_MODE.HOSPITAL + 1) * 100
-
-    local idx = self.idx
-    return idx > idx_min and idx < idx_max
-end
-
 
 function is_res( self )
     local prop = resmng.get_conf( "prop_build", self.propid )
     return  prop and prop.Class == BUILD_CLASS.RESOURCE 
+end
+
+function is_hospital( self )
+    local prop = resmng.get_conf( "prop_build", self.propid )
+    return  prop and prop.Class == BUILD_CLASS.FUNCTION and prop.Mode == BUILD_FUNCTION_MODE.HOSPITAL 
 end
 
 function is_academy( self )
@@ -73,7 +92,7 @@ function acceleration(self, secs)
     end
 
     if self.state == BUILD_STATE.WAIT then
-        ERROR("acceleration: build._id = %s, build.state = BUILD_STATE.WAIT.", self._id)
+        WARN("acceleration: build._id = %s, build.state = BUILD_STATE.WAIT.", self._id)
         return
 
     elseif self.tmOver > gTime then 
@@ -512,6 +531,18 @@ function recalc(self)
             local new_speed = 1 + role:get_num( "SpeedForge_R", ef ) * 0.0001
             self:do_recalc( new_speed )
 
+        elseif mode == BUILD_FUNCTION_MODE.ALTAR then
+            local new_speed = 1
+            self:do_recalc( new_speed )
+            local kill = self.extra and self.extra.kill
+            if kill then 
+                kill.over = self.tmOver 
+                local hid = kill.id
+                local hero = heromng.get_hero_by_uniq_id( hid )
+                if hero then
+                    hero.tmOver = self.tmOver
+                end
+            end
         end
     else
         return
@@ -593,6 +624,6 @@ function recalc_timer( self )
             return
         end
     end
-    self.tmSn = timer.new("build", self.tmOver - gTime, self.pid, self.idx)
+    self.tmSn = timer.new("build", self.tmOver - gTime, self.pid, self.idx, self.propid, BUILD_STATE.WORK, self.extra )
 end
 

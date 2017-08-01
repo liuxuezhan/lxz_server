@@ -23,10 +23,23 @@ function launch_talent_skill(self, talentid)
     if not skill then return end
 
     if skill.Cd then
-        local cdover = self:get_cd("genius", talentid)
-        if cdover > gTime then return end
+        --local cdover = self:get_cd("genius", talentid)
+        --if cdover > gTime then return end
+        local class = node.Class
+        local mode = node.Mode
+        local cds = self.cds
+        for k, v in pairs( cds ) do
+            if v[1] == "genius" then
+                local id = v[2]
+                local conf = resmng.get_conf( "prop_genius", id )
+                if conf then
+                    if conf.Class == class and conf.Mode == mode then
+                        if v[4] > gTime then return end
+                    end
+                end
+            end
+        end
     end
-
     self:do_skill(skill)
 
     self:set_cd("genius", talentid, skill.Cd)
@@ -60,28 +73,31 @@ g_skill_effect.CallBackTroop = function (self, sec)
     timer.new( "remove_state", sec, self.pid, CastleState.RecallTroop )
 
     local dx, dy = get_ety_pos( self )
-    for k, v in pairs(self.busy_troop_ids) do
-        local troop  = troop_mng.get_troop(v)
-        if troop then
-            local curx, cury = troop:get_pos()
-            self:troop_recall( troop._id, true )
+    local busy_troops = copyTab( self.busy_troop_ids )
 
-            troop.curx = curx
-            troop.cury = cury
-            troop.tmCur = gTime
-            local dist = c_calc_distance( curx, cury, dx, dy )
-            local use_time = sec
-            troop.use_time = use_time
-            troop.tmOver = math.ceil( gTime + use_time )
-            troop.speed = dist / use_time
+    for k, v in pairs(busy_troops) do
+        local one  = troop_mng.get_troop(v)
+        if one then
+            local curx, cury = one:get_pos()
+            local troop = self:troop_recall( v, true )
+            if troop then
+                troop.curx = curx
+                troop.cury = cury
+                troop.tmCur = gTime
+                local dist = c_calc_distance( curx, cury, dx, dy )
+                local use_time = sec
+                troop.use_time = use_time
+                troop.tmOver = math.ceil( gTime + use_time )
+                troop.speed = dist / use_time
 
-            local speed = troop:calc_troop_speed()
-            if speed > troop.speed then troop.speed = speed end
+                local speed = troop:calc_troop_speed()
+                if speed > troop.speed then troop.speed = speed end
 
-            c_troop_set_speed( troop.eid, troop.speed, troop.use_time )
-            troop:notify_owner()
-            troop:save()
+                c_troop_set_speed( troop.eid, troop.speed, troop.use_time )
 
+                troop:notify_owner()
+                troop:save()
+            end
         end
     end
 end

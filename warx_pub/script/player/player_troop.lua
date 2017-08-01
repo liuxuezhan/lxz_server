@@ -351,6 +351,24 @@ function siege(self, dest_eid, arm)
     end
 end
 
+function hero_task_siege(self, x, y, dest_eid, arm, task_id)
+    local action = TroopAction.HeroTask
+    local dest = get_ety(dest_eid)
+    if not dest and task_id ~= 0 then
+        dest = self
+    elseif not dest then
+        return
+    end
+
+    if not self:check_arm(arm, action) then return end
+
+    local troop = troop_mng.create_troop(action, self, dest, arm)
+    troop.dx = x
+    troop.dy = y
+    troop:set_extra("hero_task_id", task_id)
+    troop:go()
+end
+
 function task_visit(self, task_id, dest_eid, x, y, arm)  --任务中拜访npc 拜访英雄
     local key, dest_id = nil, nil
     if task_id ~= 0 then
@@ -1057,6 +1075,7 @@ function declare_tw_req(self, dest_eid)
         local tr = troop_mng.get_troop(v)
         if tr then
             if tr.target_eid == dest_eid and tr.action == (TroopAction.Declare + 100) then
+                Rpc:tips(self, 1, resmng.ACTIVITIES_TW_DECLARE_ON_THE_WAY, {})
           --      add_debug(self, "宣战失败 有宣战部队在路上")
                 if not debug_tag then
                     return
@@ -1287,15 +1306,25 @@ end
 function kick_hold_defense(self, tid, pid)
     local troop = troop_mng.get_troop(tid)
     if not troop then return end
-    if troop.owner_pid ~= self.pid then return end
+    if troop.owner_uid ~= self.uid then return end
+    if not union_t.is_legal(self, "Global2") then return end
+    --if troop.owner_pid ~= self.pid then return end
 
-    if troop.owner_pid == pid then return end
+    --if troop.owner_pid == pid then return end
 
-    local tr = troop:split_pid(pid)
-    if tr then
-        tr:back()
+    --local tr = troop:split_pid(pid)
+    --if tr then tr:back() end
+    local p = getPlayer(pid)
+    if p then 
+        p:troop_recall(tid,true) 
+        local ety = get_ety(troop.target_eid)
+        if ety then
+            local prop = resmng.prop_world_unit[ety.propid]
+            if prop then
+                p:send_system_notice(resmng.MAIL_10068, {}, {self.name, prop.Name})
+            end
+        end
     end
-
 end
 
 --驻守
@@ -1515,7 +1544,6 @@ function troop_recall(self, dest_troop_id, force)
         troop.use_time = use_time
         troop.tmOver = math.ceil(gTime + use_time)
         troop.tmStart = gTime
-        --c_troop_set_move( troop.eid, troop.sx, troop.sy, troop.dx, troop.dy, troop.speed, troop.use_time )
         c_troop_set_move( troop.eid, troop.action, troop.sx, troop.sy, troop.dx, troop.dy, troop.curx, troop.cury, troop.speed, troop.use_time )
 
         troop:do_notify_owner( {sx=troop.sx, sy=troop.sy, dx=troop.dx, dy=troop.dy, tmStart=troop.tmStart, tmOver=troop.tmOver, action=troop.action } )
@@ -1556,6 +1584,16 @@ function troop_recall(self, dest_troop_id, force)
 
         end
 
+        if action == TroopAction.HeroTask then
+            local task_id = troop:get_extra("hero_task_id")
+            if task_id then
+                local ply = getPlayer(troop.owner_pid)
+                if ply then
+                    ply:cancel_hero_task_req(task_id)
+                end
+            end
+        end
+
         return troop
 
     elseif troop:is_settle() then
@@ -1564,7 +1602,16 @@ function troop_recall(self, dest_troop_id, force)
             troop:back()
             troop:gather_stop()
             return troop
-
+        elseif action == TroopAction.HeroTask then
+            local task_id = troop:get_extra("hero_task_id")
+            if task_id then
+                local ply = getPlayer(troop.owner_pid)
+                if ply then
+                    ply:cancel_hero_task_req(task_id)
+                end
+            end
+            troop:back()
+            return troop
         elseif action == TroopAction.UnionBuild or action== TroopAction.UnionUpgradeBuild or action == TroopAction.UnionFixBuild then
             local one = troop:split_pid(self.pid)
             one:back()
@@ -1615,15 +1662,16 @@ function troop_recall(self, dest_troop_id, force)
             return one
 
         else
-            WARN( "troop recall, state error, id=%d, action=%d", troop._id, troop.action )
-            troop:back()
-
-            -- todo
+            WARN( "[ERROR], troop recall, state error, id=%d, action=%d", troop._id, troop.action )
+            local one = troop:split_pid( self.pid )
+            one:back()
+            return one
         end
 
     elseif troop:is_ready() then
         if troop.action == TroopAction.DefultFollow then
             local dest = get_ety(troop.owner_eid)
+            if dest == self then return end
             union_hall_t.battle_room_update_ety(OPERATOR.UPDATE, dest)
 
             local one = troop:split_pid(self.pid)
@@ -1646,7 +1694,6 @@ function troop_recall(self, dest_troop_id, force)
         end
 
     elseif troop:is_back() then
-        print( "backing" )
         return troop
     end
 end
@@ -2256,11 +2303,13 @@ end
 
 
 function dig( self, x, y, itemid, arm )
-    x = x - 2
-    y = y - 2
+    INFO( "[DIG], pid=%d, x=%d, y=%d", self.pid, x, y )
+
+    x = x - 1
+    y = y - 1
     
     if not self:can_move_to(x, y) then return ack( self, "dig", resmng.E_DISALLOWED, 0 ) end
-    if self.count_dig >= 5 then return end
+    --if self.count_dig >= 5 then return end
 
     local sx = math.floor( self.x / 16 )
     local sy = math.floor( self.y / 16 )
@@ -2293,7 +2342,7 @@ function dig( self, x, y, itemid, arm )
 
     local troop = troop_mng.create_troop( action, self, dest, arm )
     troop:go()
-    self.count_dig = self.count_dig + 1
+    --self.count_dig = self.count_dig + 1
 
     dest.tid = troop._id
 end
@@ -2303,14 +2352,21 @@ function exchange( self, eid, res, tribute )
     if not dest then return end
     if not is_npc_city( dest ) then return end
 
-    local state = npc_city.get_npc_state()
-    if state ~= TW_STATE.PACE then return end
+    --local state = npc_city.get_npc_state()
+    --if state ~= TW_STATE.PACE then return end
 
     if self:is_troop_full(TroopAction.Exchange) then return end
+
+    local limit = resmng.prop_tribute_exchange_limitation[ self:get_castle_lv() ]
+    if not limit then return end
+    local have = self.tributes
 
     local rs = {}
     for k, v in pairs( res ) do
         if v > 0 then
+            if v + have[k] > limit[ string.format("Res%d", k ) ] then
+                return
+            end
             rs[ k ] = v
         end
     end
@@ -2342,7 +2398,9 @@ end
 function massgo( self, tid )
     local troop = troop_mng.get_troop( tid )
     if troop and troop.is_mass == 1 and troop.owner_pid == self.pid and troop.action < 100 then
-        timer.adjust( troop.tmSn, gTime )
+        if troop.action ~= TroopAction.SiegePlayer then
+            timer.adjust( troop.tmSn, gTime )
+        end
     end
 end
 
@@ -2371,6 +2429,8 @@ function check_first_blood( self, conf, propid )
 
     if self._first_blood[ id ] then return end
     self._first_blood[ id ] = gTime
+    Rpc:set_first_blood( self, id, gTime )
+
     gPendingSave.first_blood[ self.pid ][ id ] = gTime
     self:send_system_notice( resmng.MAIL_10054, {}, {conf.Level, resmng[ "FEEL_MONSTER_TYPE_" .. conf.Class] }, conf.Award )
 

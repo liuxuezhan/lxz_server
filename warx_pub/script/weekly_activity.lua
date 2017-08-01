@@ -161,7 +161,7 @@ function on_day_pass()
             g_weekly_activity_data.current_index = Day2Index[diff]
 
             --offline ntf
-            offline_ntf.post(resmng.OFFLINE_NOTIFY_TIME_ACTIVITY, "all", g_weekly_activity_data.current_index)
+            --offline_ntf.post(resmng.OFFLINE_NOTIFY_TIME_ACTIVITY, "all", g_weekly_activity_data.current_index)
 
         end
     end

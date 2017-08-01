@@ -79,6 +79,26 @@ function new_ignore(what, sec, ...)
 end
 
 
+function new_msec_ignore(what, msec, ...)
+    local sec = msec / 1000
+    if sec >= 0 and _funs[ what ] then
+        local id = false
+        while true do
+            local sn = getSn("timer")
+            if not timer.get(sn) then
+                id = sn
+                break
+            end
+        end
+
+        local node = {_id=id, tag=0, start=gTime, over=gTime+sec, what=what, param={...}, ignore=true}
+        _sns[ id ] = node
+        newTimer(node)
+        mark(node)
+        return id, node
+    end
+end
+
 
 function cycle(what, sec, cycle, ...)
     if sec >= 1 and cycle >= 1 then
@@ -93,7 +113,7 @@ end
 
 function del(id)
     local node = _sns[id]
-    if node then 
+    if node then
         node.delete = true
         mark(node)
         _sns[ id ] = nil
@@ -140,7 +160,7 @@ function callback(id, tag)
         mark(t)
 
         local fun = _funs[ t.what ]
-        INFO("[TIMER], %d, %s, now:%d, over:%d ", id, t.what, gTime, t.over or 0 )
+        INFO("[TIMER], %d, %s, now:%d, over:%s ", id, t.what, gTime, t.over or 0 )
         perfmon.start("timer_func", 0)
         perfmon.start(t.what, id)
         if fun then
@@ -207,7 +227,7 @@ function cron_base_func()
     local next_cron = gTime + 90
     next_cron = next_cron - ( next_cron % 60 )
     timer.new( "cron", next_cron - gTime )
-    
+
     crontab.loop()
     c_mem_info()
 
@@ -229,16 +249,16 @@ function get_recently()
     if t ~= -1 then return t end
 end
 
---------------------------------------------------- --------------------------------------------------- 
--- TIMER CALL BACK FUNCTION 
---------------------------------------------------- --------------------------------------------------- 
+--------------------------------------------------- ---------------------------------------------------
+-- TIMER CALL BACK FUNCTION
+--------------------------------------------------- ---------------------------------------------------
 
 _funs["toGate"] = function(sn, ip, port)
     conn.toGate(ip, port)
 end
 
-_funs["toMongo"] = function(sn, host, port, db, tips, is_reconnect)
-    conn.toMongo(host, port, db, tips, is_reconnect)
+_funs["toMongo"] = function(sn, host, port, db, user, pwd, mechanism, tips, is_reconnect)
+    conn.toMongo(host, port, db, user, pwd, mechanism, tips, is_reconnect)
 end
 
 

@@ -92,7 +92,7 @@ function loadMod()
 
     dofile( c_get_conf() )
 
-    --require("frame/debugger") 
+    if config.Debugger then require("frame/debugger") end
 
     require("frame/socket")
 
@@ -115,9 +115,6 @@ function loadMod()
 
     doLoadMod("packet", "frame/rpc/packet")
     doLoadMod("MsgPack", "frame/MessagePack")
-    doLoadMod("Array", "frame/rpc/array")
-
-    doLoadMod("Struct", "frame/rpc/struct")
     doLoadMod("RpcType", "frame/rpc/rpctype")
     doLoadMod("Rpc", "frame/rpc/rpc")
 
@@ -127,9 +124,11 @@ function loadMod()
     do_load("common/protocol")
     do_load("common/struct")
     do_load("constant/constant")
-    for k, v in pairs( RpcType._struct ) do
-        RpcType._struct[ k ] = Rpc.parseFunction( v ).args
-    end
+    Rpc:init("client")
+
+    --for k, v in pairs( RpcType._struct ) do
+    --    RpcType._struct[ k ] = Rpc.parseFunction( v ).args
+    --end
     --do_load("forqc/test/t_npc")
 
 
@@ -221,29 +220,35 @@ function onConnectComp( self )
 
         info.signature = c_md5( APP_KEY .. tostring( info.token_expire ) .. info.extra .. tostring( info.time ) .. info.token .. info.open_id )
         info.version = 10000000
+
         Rpc:firstPacket( self, config.Map, info )
+
+        self.tmStart = c_msec()
 
     elseif self.action == "test_login" then
         local info = {}
         info.server_id = self.map
         info.cival = ( self.idx % 4 ) + 1
         info.pid = 0
-        info.token_expire = self.expire
-        info.extra = self.ext_info
-        info.time = self.timestamp
-        info.token = self.token
-        info.open_id = self.uid
+        info.time = gTime
+        info.open_id = self.open_id
+        info.token = "" 
+        info.token_expire = gTime + 24 * 3600
+        info.extra = ""
         info.did = self.did
-        info.signature = self.sig
+        info.signature = c_md5( APP_KEY .. tostring( info.token_expire ) .. info.extra .. tostring( info.time ) .. info.token .. info.open_id )
         info.version = 10000000
+        self.pid = 0
         Rpc:firstPacket( self, info.server_id, info )
 
     elseif self.action == "ip_rule" then
-        pushHead2s( self.gid, hashStr( "firstPacket" ) )
-        pushInt( hashStr( "ip_rule" ) )
-        pushInt( hashStr( "ip_rule_add_white" ) )
-        pushInt( c_inet_addr( "192.168.101.40" ) )
-        pushOver()
+        self.func( self )
+
+        --pushHead2s( self.gid, hashStr( "firstPacket" ) )
+        --pushInt( hashStr( "ip_rule" ) )
+        --pushInt( hashStr( "ip_rule_add_white" ) )
+        --pushInt( c_inet_addr( "192.168.101.40" ) )
+        --pushOver()
 
     else
         print( "onConnectComp, what?", self.action )
@@ -391,9 +396,16 @@ function main_loop(sec, msec, fpk, ftimer, froi, signal)
 
     if gInit == "StateBeginInit" then
         gInit = "StateAction" 
+        c_cpu_mark( c_cpu_mark() * 200 )
     elseif gInit == "StateAction" then
         gActionStart = c_msec()
-        dofile( "forqc/task_queue.lua" )
+        if config.forqc_actions then
+            for k, v in pairs(config.forqc_actions) do
+                action(start_action, v)
+            end
+        else
+            dofile( "forqc/task_queue.lua" )
+        end
         gInit = nil
     end
 
@@ -488,8 +500,8 @@ function init(sec, msec)
 
     LOG("start: gTime = %d, gMsec = %d", gTime, gMsec)
 
-    Rpc:init("client")
-    Rpc.localF[ 6 ] = Rpc.localF[ hashStr("onBreak") ]
+    --Rpc:init("client")
+    --Rpc.localF[ 6 ] = Rpc.localF[ hashStr("onBreak") ]
 
     if config.Tips then c_init_log(config.Tips) end
 

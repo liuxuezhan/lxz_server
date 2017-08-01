@@ -64,9 +64,9 @@ plys = {}
 local function accept(fd, addr)
 
     while 1 do
-        local ret = read(fd)
-        if ret then
-            local d = lualib_serializable.unpack(copyTab(ret))
+        local msg = read(fd)
+        if msg then
+            local d = lualib_serializable.unpack(copyTab(msg))
             if d then
                 lxz(d.f)
                 if d.f == "firstPacket2" then

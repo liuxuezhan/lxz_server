@@ -95,7 +95,7 @@ end
 function send_tw_award()
     npc_city.send_score_award()
     rank_mng.clear(12)
-    rank_mng.clear(13)
+    rank_mng.clear(14)
 end
 
 function send_mc_award()

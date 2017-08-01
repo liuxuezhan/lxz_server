@@ -168,51 +168,17 @@ local function parseProtocol( rpc, what )
 end
 
 local function parseRpcType()
-	local parseStruct=function( k,v )
-		local desc = parseFunction(v).args
-		-- build rpc type
-		RpcType[k] = {
-			_write=function( packet, v )
-	    		for i, arg in ipairs(desc) do
-					local rt = RpcType[arg.t]
-  					rt._write( packet, v[arg.n] )
-	    		end
-			end,
-			_read=function( packet )
-		    local ret={}
-            local remain_len = nil
-		    for i, arg in ipairs(desc) do
-                remain_len = packet:checkBuf()
-                if remain_len and remain_len > 0 then
-                    local rt = RpcType[arg.t]
-                    local data = rt._read( packet )
-                    ret[arg.n] = data
-                else
-                    break
-                end
-	    	end
-	    	return ret
-			end,
-			_check=function( v )
-				for i, arg in ipairs(desc) do
-					local rt = RpcType[arg.t]
-					if rt._check and not rt._check(v[arg.n]) then
-						return false
-					end
-					return true
-	    		end
-			end,
-		}
-	end
-
-	for k,v in pairs(RpcType.__struct) do
-		parseStruct(k,v)
-	end
+    for k, v in pairs(RpcType._struct) do
+        RpcType._struct[k] = parseFunction(v).args
+    end
 end
 
 local function init( rpc, what )
     parseProtocol( rpc, what )
     parseRpcType()
+    if what == "server" then
+        Rpc.localF[ 6 ] = Rpc.localF[ hashStr("onBreak") ]
+    end
     print("parse done")
 end
 
@@ -342,6 +308,8 @@ local function callRpc( rpc, name, plA, ... )
 		error(string.format("expected %d arguments, but passed in %d",#rf.args,#arg))
 	end
 
+    local log_pid = plA.pid
+    local log_num = 1
     if rpc.mode == "server"  then
         if plA.pid then
             if not plA.gid then 
@@ -354,10 +322,15 @@ local function callRpc( rpc, name, plA, ... )
 
             local num = #plA
             if num == 0 then return end
+            log_num = num
+
             pushHead(_G.GateSid, 0, 15) --gNetPt.NET_SEND_MUL
             pushInt( num )
 
             for _, pid in ipairs( plA ) do
+                if log_pid == nil then
+                    log_pid = pid
+                end
                 pushInt( pid )
             end
             pushInt(rf.id)
@@ -368,29 +341,16 @@ local function callRpc( rpc, name, plA, ... )
 
     push_args( rf.args, arg )
 
-    --for i, v in ipairs(arg) do
-    --    local t = rf.args[i].t
-    --    if t and isTypeOf(i,t,v) then
-	--		RpcType[t]._write( packet, v, 1, rf.args[i].d )
-	--	else
-	--		error(string.format("bad argument %d, expected %s, but a %s",i,t,type(v)))
-	--	end
-    --end
-
-
     pushOver()
 
-    LOG("RpcS, pid=%d, func=%s", plA.pid or 0, name)
+    LOG("RpcS, pid=%d, pid_num=%d, func=%s", log_pid, log_num, name)
 end
 
 
 local mt = {
     __index = function( table, key )
         return function(rpc, ...)
-            --local packet = rpc:makeRpc(key,...)
-            --Server.Send(packet)
             callRpc(rpc, key, ...)
-            --rpc:callRpc(key, ...)
         end
     end
 }
@@ -411,5 +371,3 @@ local function new()
 end
 
 return new()
-
-

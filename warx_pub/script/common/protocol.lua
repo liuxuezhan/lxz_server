@@ -1,8 +1,7 @@
 module("Protocol")
 Server = {
 
-    --agent_test_struct = "int id, Array Struct UnionMember mems, string name",
-    agent_test_struct = "int id, Array Struct UnionMember mems, string name",
+    agent_test_struct = "int id, array struct UnionMember mems, string name",
     agent_test = "pack info, pack info1",
 
     firstPacket = "int server_id, pack info",
@@ -13,7 +12,7 @@ Server = {
     --string mac, string idfa,string gaid,string android_id,string udid,string openudid,string imei,string ver, string pack_name, string channel, 
     --string hardware, string software, string telecomoper, string network, string width, string hight, string mem",
     login = "int pid",
-    onBreak = "",
+    onBreak = "int sid",
     create_character = "pack info",
     change_name = "string name",
     change_language = "int language",
@@ -23,7 +22,9 @@ Server = {
 
     union_help_add = "int tmSn",--请求军团帮助
     union_help_get = "",--获取军团帮助
-    union_help_set = "int tmSn",--帮助请求
+    union_help_sets = "pack sns",--帮助请求
+    union_help_get_detail = "",--获取军团帮助
+
     --just for test
     build_all = "",
 
@@ -425,7 +426,7 @@ Server = {
     get_gs_buf = "",
     --monster city
     mc_info_req = "", -- 怪物攻城活动页面
-    set_mc_start_time_req = "int time", -- 怪物攻城活动开启时间
+    set_mc_start_time_req = "int time, int grade", -- 怪物攻城活动开启时间和难度
     get_mc_akt_info_req = "", -- 获得怪物攻城信息
 
     --lost temple
@@ -548,6 +549,21 @@ Server = {
 
     ip_rule = "unsigned int cmd, unsigned int ip",
 
+    ping = "",
+    accept_hero_road_chapter = "int chapter_id, int line_id",
+    get_hero_road_task_award = "int chapter_id, int line_id, int task_id",
+    server_map_king_info = "",
+
+    get_device_grade = "string device, string gpu, int frenquency, int core",
+
+    --hero_task
+    get_hero_task_list_req = "",
+    refresh_hero_task_list_req = "",
+    accept_hero_task_req = "int id",
+    add_hero_task_help_req = "int id",
+
+    --
+    certify ="int code"
 }
 
 
@@ -611,6 +627,7 @@ Client = {
     mail_notify = "pack info",
 
     mail_sys_new = "int sysMail",
+    mail_fetch_resp = "pack sns",
 
     -- roi
     addEty = "pack obj",
@@ -657,13 +674,13 @@ Client = {
     union_load = "pack info",
     union_get = "pack info",
     union_on_create = "pack info",
-    union_search = "string key,Array Struct PlayerInfo infos",     --搜索玩家
-    union_member_get = "int uid,Array Struct UnionMember datas",
+    union_search = "string key, array struct PlayerInfo infos",     --搜索玩家
+    union_member_get = "int uid, array struct UnionMember datas",
     union_on_rm_member = "int pid",            --broadcast
     union_add_member = "pack info",           --broadcast
 
     union_destory = "",                      --- 军团解散
-    union_list = "string key,Array Struct UnionInfo infos",                ---读取军团列表
+    union_list = "string key, array struct UnionInfo infos",                ---读取军团列表
     union_list2 = "pack info",                --推荐军团列表
     union_task_add = "pack info",     --获取军团悬赏任务列表
     union_task_get = "pack info",     --获取军团悬赏任务列表
@@ -683,13 +700,15 @@ Client = {
     union_donate_info = "pack info",    --更新捐献状态
     union_log = "pack info",            --获取联盟日志
     --union_donate_rank = "pack info",  --捐献排名
-    union_donate_rank = "Struct UnionRank pack", --捐献排名
+    union_donate_rank = "struct UnionRank pack", --捐献排名
     union_ply_rank_ack = "int mode, pack info",           -- 军团内玩家排名
     union_member_mark = "int pid, string mark", --联盟标记
     union_buildlv_donate = "pack info",       --更新建筑捐献
     union_mall_buy = "int propid,int num",     --军团成员买道具
     union_mall_log = "pack info",              --获取军团商店的日志
     union_help_get = "pack info",--获取军团帮助
+    union_help_get_detail = "pack info",--获取军团帮助
+
     union_word_add = "pack info",--军团留言
     union_word_get = "pack info",--获取军团留言内容
 
@@ -898,7 +917,7 @@ Client = {
     sync = "int sn",
     qiri_get_award_resp = "int res",
 
-    test_struct = "int id, Array Struct UnionMember member",    
+    test_struct = "int id, array struct UnionMember member",    
     get_world_event_process_resp = "pack info",
     ety_info_ack = "pack info", --测试使用
 
@@ -928,6 +947,28 @@ Client = {
     dbg_show = "pack info",
     activate = "",
 
+    set_first_blood = "int id, int tm",
+    set_sys_option = "pack info",
+
+    ping = "",
+
+    pop_up = "int what, pack info",
+
+    train_over = "int id, int num",
+    server_map_king_info_resp = "pack info",
+
+    get_device_grade = "int grade",
+    cross_server_success = "",
+
+    --hero_task
+    get_hero_task_list_ack = "pack info",
+    update_hero_task_ack = "pack info",
+    update_hero_task_info = "pack info",
+
+    broadcast_world_event_proccess = "pack info",
+    broadcast_operate_end = "int activity_id",
+
+    certify ="int code"
 }
 
 CrossQuery = {
@@ -935,7 +976,7 @@ CrossQuery = {
     get_npc_map_req = 1,
     act_info_req = 1,
     king_info_req = 1,
-
+    server_map_king_info = 1,
 }
 
 

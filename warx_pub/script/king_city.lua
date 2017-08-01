@@ -886,6 +886,12 @@ function try_fire_troop(city, troopId)
                             ply:troop_recall(troop._id, true)
                         end
                     end
+                    --去掉建筑上行军的列表
+                    local D = get_ety( troop.target_eid )
+                    if D and D.troop_comings then
+                        D.troop_comings[ troop._id ] = nil
+                        watch_tower.building_ack_recall(D, troop)
+                    end
                 end
             end
         else
@@ -1072,7 +1078,9 @@ function reset_other_city(kingCity)
     for k, v in pairs(citys or {}) do
         local city = get_ety(k)
         if city then
-            clear_timer(city)
+            if resmng.prop_world_unit[city.propid].Lv ~= CITY_TYPE.KING_CITY then
+                clear_timer(city)
+            end
             if resmng.prop_world_unit[city.propid].Lv == CITY_TYPE.TOWER then
                 npc_city.change_city_uid(city, kingCity.uid)
                 --city.pid = kingCity.pid 
@@ -1124,8 +1132,6 @@ end
 function after_fight(atkTroop, defenseTroop)
     if check_atk_win(defenseTroop) then
         local city = get_ety(atkTroop.target_eid)
-
-
         local lv = resmng.prop_world_unit[city.propid].Lv
         after_atk_win[lv](atkTroop, defenseTroop)
     else
@@ -1595,6 +1601,7 @@ function rem_officer(king, index)
     local ply = getPlayer(officers[index])
     if ply then
         ply.officer = 0
+        rem_officer_buff(ply)
     end
     officers[index] = nil
     gPendingSave.status["kwState"].officers = officers

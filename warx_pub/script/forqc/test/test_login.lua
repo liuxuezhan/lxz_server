@@ -1,11 +1,17 @@
 local t1 = {}
 
+
+--2017-07-31 02:18:51.246 map_1201: firstPacket2, from=1201, sockid=513146985, ip=182.150.21.43, open_id=0355A2097C13DA0A45028503C360CF70, pid=10000, did=AD921D60486366258809553A3DB49A4A, cival=0, signature=6c278012d8475e131b8d0e47221b2c98, time=1501467529, toke=, token_expire=0, version=11006, extra={"social_profile":{"openid":"0355A2097C13DA0A45028503C360CF70","name":"\u516d\u5c11","gender":1,"avatar":"http:\/\/q.qlogo.cn\/qqapp\/1106049523\/0355A2097C13DA0A45028503C360CF70\/40","avatar100":"http:\/\/q.qlogo.cn\/qqapp\/1106049523\/0355A2097C13DA0A45028503C360CF70\/100"}}
+
 AppID = "045fce0de7f9b8ee9bf12e28c2d6d2cd"
 AppKey = "1a4d7ea4895af21dd945ead32e9b1eae"
 login_type = 2
---UDID = "E8A73FBD-BF47-40D9-A7B7-9E5E93804006"
---UDID = "5096F8D7B847AE9D19EBCF13F1F8F973"
-UDID = "CD8F97F83071828DAB5623B8DD47FB4D"
+
+Version="0.11.6"
+UDID = "AD921D60486366258809553A3DB49A4A"
+OPEN_ID="0355A2097C13DA0A45028503C360CF70"
+
+UrlVer="http://gw-warx-qq.tapenjoy.com/api/ver/get?ver=%s&udid=%s&os=android&time=%s"
 
 _G.Json = require("frame/json")
 
@@ -13,8 +19,8 @@ function get_ver()
     local tmpfile = string.format( "download.%d", gTime )
     os.execute( "rm -rf ".. tmpfile )
 
-    --local url = string.format("http://gw-warx.tapenjoy.com/api/ver/get?ver=0.8.3&udid=%s&os=ios&time=%d", UDID, gTime )
-    local url = string.format("http://gw-warx.tapenjoy.com/api/ver/get?ver=0.8.5v&udid=%s&os=android&time=%d", UDID, gTime )
+    local url = string.format(UrlVer, Version, UDID, gTime )
+
     print( url )
     local cmd = string.format( "curl -s -o %s \'%s\'", tmpfile, url)
     os.execute( cmd )
@@ -23,7 +29,7 @@ function get_ver()
     if not f then return end
     local str = f:read()
     print( str )
-    os.execute( "rm -rf ".. tmpfile )
+    --os.execute( "rm -rf ".. tmpfile )
     return Json.decode( str )
 end
 
@@ -74,16 +80,19 @@ end
 function get_user_info( user_center )
     local cid = UDID
     local data = {}
-    data.appid = AppID
-    data.ctype = 0
     data.cid = cid
-    data.open_udid = cid
+    data.appid = AppID
+    data.ctoken = "D96EE62E748EFB032A73090165523C6C"
+    --data.sig = sig
+    data.ctype = 2
+    --data.timestamp = gTime
+    --data.open_udid = cid
     --data.os = "android"
-    data.os = "android"
-    data.language = "cn"
-    data.locale = "ase"
-    data.mac = "mac"
-    data.device_info = "device_info"
+    --data.language = "cn"
+    --data.locale = "ase"
+    --data.mac = "mac"
+    --data.device_info = "device_info"
+
     local sig = create_http_sign(data)
     data.sig = sig
 
@@ -94,6 +103,8 @@ end
 
 
 function t1.action( idx )
+    os.execute( "rm -rf login.ok" )
+
     local user_center = false
     local gateway = false
 
@@ -120,25 +131,29 @@ function t1.action( idx )
         if server_id then break end
         print( "." )
     end
-    print( string.format( "get_server_list use %d msec", c_msec() - now ) )
+    print( string.format( "get_server_list use %d msec, server_id=%s, ip=%s", c_msec() - now, server_id, ip ) )
     now = c_msec()
 
-    info = false
-    print( "get_user_info" )
-    while ( not info ) do
-        info = get_user_info( user_center )
-        if info then break end
-        print( "." )
-    end
-    print( string.format( "get_user_info use %d msec", c_msec() - now ) )
-    now = c_msec()
-    print( Json.encode( info ) )
 
-    local node = info.data
+    --info = false
+    --print( "get_user_info" )
+    --while ( not info ) do
+    --    info = get_user_info( user_center )
+    --    if info then break end
+    --    print( "." )
+    --end
+    --print( string.format( "get_user_info use %d msec", c_msec() - now ) )
+    --now = c_msec()
+    --print( Json.encode( info ) )
+
+
+    --local node = info.data
+    local node = {}
     node.map = server_id
-    node.account = node.uid
-    node.idx = idx
+    node.open_id = OPEN_ID
+    node.account = node.open_id
     node.did = UDID
+    node.idx = idx
     gHavePlayers[ idx ] = node
 
     local sid = connect(ip, 8001, 0, 0 )
@@ -147,14 +162,20 @@ function t1.action( idx )
         node.gid = sid
         gConns[ sid ] = node
         wait_for_ack( node, "onLogin" )
+
+        Rpc:get_npc_map_req( node )
+
+        wait_for_ack( node, "get_npc_map_ack" )
+
+
         print( string.format( "login use %d msec", c_msec() - now ) )
         print( string.format( "total use %d msec", c_msec() - start ) )
-        os.exit(-1)
-        return "ok"
+        --os.execute( "touch login.ok" )
+        --os.exit(-1)
+        --return "ok"
     end
 
-
-    Rpc:get_characters( node )
+    --Rpc:get_characters( node )
    
     --local total = 0
     --for i = 1, 4096, 1 do
@@ -167,7 +188,6 @@ function t1.action( idx )
     --end
     return "ok"
 end
-
 
 return t1
 

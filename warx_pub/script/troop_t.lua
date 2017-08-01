@@ -93,6 +93,13 @@ end
 
 function calc_troop_speed(self)
     local action = self:get_base_action()
+    if action == TroopAction.SiegeMonster or action == TroopAction.SiegeTaskNpc then
+        local owner = getPlayer( self.owner_pid )
+        if owner and player_t.get_castle_lv( owner ) < 6 then
+            return 100 / 60
+        end
+    end
+
     local speed = 1
     local node = resmng.get_conf( "prop_troop_action", action )
     if node then
@@ -315,7 +322,7 @@ function home(self)
     troop_mng.delete_troop(self._id)
 
     if self.goods then
-        dumpTab(self.goods, "troop_goods")
+        --dumpTab(self.goods, "troop_goods")
         owner:add_bonus("mutex_award", self.goods, self.goods_reason)
     end
 
@@ -353,6 +360,7 @@ function home(self)
             owner:add_soldiers( arm.amend.relive )
         end
     end
+    owner:clear_one()
 end
 
 --merge A to B
@@ -461,6 +469,7 @@ function get_arm_num(arm)
     return t
 end
 
+-- num is limit by dest hold_limit, it should be remove more
 function back_overflow_arm(self, num, hold_tr) --按个人驻守上限遣返
     local hold_arms = hold_tr.arms or {}
     for pid, arm in pairs(self.arms or {}) do
@@ -542,6 +551,8 @@ function try_make_leader(self, enter_tr)
     if self:check_no_hero() then
         if not enter_tr:check_no_hero() then
             self.owner_pid = enter_tr.owner_pid
+            self.owner_eid = enter_tr.owner_eid
+            self.owner_uid = enter_tr.owner_uid
         end
     end
 end
@@ -1610,43 +1621,6 @@ function is_pvp( troop )
         end
     end
     return false
-
-    --if is_pvp_action( action ) then return true end
-
-    --if action == TroopAction.JoinMass then
-    --    local tid = troop.dest_troop_id
-    --    local troopD = troop_mng.get_troop( tid )
-    --    if troopD then
-    --        action = troopD:get_base_action()
-    --        if is_pvp_action( action) then return true end
-    --    end
-    --end
-
-    --if action == TroopAction.Gather then
-    --    local D = get_ety( troop.target_eid )
-    --    if D and is_res( D ) then
-    --        if D.pid > 0 then
-    --            if not (troop.owner_uid > 0 and troop.owner_uid == D.uid) then return true end
-    --        end
-
-    --        local comings = D.troop_comings
-    --        if comings then
-    --            for tid, _ in pairs( comings ) do
-    --                local troopD = troop_mng.get_troop( tid )
-    --                if troopD then
-    --                    if not (troop.owner_uid > 0 and troop.owner_uid == troopD.owner_uid) then
-    --                        if troop:is_go() then
-    --                            if troop.tmStart > troopD.tmStart then return true end
-    --                        elseif troop:is_ready() then
-    --                            return true
-    --                        end
-    --                    end
-    --                end
-    --            end
-    --        end
-    --    end
-    --end
-    --return false
 end
 
 function is_robot_troop(self)
@@ -1667,17 +1641,6 @@ function is_own_hero(self, pid, idx)
         end
     end
     return false
-    --local arms = self.arms or {}
-    --local arm = arms[pid]
-    --if arm then
-    --    local heros = arm.heros or {}
-    --    if heros[idx] then
-    --        if heros[idx] ~= 0 then
-    --            return true
-    --        end
-    --    end
-    --end
-    --return false
 end
 
 function get_arm_by_pid(self, pid)
@@ -1965,5 +1928,199 @@ function recalc_hostile( dest )
             end
         end
     end
+end
+
+gTroopLogFmt = gTroopLogFmt or {}
+
+function fmt_soldier( arm )
+    if not arm then return nil end
+    local soldiers = {}
+    for k, v in pairs( arm ) do
+        if v > 0 then
+            table.insert( soldiers, k )
+            table.insert( soldiers, v )
+        end
+    end
+
+    local n = #soldiers
+    if n == 0 then return "" end
+
+    local fmt = gTroopLogFmt[ n ]
+    if not fmt then
+        fmt = string.rep( "%d,%d", n / 2, "; " )
+        gTroopLogFmt[ n ] = fmt
+    end
+    return string.format( fmt, table.unpack(soldiers) )
+end
+
+function log( troop )
+    local head = string.format( "[TROOP], id=%d, action=%d, owner=%d", troop._id, troop.action, troop.owner_pid or 0 )
+    for pid, arm in pairs( troop.arms or {} ) do
+        local str = fmt_soldier( arm.live_soldier )
+        if str then
+            INFO( "%s; pid=%d, live; %s", head, pid, str )
+        end
+        local amend = arm.amend
+        if amend then
+            local str = fmt_soldier( amend.relive )
+            if str then INFO( "%s; pid=%d, revi; %s", head, pid, str ) end
+
+            local str = fmt_soldier( amend.back )
+            if str then INFO( "%s; pid=%d, back; %s", head, pid, str ) end
+
+            local str = fmt_soldier( amend.cure )
+            if str then INFO( "%s; pid=%d, cure; %s", head, pid, str ) end
+
+            local str = fmt_soldier( amend.dead )
+            if str then INFO( "%s; pid=%d, dead; %s", head, pid, str ) end
+        end
+    end
+end
+
+function on_check_pending_troop( db, id, chgs )
+    local troop = troop_mng.get_troop( id )
+    if troop and chgs.arms then
+        if troop.owner_pid and troop.owner_pid >= 10000 then
+            log( troop )
+        end
+    end
+end
+
+registe_update_callback( "troop", troop_t.on_check_pending_troop )
+
+
+function get_sort( A )
+    local as = {}
+    for pid, arm in pairs( A.arms or {} ) do
+        if pid >= 10000 then
+            table.insert( as, { pid, arm.tm_join or 0 } )
+        end
+    end
+    local sort = function(A,B)
+        if A[2] < B[2] then return true end
+        if A[1] < B[1] then return true end
+        return false
+    end
+    table.sort( as, sort )
+    local pids = {}
+    for _, v in ipairs( as ) do
+        table.insert( pids, v[1] )
+    end
+    return pids
+end
+
+-- hold, A merge in D, limitD is the dest hold_limit
+-- todo, for liuxiang
+--i want this funciton replace next 5 functions
+--back_overflow_arm
+--split_tr_by_num_and_back
+--try_make_leader
+--try_back_overflow_hero
+--split_part_arm_and_back
+
+function try_hold_for_test( A, dest )
+    dest.uid = A.owner_uid
+
+    local action = get_base_action( A )
+    local limitD = dest:get_hold_limit()
+    local totalD = 0
+    local heroD = false
+    local D = troop_mng.get_troop( dest.my_troop_id )
+    if not D then
+        local owner = get_ety( A.owner_eid )
+        D = troop_mng.create_troop( action, owner, dest )
+        settle( D ) 
+        dest.my_troop_id = D._id
+    else
+        totalD = get_troop_total_soldier( D )
+        heroD = is_own_hero( D, 0, 0 )
+    end
+
+    local armsA = A.arms or {}
+    local armsD = D.arms or {}
+    local sorts = get_sort( A )
+
+    for _, pid in pairs( sorts ) do
+        local left = limitD - totalD
+
+        local ply = getPlayer( pid )
+        local armA = armsA[ pid ]
+
+        if not heroD then
+            local heroA = false
+            for k, v in pairs( armA.heros or {} ) do
+                if v ~= 0 then
+                    heroA = true
+                    break
+                end
+            end
+
+            if heroA then
+                local armD = armsD[ pid ]
+                if not armD then
+                    armD = {live_soldier={}, heros = armA.heros }
+                    armsD[ pid ] = armD
+                else
+                    armD.heros = armA.heros
+                end
+                armA.heros = nil
+                D.owner_eid = ply.eid
+                D.owner_pid = ply.pid
+                D.owner_uid = ply.uid
+                notify_owner( D )
+                heroD = true
+            end
+        end
+
+        if left <= 0 then
+            local tr = troop_mng.create_troop( action, ply, dest, armA )
+            tr.curx, tr.cury = get_ety_pos( dest )
+            back( tr )
+        else
+            local armD = armsD[ pid ]
+            if not armD then
+                armD = {live_soldier={}}
+                armsD[ pid ] = armD
+            end
+
+            local limitA = player_t.get_val( ply, "CountSoldier" )
+            local numA = get_arm_num( armA )
+            local numD = get_arm_num( armD )
+            local room = math.min( limitA - numA - numD, left)
+
+            local soldiers = armD.live_soldier
+            if not soldiers then
+                soldiers = {}
+                armD.live_soldier = soldiers
+            end
+
+            if numA <= room then
+                totolD = totalD + numA
+                for k, v in pairs( armA.live_soldier or {} ) do 
+                    soldiers[ k ] = (soldiers[ k ] or 0) + v 
+                end
+            else
+                totolD = totalD + room
+                for k, v in pairs( armA.live_soldier or {} ) do 
+                    if v <= room then
+                        soldiers[ k ] = (soldiers[ k ] or 0) + v 
+                        armA.live_soldier[ k ] = 0
+                        room = room - v
+                    else
+                        soldiers[ k ] = (soldiers[ k ] or 0) + room
+                        armA.live_soldier[ k ] = v - room
+                        room = 0
+                        break
+                    end
+                end
+                local tr = troop_mng.create_troop( action, ply, dest, armA )
+                tr.curx, tr.cury = get_ety_pos( dest )
+                back( tr )
+                notify_owner( D )
+            end
+        end
+    end
+    save( D )
+    troop_mng.delete_troop( A._id )
 end
 

@@ -5,14 +5,12 @@ _funs["cron"] = function(sn)
 
     if gTime - gThreadActionTime > 10 then
         if gInit ~= "InitCompensate" then
-            if gTime - gThreadActionTime > 10 then
-                if gThreadAction and gThreadActionState == "idle" and coroutine.status( gThreadAction ) == "suspended" then
+            if gThreadAction and gThreadActionState == "idle" and coroutine.status( gThreadAction ) == "suspended" then
 
-                else
-                    gThreadAction = nil
-                    global_save()
-                end
-            end
+            else
+                local co = coroutine.create( global_saver )
+                coroutine.resume( co )
+            end	
         end
     end
 
@@ -38,24 +36,36 @@ _funs["cron"] = function(sn)
         end
     end
 
-    local plys = player_t.gOnlines
-    local now = gTime
+    local db = dbmng:tryOne()
     local total = 0
-
-    for pid, p in pairs( plys ) do
-        local offset = gTime - ( p.tick or 0 ) 
-        if offset < 70 then
+    local onlines = gOnlines
+    for pid, node in pairs( onlines ) do
+        local offset = gTime - node[2]
+        if offset < 300 then
             total = total + 1
-        elseif offset < 140 then
-            total = total + 1
-            Rpc:activate(p)
+        elseif offset < 400 then
+            local p = getPlayer( pid ) 
+            if p then
+                Rpc:ping( p )
+            end
         else
-            plys[ pid ] = nil
+            local p = getPlayer( pid ) 
+            if p then
+                rawset( p, "gid", nil )
+                p.tm_logout = p.tick
+                if p.tm_logout < p.tm_login then p.tm_logout = p.tm_login+1 end
+
+                if db then
+                    local dura = node[2] - node[1]
+                    db.online:update( {_id=pid}, { ["$inc"] = {online=dura } }, true )
+                    onlines[ pid ] = nil
+                end
+            end
         end
+        player_t.g_online_num = total
     end
 
-    player_t.g_online_num = total
-    INFO( "[Online], %d", total )
+    INFO( "[Online], %d", player_t.g_online_num )
     player_t.pre_tlog(nil,"GameSvrState",config.GameHost,(player_t.g_online_num or 0),(get_sys_status("start") or 0) ,0 )
 end
 
@@ -91,6 +101,7 @@ _funs["cure"] = function(sn, pid)
         task_logic_t.process_task(p, TASK_ACTION.CURE, 2, count)
         --世界事件
         world_event.process_world_event(WORLD_EVENT_ACTION.CURE_SOLDIER, count)
+        p:clear_one()
     end
 end
 
@@ -109,6 +120,28 @@ _funs["hero_cure"] = function(sn, pid, hidx, tohp)
             hero.tmStart = 0
             hero.tmOver = 0
             hero_t.mark_recalc( hero )
+        end
+        p:clear_one()
+    end
+end
+
+_funs["hero_task"] = function(sn, pid, tr_id, task_id)
+    local p = getPlayer( pid )
+    local tr = troop_mng.get_troop(tr_id)
+    if tr then
+        tr:back()
+    end
+    local prop = resmng.get_conf("prop_hero_task_detail", task_id)
+    if p and tr and prop then
+        local task = p:get_hero_task(HERO_TASK_MODE.CUR_LIST, task_id)
+        if task then
+            if task.status == TASK_STATUS.TASK_STATUS_DOING then
+                if prop.EventCondition then
+                    task.do_event = player_t.check_event_condition(task, prop.EventCondition)
+                end
+                task.status = TASK_STATUS.TASK_STATUS_CAN_FINISH
+                p:set_hero_task2(HERO_TASK_MODE.CUR_LIST, task_id, task)
+            end
         end
     end
 end
@@ -382,6 +415,7 @@ _funs["buf"] = function(sn, pid, bufid, tmOver)
     local p = getPlayer( pid )
     if p then
         p:rem_buf( bufid, tmOver )
+        p:clear_one()
     end
 end
 
@@ -464,6 +498,7 @@ _funs["check"] = function(sn, pid)
                 home.arms[ pid ] = info
             end
         end
+        ply:clear_one()
     end
 end
 

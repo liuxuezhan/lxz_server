@@ -87,10 +87,10 @@ function mail_drop_by_sn(self,sns)
         while info:hasNext() do
             local m = info:next()
             if m and (m.tm_fetch > 0 or m.its == 0) then
+                INFO("[mail], drop, pid=%d, id=%s", self.pid, m._id )
                 m.tm_drop = gTime
                 gPendingSave.mail[ m._id ].tm_drop = gTime
                 self:reply_ok("mail_drop_by_sn", m.idx)
-                INFO("[mail], drop, pid=%d, id=%s", self.pid, m._id )
             end
         end
     end
@@ -112,19 +112,21 @@ function mail_fetch_by_sn(self, sns)
     local db = self:getDb()
     if db then
         local info = db.mail:find( { to=self.pid, _id={ ["$in"] = sns }, tm_drop = 0, tm_fetch = 0 } )
-        local ms = {}
+        local msg = {}
         while info:hasNext() do
             local m = info:next()
             if m then
                 if m.its ~= 0 then
-                    m.tm_fetch = gTime
-                    self:add_bonus("mutex_award", m.its, VALUE_CHANGE_REASON.REASON_MAIL_AWARD)
-                    gPendingSave.mail[ m._id ].tm_fetch = gTime
-                    self:reply_ok("mail_fetch_by_sn", m.idx)
                     INFO("[mail], fetch, pid=%d, id=%s", self.pid, m._id )
+                    m.tm_fetch = gTime
+                    gPendingSave.mail[ m._id ].tm_fetch = gTime
+                    self:add_bonus("mutex_award", m.its, VALUE_CHANGE_REASON.REASON_MAIL_AWARD)
+                    self:reply_ok("mail_fetch_by_sn", m.idx)
+                    table.insert(msg, m._id)
                 end
             end
         end
+        Rpc:mail_fetch_resp(self, msg)
     end
 end
 
@@ -190,28 +192,48 @@ function mail_load_by_idx( self, ids )
     local pid = self.pid
     local ms = {}
     local num = 0
+
+    local max_id = -1
+    local min_id = math.huge
+    local needs = {}
+    for _, id in pairs( ids ) do
+        if id > max_id then max_id = id end
+        if id < min_id then min_id = id end
+        needs[ id ] = 1
+        num = num + 1
+    end
+    INFO( "mail_load_by_idx, pid=%d, num=%d", self.pid, num )
+
+    if num == 0 then return end
+
+    num = 0
     local db = self:getDb()
-    local info = db.mail:find( {to=pid, idx={["$in"]=ids}, tm_drop = 0} )
-    local hits = {}
+    local info = db.mail:find( {to=pid, idx={["$gte"]=min_id, ["$lte"]=max_id}, tm_drop = 0} )
     while info:hasNext() do
         local m = info:next()
-        table.insert( ms, m )
-        hits[ m.idx ] = 1
-        num = num + 1
-        if num >= 100 then
-            Rpc:mail_load(self, ms)
-            num = 0
-            ms = {}
+        local idx = m.idx
+        if needs[ idx ] then
+            table.insert( ms, m )
+            needs[ idx ] = nil
+            num = num + 1
+            if num >= 50 then
+                Rpc:mail_load(self, ms)
+                num = 0
+                ms = {}
+            end
         end
     end
     local max_idx = self.mail_max
 
-    for _, idx in pairs( ids ) do
-        if not hits[ idx ] then
-            if idx <= max_idx then
-                local m = { _id=string.format("%d_%d", idx, pid ), idx=idx, tm=-1}
-                num = num + 1
-                table.insert( ms, m )
+    for idx, _ in pairs( needs ) do
+        if idx <= max_idx then
+            local m = { _id=string.format("%d_%d", idx, pid ), idx=idx, tm=-1}
+            table.insert( ms, m )
+            num = num + 1
+            if num >= 50 then
+                Rpc:mail_load(self, ms)
+                num = 0
+                ms = {}
             end
         end
     end

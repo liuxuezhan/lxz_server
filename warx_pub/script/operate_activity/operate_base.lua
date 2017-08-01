@@ -274,6 +274,9 @@ function CActivityBase:tick()
 		self:end_activity()
 		self:recalc_activity()
 		need_save = true
+		if self.is_end == 1 then
+			Rpc:broadcast_operate_end({pid = -1, gid = _G.GateSid}, self.activity_id)
+		end
 	end
 	if self.is_start == 1 and self.is_end == 0 then
 		self:loop()
@@ -399,6 +402,7 @@ function CActivityBase:process_action(player, action, ...)
 	if self.is_start ~= 1 or self.is_end ~= 0 or self.action_array[action] ~= true then
 		return
 	end
+	player:operate_check_version(self)
 	for i = self.action_startid, self.action_endid, 1 do
 		local prop_action = resmng.get_conf("prop_operate_action", i)
 		if prop_action ~= nil and prop_action.Action ~= nil then

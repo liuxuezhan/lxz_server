@@ -121,15 +121,54 @@ function get_count( self, id )
     end
 end
 
+--function add_count( self, key, val )
+--    val = math.floor( val or 1 )
+--    local counts = self:get_count()
+--    counts[ key ] = ( counts[ key ] or 0 ) + val
+--    gPendingSave.count[ self.pid ][key] = counts[ key ]
+--    try_add_tit_point(self, key)
+--    Rpc:set_count( self, key, counts[ key ] )
+--    if key == resmng.ACH_COUNT_KILL_POW then union_mission.ok(self,UNION_MISSION_CLASS.KILL,val) end
+--end
+
+
+gPendingCount = gPendingCount or {}
 function add_count( self, key, val )
-    val = math.floor( val or 1 )
+    if self._count then
+        do_add_count( self, key, val )
+    else
+        local pid = self.pid
+        local node = gPendingCount[ pid ]
+        if not node then
+            node = {}
+            gPendingCount[ pid ] = node
+            action( handle_pending_count, pid )
+        end
+        table.insert( node, { key, val } )
+    end
+end
+
+function handle_pending_count( pid )
+    local p = getPlayer( pid )
+    if p then
+        local node = gPendingCount[ pid ]
+        gPendingCount[ pid ] = nil
+        for _, v in pairs( node ) do
+            do_add_count( p, v[1], v[2] )
+        end
+    end
+end
+
+function do_add_count( self, key, val )
     local counts = self:get_count()
+    INFO( "[ADD_COUNT], pid=%d, key=%d, old=%d, add=%d", self.pid, key, counts[key] or 0, val or 0 )
     counts[ key ] = ( counts[ key ] or 0 ) + val
     gPendingSave.count[ self.pid ][key] = counts[ key ]
     try_add_tit_point(self, key)
     Rpc:set_count( self, key, counts[ key ] )
     if key == resmng.ACH_COUNT_KILL_POW then union_mission.ok(self,UNION_MISSION_CLASS.KILL,val) end
 end
+
 
 local func_ache = {}
 

@@ -1,6 +1,6 @@
 module("crontab", package.seeall)
 
-local function doCheck(val, pat)
+function doCheck(val, pat)
     val = tonumber(val)
     for w in string.gmatch(pat, "[%d*/-]+") do
         local handle = false
@@ -69,7 +69,6 @@ function loop()
     if resmng and resmng.prop_cron then
         local t = os.date("*t", gTime)
         local gameid = _G.gMapID
-
         for k, v in pairs(resmng.prop_cron) do
             if v.game == "*" or tonumber(v.game) == gameid then
                 if check(t, v) then

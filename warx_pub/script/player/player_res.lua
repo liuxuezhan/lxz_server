@@ -106,8 +106,6 @@ function buy_res(self, id)
 
     self:add_count( resmng.ACH_COUNT_BUY_RES, 1 )
 
-    dumpTab(extra, "resource_buy")
     market.extra = extra
-
 end
 

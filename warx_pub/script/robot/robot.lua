@@ -83,7 +83,7 @@ function loadMod()
     require("frame/tools")
     lxz( c_get_conf() )
     dofile( c_get_conf() )
-    if not config.Release then require("frame/debugger") end
+    if config.Debugger then require("frame/debugger") end
     require("frame/socket")
 
         require("frame/conn")

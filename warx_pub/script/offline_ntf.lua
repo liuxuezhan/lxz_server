@@ -7,18 +7,20 @@ function post(action, target, ...)
     --end
     --
     LOG("post %s", action)
-    if not config.OfflineNtf or config.OfflineNtf == 0 then
-        return
-    end
 
     if not ntf_action[action] then
         return
     end
 
     if target and target ~= "all" then
-
-        if is_ply(target) and ((not target.jpush_id) or target.jpush_id == "" ) then
-            return
+        if config.OfflineNtf == 1 then
+            if is_ply(target) and ((not target.jpush_id) or target.jpush_id == "" ) then
+                return
+            end
+        elseif config.OfflineNtf == 2 then
+            if is_ply(target) and ((not target.fcm_id) or target.fcm_id == "" ) then
+                return
+            end
         end
 
         local prop = resmng.prop_offline_notify[action]
@@ -139,11 +141,21 @@ ntf_action[resmng.OFFLINE_NOTIFY_ATTACK] = function(action, ply, atk_ply, union)
         return 
     end
 
-    local audience = {
-            ["registration_id"] = {ply.jpush_id}
-    }
+    if not config.OfflineNtf or config.OfflineNtf == 0 then
+        return
+    end
 
-    push_offline_ntf(audience, msg)
+    if config.OfflineNtf == 1 then
+    local audience = {
+            ["registration_id"] = {ply.jpush_id},
+    }
+        push_offline_ntf(audience, msg)
+    elseif config.OfflineNtf == 2 then
+    local audience = {
+            ["fcm_id"] = ply.fcm_id
+    }
+        fcm(audience, msg)
+    end
 
 end
 
@@ -165,11 +177,17 @@ ntf_action[resmng.OFFLINE_NOTIFY_SCOUT] = function(action, ply, atk_ply, union)
         return 
     end
 
-    local audience = {
-            ["registration_id"] = {ply.jpush_id}
-    }
-
-    push_offline_ntf(audience, msg)
+    if config.OfflineNtf == 1 then
+        local audience = {
+            ["registration_id"] = {ply.jpush_id},
+        }
+        push_offline_ntf(audience, msg)
+    elseif config.OfflineNtf == 2 then
+        local audience = {
+            ["fcm_id"] = ply.fcm_id
+        }
+        fcm(audience, msg)
+    end
 
 end
 
@@ -191,11 +209,17 @@ ntf_action[resmng.OFFLINE_NOTIFY_MASS] = function(action, ply, atk_ply, union)
         return 
     end
 
-    local audience = {
-            ["registration_id"] = {ply.jpush_id}
-    }
-
-    push_offline_ntf(audience, msg)
+    if config.OfflineNtf == 1 then
+        local audience = {
+            ["registration_id"] = {ply.jpush_id},
+        }
+        push_offline_ntf(audience, msg)
+    elseif config.OfflineNtf == 2 then
+        local audience = {
+            ["fcm_id"] = ply.fcm_id
+        }
+        fcm(audience, msg)
+    end
 
 end
 
@@ -210,11 +234,17 @@ ntf_action[resmng.OFFLINE_NOTIFY_GATHER] = function(action, ply)
         return 
     end
 
-    local audience = {
-            ["registration_id"] = {ply.jpush_id}
-    }
-
-    push_offline_ntf(audience, msg)
+    if config.OfflineNtf == 1 then
+        local audience = {
+            ["registration_id"] = {ply.jpush_id},
+        }
+        push_offline_ntf(audience, msg)
+    elseif config.OfflineNtf == 2 then
+        local audience = {
+            ["fcm_id"] = ply.fcm_id
+        }
+        fcm(audience, msg)
+    end
 
 end
 
@@ -229,11 +259,17 @@ ntf_action[resmng.OFFLINE_NOTIFY_RECRUIT] = function(action, ply)
         return 
     end
 
-    local audience = {
-            ["registration_id"] = {ply.jpush_id}
-    }
-
-    push_offline_ntf(audience, msg)
+    if config.OfflineNtf == 1 then
+        local audience = {
+            ["registration_id"] = {ply.jpush_id},
+        }
+        push_offline_ntf(audience, msg)
+    elseif config.OfflineNtf == 2 then
+        local audience = {
+            ["fcm_id"] = ply.fcm_id
+        }
+        fcm(audience, msg)
+    end
 
 end
 
@@ -248,11 +284,17 @@ ntf_action[resmng.OFFLINE_NOTIFY_PROTECT] = function(action, ply)
         return 
     end
 
-    local audience = {
-            ["registration_id"] = {ply.jpush_id}
-    }
-
-    push_offline_ntf(audience, msg)
+    if config.OfflineNtf == 1 then
+        local audience = {
+            ["registration_id"] = {ply.jpush_id},
+        }
+        push_offline_ntf(audience, msg)
+    elseif config.OfflineNtf == 2 then
+        local audience = {
+            ["fcm_id"] = ply.fcm_id
+        }
+        fcm(audience, msg)
+    end
 
 end
 
@@ -274,11 +316,17 @@ ntf_action[resmng.OFFLINE_NOTIFY_MAIL] = function(action, ply, from_ply, union, 
         return 
     end
 
-    local audience = {
-            ["registration_id"] = {ply.jpush_id}
-    }
-
-    push_offline_ntf(audience, msg)
+    if config.OfflineNtf == 1 then
+        local audience = {
+            ["registration_id"] = {ply.jpush_id},
+        }
+        push_offline_ntf(audience, msg)
+    elseif config.OfflineNtf == 2 then
+        local audience = {
+            ["fcm_id"] = ply.fcm_id
+        }
+        fcm(audience, msg)
+    end
 
 end
 
@@ -310,11 +358,17 @@ ntf_action[resmng.OFFLINE_NOTIFY_RESEARCH] = function(action, ply, tech_id)
         return
     end
 
-    local audience = {
-            ["registration_id"] = {ply.jpush_id}
-    }
-
-    push_offline_ntf(audience, msg)
+    if config.OfflineNtf == 1 then
+        local audience = {
+            ["registration_id"] = {ply.jpush_id},
+        }
+        push_offline_ntf(audience, msg)
+    elseif config.OfflineNtf == 2 then
+        local audience = {
+            ["fcm_id"] = ply.fcm_id
+        }
+        fcm(audience, msg)
+    end
 
 end
 
@@ -346,11 +400,17 @@ ntf_action[resmng.OFFLINE_NOTIFY_BUILD] = function(action, ply, build_id)
         return
     end
 
-    local audience = {
-            ["registration_id"] = {ply.jpush_id}
-    }
-
-    push_offline_ntf(audience, msg)
+    if config.OfflineNtf == 1 then
+        local audience = {
+            ["registration_id"] = {ply.jpush_id},
+        }
+        push_offline_ntf(audience, msg)
+    elseif config.OfflineNtf == 2 then
+        local audience = {
+            ["fcm_id"] = ply.fcm_id
+        }
+        fcm(audience, msg)
+    end
 
 end
 
@@ -375,11 +435,17 @@ ntf_action[resmng.OFFLINE_NOTIFY_DECLARE] = function(action, ply, npc_name)
         return
     end
 
-    local audience = {
-            ["registration_id"] = {ply.jpush_id}
-    }
-
-    push_offline_ntf(audience, msg)
+    if config.OfflineNtf == 1 then
+        local audience = {
+            ["registration_id"] = {ply.jpush_id},
+        }
+        push_offline_ntf(audience, msg)
+    elseif config.OfflineNtf == 2 then
+        local audience = {
+            ["fcm_id"] = ply.fcm_id
+        }
+        fcm(audience, msg)
+    end
 
 end
 
@@ -404,11 +470,17 @@ ntf_action[resmng.OFFLINE_NOTIFY_BE_DECLARE] = function(action, ply, npc_name, u
         return
     end
 
-    local audience = {
-            ["registration_id"] = {ply.jpush_id}
-    }
-
-    push_offline_ntf(audience, msg)
+    if config.OfflineNtf == 1 then
+        local audience = {
+            ["registration_id"] = {ply.jpush_id},
+        }
+        push_offline_ntf(audience, msg)
+    elseif config.OfflineNtf == 2 then
+        local audience = {
+            ["fcm_id"] = ply.fcm_id
+        }
+        fcm(audience, msg)
+    end
 
 end
 
@@ -433,11 +505,17 @@ ntf_action[resmng.OFFLINE_NOTIFY_FIGHT] = function(action, ply, npc_name)
         return
     end
 
-    local audience = {
-            ["registration_id"] = {ply.jpush_id}
-    }
-
-    push_offline_ntf(audience, msg)
+    if config.OfflineNtf == 1 then
+        local audience = {
+            ["registration_id"] = {ply.jpush_id},
+        }
+        push_offline_ntf(audience, msg)
+    elseif config.OfflineNtf == 2 then
+        local audience = {
+            ["fcm_id"] = ply.fcm_id
+        }
+        fcm(audience, msg)
+    end
 
 end
 
@@ -462,11 +540,17 @@ ntf_action[resmng.OFFLINE_NOTIFY_BE_FIGHT] = function(action, ply, npc_name)
         return
     end
 
-    local audience = {
-            ["registration_id"] = {ply.jpush_id}
-    }
-
-    push_offline_ntf(audience, msg)
+    if config.OfflineNtf == 1 then
+        local audience = {
+            ["registration_id"] = {ply.jpush_id},
+        }
+        push_offline_ntf(audience, msg)
+    elseif config.OfflineNtf == 2 then
+        local audience = {
+            ["fcm_id"] = ply.fcm_id
+        }
+        fcm(audience, msg)
+    end
 
 end
 
@@ -521,23 +605,36 @@ ntf_action[resmng.OFFLINE_NOTIFY_REBEL] = function(action, union)
         return
     end
 
-    local audience = {
-            ["registration_id"] = {get_union_jpush_list(union)}
-    }
 
-    push_offline_ntf(audience, msg)
+    if config.OfflineNtf == 1 then
+        local audience = {
+            ["registration_id"] = {get_union_push_list(union, "jpush")}
+        }
+        push_offline_ntf(audience, msg)
+    elseif config.OfflineNtf == 2 then
+        local audience = {
+            ["registration_ids"] = {get_union_push_list(union, "fcm")}
+        }
+        fcm(audience, msg)
+    end
 
 end
 
-function get_union_jpush_list(union)
-    local jpush_id_list = {}
+function get_union_push_list(union)
+    local push_id_list = {}
     local members = union:get_members()
     for k, v in pairs(members or {}) do
-        if v.jpush_id then
-            table.insert(jpush_id_list, v.jpush_id)
+        if config.OfflineNtf == 1 then
+            if v.jpush_id then
+                table.insert(push_id_list, v.jpush_id)
+            end
+        elseif config.OfflineNtf == 2 then
+            if v.fcm_id then
+                table.insert(push_id_list, v.fcm_id)
+            end
         end
     end
-    return jpush_id_list
+    return push_id_list
 end
 
 ntf_action[resmng.OFFLINE_NOTIFY_TIME_ACTIVITY] = function(action, act_idx)
@@ -572,6 +669,19 @@ ntf_action[resmng.OFFLINE_NOTIFY_TIME_ACTIVITY] = function(action, act_idx)
 end
 
 function ntf_by_all_language(audience, ntf_id, param)
+
+    local gen_cond_str = function(tag_and)
+        local str
+        for _, v in pairs(tag_and or {}) do
+            if not str then
+                str = "'" .. v .. "' in topics"
+            else
+                str = str .. " && '" .. v .. "' in topics"
+            end
+        end
+        return str
+    end
+
     for k, v in pairs(resmng.prop_language_cfg or {}) do
         local target = copyTab(audience) or {}
 
@@ -597,13 +707,73 @@ function ntf_by_all_language(audience, ntf_id, param)
         table.insert(tag_and, tag)
         target.tag_and= tag_and
 
-        push_offline_ntf(target, msg)
+
+        if config.OfflineNtf == 1 then
+            push_offline_ntf(target, msg)
+        elseif config.OfflineNtf == 2 then
+            target.condition = gen_cond_str(tag_and)
+            fcm(target, msg)
+        end
     end
 end
 
 function get_server_tag()
     local tag = config.Game .. config.Tips
     return tag
+end
+
+function fcm(target, msg)
+    INFO("fcm %s, %s", target.registration_id, msg)
+    to_tool( 0, { 
+        type = "common", 
+        mode = "fcm", 
+        url = "https://fcm.googleapis.com/fcm/send",
+        method = "post", 
+        --header = "key=AAAATbs2Ld8:APA91bGsqPHCQIqujlf04Nua5wNmF_LMzoc66ZS86OYofG0i8b8Wy2wEe7LHUkvaRlyuChEzjNkxobqMh2BjWgpTlKjvHawoZGl_KPIpq67n6J4_8me6JZ6oQvjN9cENAd5qnzEsVB4j ",  
+        header = "key=AAAARL0rHjA:APA91bHCLVQsAwpYLOWgiGLwJ44nHYMgDO_gq91xVBWw1-RDfqiw-EoOIpXG3aUzCsNItyb8ofTQBpkYO3DgOKjNMmck0pFwkVaz_Lx2Uurq1xoLK2DvugXTnPAykUGoREut6HNC7ImO",  
+        registration_ids = target.registration_ids,
+        to = target.fcm_id,
+        condition = target.condition,
+        --condition =  "'warxmap_7' in topics && 'zh-CN' in topics",
+        notification = {
+            body = msg,
+        },
+    } )
+end
+
+function push_offline_ntf(audience, msg)
+    INFO("do jpush %s, %s", audience.registration_id, msg)
+    to_tool( 0, { 
+        type = "common", 
+        mode = "jpush", 
+        url = "https://api.jpush.cn/v3/push", 
+        method = "post", 
+        --header = "NDMwMDU2NzliZGMyYThjNzE2NTRmODQ0Ojk5YTFjZTYwOTY0MGQ3MGUzOTJiNTUyYg==",  
+        header = "YTAzZWEyOWVhYmU2OGJlOTFjNzAwMjNmOjUwMTcwZGI1NzJkMzU3NDA0OWM3ZjQ4Mw==",  
+        -- base64 of "43005679bdc2a8c71654f844:99a1ce609640d70e392b552b",
+        --        platform = offline_ntf.get_server_tag(),
+        platform = "all",
+        audience = audience,
+        notification = {
+            alert = msg,
+            android = {
+                alert = msg,
+                extras = {
+                    android_key1 = "android-value1",
+                }
+            },
+            ios = {
+                alert = msg,
+                sound = "sound.caf",
+                ["content-available"] = true,
+                badge = "+1",
+            }
+        },
+        options = {
+            time_to_live = 0,
+            apns_production = config.JpuahMode or "false"
+        }
+    })
 end
 
 

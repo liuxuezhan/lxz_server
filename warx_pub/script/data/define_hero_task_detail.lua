@@ -1,0 +1,10 @@
+--
+-- $Id$
+--
+
+module( "resmng" )
+svnnum("$Id$")
+
+HERO_TASK_130010101 = 130010101
+HERO_TASK_130010102 = 130010102
+HERO_TASK_130010103 = 130010103

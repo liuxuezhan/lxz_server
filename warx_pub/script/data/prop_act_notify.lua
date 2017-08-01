@@ -47,4 +47,9 @@ prop_act_notify = {
 	[LT_OCCUPY] = { ID = LT_OCCUPY, Notify = 60522, Chat1 = 60521, Chat2 = nil, SendMail = nil,},
 	[LT_GATHER] = { ID = LT_GATHER, Notify = 60524, Chat1 = 60523, Chat2 = nil, SendMail = nil,},
 	[SUPER_BOSS_REFRESH] = { ID = SUPER_BOSS_REFRESH, Notify = 60526, Chat1 = 60525, Chat2 = 60527, SendMail = nil,},
+	[BOSS_FIRST_BLOOD] = { ID = BOSS_FIRST_BLOOD, Notify = 60579, Chat1 = 60580, Chat2 = nil, SendMail = nil,},
+	[SUPER_BOSS_KILL] = { ID = SUPER_BOSS_KILL, Notify = 60582, Chat1 = 60583, Chat2 = nil, SendMail = nil,},
+	[LT_OCCUPY_MID] = { ID = LT_OCCUPY_MID, Notify = 60595, Chat1 = 60594, Chat2 = nil, SendMail = nil,},
+	[MC_DIFFICULTY_SETTING] = { ID = MC_DIFFICULTY_SETTING, Notify = nil, Chat1 = nil, Chat2 = 60601, SendMail = nil,},
+	[NEW_LEADER] = { ID = NEW_LEADER, Notify = nil, Chat1 = nil, Chat2 = 60585, SendMail = nil,},
 }

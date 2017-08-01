@@ -138,7 +138,9 @@ function clear_ply_info(pid)
 
     rem_ety(ply.eid)
     remPlayer(ply.pid)
+    gOnlines[ ply.pid ] = nil
     gPendingDelete.player[ply.pid] = 0
+    rank_mng.rem_person_data(ply.pid)
 end
 
 function agent_migrate_ack(self, pid, map, ret)
@@ -307,6 +309,7 @@ function change_server( self, pid, x, y, data , timers, union_pro, troop, mails)
 
     --player_t._cache[pid] = pro
     gEtys[ eid ] = ply
+    gPlys[ ply.pid ] = ply
     ply.size = 4
     ply.token = token
     gPendingSave.player[ ply.pid ].token = token
@@ -345,14 +348,16 @@ function change_server_ack(self, pid, map, ret)
     if ret ~= -1 then
         local ply = getPlayer(pid)
         if ply then
-            pushHead(_G.GateSid, 0, 9)  -- set server id
-            pushInt(ply.sockid)
-            pushInt(self.pid)
-            pushInt(ply.pid)
-            pushOver()
+            -- pushHead(_G.GateSid, 0, 9)  -- set server id
+            -- pushInt(ply.sockid)
+            -- pushInt(self.pid)
+            -- pushInt(ply.pid)
+            -- pushOver()
 
-            Rpc:callAgent(self.pid, "agent_login", pid, {})
+            -- Rpc:callAgent(self.pid, "agent_login", pid, {})
+            Rpc:cross_server_success(ply)
             ply:union_quit()
+            gPendingSave.union_member[ ply.pid ] = 0
             clear_ply_info(pid)
             return
         end
@@ -465,6 +470,7 @@ function agent_migrate( self, pid, x, y, data , timers, union_pro, troop, mails)
 
     --player_t._cache[pid] = pro
     gEtys[ eid ] = ply
+    gPlys[ ply.pid ] = ply
     ply.size = 4
     ply.token = token
     gPendingSave.player[ ply.pid ].token = token
@@ -874,7 +880,6 @@ do_gm_cmd["pay"] = function(param)
                 end
                 INFO( "[pay], ok, pid=%s, order_id=%s, product_id=%s, pay_amount=%s", ply_id or "unknown", order_id or "unknown", product_id or "unknown", pay_amount or "unknown" )
             end
-
             return result
 
         else
@@ -900,6 +905,68 @@ function gm_add_union_item(ply, awards)
     end
 end
 
+local cond_lists = {
+    "bylevel",
+    "regtime",
+}
+
+check_condition = {}
+
+check_condition["bylevel"] = function(ply, cond)
+    local lv = ply:get_castle_lv()
+    if type(cond[1]) ~= "number" or type(cond[2]) ~= "number" then
+        return {code = 0, msg = "param error"}
+    end
+    if cond[1] == 0 and cond[2] == 0 then
+        return true
+    end
+    if lv >= cond[1] and lv <= cond[2] then
+        return true
+    end
+    return false
+end
+
+--check_condition["byregtime"] = function(ply, cond)
+--    local tm = ply.tm_create
+--    local st_tm = 1
+--    local end_tm = 1
+--    if type(cond[1]) ~= "string" or type(cond[2]) ~= "string" then
+--        return {code = 0, msg = "param error"}
+--    end
+--    if cond[1] == "0000-00-00" and cond[2] == "0000-00-00" then
+--        return true
+--    end
+--    if lv >= st_tm and lv < end_tm then
+--        return true
+--    end
+--    return false
+--end
+
+function find_list_by_conds(param)
+    local list = {}
+    local all = true --是否使用全服邮件
+    for _, ply in pairs(gPlys or {}) do
+        local hit = true
+        for key, cond in pairs(param or {}) do
+            if check_condition[key] then
+                local ret = check_condition[key](ply, cond)
+                if type(ret) == "table" then
+                    return ret
+                else
+                    hit = ret
+                    if hit == false then
+                        all = false
+                        break
+                    end
+                end
+            end
+        end
+        if hit == true then
+            table.insert(list, ply.pid)
+        end
+    end
+    return list, all
+end
 
 do_gm_cmd["senditem"] = function(param)
     local ply_id = ""
@@ -918,15 +985,28 @@ do_gm_cmd["senditem"] = function(param)
     end
 
     local item = {}
-
     for k, v in pairs(param.item or {}) do
         local award = {v.type, tonumber(v.id), tonumber(v.num), 10000}
         table.insert(item, award)
     end
 
     if param.player_id == "all" then
-        player_t.send_system_to_all(mail_id, {title}, {content}, item)
-        return {code = 1, msg = "success"}
+        local list, all_ply = find_list_by_conds(param)
+        if list["code"] then -- 查询参数错误
+            return list
+        end
+        if all_ply then
+            player_t.send_system_to_all(mail_id, {title}, {content}, item)
+            return {code = 1, msg = "success to all ply"}
+        else
+            for _, pid in pairs(list or {}) do
+                local p = getPlayer(pid)
+                if p then
+                    p:send_system_notice(mail_id, {title}, {content}, item)
+                end
+            end
+            return {code = 1, msg = list}
+        end
     else
         if ply_id < 10000 then
             LOG("GM CMD PAY did not find ply")

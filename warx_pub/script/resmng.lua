@@ -120,9 +120,12 @@ do_load(BasePath .. "define_filter")
 do_load(BasePath .. "define_first_blood")
 do_load(BasePath .. "define_cross_person_rank_award")
 do_load(BasePath .. "define_cross_union_rank_award")
-
-
-
+do_load(BasePath .. "define_hero_road_chapter")
+do_load(BasePath .. "define_tribute_exchange_limitation")
+do_load(BasePath .. "define_tribute_exchange_limitation")
+do_load(BasePath .. "define_render_level")
+do_load(BasePath .. "define_hero_task_init")
+do_load(BasePath .. "define_hero_task_detail")
 
 do_load(BasePath .. "prop_buy_group")
 do_load(BasePath .. "prop_buy")
@@ -244,6 +247,15 @@ do_load(BasePath .. "prop_filter")
 do_load(BasePath .. "prop_first_blood")
 do_load(BasePath .. "prop_cross_person_rank_award")
 do_load(BasePath .. "prop_cross_union_rank_award")
+do_load(BasePath .. "prop_hero_road_chapter")
+do_load(BasePath .. "prop_tribute_exchange_limitation")
+
+do_load(BasePath .. "prop_device")
+do_load(BasePath .. "prop_device_gpu")
+do_load(BasePath .. "prop_tribute_exchange_limitation")
+do_load(BasePath .. "prop_hero_task_init")
+do_load(BasePath .. "prop_hero_task_detail")
+
 
 do_check("prop_arm")
 do_check("prop_build")
