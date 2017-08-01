@@ -27,4 +27,4 @@ APP_ID= "warx_test"
 SERVER_ID = Map
 PLAT_ID = 1 
 Version = 1000
-
+Debugger = true

@@ -1,23 +1,12 @@
 package.path = package.path..";./?.lua"
 local skynet = require "skynet"
 local socket = require "skynet.socket"
+local profile = require "skynet.profile"
 local assert = assert
 
 local socket_id	-- listen socket
 local client_number = 0
-
-
-
-
-local function read(fd)
-    local ok ,ret = pcall(socket.readline,fd)
-    if not ok then
-        if ret then lxz(fd, ret) end
-        ret = nil
-    end
-    return ret
-end
-
+local data = { socket = {} }
 
 function dispatch_msg(fd, name,msg)--分发消息，不返回
     local msg_id,msg = table.unpack(msg)
@@ -38,33 +27,11 @@ function close_fd(fd)
     socket.close(fd)
 end
 
-local CMD = {} 
-function CMD.close()
-    assert(socket_id)
-    socket.close(socket_id)
-end
-
-function CMD.login(data)
-    data = lualib_serializable.pack(data) 
-    ply._d[data.name]=data
-end
-
--- call by agent
-function CMD.logout(name )
-    close_fd(ply._d[name].fd)
-    ply._d[name].online=0
-    skynet.call(loginservice, "lua", "logout",name )
-end
-
-function CMD.kick(name )
-    ply._d[name].online=0
-end
-
 plys = {}
 local function accept(fd, addr)
 
     while 1 do
-        local msg = read(fd)
+        local msg ,err = socket.readline(fd)
         if msg then
             local d = lualib_serializable.unpack(copyTab(msg))
             if d then
@@ -77,11 +44,16 @@ local function accept(fd, addr)
                     farm.loop()
                     refugee.loop()
                 elseif player_t[d.f] then 
+                    profile.start()
                     if plys[fd] then
                         player_t[d.f](plys[fd], unpack(d.args)  ) 
                     end
+                    lxz(d.f,profile.stop())
                 end
             end
+        else
+            lxz(msg)
+            break
         end
     end
 end
@@ -93,14 +65,18 @@ local  function save_db()
     end)
 end
 
-local function pre(fd,addr)
-        local ok, err = pcall(accept, fd, addr)
-        if not ok then
-            if err then
-                lxz(fd, err)
-            end
-            close_fd(fd)
-        end
+function new_socket(fd, addr)
+    data.socket[fd] = "[AUTH]"
+    proxy.subscribe(fd)
+    local ok , userid =  pcall(auth_socket, fd)
+    if ok then
+        data.socket[fd] = userid
+        if pcall(assign_agent, fd, userid) then return-- succ
+        else log("Assign failed %s to %s", addr, userid) end
+        log("Auth faild %s", addr)
+    end
+    proxy.close(fd)
+    data.socket[fd] = nil
 end
 
 skynet.start(function()
@@ -109,7 +85,6 @@ skynet.start(function()
     skynet.newservice("lib/mongo_t",g_warx_t.db_name)--数据库写中心
     socket_id = socket.listen(g_warx_t.host or g_host, g_warx_t.port)
     lxz(g_warx_t.host or g_host, g_warx_t.port)
-    require "debugger"
     save_db()
     require "warx_pub/script/frame/frame"
     init(os.time(),os.time())
@@ -124,6 +99,7 @@ skynet.start(function()
         lxz(string.format("connect from %s (fd = %d)", addr, fd))
         local ok, err = pcall(accept, fd, addr)
         if not ok then if err then lxz(fd, err) end end
+        lxz(string.format("disconnect from %s (fd = %d)", addr, fd))
         close_fd(fd)
     end
     )
