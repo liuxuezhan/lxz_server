@@ -730,22 +730,22 @@ function firstPacket2(self, sockid, server_id, info)
         for k, v in pairs(gAccounts[open_id] or {}) do
             count = count + 1
         end
-        if count >= 4 then
-            Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.FULL)
-            return
-        end
+        -- if count >= 4 then
+        --     Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.FULL)
+        --     return
+        -- end
 
-        if get_sys_status( "NoCreateRole" ) == "yes" then 
-            Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.FULL)
-            INFO( "[NoCreateRole], open_id=%s, ip=%s", open_id, ip )
-            return
-        end
+        -- if get_sys_status( "NoCreateRole" ) == "yes" then 
+        --     Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.FULL)
+        --     INFO( "[NoCreateRole], open_id=%s, ip=%s", open_id, ip )
+        --     return
+        -- end
 
-        if config.MaxPlayer and gTotalCreate >= config.MaxPlayer then
-            Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.FULL)
-            INFO( "[MaxPlayer], open_id=%s, ip=%s, max=%d, cur=%d", open_id, ip, config.MaxPlayer, gTotalCreate )
-            return
-        end
+        -- if config.MaxPlayer and gTotalCreate >= config.MaxPlayer then
+        --     Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.FULL)
+        --     INFO( "[MaxPlayer], open_id=%s, ip=%s, max=%d, cur=%d", open_id, ip, config.MaxPlayer, gTotalCreate )
+        --     return
+        -- end
 
         pid = getId("pid")
         
