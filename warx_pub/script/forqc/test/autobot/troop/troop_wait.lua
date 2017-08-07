@@ -11,8 +11,10 @@ function TroopWait:onEnter()
 end
 
 function TroopWait:onExit()
-    self.host.eventBusyTroopStarted:del(newFunctor(self, TroopWait.onTroopStarted))
+    self.host.eventBusyTroopStarted:del(newFunctor(self, TroopWait._onTroopStarted))
     self.host.eventBusyTroopFinished:del(newFunctor(self, TroopWait._onTroopFinished))
+    self.index = nil
+    self.troop = nil
 end
 
 function TroopWait:_onTroopStarted(player, index, troop)

@@ -39,6 +39,7 @@ _funs["cron"] = function(sn)
     local db = dbmng:tryOne()
     local total = 0
     local onlines = gOnlines
+    local gone = {}
     for pid, node in pairs( onlines ) do
         local offset = gTime - node[2]
         if offset < 300 then
@@ -58,12 +59,13 @@ _funs["cron"] = function(sn)
                 if db then
                     local dura = node[2] - node[1]
                     db.online:update( {_id=pid}, { ["$inc"] = {online=dura } }, true )
-                    onlines[ pid ] = nil
+                    table.insert( gone, pid )
                 end
             end
         end
         player_t.g_online_num = total
     end
+    for _, pid in pairs( gone ) do onlines[ pid ] = nil end
 
     INFO( "[Online], %d", player_t.g_online_num )
     player_t.pre_tlog(nil,"GameSvrState",config.GameHost,(player_t.g_online_num or 0),(get_sys_status("start") or 0) ,0 )
@@ -300,7 +302,6 @@ end
 _funs["test"] = function(sn, uid, idx)
     local p = getPlayer(30001)
     local ts = p:get_item()
-    dumpTab(ts, "item")
 end
 
 _funs["release_prisoner"] = function(sn, pid, hero_id)

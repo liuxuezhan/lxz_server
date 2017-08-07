@@ -527,23 +527,13 @@ function union_enlist_check(self, uid)
     return true
 end
 
-function sort_info(self,union)
-    if union then
-        local info  = union:get_info()
-        local p = union:get_leader()
-        local l = math.pow(math.abs(p.x-self.x),2) + math.pow(math.abs(p.y-self.y),2)
-        if l < 10000 then
-            info.range = UNION_RANGE.NEAR
-        elseif l < 62500 then
-            info.range = UNION_RANGE.NORMAL
-        else
-            info.range = UNION_RANGE.FAR
-        end
-
+function sort_info(self,u)
+    if u then
+        local info  = u:get_info()
         info.state = resmng.UNION_STATE.NONE
         if info.uid == self:get_uid() then
             info.state = resmng.UNION_STATE.IN_UNION
-        elseif union:get_apply(self.pid) then
+        elseif u:get_apply(self.pid) then
             info.state = resmng.UNION_STATE.APPLYING
         end
         return info
@@ -562,91 +552,41 @@ function union_list(self,name)
 
     local ret = {name = name,list={}}
     if name ~= "" then
+        local num = 0
         local code = check_name_avalible( name )
         if code ~= true then return end
         if is_sys_name( name ) then return end
 
-        local data = dbmng:getOne().union_t:find({name={["$regex"]=name}})
-        while data:hasNext() do
-            local u = data:next()
-            u = unionmng.get_union(u.uid)
-            if u  and u:check() then
+        for _, u in pairs( _us or {}  ) do
+            if u  and u:check() and string.find(u.name,name) then
                 local info = sort_info(self,u)
-                if info  then
-                    ret.list[u.uid]=info
+                if info then 
+                    ret.list[u.uid]=info 
+                    num = num + 1
                 end
-            else
-                INFO("[UNION] union_list pid=%d,uid=%d",self.pid,u.uid)
+                if num == 200  then break end
             end
         end
 
-        data = dbmng:getOne().union_t:find({alias={["$regex"]=name}})
-        while data:hasNext() do
-            local u = data:next()
-            u = unionmng.get_union(u.uid)
-            if u and u:check() then
+        for _, u in pairs( _us or {}  ) do
+            if u  and u:check() and string.find(u.alias,name) then
                 local info = sort_info(self,u)
-                if info  then
-                    ret.list[u.uid]=info
+                if info then 
+                    ret.list[u.uid]=info 
+                    num = num + 1
                 end
+                if num == 200  then break end
             end
         end
-        Rpc:union_list(self,ret.name,ret.list)
-        return
-    end
-
-    local u1,u2,u3
-    local u4 = {}
-    local u5 = {}
-    local len = math.huge
-
-    local us = rank_mng.get_range(5,1,20000)
-    for k, uid in pairs( us or {}  ) do
-        if uid == 0 then break end
-        local u = unionmng.get_union(uid)
-        if u and (not u:is_new()) and u:check() and (not check_union_cross(u) )then
-            if self.language == u.language then
-                if (not u1)  and u.membercount < u:get_memberlimit() then
-                    u1 = u
-                else
-                    local p = u:get_leader()
-                    local l = math.pow(math.abs(p.x-self.x),2) + math.pow(math.abs(p.y-self.y),2)
-                    if (l < len or len == 0) and u.membercount < u:get_memberlimit() then
-                        if u2 then table.insert(u4,u2) end
-                        len =l
-                        u2 = u
-                    else
-                        table.insert(u4,u)
-                    end
-                end
-
-            else
-                if (not u3) and u.membercount < u:get_memberlimit() then
-                    u3 = u
-                else
-                    table.insert(u5,u)
-                end
-            end
-
-            if k > 200 and u1 and u2 and u3 and ( (#u4 or 0) + (#u5 or 0) > 197 ) then
-                break
+    else
+        local us = rank_mng.get_range(5,1,200)
+        for k, uid in pairs( us or {}  ) do
+            local u = unionmng.get_union(uid)
+            if u and u:check() and (not check_union_cross(u) )then
+                local info = sort_info(self,u)
+                if info then ret.list[u.uid]=info end
             end
         end
-    end
-
-    local info = sort_info(self,u1)
-    if info then table.insert(ret.list,info) end
-    local info = sort_info(self,u2)
-    if info then table.insert(ret.list,info) end
-    local info = sort_info(self,u3)
-    if info then table.insert(ret.list,info) end
-    for _, v in pairs( u4 ) do
-        local info = sort_info(self,v)
-        if info then table.insert(ret.list,info) end
-    end
-    for _, v in pairs( u5 ) do
-        local info = sort_info(self,v)
-        if info then table.insert(ret.list,info) end
     end
 
     --lxz(ret.list)
@@ -2320,3 +2260,30 @@ function get_res_count( ply )--计算总存储量
     end
     return sum
 end
+
+
+function set_auto_mass( self, info )
+    if next( info ) then
+        rawset( self, "_auto_mass", info )
+    else
+        rawset( self, "_auto_mass", nil )
+    end
+end
+
+function get_auto_mass( self )
+    local u = unionmng.get_union( self.uid )
+    if u then
+        local infos = {}
+        local _members = u:get_members()
+        for pid, p in pairs( _members or {} ) do
+            if p:is_online() then
+                local info = rawget( p, "_auto_mass" ) 
+                if info then
+                    infos[ pid ] = info
+                end
+            end
+        end
+        Rpc:get_auto_mass( self, infos )
+    end
+end
+

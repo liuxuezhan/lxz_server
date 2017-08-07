@@ -408,9 +408,7 @@ function return_exp_item(self, exp, reason)
     for _, v in pairs(item_list) do
         --self:inc_item(v.item_id, v.num, reason)
         self:add_bonus("mutex_award", {{"item", v.item_id, v.num, 10000}}, reason)
-        print( "add_item", v.item_id, v.num )
     end
-    dumpTab(item_list, string.format("return_exp_item: pid = %d, item_list = ", self.pid))
 end
 
 --------------------------------------------------------------------------------

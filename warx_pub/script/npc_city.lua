@@ -74,7 +74,7 @@ function get_atk_info(unions, data)
     if data.state == TW_STATE.PREPARE  or data.state == TW_STATE.FIGHT then
         local declares = npc_city.cur_declares or {} 
         if declares[data.propid] then 
-            table.insert(unions, {declares[data.propid][1], ["is_fake"] = true})
+            table.insert(unions, {declares[data.propid][1] or 104 , ["is_fake"] = true})
         end
     end
 end

@@ -123,6 +123,7 @@ function loadMod()
     require("frame/snapshot")
     require("frame/snapshot_diff")
     require("frame/mongo_save_mng")
+    require("frame/login_queue")
 end
 
 function handle_dbg(sid)
@@ -594,7 +595,7 @@ function main_loop(sec, msec, fpk, ftimer, froi, signal)
                 set_sys_status( "tick", real )
                 gCompensation = nil
                 c_time_release()
-                WARN("Compensation, real=%d, finish", real)
+                WARN("Compensation, real=%d, finish, gFrame = %d", real, gFrame)
                 gInit = "InitGameDone"
             end
 
@@ -743,6 +744,7 @@ function main_loop(sec, msec, fpk, ftimer, froi, signal)
             --check_tool_ack()
         end
     else
+        login_queue.update()
         check_pending()
         global_save()
         check_tool_ack()
@@ -808,6 +810,7 @@ function to_tool( sn, info )
 end
 
 function check_tool_ack()
+    gPendingToolAck = gPendingToolAck or {}
     local dels = {}
     for k, v in pairs(gPendingToolAck or {} ) do
         if gTime - v._t_ >= 100 then
@@ -1540,3 +1543,52 @@ take_over_os_time()
 function is_system_db_field(id)
     return id == "__cache" or id == "__app_data" or id == "__cmd_data"
 end
+
+-- return 0 means ok
+-- return -1 means insert failed
+-- return -2 means invalid param
+-- return -3 means get db failed
+function want_insert_unique_name(tbl, name, doc)
+    if (type(tbl) ~= "string" or type(name) ~= "string") or (doc ~= nil and type(doc) ~= "table")then
+        ERROR("zhoujy_error: invalid param, tbl=%s, name=%s, doc=%s", tbl, name, doc)
+        return -2
+    end
+
+    local db = dbmng:getGlobal()
+    if not db then
+        return -3
+    end
+
+    doc = doc or {}
+    doc._id = name
+
+    local docs = {}
+    docs[1] = doc
+
+    local info = db:runCommand("insert", tbl, "documents", docs, "writeConcern", mongo_save_mng.COMMON_WRITE_CONCERN)
+    local is_error = false
+    if info.ok ~= nil and info.ok == 1 then
+        if info.errmsg or info.writeErrors or info.writeConcernError then
+            is_error = true
+        end
+    else
+        is_error = true
+    end
+
+    if is_error then
+        LOG("zhoujy_log: want_insert_unique_name catch error ok=%s, code=%s, errmsg=%s, writeErrors=%s, writeConcernError=%s", info.ok, info.code, info.errmsg, info.writeErrors, info.writeConcernError)
+        dumpTab(info, "want_insert_unique_name", nil, true)
+        return -1
+    end
+
+    return 0
+end
+
+--local _co_resume = _G.coroutine.resume
+--gResumeStack = ""
+--_G.coroutine.resume = function( ... )
+--    --gResumeStack = debug.traceback()
+--    _co_resume( ... )
+--end
+--
+--

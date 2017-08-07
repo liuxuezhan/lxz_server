@@ -165,9 +165,17 @@ function make_action()
     end
 
     if update then
+        --local db = dbmng:tryOne()
+        --if db then
+        --    local info = db.player:find({pid=14})
+        --    while info:hasNext() do
+        --        local data = info:next()
+        --    end
+        --end
+
         for cb, params in pairs(cb_map) do
             for id, chgs in pairs(params) do
-                cb(db, id, chgs )
+                cb(nil, id, chgs )
             end
         end
         return true
@@ -175,7 +183,7 @@ function make_action()
 end
 
 
-function global_saver()
+function do_global_saver()
     local co = coroutine.running()
     WARN( "[GLOBAL_SAVER], born, %s", tostring(co) )
     gThreadAction = co
@@ -193,6 +201,7 @@ function global_saver()
                 gThreadActionState = "idle"
                 gThreadActionTime = gTime
                 coroutine.yield()
+                gThreadActionState = "start"
             end
         end
         gThreadActionTime = gTime
@@ -240,6 +249,17 @@ function global_saver()
                 return
             end
         end
+    end
+end
+
+function global_saver()
+    local co = coroutine.running()
+    local flag, code = xpcall( do_global_saver, STACK )
+    if not flag then WARN( "[GLOBAL_SAVER], error, code=%s", code ) end
+    if gThreadAction == co then
+        gThreadAction = nil
+        gThreadActionState = "dead"
+        gThreadActionTime = 0
     end
 end
 

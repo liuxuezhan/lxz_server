@@ -97,7 +97,7 @@ function TaskMng:_getThread()
         return table.remove(self.threads)
     end
     INFO("[Autobot|TaskMng]Lack of task thread, create one")
-    return _createThrad()
+    return self:_createThrad()
 end
 
 function TaskMng:_putThread(thread)

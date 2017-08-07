@@ -337,7 +337,7 @@ function clear( idx )
         --db[ tab ]:delete( {} )
         --gPendingSave[ tab ] = nil
         --local info = db:runCommand("getLastError")
-        delete_col(tab)
+        --delete_col(tab)
         skiplist.clear( idx )
     end
 end

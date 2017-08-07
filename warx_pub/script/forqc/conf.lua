@@ -20,7 +20,7 @@ Map = 3 --服务器ID
 Tips = "robot"
 --Log = { "robot", "/home/yangjun/warx/server/script/forqc/logs/", 1440, 2, 1440, 28, 1440, 28 }
 Log = { "robot", "/home/loon/yx/logs/3/", 1440, 2, 1440, 28, 1440, 28 }
-Debugger = true
+--Debugger = true
 
 -- 脚本所在目录，可以不改，也可以用全路径
 --StartScript = "robot/robot.lua"
@@ -35,9 +35,9 @@ Daemon = 0
 DbPortG = 27017
 DbHostG = "192.168.100.12"
 GateHost = "192.168.100.12"
-GatePort = 6001 
+GatePort = 6001
 
-LogLevel = 3
+LogLevel = 1
 --Release = true
 --BuddySize = 2048
 
@@ -57,9 +57,9 @@ Autobot = {}
 Autobot.EnableMassivePlayer = true  -- 为 true 启动机器人压力测试
 Autobot.SinglePlayerIdx = 145
 -- PlayerIdx = Massive_PreIdx * 1000000 + [1, Massive_BatchCount] * 1000 + [1,LoopCount]
-Autobot.Massive_PreIdx = 1              -- 前缀ID（可用于不同机器人实例分隔ID段）
-Autobot.Massive_BatchCount = 10        -- 共执行多少次批量登录
-Autobot.Massive_LoopCount = 10          -- 每一批登录玩家数量
+Autobot.Massive_PreIdx = 2              -- 前缀ID（可用于不同机器人实例分隔ID段）
+Autobot.Massive_BatchCount = 1        -- 共执行多少次批量登录
+Autobot.Massive_LoopCount = 2          -- 每一批登录玩家数量
 Autobot.Massive_Interval = 1            -- 每间隔多少秒执行一次玩家批量创建/登录
 
 Autobot.ChoreInstantInterval = 2

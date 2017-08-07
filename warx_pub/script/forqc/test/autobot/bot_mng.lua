@@ -15,7 +15,9 @@ end
 
 local function _loadAllModule(self)
     -- load aux first
-    --require("frame/debugger") 
+    if config.Autobot.Debugger then
+        require("frame/debugger") 
+    end
     _load("auxiliary/fsm")
     _load("auxiliary/object_creator")
     _load("auxiliary/task_mng", "TaskMng")
@@ -63,6 +65,9 @@ local function _loadAllModule(self)
     -- scavenger
     _load("scavenger/scavenger_tech", "ScavengerTech")
     _load("scavenger/scavenger_task", "ScavengerTask")
+    _load("scavenger/scavenger_monster_rest", "ScavengerMonsterRest")
+    _load("scavenger/scavenger_monster_take_action", "ScavengerMonsterTakeAction")
+    _load("scavenger/scavenger_monster_recover", "ScavengerMonsterRecover")
 
     c_roi_init()
     c_roi_set_block("common/mapBlockInfo.bytes")

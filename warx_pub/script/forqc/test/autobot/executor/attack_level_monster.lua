@@ -2,9 +2,9 @@ local AttackLevelMonster = {}
 
 AttackLevelMonster.__index = AttackLevelMonster
 
-local REGION_WIDTH = 16
+local ZONE_WIDTH = 16
 local SEARCH_DISTANCE = 2
-local REGION_SEARCH_INTERVAL = 3
+local REGION_SEARCH_INTERVAL = 2
 
 local layer_info =                                                           
 {                                                                            
@@ -42,19 +42,36 @@ function AttackLevelMonster.create(...)
     return obj
 end
 
-function AttackLevelMonster:init(player, monster_type, level)
+function AttackLevelMonster:init(player, monster_type, min_level, max_level)
     player.__executors = player.__executors or {}
     player.__executors[self] = true
     self.player = player
     self.monster_type = monster_type
-    self.level = level
+    self.min_level = min_level
+    self.max_level = max_level or min_level
+    if self.min_level > self.max_level then
+        self.max_level = self.min_level
+    end
 end
 
 local function _onNewEntity(self, player, entity)
     self:_attackEntity(entity)
 end
 
-function AttackLevelMonster:_attackEntity(entity)
+local function can_attack(self, player, entity)
+    if not is_monster(entity) then
+        return
+    end
+    local prop = resmng.prop_world_unit[entity.propid]
+    if not prop then
+        return
+    end
+    if prop.Clv < self.min_level or prop.Clv > self.max_level then
+        return
+    end
+    if not player:can_move_to(entity.x, entity.y) then
+        return
+    end
     local function get_type(mode)
         if mode <= 30 then --普通
             return 1
@@ -68,41 +85,29 @@ function AttackLevelMonster:_attackEntity(entity)
             return 5
         end
     end
-    if not is_monster(entity) then
-        return
-    end
-    local prop = resmng.prop_world_unit[entity.propid]
-    if not prop then
-        return
-    end
-    if prop.Clv == self.level then
-        if 0 == self.monster_type or get_type(prop.Mode) == self.monster_type then
-            local armys = {}
-            local count = self.player:get_val("CountSoldier")
-            for id, num in pairs(self.player._arm) do
-                if num < count then
-                    armys[id] = num
-                    count = count - num
-                else
-                    armys[id] = count
-                    count = 0
-                    break
-                end
-                INFO("[Autobot|AttackLevelMonster|%d]start march to attack level monster %d|%d", self.player.pid, entity.eid, self.monster_type)
-                Rpc:siege(self.player, entity.eid, {live_soldier = armys})
-                -- TODO: 应该监控行军线及结果（添加行军线的monitor，而不是finish executor）
-                self:_finishExecutor()
-                return true
-            end
-        end
-    end
+    return 0 == self.monster_type or get_type(prop.Mode) == self.monster_type
 end
 
-local function _onNewEntities(self, player)
-    action(function()
-        wait_for_time(REGION_SEARCH_INTERVAL)
-        self:_getNextRegionEntities()
-    end)
+function AttackLevelMonster:_attackEntity(entity)
+    if can_attack(self, self.player, entity) then
+        local armys = {}
+        local count = self.player:get_val("CountSoldier")
+        for id, num in pairs(self.player._arm) do
+            if num < count then
+                armys[id] = num
+                count = count - num
+            else
+                armys[id] = count
+                count = 0
+                break
+            end
+            INFO("[Autobot|AttackLevelMonster|%d]start march to attack level monster %d|%d", self.player.pid, entity.eid, self.monster_type)
+            Rpc:siege(self.player, entity.eid, {live_soldier = armys})
+            -- TODO: 应该监控行军线及结果（添加行军线的monitor，而不是finish executor）
+            self:_finishExecutor()
+            return true
+        end
+    end
 end
 
 function AttackLevelMonster:start()
@@ -110,19 +115,16 @@ function AttackLevelMonster:start()
     -- 搜寻当前entity列表
     for k, v in pairs(self.player._etys) do
         if self:_attackEntity(v) then
+            self.player.__executors[self] = nil
             return
         end
     end
     self.running = true
     -- 没找到则搜寻其他列表
-    self.player.eventNewEntity = self.player.eventNewEntity or newEventHandler()
     self.player.eventNewEntity:add(newFunctor(self, _onNewEntity))
-    self.player.eventNewEntities = self.player.eventNewEntities or newEventHandler()
-    self.player.eventNewEntities:add(newFunctor(self, _onNewEntities))
     self.regions_it = regions(SEARCH_DISTANCE)
-    self.player_x = math.floor(self.player.x / REGION_WIDTH)
-    self.player_y = math.floor(self.player.y / REGION_WIDTH)
-    Rpc:remEye(self.player)
+    self.player_x = math.floor(self.player.x / ZONE_WIDTH)
+    self.player_y = math.floor(self.player.y / ZONE_WIDTH)
     self:_getNextRegionEntities()
 end
 
@@ -131,27 +133,30 @@ function AttackLevelMonster:_getNextRegionEntities()
         INFO("[Autobot|AttackLevelMonster|%d]it's finished", self.player.pid)
         return
     end
-    local x, y = self.regions_it()
-    if nil == x then
-        self:_finishExecutor()
-        INFO("[Autobot|AttackLevelMonster|%d]Not found monster", self.player.pid)
-        return
+
+    for x, y in self.regions_it do
+        local zone_x = self.player_x + x
+        local zone_y = self.player_y + y
+        x = zone_x * ZONE_WIDTH + math.floor(ZONE_WIDTH / 2)
+        y = zone_y * ZONE_WIDTH + math.floor(ZONE_WIDTH / 2)
+        if self.player:can_move_to(x, y) then
+            INFO("[Autobot|AttackLevelMonster|%d]search monster in region(%d,%d)", self.player.pid, zone_x, zone_y)
+            self.player:moveEye(x, y)
+            self.timer_id = AutobotTimer:addTimer(newFunctor(self, AttackLevelMonster._getNextRegionEntities), REGION_SEARCH_INTERVAL)
+            return
+        end
     end
-    INFO("[Autobot|AttackLevelMonster|%d]search monster in region(%d,%d)", self.player.pid, self.player_x + x, self.player_y + y)
-    x = (self.player_x + x) * REGION_WIDTH + math.floor(REGION_WIDTH / 2)
-    y = (self.player_y + y) * REGION_WIDTH + math.floor(REGION_WIDTH / 2)
-    Rpc:movEye(self.player, gMapID, x, y)
+    INFO("[Autobot|AttackLevelMonster|%d]Not found monster", self.player.pid)
+    self:_finishExecutor()
 end
 
 function AttackLevelMonster:_finishExecutor()
-    if self.player.eventNewNtity then
-        self.player.eventNewEntity:del(newFunctor(self, _onNewEntity))
-    end
-    if self.player.eventNewEntities then
-        self.player.eventNewEntities:del(newFunctor(self, _onNewEntities))
-    end
+    self.player.eventNewEntity:del(newFunctor(self, _onNewEntity))
+    AutobotTimer:delTimer(self.timer_id)
+
     self.player.__executors[self] = nil
     self.running = nil
+    self.timer_id = nil
 end
 
 return AttackLevelMonster

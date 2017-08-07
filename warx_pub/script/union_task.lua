@@ -218,12 +218,12 @@ function ok(p,obj,sub) --完成悬赏任务
                 table.insert(_d[id].log,{name=p.name,num = r,tm=gTime})
                 local old = r
                 r = math.floor(r * (100-_d[id].tax_rate)/100)
-                local res = resmng.LG_RESOURCE_NAME_124100000
-                if _d[id].res == 2 then
-                    res = resmng.LG_RESOURCE_NAME_124100001
+                local c = resmng.get_conf("prop_resource",_d[id].res) 
+                if c and c.Name then
+                    p:send_system_notice(10017, {},
+                        {o.name,nformat(old),c.Name,nformat(old-r),c.Name,nformat(r),c.Name}, 
+                        {{"res",_d[id].res,r,10000}})
                 end
-                p:send_system_notice(10017, {},
-                    {o.name,nformat(old),res,nformat(old-r),res,nformat(r),res}, {{"res",_d[id].res,r,10000}})
                 if num + 1 == _d[id].num  then del(id)
                 else gPendingSave.union_task[id] = _d[id] end
             end

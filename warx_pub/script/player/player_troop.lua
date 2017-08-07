@@ -1873,7 +1873,6 @@ function troop_cure(self, troop, arms)
                         return false
                     end
                     table.sort(troop_hurt, sortf)
-                    dumpTab( "troop_hurt", troop_hurt )
 
                     for _, v in pairs(troop_hurt) do
                         local id = v[1]
@@ -2294,7 +2293,6 @@ function query_log_support_arm( self )
     local db = dbmng:getOne()
     local info = db.log_support_arm:findOne( {_id=self.pid} )
     if info then
-        dumpTab( info, "query_log_support_arm" )
         Rpc:query_log_support_arm( self, info.log or {} )
         return
     end

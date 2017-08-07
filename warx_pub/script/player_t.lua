@@ -47,7 +47,7 @@ function create(account, map, pid, culture)
     --local x, y = c_get_pos_born( culture )
     --if not x then return WARN("pid=%d, no room", pid) end
 
-    local idx = ( math.floor( pid / 2500 ) % 4 ) + 1
+    local idx = ( math.floor( pid / 1250 ) % 4 ) + 1
     local born = { 1, 3, 4, 2 }
     local x, y = c_get_pos_born( born[idx] )
     if not x then return WARN("pid=%d, no room", pid) end
@@ -618,6 +618,203 @@ function load_one(pid)
     end
 end
 
+--function firstPacket2(self, sockid, server_id, info)
+--    local from_map = info.server_id
+--    local cival = info.cival
+--    local pid = info.pid
+--    local signature = info.signature
+--    local time = info.time
+--    local open_id = info.open_id
+--    local token = info.token
+--    local token_expire = info.token_expire
+--    local extra = info.extra or ""
+--    local version = info.version
+--    local ip = pullString()
+--
+--    if config.IsEnableGm == 1 and info.debug then
+--        debug_login_with_pid(sockid, pid, from_map)
+--        return
+--    end
+--
+--    INFO( "firstPacket2, from=%s, sockid=%d, ip=%s, open_id=%s, pid=%d, did=%s, cival=%d, signature=%s, time=%s, toke=%s, token_expire=%s, version=%s, extra=%s",
+--    from_map, sockid , ip, open_id, pid, info.did, cival, signature,  time, token,  token_expire, version, extra )
+--
+--    if is_block_account( open_id ) then
+--        Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.BLOCK_ACCOUNT)
+--        INFO( "firstPacket2, block_account, ip=%s, from=%s, sockid=0x%08x, civil=%d, pid=%d, token=%s, time=%d, open_id=%s, did=%s, signature = %s, token=%s", ip, from_map,  sockid , cival, pid, token, time, open_id, info.did or "unknonw", signature, token)
+--        return
+--    end
+--
+--    if config.Version then
+--        if version < config.Version then
+--            INFO( "firstPacket2, WRONG_VERSION, ip=%s, open_id=%s, version=%d, valid=%d", ip, open_id, version, config.Version )
+--            Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.VERSION_NOT_MATCH)
+--            return
+--        end
+--    end
+--
+--    if config.IpPermit then
+--        if not config.IpPermit[ ip ] then 
+--            Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.SERVER_MAINTAIN)
+--            return
+--        end
+--    end
+--
+--    if _G.white_list.active == "true" then
+--        local list = get_white_list("list")
+--        if not list[open_id] then
+--            Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.SERVER_MAINTAIN)
+--            return
+--        end
+--    end
+--
+--    if verify_signature(open_id, token, token_expire, time, extra, signature) == false then
+--        Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.TOKEN_INVAILD)
+--        INFO( "firstPacket2, token_invalid, from=%s, sockid=0x%08x, civil=%d, pid=%d, token=%s, time=%d, open_id=%s, did=%s, signature = %s, token=%s", from_map,  sockid , cival, pid, token, time, open_id, info.did or "unknonw", signature, token)
+--        return
+--    end
+--
+--    --if verify_time(time) == false then
+--    --    Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.TOKEN_OUT_OF_DATE)
+--    --    INFO( "firstPacket2, verify_time, from=%s, sockid=0x%08x, civil=%d, pid=%d, token=%s, time=%d, open_id=%s, did=%s, signature = %s, token=%s", from_map,  sockid , cival, pid, token, time, open_id, info.did or "unknonw", signature, token)
+--    --    return
+--    --end
+--
+--    if pid > 0 then
+--        local p = getPlayer( pid )
+--        if not p then
+--            INFO( "firstPacket2, open_id=%s, pid=%d, not found, set pid = 0", open_id, pid )
+--            pid = 0
+--        else
+--            if p.account ~= open_id then
+--                INFO( "firstPacket2, open_id=%s, pid=%d, p.acount (%s) ~= open_id, set pid = 0", open_id, pid, p.account )
+--                pid = 0 
+--            end
+--        end
+--    end
+--
+--    if pid == 0 then
+--        local acc = gAccounts[ open_id ]
+--        if acc then
+--            local tick = 0
+--            for k, v in pairs( acc ) do
+--                local ply = getPlayer( k )
+--                if not ply then ply = load_one(k) end
+--                if ply then
+--                    if ply.tm_login > tick or ply.tm_logout > tick then
+--                        tick = math.max( ply.tm_login, ply.tm_logout )
+--                        pid = k
+--                    end
+--                end
+--            end
+--        else
+--            INFO( "firstPacket2, new_account, open_id=%s, did=%s, ip=%s", open_id, info.did or "unknown", ip or "unknown" )
+--        end
+--
+--        if pid == 0 then
+--            Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.NO_CHARACTER)
+--            return
+--        else
+--            INFO( "firstPacket2, open_id=%s, pid=0, pid=%d, last_hit", open_id, pid )
+--        end
+--    end
+--
+--    local p = false
+--    if pid == -1 then
+--        --查看是否建号超过4个
+--        local count = 0
+--        for k, v in pairs(gAccounts[open_id] or {}) do
+--            count = count + 1
+--        end
+--        if count >= 4 then
+--            Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.FULL)
+--            return
+--        end
+--
+--        if get_sys_status( "NoCreateRole" ) == "yes" then 
+--            Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.FULL)
+--            INFO( "[NoCreateRole], open_id=%s, ip=%s", open_id, ip )
+--            return
+--        end
+--
+--        if config.MaxPlayer and gTotalCreate >= config.MaxPlayer then
+--            Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.FULL)
+--            INFO( "[MaxPlayer], open_id=%s, ip=%s, max=%d, cur=%d", open_id, ip, config.MaxPlayer, gTotalCreate )
+--            return
+--        end
+--
+--        pid = getId("pid")
+--        
+--        p = player_t.create(open_id, gMapID, pid, cival)
+--        if not p then
+--            Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.LOGIN_ERROR)
+--            return
+--        end
+--        gPendingInsert.online[ pid ] = { online = 0, pid=pid, uid=open_id, did=info.did, create=gTime, ip=ip} 
+--        gTotalCreate = gTotalCreate + 1
+--
+--        INFO( "firstPacket2, create_character, open_id=%s, new pid=%d", open_id, pid )
+--        INFO( "[TotalCreate], %d", gTotalCreate )
+--
+--        --todo, for xuezhan
+--        p.ip = ip
+--        p:pre_tlog("PlayerRegister","iphone6","ios","oper","wifi","800","600",2000)
+--    end
+--
+--    p = getPlayer(pid)
+--    if not p then
+--        Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.LOGIN_ERROR)
+--        return
+--    end
+--
+--
+--    if p.account ~= open_id then
+--        Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.PID_ERROR)
+--    end
+--
+--    if gTime < (p.nologin_time or 0) then
+--        Rpc:tips(p, 3, resmng.NOLOGIN_TIME, {tms2str(p.nologin_time)})
+--        Rpc:logout(p)
+--        return
+--    end
+--
+--    if p.token ~= token then
+--        p.token = token
+--        gPendingSave.player[ p.pid ].token = token
+--    end
+--
+--    p:upload_user_info()
+--    p.sockid = sockid
+--
+--    Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.SUCCESS)
+--
+--    INFO( "[LOGIN], from=%s, ip=%s, open_id=%s, did=%s, pid=%d, name=%s, lv=%s, gold=%s", from_map, ip, open_id, info.did, pid, p.name, p.lv, p.gold )
+--
+--    if p.map ~= gMapID and p.map ~= 0 then
+--        pushHead(_G.GateSid, 0, 9)  -- set server id
+--        pushInt(sockid)
+--        pushInt(p.map)
+--        pushInt(p.pid)
+--        pushOver()
+--        local info = {}
+--        info.token = p.token
+--        info.sockid = p.sockid
+--        info.ip = p.ip
+--        Rpc:callAgent(p.map, "agent_login", p.pid, info)
+--    else
+--        pushHead(_G.GateSid, 0, 9)  -- set server id
+--        pushInt(sockid)
+--        pushInt(from_map)
+--        pushInt(p.pid)
+--        pushOver()
+--        player_t.login( p, p.pid )
+--    end
+--
+--    --todo
+--    p.ip = ip
+--    p:pre_tlog("PlayerLogin",p.gold,0,"iphone6","ios","oper","wifi","800","600",2000)
+--end
+
 function firstPacket2(self, sockid, server_id, info)
     local from_map = info.server_id
     local cival = info.cival
@@ -636,7 +833,12 @@ function firstPacket2(self, sockid, server_id, info)
         return
     end
 
-    --[[
+    if login_queue.is_in_queue(sockid) then
+        Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.IN_QUEUE)
+        INFO( "firstPacket2, already in login queue, ip=%s, from=%s, sockid=0x%08x, civil=%d, pid=%d, token=%s, time=%d, open_id=%s, did=%s, signature = %s, token=%s", ip, from_map,  sockid , cival, pid, token, time, open_id, info.did or "unknonw", signature, token)
+        return
+    end
+
     INFO( "firstPacket2, from=%s, sockid=%d, ip=%s, open_id=%s, pid=%d, did=%s, cival=%d, signature=%s, time=%s, toke=%s, token_expire=%s, version=%s, extra=%s",
     from_map, sockid , ip, open_id, pid, info.did, cival, signature,  time, token,  token_expire, version, extra )
     --]]
@@ -678,12 +880,19 @@ function firstPacket2(self, sockid, server_id, info)
     end
     --]]
 
-    --if verify_time(time) == false then
-    --    Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.TOKEN_OUT_OF_DATE)
-    --    INFO( "firstPacket2, verify_time, from=%s, sockid=0x%08x, civil=%d, pid=%d, token=%s, time=%d, open_id=%s, did=%s, signature = %s, token=%s", from_map,  sockid , cival, pid, token, time, open_id, info.did or "unknonw", signature, token)
-    --    return
-    --end
+    local pack = {}
+    table.insert(pack, sockid)
+    table.insert(pack,  pid)
+    table.insert(pack,  open_id)
+    table.insert(pack,  ip)
+    table.insert(pack,  cival)
+    table.insert(pack,  token)
+    table.insert(pack,  from_map)
+    table.insert(pack,  info.did)
+    return handle_login_from_queue(table.unpack(pack))
+end
 
+function handle_login_from_queue(sockid, pid, open_id, ip, cival, token, from_map, did)
     if pid > 0 then
         local p = getPlayer( pid )
         if not p then
@@ -698,7 +907,7 @@ function firstPacket2(self, sockid, server_id, info)
     end
 
     if pid == 0 then
-        local acc = gAccounts[ open_id ]
+        local acc = gAccounts[ open_id] 
         if acc then
             local tick = 0
             for k, v in pairs( acc ) do
@@ -712,7 +921,7 @@ function firstPacket2(self, sockid, server_id, info)
                 end
             end
         else
-            INFO( "firstPacket2, new_account, open_id=%s, did=%s, ip=%s", open_id, info.did or "unknown", ip or "unknown" )
+            INFO( "firstPacket2, new_account, open_id=%s, did=%s, ip=%s", open_id, did or "unknown", ip or "unknown" )
         end
 
         if pid == 0 then
@@ -754,7 +963,7 @@ function firstPacket2(self, sockid, server_id, info)
             Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.LOGIN_ERROR)
             return
         end
-        gPendingInsert.online[ pid ] = { online = 0, pid=pid, uid=open_id, did=info.did, create=gTime, ip=ip} 
+        gPendingInsert.online[ pid ] = { online = 0, pid=pid, uid=open_id, did=did, create=gTime, ip=ip} 
         gTotalCreate = gTotalCreate + 1
 
         INFO( "firstPacket2, create_character, open_id=%s, new pid=%d", open_id, pid )
@@ -793,7 +1002,7 @@ function firstPacket2(self, sockid, server_id, info)
     --Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.SUCCESS)
     Rpc:first_packet_ack(p, LOGIN_ERROR.SUCCESS)
 
-    INFO( "[LOGIN], from=%s, ip=%s, open_id=%s, did=%s, pid=%d, name=%s, lv=%s, gold=%s", from_map, ip, open_id, info.did, pid, p.name, p.lv, p.gold )
+    INFO( "[LOGIN], from=%s, ip=%s, open_id=%s, did=%s, pid=%d, name=%s, lv=%s, gold=%s", from_map, ip, open_id, did, pid, p.name, p.lv, p.gold )
 
     if p.map ~= gMapID and p.map ~= 0 then
         pushHead(_G.GateSid, 0, 9)  -- set server id
@@ -830,6 +1039,7 @@ function login(self, pid)
         p.gid = gid
         p.emap = gMapID
         rawset( p, "tick", gTime )
+        rawset( p, "_auto_mass", nil )
 
         local pay_token = get_pay_token(self)
         Rpc:onLogin(p, p.pid, p.name)
@@ -901,28 +1111,31 @@ function onBreak(self, sockid)
     INFO("[LOGIN], off, pid=%d, lv=%s, gold=%s, name=%s, sockid=%d", self.pid or 0, self.lv, self.gold, self.name or "unknonw", sockid)
     if self.tm_login == gTime then self.tm_login = gTime - 1 end
     self.tm_logout = gTime
-    self:remEye()
+    if self.pid ~= 0 then
+        self:remEye()
 
-    rawset( self, "gid", nil )
-    if g_online_num and  g_online_num  > 0 then g_online_num = g_online_num  - 1 end
+        rawset( self, "gid", nil )
+        if g_online_num and  g_online_num  > 0 then g_online_num = g_online_num  - 1 end
 
-    local node = gOnlines[ self.pid ]
-    if node then
-        local dura = node[2] - node[1]
-        if dura > 0 then
-            local db = dbmng:tryOne()
-            if db then
-                db.online:update( {_id=self.pid}, { ["$inc"] = {online=dura } }, true )
+        local node = gOnlines[ self.pid ]
+        if node then
+            local dura = node[2] - node[1]
+            if dura > 0 then
+                local db = dbmng:tryOne()
+                if db then
+                    db.online:update( {_id=self.pid}, { ["$inc"] = {online=dura } }, true )
+                end
             end
+            gOnlines[ self.pid ] = nil
         end
-        gOnlines[ self.pid ] = nil
-    end
 
-    local u  = unionmng.get_union(self.uid)
-    if u then
-        u:notifyall(resmng.UNION_EVENT.MEMBER, resmng.UNION_MODE.UPDATE, {pid=self.pid,tm_login=self.tm_login,tm_logout=self.tm_logout})
+        local u  = unionmng.get_union(self.uid)
+        if u then
+            u:notifyall(resmng.UNION_EVENT.MEMBER, resmng.UNION_MODE.UPDATE, {pid=self.pid,tm_login=self.tm_login,tm_logout=self.tm_logout})
+        end
+        self:pre_tlog("PlayerLogout",self.gold,0)
     end
-    self:pre_tlog("PlayerLogout",self.gold,0)
+    login_queue.after_break(sockid)  --退出队列
 end
 
 function is_online(self)
@@ -1173,7 +1386,13 @@ registe_update_callback( "player", player_t.on_check_pending )
 gSync = {}
 
 function check_pending()
-    while next( gDelayAction ) do
+    local flag = false
+    for k, v in pairs( gDelayAction or {} ) do
+        flag = true 
+        break
+    end
+    if flag then
+    --while next( gDelayAction ) do
         local co, flag, code
         if #gGlobalThreadDelayAction > 0 then
             co = table.remove( gGlobalThreadDelayAction )
@@ -1185,7 +1404,7 @@ function check_pending()
             coro_mark( co, "outpool" )
             flag, code = coroutine.resume( co )
         end
-        if flag and code == "ok" then break end
+        --if flag and code == "ok" then break end
     end
 
     local notifys = troop_t.gPendingNotify
@@ -1924,14 +2143,14 @@ end
 
 function onQryCross(self, toPid, sn, smap, spid, cmd, arg)
     LOG("onQryCross, toPid=%d, smap=%d, spid=%d, sn=%d, cmd=%s", toPid, smap, spid, sn, cmd)
-    dumpTab(arg, "QryCross")
+    --dumpTab(arg, "QryCross")
     local code = 0
     Rpc:onAckCross(_G.gAgent, smap, sn, code, arg)
 end
 
 function onAckCross(self, smap, sn, code, res)
     LOG("onAckCross, smap=%d, sn=%d, code=%d", smap, sn, code)
-    if code == 0 then dumpTab(res, "AckCross") end
+    --if code == 0 then dumpTab(res, "AckCross") end
     local co = getCoroPend("rpc", sn)
     if co then
         coroutine.resume(co, code, res)
@@ -1942,7 +2161,7 @@ function testQryCross(self)
     -- -2, the pid is minus, means the map 2, pid 0
     local code, tab = self:qryCross(2, "sayHello", {a=1, b="string"})
     LOG("qryCross, code=%d", code)
-    if code == 0 then dumpTab(tab) end
+    --if code == 0 then dumpTab(tab) end
 end
 
 local function sendCertify(proc, code)
@@ -3604,7 +3823,7 @@ end
 function testPack(self, i1, p2, s3)
     LOG("testPack, i1=%d, s3=%s", i1,s3)
     LOG("testPack, pack = ")
-    dumpTab(p2)
+    --dumpTab(p2)
     Rpc:testPack(self, i1, p2, s3)
 end
 
@@ -3857,7 +4076,6 @@ function do_genius(self, id)
     setIns( tab, id )
     self.genius = tab
     self.talent = self.talent-1
-    dumpTab( tab, "genius" )
 end
 
 
@@ -3868,7 +4086,6 @@ end
 function query_fight_info(self, fid)
     local node = fight.gFightReports[ fid ]
     if node then
-        --dumpTab(node[2], "query_fight_info")
         Rpc:fightInfo(self, node[2])
     else
         reply_ok(self, "query_fight_info", 0, E_NO_REPORT)
@@ -5403,8 +5620,6 @@ function get_eye_info(self,eid)--查询大地图建筑信息
         info.tmOver_b = dp.tmOver_b
         info.speed_b = dp.speed_b
 
-        dumpTab( info, "get_eye_info" )
-
         pack.dp = info
         if dp.state == BUILD_STATE.CREATE or dp.state == BUILD_STATE.UPGRADE then
             pack.troop = self:get_hold_info(dp)
@@ -5457,7 +5672,6 @@ function get_eye_info(self,eid)--查询大地图建筑信息
                 end
             end
             pack.troop = troop
-            dumpTab(pack, "get_eye_info")
             Rpc:get_eye_info(self,eid,pack)
             return
         end
@@ -6078,6 +6292,10 @@ function set_mc_start_time_req(self, time, grade)
     end
 end
 
+function add_tips( self, mode, id, param )
+    Rpc:tips(self, mode, id, param or {} )
+end
+
 function get_mc_akt_info_req(self)
     local union = unionmng.get_union(self.uid)
     local pack = {}
@@ -6159,8 +6377,7 @@ function chat_account_info_req(self)
 end
 
 function create_chat_account(ply)
-    --to_tool(0, {type = "chat", cmd = "create_chat", user = tostring(ply.pid), host = CHAT_HOST, password = tostring(ply.pid)})
-   to_tool(0, {url = config.Chat_url or CHAT_URL, type = "chat", method = "post", cmd = "create_chat", user = tostring(ply.pid), host = CHAT_HOST,password = tostring(ply.pid)})
+   --to_tool(0, {url = config.Chat_url or CHAT_URL, type = "chat", method = "post", cmd = "create_chat", user = tostring(ply.pid), host = CHAT_HOST,password = tostring(ply.pid)})
 end
 
 --- register result  chat call back
@@ -6296,36 +6513,6 @@ function vip_buy_gift( self, idx )
     self.vip_gift = set_bit( self.vip_gift, idx )
 end
 
-
-
---function report_new( self, mode, val )
---    if mode < MAIL_REPORT_MODE.GATHER or mode > MAIL_REPORT_MODE.LOSTTEMPLE then return end
---    local maxid = self.report_max
---    if not maxid then
---        maxid = 0
---        for _, v in pairs( self.report_idx ) do
---            if v > maxid then maxid = v end
---        end
---    end
---    maxid = maxid + 1
---    val.tm = gTime
---    val.idx = maxid
---    self.report_idx[ mode ] = maxid
---    self.report_idx = self.report_idx
---
---    local db = dbmng:getOne()
---    local tab = string.format("report%d", mode)
---    --db[tab]:update( {_id=self.pid}, { ["$push"]={ vs={["$each"]={val}, ["$slice"]=-20 }} }, true )
---    --todo
---    db[tab]:update( {_id=self.pid}, { ["$push"]={ vs=val}}, true )
---
---
---    --dumpTab( val, "report" )
---    if self:is_online() then
---        Rpc:report_notify( self, mode, val )
---    end
---end
---
 
 function report_new( self, mode, m )
     local lv = 0
@@ -6724,12 +6911,13 @@ function add_msg( self, what, info )
     end
 
     local db = self:getDb()
-    local key = string.format( "msg_%s", what )
-    db[ key ]:update( {_id=self.pid}, { ["$push"] = { msgs={ ["$each"] = {info}, ["$slice"]=-20}}}, true )
+    if db then
+        local key = string.format( "msg_%s", what )
+        db[ key ]:update( {_id=self.pid}, { ["$push"] = { msgs={ ["$each"] = {info}, ["$slice"]=-20}}}, true )
+    end
 
-    local info = db:runCommand( "getLastError" )
-    dumpTab( info, "add_msg" )
-
+    --local info = db:runCommand( "getLastError" )
+    --dumpTab( info, "add_msg" )
 end
 
 function load_msg( self, what )
@@ -6859,7 +7047,6 @@ function query_around( self, param, eid, range )
                 table.insert( infos, {eid, e.propid, e.x, e.y } )
             end
         end
-        --dumpTab( infos, "query_around" )
         Rpc:query_around( self, param, infos )
     end
 end

@@ -853,9 +853,7 @@ function rem_buf(self, bufid, tmOver)
 end
 
 function get_memberlimit(self)--军团人数上限
-    if self:is_new() then 
-        return 50 
-    end
+    if self:is_new() then return 50 end
     local c = resmng.get_conf("prop_effect_type", "CountMember")
     if not c then c = {} end
     local num = get_val_by("CountMember",self:get_ef())
@@ -1062,9 +1060,12 @@ function rm_member(self, A,kicker)
     self:clear_score_by_pid(A.pid)  --清除军团积分
 
     if #A._union.history < 4 then
-        for _, v in pairs(A:union_hot()) do
-            local leader = getPlayer(v.leader)
-            leader:union_invite(A.pid)
+        for _, u in pairs(A:union_hot()) do
+            if u.membercount < u:get_memberlimit() then
+                local leader = getPlayer(u.leader)
+                leader:union_invite(A.pid)
+                break;
+            end
         end
     end
 

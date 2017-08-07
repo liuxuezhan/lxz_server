@@ -39,6 +39,10 @@ function TroopTakeAction:AttackLevelMonster(con_type, con_level)
     INFO("[Autobot|TroopAction|AttackLevelMonster|%d] monster info: %d|%d", self.host.player.pid, con_type, con_level)
 
     -- TODO: 条件判定
+    if self.host.player.sinew < 5 then
+        -- TODO: 若是必须杀的怪，是则创建体力值监听体力恢复事件并重新加入
+        return false
+    end
 
     local executor = AttackLevelMonster.create(self.host.player, con_type, con_level)
     executor:start()
@@ -60,7 +64,7 @@ function TroopTakeAction:AttackSpecialMonster(task_id, monster_id)
             break
         end
     end
-    INFO("[Autobot|TroopAction|AttackSpecialMonster|%d] monster info: %d", self.host.player.pid, monster_id)
+    INFO("[Autobot|TroopAction|AttackSpecialMonster|%d] monster info: %d|%d", self.host.player.pid, task_id, monster_id)
     Rpc:siege_task_npc(player, task_id, player.eid, player.x + 10, player.y + 10, {live_soldier = armys})
 
     return true

@@ -15,6 +15,12 @@ function AutobotTimer:addPeriodicTimer(functor, interval, ...)
 end
 
 function AutobotTimer:delPeriodicTimer(id)
+    if nil == id then
+        return
+    end
+    if self.periodic_routines[id] then
+        timer.del(id)
+    end
     self.periodic_routines[id] = nil
 end
 
@@ -28,7 +34,13 @@ function AutobotTimer:addTimer(functor, interval, ...)
     return id
 end
 
-function AutobotTimer:delTimer(functor, interval, ...)
+function AutobotTimer:delTimer(id)
+    if nil == id then
+        return
+    end
+    if self.normal_routines[id] then
+        timer.del(id)
+    end
     self.normal_routines[id] = nil
 end
 

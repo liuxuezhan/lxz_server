@@ -8,7 +8,6 @@ function ScavengerTask:onInit()
 end
 
 function ScavengerTask:onEnter()
-    --self.needUpdate = true
     self.last_execute_time = gTime
     self.periodic_id = AutobotTimer:addPeriodicTimer(newFunctor(self, ScavengerTask._processTask), executing_interval)
 end

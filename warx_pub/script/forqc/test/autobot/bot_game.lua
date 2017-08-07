@@ -65,7 +65,17 @@ local function _createTechScavenger(self)
     local scavenger = Workline:createInstance(self.host.player.tech_manager)
     scavenger:addState("Main", ScavengerTech, true)
     self:_addScavenger(scavenger)
-    return line
+    return scavenger
+end
+
+local function _createMonsterScavenger(self)
+    local troop_manager = self.host.player.troop_manager
+    local scavenger = Workline:createInstance(troop_manager)
+    scavenger:addState("Rest", ScavengerMonsterRest, true)
+    scavenger:addState("TakeAction", ScavengerMonsterTakeAction)
+    scavenger:addState("Recover", ScavengerMonsterRecover)
+    self:_addScavenger(scavenger)
+    return scavenger
 end
 ------------------ end scavenger ------------------
 
@@ -117,6 +127,7 @@ function BotGame:onEnter()
     -- Scavengers
     _createTechScavenger(self)
     _createTaskScavenger(self)
+    _createMonsterScavenger(self)
 
     _startAllWorkline(self)
 end
@@ -126,6 +137,7 @@ function BotGame:onUpdate()
 end
 
 function BotGame:onExit()
+    self.host:uninitPlayer()
 end
 
 function BotGame:_addWorkline(line)

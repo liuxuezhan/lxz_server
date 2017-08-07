@@ -1596,6 +1596,7 @@ function is_pvp( troop )
             local D = get_ety( troop.target_eid )
             if D and is_res( D ) then
                 if D.pid >= 10000 then
+                    if D.pid == troop.owner_pid then return false end
                     if not (troop.owner_uid > 0 and troop.owner_uid == D.uid) then return true end
                 end
 

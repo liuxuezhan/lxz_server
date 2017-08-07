@@ -62,7 +62,7 @@ function check_pending()
     for pid, chgs in pairs(_cache) do
         if not chgs._n_ then
             db.player:update({_id=pid}, {["$set"]=chgs}, true)
-            dumpTab(chgs, "update player")
+            --dumpTab(chgs, "update player")
             local p = getPlayer(pid)
             if p and p.notify then p:notify(chgs) end
             chgs._n_ = cur

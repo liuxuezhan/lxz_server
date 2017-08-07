@@ -134,8 +134,6 @@ function get(u) --查询
         u.task.cur[5] = { idx=5, class = t[1],  tm = tm , num = 0, state = state }
         u.task.cur[6] = { idx=6, class = t[2],  tm = tm, num = 0, state = state }
 
-        dumpTab(u.task, "u task")
-
         gPendingSave.union_mission[u.uid] = u.task 
     else --查询
         if u:is_new() then

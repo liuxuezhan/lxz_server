@@ -6,7 +6,7 @@ Struct.UnionEnlist = "string text, int lv, int pow,int check"
 Struct.UnionRankAlias = "array string rank_alias"
 Struct.UnionInfo = "int uid,int new_union_sn, string name, string alias, int mars_propid, int membercount,\
                     int memberlimit, int language, int flag, string note_in, string leader, int pow, int tm_buf_over,\
-                    struct UnionEnlist enlist, int state, int range, array string rank_alias"
+                    struct UnionEnlist enlist, int state, array string rank_alias"
 Struct.PlayerInfo = "int pid, string name,int language,int photo,int pow"
 Struct.UnionRank = "int what, array struct UnionRank1 val"
 Struct.UnionRank1 = "int rank, string name,int techexp,int pid, int donate,int photo "

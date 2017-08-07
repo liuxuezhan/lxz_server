@@ -48,8 +48,10 @@ local function accept(fd, addr)
                     if plys[fd] then
                         player_t[d.f](plys[fd], unpack(d.args)  ) 
                     end
-                    lxz(d.f,profile.stop())
+                    lxz(profile.stop())
                 end
+            else
+                break
             end
         else
             lxz(msg)
@@ -102,6 +104,6 @@ skynet.start(function()
         lxz(string.format("disconnect from %s (fd = %d),cur=%d", addr, fd,client_number))
     end
     )
-    skynet.newservice("warx_pub/client")
+    --skynet.newservice("warx_pub/client")
 end)
 

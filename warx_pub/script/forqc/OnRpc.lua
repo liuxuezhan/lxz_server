@@ -112,15 +112,23 @@ function OnRpc.stateBuild( p, info )
     end
 end
 
+local pro_event = {
+    tech = "eventTechUpdated",
+    bufs = "eventBufUpdated",
+    genius = "eventGeniusUpdated",
+    sinew = "eventSinewUpdated",
+}
+
 function OnRpc.statePro( p, info )
     for k, v in pairs( info ) do
+        local old_value = p[ k ]
         p[ k ] = v
-        if "tech" == k then
-            if p.eventTechUpdated then p.eventTechUpdated(p, v) end
-        elseif "bufs" == k then
-            if p.eventBufUpdated then p.eventBufUpdated(p, v) end
-        elseif "genius" == k then
-            if p.eventGeniusUpdated then p.eventGeniusUpdated(p, v) end
+
+        local event_name = pro_event[ k ]
+        if event_name then
+            if p[event_name] then
+                p[event_name](p, v, old_value)
+            end
         end
     end
 end

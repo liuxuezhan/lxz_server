@@ -174,6 +174,7 @@ function get_reply(request_id, sock, extra)
 
     --LOG("get_reply, request_id = %d", request_id)
     local  data, succ, reply_id, doc, cursor = putCoroPend("db", request_id, extra)
+    --INFO( "RESUME, get_reply, request_id=%s, reply_id=%s, succ=%s", request_id, reply_id, succ )
     return data, succ, reply_id, doc, cursor
 end
 
@@ -202,8 +203,10 @@ function mongo.recvReply(sock)
         end
         local succ, reply_id, doc, cursor = driver.reply(reply, doc)
         if co then
+            --INFO( "recvReply, succ=%s, reply_id=%s", succ, reply_id )
             coroutine.resume(co, reply, succ, reply_id, doc, cursor)
         else
+            --INFO( "recvReply, succ=%s, reply_id=%s, not found co", succ, reply_id )
             -- mongo reconnect后已经从gCoroPend中删除了co，此时co可能为空
         end
     else
@@ -408,7 +411,12 @@ function mongo_cursor:hasNext()
             is_global = conn.__is_global,
         }
 		local data, succ, reply_id, doc, cursor = get_reply(request_id, sock, extra)
-		assert(request_id == reply_id, "Reply from mongod error")
+
+        if request_id ~= reply_id then
+            WARN( "[MONGO], error, request_id=%s, reply_id=%s", request_id, reply_id )
+            return false
+        end
+
 		if succ then
 			if doc then
 				self.__data = data

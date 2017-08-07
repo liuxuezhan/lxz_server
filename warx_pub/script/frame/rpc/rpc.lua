@@ -277,10 +277,29 @@ local function sendToSock( rpc, sockid, name,  ... )
 		error(string.format("expected %d arguments, but passed in %d",#rf.args,#arg))
 	end
 
-    --local NET_SEND_TO_SCK = 730939457
-    pushHead(_G.GateSid, 0, 730939457 )
-    pushInt( sockid )
-    pushInt( rf.id )
+    if not _G.GateSid then return end
+
+    local sockid_array = {}
+    if type(sockid) == "number" then
+        table.insert(sockid_array, sockid)
+    elseif type(sockid) == "table" then
+        for i, v in ipairs(sockid) do
+            table.insert(sockid_array, v)
+        end
+    else
+        error(string.format("sockid must be number or table! name=%s", name))
+        return
+    end
+
+    local num = #sockid_array
+    if num == 0 then return end
+    
+    pushHead(_G.GateSid, 0, 730939457)
+    pushInt(num)
+    for i, sid in ipairs(sockid_array) do
+        pushInt(sid)
+    end
+    pushInt(rf.id)
 
     push_args( rf.args, arg )
 

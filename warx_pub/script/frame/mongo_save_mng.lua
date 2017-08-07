@@ -494,7 +494,7 @@ function do_threadDB()
                     err_db_tab = _save_data.global_db
                 end
 
-                ERROR("zhoujy_warning: do_threadDB catch a error! error_cnt=%d support write cmd only!", #err_db_tab.error_data + 1)
+                ERROR("zhoujy_error: do_threadDB catch a error! error_cnt=%d support write cmd only!", #err_db_tab.error_data + 1)
                 local one_error = {
                     is_raw_save = is_raw_save,
                     frame_id = frame_id,

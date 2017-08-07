@@ -289,7 +289,7 @@ function get_account( idx )
         gHavePlayers[ idx ] = node
     end
 
-    local sid = connect(config.GateHost, config.GatePort, 0, 0 )
+    local sid = connect(config.GateHost, config.GatePort, 1, 0 )
     if sid then
         node.action = "login"
         node.gid = sid
@@ -341,7 +341,7 @@ function get_account2( name,url_s,url_u,key,idx )
     node.idx = idx
     gHavePlayers[ idx ] = node
 
-    local sid = connect(ip, 8001, 0, 0 )
+    local sid = connect(ip, 8001, 1, 0 )
     if sid then
         node.action = "test_login"
         node.gid = sid

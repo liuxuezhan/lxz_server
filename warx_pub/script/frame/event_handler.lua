@@ -1,36 +1,36 @@
 local eventHandler_mt = {
     __call = function(t, ...)
-        for k, v in ipairs(t.__subscriber) do
-            v(...)
+        for k, v in pairs(t.__subscriber) do
+            k(...)
         end
     end,
     __index = eventHandler_mt,
     add = function(self, functor)
-        for k, v in ipairs(self.__subscriber) do
-            if v == functor then
-                print("same functor")
+        for k, v in pairs(self.__subscriber) do
+            if k == functor then
+                ERROR("[EventHandler] try to add same functor.")
                 return
             end
         end
-        table.insert(self.__subscriber, functor)
+        self.__subscriber[functor] = true
     end,
     del = function(self, functor)
-        local index = nil
-        for k, v in ipairs(self.__subscriber) do
-            if v == functor then
-                index = k
+        for k, v in pairs(self.__subscriber) do
+            if k == functor then
+                self.__subscriber[k] = nil
                 break
             end
         end
-        if nil ~= index then
-            table.remove(self.__subscriber, index)
-        end
     end,
     clear = function(self)
-        self.__subscriber = setmetatable({}, {__mode="v"})
+        self.__subscriber = setmetatable({}, {__mode="k"})
     end,
     count = function(self)
-        return #self.__subscriber
+        local count = 0
+        for k, v in pairs(self.__subscriber) do
+            count = count + 1
+        end
+        return count
     end
 }
 eventHandler_mt.__index = eventHandler_mt

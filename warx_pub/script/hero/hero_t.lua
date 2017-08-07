@@ -718,7 +718,7 @@ function star_up(self)
     -- 大升星
     local old_talent_skill = self.talent_skill
     local new_talent_skill, big_star_lv = heromng.get_talent_skill(self.propid, self.star)
-    print(string.format("star_up, star=%d, big_start_lv=%s, skill=%s", self.star, big_star_lv, new_talent_skill))
+    --print(string.format("star_up, star=%d, big_start_lv=%s, skill=%s", self.star, big_star_lv, new_talent_skill))
     if new_talent_skill and old_talent_skill ~= new_talent_skill then
         -- 解锁技能栏位
         if not self.basic_skill[big_star_lv] then

@@ -4,7 +4,7 @@ local t1 = {}
 function t1.action( idx )
     local total = 0
     local t1 = c_msec()
-    local count = 20000
+    local count = 5000
     for i = 1, count, 1 do
         if total - gCountLoadData < 80 then
             total = total + 1

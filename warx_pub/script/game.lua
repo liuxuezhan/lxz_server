@@ -36,6 +36,7 @@ end
 
 function do_reload()
     do_load("resmng")
+    do_load("frame/login_queue")
     do_load("game")
     do_load("mem_monitor")
     do_load("constant/constant")
@@ -68,6 +69,7 @@ function do_reload()
     do_load("player/player_operate")
     do_load("player/player_hero_road")
     do_load("player/player_hero_task")
+    --do_load("player/player_hero_equip")
     do_load("agent_t")
     do_load("build_t")
     do_load("player/player_troop")
@@ -494,184 +496,20 @@ function send_invite()
 
 end
 
+function test_thread1()
+    INFO( "hello = %d",  bb_ )
+    assert( false, "shit shit shit" )
+end
+
+function test_thread()
+    --test_thread1()
+    xpcall( test_thread1, STACK )
+end
+
 
 function test(id)
-    --gPendingInsert.test[1] = {a="b", c="d"}
-    --gPendingInsert.test[1] = {e="f"}
-
-
-    local rids = {
-        1502480137,
-        2109937726,
-        157621797,
-        1923780972,
-        196969287,
-        1433481197,
-        206363805,
-        393583197,
-        1102596737,
-        359104097,
-    }
-
-    for k, v in ipairs( rids ) do
-        local node = Rpc.localF[ v ]
-        print( v, node.name )
-    end
-
-    local ns = {
-        {798001119, 890, 1244, 1397},
-        {135185993, 2, 3, 1500},
-        {1472712897, 72, 108, 1500},
-        {393583197, 3028, 4801, 1585},
-        {1524610729, 10, 16, 1600},
-        {183746984, 646, 1039, 1608},
-        {1569020298, 320, 524, 1637},
-        {96213039, 123, 207, 1682},
-        {975817409, 124, 214, 1725},
-        {2010336858, 46, 83, 1804},
-        {1102596737, 3059, 5763, 1883},
-        {1090649378, 1, 2, 2000},
-        {400966909, 23, 46, 2000},
-        {2068420318, 12, 25, 2083},
-        {359104097, 3109, 7212, 2319},
-        {1553452151, 3, 7, 2333},
-        {798787189, 31, 75, 2419},
-        {2121008823, 301, 751, 2495},
-        {326180269, 4, 10, 2500},
-        {294628538, 5, 13, 2600},
-        {514716984, 5, 13, 2600},
-        {157621797, 1414, 3730, 2637},
-        {1168354026, 3, 8, 2666},
-        {575404459, 29, 79, 2724},
-        {259854322, 96, 280, 2916},
-        {1071939102, 6, 18, 3000},
-        {1551716341, 7, 22, 3142},
-        {2018864233, 14, 46, 3285},
-        {201287549, 33, 121, 3666},
-        {1056903569, 17, 64, 3764},
-        {2093118677, 1, 4, 4000},
-        {456538552, 1, 4, 4000},
-        {97893147, 7, 30, 4285},
-        {748250112, 223, 980, 4394},
-        {206363805, 2237, 9863, 4409},
-        {1815056972, 6, 28, 4666},
-        {1019996971, 1, 5, 5000},
-        {1086361970, 461, 2354, 5106},
-        {2078887350, 10, 52, 5200},
-        {1526195904, 6, 32, 5333},
-        {678995975, 66, 363, 5500},
-        {1506482774, 16, 115, 7187},
-        {1472690236, 12, 90, 7500},
-        {799185316, 29, 229, 7896},
-        {1080338257, 3, 36, 12000},
-        {247548640, 4, 51, 12750},
-        {159043482, 10, 130, 13000},
-        {1433481197, 1672, 23200, 13875},
-        {888840546, 3, 59, 19666},
-        {565925220, 1, 21, 21000  },
-
-    }
-    for k, v in ipairs( ns ) do
-        local node = Rpc.localF[ v[1] ]
-        print( string.format( "count=%d, avg=%d, use=%d, name=%s ", v[2], v[4], v[3], node.name ) )
-    end
-
-
-    --local name = "hello1"
-    --local code = want_insert_unique_name( "name_ply", name, { pid=1, } )
-    --print( "code=", code, name )
-
-
-
-    --local p = getPlayer( 3560000 )
-    --local u = unionmng.get_union( p.uid )
-    --dumpTab( u.help, "union_help" )
-
-    --local p = getPlayer( 3560002 )
-    --if p then
-    --    union_help.set( p, 4391 )
-    --end
-
-
-    --gPendingInsert.test[1] = {foo="world"}
-    --gPendingSave.test[1] = {}
-    
-    --local p = getPlayer( 3370136 )
-    --p._count = nil
-    --p:add_count(1,1)
-    --p:clear_task()
-    --if p._cur_task_list then
-    --    WARN( "should not see this" )
-    --end
-
-    --print( p:get_device_grade( "iphone", "opengl", 100, 1 ) )
-    --p:add_exp(100)
-
-    --Rpc:tips(p, 1, resmng.TIPS_OVERLAP, {})
-    --player_t.mail_all({class=3, mode=0, title="hello", content="world", its=nil} )
-    --player_t.gClientExtra = "Rpc:init()"
-    --local info 
-    --for i = 1, 1024, 1 do
-    --    local db = dbmng:getOne()
-    --    info = db:runCommand( "getLastError" )
-    --end
-    --dumpTab(info, "TableMark" )
-
-    --local s = debug.tablemark(1024)
-    --for k, v in pairs( s ) do
-    --    INFO( "TableMark, %s", v)
-    --end
-    
-
-    --local node = {{hello="foo"}, {foo="bar"}}
-    --Rpc:union_search( p, "hello", node )
-
-    --local a = bson.encode_order( "update", "status", "updates", {hello="world", a=1}, "ordered", false)
-    --local b,c,d,e,f,g = bson.decode( a )
-    --for k, v in pairs( b ) do
-    --    print( k, v )
-    --end
-
-
-    --for i = 1, 50, 1 do
-    --    player_t.add_chat({pid=-1, gid=_G.GateSid}, 0, 0, {pid=0}, "ok "..i, 0, {})
-    --end
-
-
-    --break_player( 2290016 )
-    --gmcmd.kaifu()
-
-    --gPendingSave.test[ "hello" ] = { _id="hello", foo="bar" }
-
-    --local str0 = c_encode_aes( "4e69fd13cb06ef2c62c712ced980d1e6", "1234567890123456", Json.encode( { hello="foo", world=1} ) )
-    --local str1 = c_encode_base64( str0 )
-    --print( str1 )
-
-    --local ply = getPlayer( 2020000 )
-    --local eid = get_near( ply.x+2, ply.y+2, 2001002 )
-    --local dst = get_ety( eid )
-    --if dst then
-    --    print( "ply", ply.x, ply.y )
-    --    print( "dst", dst.x, dst.y )
-    --end
-
-
-    --for r = 1, 78, 1 do
-    --    for c = 1, 78, 1 do
-    --        farm.do_check( r, c, true )
-    --        monster.do_check( r, c, true )
-    --    end
-    --end
-
-    --local t = debug.tablemark()
-    --for k, v in pairs( t ) do
-    --    INFO( "MarkTable, %s", v )
-    --end
-
-    --local s1 = snapshot()
-    --for k, v in pairs( s1 ) do
-    --    print( k, v )
-    --end
+    local co = coroutine.create( test_thread )
+    coroutine.resume( co )
 end
 
 function test4()
@@ -1045,7 +883,7 @@ gOnlines = gOnlines or {}
 function mark_access( pid )
     local node = gOnlines[ pid ]
     if not node then
-        gOnlines[ pid ] = {gTime, gTime}
+        gOnlines[ pid ] = {gTime-1, gTime}
     else
         node[2] = gTime
     end
@@ -1068,3 +906,13 @@ function getPlayer(pid)
 end
 
 
+function can_handle_login_num()
+    local max_online_num = config.MaxOnlineNum or 1000
+    local load_num_pre_sec = config.LoadNumPreSec or 2
+    local num = max_online_num - player_t.g_online_num
+    if num <= 0 then
+        return 0
+    end
+
+    return math.min(num, load_num_pre_sec)
+end

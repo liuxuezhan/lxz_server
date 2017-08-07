@@ -24,6 +24,7 @@ LOGIN_ERROR =
     NO_CHARACTER = 8,
     BLOCK_ACCOUNT = 9,
     FULL = 10,
+    IN_QUEUE = 11,
 }
 
 -- 数值变化原因
@@ -87,7 +88,7 @@ VALUE_CHANGE_REASON = {
 
     BLACK_MARKET_PAY = 61, --黑市支付
     BLACK_MARKET_BUY = 62, --黑市购买
-    BLACK_MARKET_REFRESH = 63, --黑市补给
+    BLACK_MARKET_REFRESH = 63, --黑市刷新
 
     RESOURCE_MARKET_PAY = 71,--资源市场支付
     RESOURCE_MARKET_BUY = 72,--资源市场购买

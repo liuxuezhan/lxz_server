@@ -186,7 +186,7 @@ end
 -- 2.在start-stop期间lua运行出错，抛出了异常
 -- 处理的方法：单次运行作废，下一次start从根节点记录，保证栈平衡
 function _on_error(err_str)
-    ERROR(err_str)
+    WARN(err_str)
     local curr_co_data = _get_co_data()
     if curr_co_data.node then
         -- 如果是递归的时候抛了异常，由于递归不会导致栈深入，所以只需要置当前层的loop_deep

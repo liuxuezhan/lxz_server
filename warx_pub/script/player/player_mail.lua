@@ -48,15 +48,17 @@ end
 function mail_lock_by_sn(self,sns)
     local db = self:getDb()
     if db then
-        local info = db.mail:find( { to=self.pid, _id={ ["$in"] = sns }, tm_drop = 0, tm_lock = 0 } )
-        local ms = {}
-        while info:hasNext() do
-            local m = info:next()
-            if m then
-                m.tm_lock = gTime
-                gPendingSave.mail[ m._id ].tm_lock = gTime
-                self:reply_ok("mail_lock_by_sn", m.idx)
-                --INFO("[mail], lock, pid=%d, id=%s", self.pid, m._id )
+        if next( sns ) then
+            local info = db.mail:find( { to=self.pid, _id={ ["$in"] = sns }, tm_drop = 0, tm_lock = 0 } )
+            local ms = {}
+            while info:hasNext() do
+                local m = info:next()
+                if m then
+                    m.tm_lock = gTime
+                    gPendingSave.mail[ m._id ].tm_lock = gTime
+                    self:reply_ok("mail_lock_by_sn", m.idx)
+                    --INFO("[mail], lock, pid=%d, id=%s", self.pid, m._id )
+                end
             end
         end
     end
@@ -65,15 +67,17 @@ end
 function mail_unlock_by_sn(self,sns)
     local db = self:getDb()
     if db then
-        local info = db.mail:find( { to=self.pid, _id={ ["$in"] = sns }, tm_drop = 0, tm_lock = { ["$ne"] = 0 } } )
-        local ms = {}
-        while info:hasNext() do
-            local m = info:next()
-            if m then
-                m.tm_lock = 0
-                gPendingSave.mail[ m._id ].tm_lock = 0
-                self:reply_ok("mail_unlock_by_sn", m.idx)
-                --INFO("[mail], unlock, pid=%d, id=%s", self.pid, m._id )
+        if next( sns ) then
+            local info = db.mail:find( { to=self.pid, _id={ ["$in"] = sns }, tm_drop = 0, tm_lock = { ["$ne"] = 0 } } )
+            local ms = {}
+            while info:hasNext() do
+                local m = info:next()
+                if m then
+                    m.tm_lock = 0
+                    gPendingSave.mail[ m._id ].tm_lock = 0
+                    self:reply_ok("mail_unlock_by_sn", m.idx)
+                    --INFO("[mail], unlock, pid=%d, id=%s", self.pid, m._id )
+                end
             end
         end
     end
@@ -82,15 +86,17 @@ end
 function mail_drop_by_sn(self,sns)
     local db = self:getDb()
     if db then
-        local info = db.mail:find( { to=self.pid, _id={ ["$in"] = sns }, tm_drop = 0, tm_lock = 0 } )
-        local ms = {}
-        while info:hasNext() do
-            local m = info:next()
-            if m and (m.tm_fetch > 0 or m.its == 0) then
-                INFO("[mail], drop, pid=%d, id=%s", self.pid, m._id )
-                m.tm_drop = gTime
-                gPendingSave.mail[ m._id ].tm_drop = gTime
-                self:reply_ok("mail_drop_by_sn", m.idx)
+        if next( sns ) then
+            local info = db.mail:find( { to=self.pid, _id={ ["$in"] = sns }, tm_drop = 0, tm_lock = 0 } )
+            local ms = {}
+            while info:hasNext() do
+                local m = info:next()
+                if m and (m.tm_fetch > 0 or m.its == 0) then
+                    INFO("[mail], drop, pid=%d, id=%s", self.pid, m._id )
+                    m.tm_drop = gTime
+                    gPendingSave.mail[ m._id ].tm_drop = gTime
+                    self:reply_ok("mail_drop_by_sn", m.idx)
+                end
             end
         end
     end

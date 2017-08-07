@@ -246,7 +246,7 @@ function gen_small_city(pid, prop, parentId)
     if ply then
         --local m = monster_city.new({})
         local m = {}
-        local r = prop.Size  or 1
+        local r = prop.Size or 2
         m.eid = get_eid_monster_city()
         m._id = m.eid
         m.x, m.y = get_pos_in_range(math.floor(ply.x/16), math.floor(ply.y/16), 1, 1, r)
@@ -256,6 +256,8 @@ function gen_small_city(pid, prop, parentId)
         local city_prop = resmng.prop_world_unit[prop.City] 
         if city_prop then
             m.size = city_prop.Size
+        else
+            m.size = r
         end
         citys[m.atk_eid] = m.eid
         local ety = get_ety(parentId)

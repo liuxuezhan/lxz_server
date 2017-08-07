@@ -6,7 +6,7 @@ end
 function BotStandBy:onEnter()
     local seconds = math.random(1,800)
     timer.new_msec_ignore("BotStandBy", seconds, self)
-    INFO("[Autobot|StandBy]%s will wait for %d seconds", self.host.name, seconds)
+    INFO("[Autobot|StandBy]%d will wait for %d milliseconds", self.host.idx, seconds)
     --self.fsm:translate("Login")
 end
 

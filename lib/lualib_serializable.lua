@@ -95,7 +95,6 @@ end
 
 function msg.unpack(src,tab)
     if not json.safe.decode(src) then  return end
-    lxz(src)
     src = json.decode(src)
     if tab then src = msg.unzip(tab,src) end
     return src

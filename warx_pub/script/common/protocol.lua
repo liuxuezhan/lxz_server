@@ -563,7 +563,11 @@ Server = {
     add_hero_task_help_req = "int id",
 
     --
-    certify ="int code"
+    certify ="int code",
+
+    set_auto_mass = "pack info",
+    get_auto_mass = "",
+
 }
 
 
@@ -580,6 +584,7 @@ Client = {
     logout = "",
 
     first_packet_ack = "int error_code", -- 登录验证信息
+    login_in_queue_init = "pack info", -- 登录队列满
 
     get_characters = "pack infos",
 
@@ -968,7 +973,9 @@ Client = {
     broadcast_world_event_proccess = "pack info",
     broadcast_operate_end = "int activity_id",
 
-    certify ="int code"
+    certify ="int code",
+
+    get_auto_mass = "pack info"
 }
 
 CrossQuery = {

@@ -22,28 +22,31 @@
 --
 --player_t.set_sys_option( "radioflag", 1 )
 
-local count = 0
-for k, v in pairs( gPendingActions ) do
-    count = count + 1
-end
-WARN( "gPendingActions = %d", count )
+--local count = 0
+--for k, v in pairs( gPendingActions ) do
+--    count = count + 1
+--end
+--WARN( "gPendingActions = %d", count )
+----
+----global_save()
 --
---global_save()
+--
+--local co = coroutine.create( global_saver )
+--coroutine.resume( co )
+--
+--WARN( "gThreadAction = %s, gThreadActionState = %s", gThreadAction, gThreadActionState )
+--
+--
+--WARN ("gTimeStartSave = %d, gTime = %d, %d",  gTimeStartSave, gTime, gTime - gTimeStartSave )
+--
+--local name = config.Game or "warx"
+--local dbname = string.format("%s_%d", name, gMapID)
+--conn.toMongo(config.DbHost, config.DbPort, dbname, nil, false)
+--conn.toMongo(config.DbHost, config.DbPort, dbname, nil, false)
+--conn.toMongo(config.DbHost, config.DbPort, dbname, nil, false)
+--
 
 
-local co = coroutine.create( global_saver )
-coroutine.resume( co )
-
-WARN( "gThreadAction = %s, gThreadActionState = %s", gThreadAction, gThreadActionState )
-
-
-WARN ("gTimeStartSave = %d, gTime = %d, %d",  gTimeStartSave, gTime, gTime - gTimeStartSave )
-
-local name = config.Game or "warx"
-local dbname = string.format("%s_%d", name, gMapID)
-conn.toMongo(config.DbHost, config.DbPort, dbname, nil, false)
-conn.toMongo(config.DbHost, config.DbPort, dbname, nil, false)
-conn.toMongo(config.DbHost, config.DbPort, dbname, nil, false)
-
-
-
+for k, v in pairs( gPlys ) do
+    v._build = nil
+end

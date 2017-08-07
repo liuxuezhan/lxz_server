@@ -1,5 +1,33 @@
 local TroopManager = {}
 
+local ActionGroup = {}
+ActionGroup.Battle = {
+    [TroopAction.SiegePlayer] = true,
+    [TroopAction.JoinMass] = true,
+    [TroopAction.HoldDefense] = true,
+    [TroopAction.Mass] = true,
+    [TroopAction.SiegeMonster] = true,
+    [TroopAction.Monster] = true,
+    [TroopAction.Spy] = true,
+    [TroopAction.SiegeCamp] = true,
+    [TroopAction.SupportArm] = true,
+    [TroopAction.Camp] = true,
+    [TroopAction.Declare] = true,
+    [TroopAction.SiegeNpc] = true,
+    [TroopAction.King] = true,
+    [TroopAction.SiegeTaskNpc] = true,
+    [TroopAction.AtkMC] = true,
+    [TroopAction.SiegeUnion] = true,
+    [TroopAction.LostTemple] = true,
+    [TroopAction.Refugee] = true,
+    [TroopAction.HoldDefenseNPC] = true,
+    [TroopAction.HoldDefenseKING] = true,
+    [TroopAction.HoldDefenseLT] = true,
+    [TroopAction.TaskSpyPly] = true,
+    [TroopAction.TaskAtkPly] = true,
+    [TroopAction.SiegeDig] = true,
+}
+
 function TroopManager:init(player)
     self.player = player
     self.march_jobs = {}
@@ -39,12 +67,23 @@ end
 
 function TroopManager:_resortJobs()
     table.sort(self.march_jobs, function(a, b)
-        return a.priority >= b.priority
+        return a.priority > b.priority
     end)
 end
 
 function TroopManager:getTroopData(index)
     return self.troops[index]
+end
+
+function TroopManager:getTroopCount(group)
+    local count = 0
+    for k, v in pairs(self.troops) do
+        local action = math.floor(v.troop.action % 100)
+        if ActionGroup[group][action] then
+            count = count + 1
+        end
+    end
+    return count
 end
 
 function TroopManager:_initTroops()
@@ -54,7 +93,7 @@ function TroopManager:_initTroops()
                 local data = {}
                 data.index = #self.troops + 1
                 data.troop_id = k
-                datao.troop = v
+                data.troop = v
                 self.troops[data.index] = data
                 break
             end
@@ -65,9 +104,9 @@ end
 
 function TroopManager:_getEmptyIndex()
     for index = 1, self.max_troop_index do
-       if nil == self.troops[index] then
-           return index
-       end
+        if nil == self.troops[index] then
+            return index
+        end
     end
 end
 
@@ -90,8 +129,8 @@ end
 function TroopManager:_onTroopDeleted(player, troop_id)
     for index, v in pairs(self.troops) do
         if troop_id == v.troop_id then
-            self.eventBusyTroopFinished(self.player, index, v.troop)
             self.troops[index] = nil
+            self.eventBusyTroopFinished(self.player, index, v.troop)
             break
         end
     end

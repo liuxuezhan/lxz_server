@@ -1454,7 +1454,7 @@ function black_market_buy(self, idx)
                 operate_activity.process_operate_activity(self, OPERATE_ACTIVITY_ACTION.BLACK_MARKET, 1)
             end
         end
-        dumpTab(build.extra, "black_market")
+        --dumpTab(build.extra, "black_market")
     elseif idx >= 1 and idx <= 6 then
         local items = build:get_extra("items")
         if items then
@@ -1489,7 +1489,7 @@ function black_market_buy(self, idx)
                     end
                     build:set_extra("point", build:get_extra("point") + conf.Point)
                     build:set_extra("items", items)
-                    dumpTab(build.extra, "black_market")
+                    --dumpTab(build.extra, "black_market")
                     return
                 end
             end
@@ -1674,7 +1674,7 @@ function refresh_black_marcket(self)
             hots = get_sys_status("black_market")
         end
         black_market:set_extras({ items=items, item=hots[1], item1=hots[2], nfresh=0, nbuy=0, point=0})
-        dumpTab(black_market.extra, "black_market")
+        --dumpTab(black_market.extra, "black_market")
     end
 end
 
@@ -2092,7 +2092,7 @@ function wall_fire2( self, dura )
             wall:clr_extras( { "hp", "last" } )
         end
     end
-    dumpTab( wall.extra, "wall_fire" )
+    --dumpTab( wall.extra, "wall_fire" )
 end
 
 
@@ -2117,7 +2117,7 @@ function wall_fire( self, dura )
         if is_in_black_land( self.x, self.y ) then
             speed_f = WALL_FIRE_IN_BLACK_LAND
         else
-            speed_f = 1/18 * 10
+            speed_f = 1/18 
         end
         wall:set_extra( "speed_f", speed_f )
         wall:set_extra( "tmStart_f", gTime )
@@ -2153,9 +2153,8 @@ function wall_fire( self, dura )
             etypipe.add(self)
         end
         wall:clr_extras( { "hp", "speed_f", "tmStart_f", "tmOver_f", "tmSn_f", "last" } )
-        self:add_to_do( "tips", 3, resmng.CITYDEFENCE_FIRE_POINT_ZERO, {} )
+        self:add_to_do( "add_tips", 3, resmng.CITYDEFENCE_FIRE_POINT_ZERO )
         return 
-
     end
     wall:set_extra( "hp", hp )
 
@@ -2191,7 +2190,7 @@ function wall_fire( self, dura )
             wall:clr_extras( { "hp", "last" } )
         end
     end
-    dumpTab( wall.extra, "wall_fire" )
+    --dumpTab( wall.extra, "wall_fire" )
     INFO( "[BUILD], wall_fire, pid=%d, propid=%d, dura=%d, hp=%s, speed_f=%s, tmOver_f=%s", self.pid, wall.propid, dura, hp, speed_f, tmOver_f)
 end
 
@@ -2219,8 +2218,10 @@ function wall_repair( self, mode ) -- mode == 0; free, mode == 1, use gold; mode
         self:wall_fire( 0 )
 
     elseif mode == 1 then
+        hp = hp - (wall:get_extra( "speed_f" ) or 0) * ( gTime - (wall:get_extra( "tmStart_f" ) or gTime) )
         local cost = math.ceil( ( max - hp ) / 300 ) * 20
         if cost < 1 then return end
+        cost = cost + WALL_FIRE_OUTFIRE_COST 
         if self.gold < cost then return end
         self:do_dec_res( resmng.DEF_RES_GOLD, cost, VALUE_CHANGE_REASON.WALL_REPAIR)
         wall:clr_extras( { "hp", "speed_f", "tmStart_f", "tmOver_f", "tmSn_f", "last" } )
