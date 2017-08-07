@@ -2,6 +2,7 @@
 -- 原warx 的socket由c语言引擎统一队列处理 ，移植后由lua分发处理
 lualib_serializable = require "lualib_serializable"
 require "lualib_mytool"
+bson = require "bson"
 g_host = "192.168.100.12"
 
 _list={
@@ -54,6 +55,9 @@ function c_pull_msg_roi()
 end
  c_pid = {}
 local _x,_y = 100,100
+function c_get_pos_in_zone(x, y, r, r)
+    return _x+8,_y
+end
 function c_mov_eye(pid,x,y)
     c_pid[pid] = {x=x,y=y}
     local zx = math.floor( x / 16 ) 
@@ -107,9 +111,6 @@ function c_get_pos_by_lv(...)
     return _x,_y
 end
 
-function c_get_pos_in_zone(x, y, r, r)
-    return x,y
-end
 
 function c_get_zone_lv(tx, ty)
     return 1

@@ -35,7 +35,7 @@ local function accept(fd, addr)
         if msg then
             local d = lualib_serializable.unpack(copyTab(msg))
             if d then
-                lxz(d.f)
+                --lxz(d.f)
                 if d.f == "firstPacket2" then
                     d.args[1]=fd
                     local p = player_t.firstPacket2(_G.gAgent, unpack(d.args)  ) 
@@ -44,11 +44,11 @@ local function accept(fd, addr)
                     farm.loop()
                     refugee.loop()
                 elseif player_t[d.f] then 
-                    profile.start()
+                    --profile.start()
                     if plys[fd] then
                         player_t[d.f](plys[fd], unpack(d.args)  ) 
                     end
-                    lxz(profile.stop())
+                    --lxz(profile.stop())
                 end
             else
                 break

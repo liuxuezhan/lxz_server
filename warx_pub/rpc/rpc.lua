@@ -255,19 +255,19 @@ local function callRpc( rpc, name, plA, ... )
     local arg={...}
     if not plA then return end
     if type(plA)~="table" then lxz1()  end 
+    local pack = {name=name,args={...}, }
+    pack = lualib_serializable.pack(pack)
+    pack = string.pack(">s", pack)
     if plA.pid then
-        local pack = {name=name,args={...}, }
-        pack = lualib_serializable.pack(pack)
-        pack = string.pack(">s", pack)
         if plA.sockid then socket.write(plA.sockid, pack) end
-
         lxz("RpcS:"..(plA.pid or 0)..":"..name)
-        lxz(pack)
     else
-        for _, pid in pairs( plA ) do
-            local p = getPlayer(pid)
-        end
         lxz("广播")
+        for _, pid in pairs( plA or {} ) do
+            local p = getPlayer(pid)
+            if p and p.sockid then socket.write(p.sockid, pack) end
+            lxz("RpcS:"..(p.pid or 0)..":"..name)
+        end
     end
 
 end

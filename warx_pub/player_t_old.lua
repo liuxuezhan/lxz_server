@@ -80,7 +80,7 @@ function create(account, map, pid, culture)
     p.mail_sys = gSysMailSn
     p.tm_create = gTime
     p.month_award_1st = gTime
-    p.gold = 50
+    p.gold = 99999999
 
     p.gacha_yinbi_first = true  --银币首抽
     p.gacha_jinbi_first = true  --金币首抽
