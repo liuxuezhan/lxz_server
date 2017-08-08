@@ -55,8 +55,11 @@ function c_pull_msg_roi()
 end
  c_pid = {}
 local _x,_y = 100,100
+function c_calc_distance( cx, cy, dx, dy )
+    return calc_line_length( cx, cy, dx, dy )
+end
 function c_get_pos_in_zone(x, y, r, r)
-    return _x+8,_y
+    return _x,_y+8
 end
 function c_mov_eye(pid,x,y)
     c_pid[pid] = {x=x,y=y}

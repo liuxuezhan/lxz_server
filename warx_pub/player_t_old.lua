@@ -6836,7 +6836,8 @@ function player_nearly_citys(self)
     local propid1 = 0
     for k, v in pairs(resmng.prop_world_unit) do
         if v.Class == CLASS_UNIT.NPC_CITY then
-            local dis = math.pow((self.x - v.X),2) + math.pow((self.y - v.Y), 2)
+            --local dis = math.pow((self.x - v.X),2) + math.pow((self.y - v.Y), 2)
+            local dis = (self.x - v.X)^2 + (self.y - v.Y)^2
             if shot == 0 then
                 propid = v.ID
                 shot = dis

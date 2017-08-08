@@ -556,13 +556,13 @@ function ack(self, funcname, code, reason)
     assert(code)
     code = code or resmng.E_OK
     reason = reason or resmng.E_OK
-    if not Rpc.localF[funcname] then
-        WARN("func:%s, code:%s, reason:%s", funcname, code, reason)
-        return
-    end
-    local hash = Rpc.localF[funcname].id
-    INFO("pid=%d,uid=%d,func:%s, code:%s, reason:%s",self.pid,self.uid, funcname, code, reason)
-    Rpc:onError(self, hash, code, reason)
+    -- if not Rpc.localF[funcname] then
+    --     WARN("func:%s, code:%s, reason:%s", funcname, code, reason)
+    --     return
+    -- end
+    -- local hash = Rpc.localF[funcname].id
+    -- INFO("pid=%d,uid=%d,func:%s, code:%s, reason:%s",self.pid,self.uid, funcname, code, reason)
+    Rpc:onError(self, funcname, code, reason)
 end
 
 function copyTab2(object)
