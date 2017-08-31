@@ -1,0 +1,15 @@
+SRCS=timer.c que.c handle.c log.c net.c buf.c pike.c world.c game.c is_lib_time_out.c lbson.c lmongo.c lua_cmsgpack.c dbg.c skiplist.c lua-skiplist.c tlog.c
+CC=gcc
+#LIBS=-I./lua/src -I/usr/local/include/gperftools -I/usr/local/include -L./lua/src -L/home/loon/code/libevent-2.0.22-stable/.libs -L/usr/local/lib -Wl,-Bstatic -llua -ltcmalloc_minimal_debug -levent -Wl,-Bdynamic -lpthread -lm -ldl -lstdc++
+#LIBS=-I./lua/src -I/usr/local/include/gperftools -I/usr/local/include -L./lua/src -L/usr/local/lib -llua -ltcmalloc_minimal_debug -levent -lpthread -lm -ldl
+LIBS=-I./lua/src -I/usr/local/include/gperftools -I/usr/local/include -Itlog/include -L./lua/src -L/usr/local/lib -L/usr/lib64/mysql -Ltlog/lib -llua -ltcmalloc_minimal_debug -levent -lpthread -lm -ldl -lmysqlclient_r -ltsf4g_r -lscew -lexpat -lz
+
+#CFLAGS=-D _SRV_ -ggdb -fsanitize=address 
+CFLAGS=-D _SRV_ -ggdb
+
+all : $(SRCS)
+	$(CC) $(CFLAGS) $(SRCS) $(LIBS) -o game
+
+clean:
+	rm -rf game 
+

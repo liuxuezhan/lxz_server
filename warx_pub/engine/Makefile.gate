@@ -1,0 +1,7 @@
+SRCS=egate.c buf.c que.c pike.c log.c daemon.c
+CC=gcc
+LIBS=-I/usr/local/include/gperftools -L/usr/local/lib -Wl,-Bstatic -ltcmalloc_minimal_debug -Wl,-Bdynamic -lpthread -lm -ldl -lstdc++
+CFLAGS=-D _SRV_ -ggdb 
+all : $(SRCS)
+	$(CC) $(CFLAGS) $(SRCS) $(LIBS) -o gate
+
