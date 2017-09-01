@@ -79,6 +79,12 @@ function is_forge( self )
     return  prop and prop.Class == BUILD_CLASS.FUNCTION and prop.Mode == BUILD_FUNCTION_MODE.FORGE 
 end
 
+function is_altar( self )
+    local prop = resmng.get_conf( "prop_build", self.propid )
+    return  prop and prop.Class == BUILD_CLASS.FUNCTION and prop.Mode == BUILD_FUNCTION_MODE.ALTAR 
+end
+
+
 --------------------------------------------------------------------------------
 -- Function : 建筑加速
 -- Argument : self, secs

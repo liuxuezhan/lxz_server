@@ -176,9 +176,12 @@ function del(id)
         local o = getPlayer(c.pid)
         if c.res_num ==0 then        
             local pids ="" 
-            for _,v in pairs(c.log ) do
-                if pids == "" then pids = v.name
-                else pids = pids..","..v.name end
+            local t ={} 
+            for _,v in pairs(c.log ) do t[v.name] = v.name end
+
+            for _,v in pairs( t ) do
+                if pids == "" then pids = v
+                else pids = pids..","..v end
             end
             o:send_system_notice( 10016, {}, {pids} )
         else o:send_system_notice( 10018, {}, {}, {{"res",c.res,c.res_num,10000}}) end

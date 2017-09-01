@@ -187,7 +187,7 @@ prop_language_offline = {
 	[LANGUAGE_OFFLINE_178] = { ID = LANGUAGE_OFFLINE_178, en = "Recruit complete!", zhCN = "士兵招募完成",},
 	[LANGUAGE_OFFLINE_179] = { ID = LANGUAGE_OFFLINE_179, en = "%1$s Research is complete!", zhCN = "%1$s研究完成",},
 	[LANGUAGE_OFFLINE_180] = { ID = LANGUAGE_OFFLINE_180, en = "The %1$s has been built!", zhCN = "%1$s建造完成",},
-	[LANGUAGE_OFFLINE_181] = { ID = LANGUAGE_OFFLINE_181, en = "Your gathering team has returned from harvest!", zhCN = "采集资源的部队返回城市",},
+	[LANGUAGE_OFFLINE_181] = { ID = LANGUAGE_OFFLINE_181, en = "Your Troops are returning", zhCN = "你的出征部队返回城市",},
 	[LANGUAGE_OFFLINE_182] = { ID = LANGUAGE_OFFLINE_182, en = "Your warband has declared a war on %1$s. Hurry! You have 30 minutes to prepare!", zhCN = "你的军团对城市%1$s进行宣战，30分钟后战斗开始。",},
 	[LANGUAGE_OFFLINE_183] = { ID = LANGUAGE_OFFLINE_183, en = "War has been declared on our City: %1$s. Hurry! You have 30 minutes to prepare!", zhCN = "其他军团对我方城市%1$s进行宣战，30分钟后战斗开始",},
 	[LANGUAGE_OFFLINE_184] = { ID = LANGUAGE_OFFLINE_184, en = "We have launched an attack on %1$s, fight for our glory!", zhCN = "我方军团对城市%1$s的战争正式开始",},

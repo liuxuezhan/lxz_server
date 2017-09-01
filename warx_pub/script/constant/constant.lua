@@ -163,9 +163,12 @@ DEFAULT_PHOTO = {
 }
 
 --- Zhao@2016年4月14日：军团创建条件
+---cost1，城堡等级不足lv时消耗
+---cost2,城堡等级大于等于lv时消耗
 CREATEUNION = {
     lv = 3,
-    cost = 1000
+    cost1 = 1000,
+    cost2 = 200,
 }
 
 ---军团建筑受成员数量控制配置表
@@ -313,7 +316,7 @@ GACHA_EXCHANGE_2 = {102,202}
 --主界面按钮排布
 MAINUI_TOP_BTN_LAYER = 
 {
-    ["btn_be_stronger"] = 1,
+    ["btn_be_stronger"] = 2,
     ["btn_goldgift"] = 1,
     ["btn_operate"] = 1,
     ["btn_world_event"] = 2,
@@ -325,7 +328,7 @@ MAINUI_TOP_BTN_LAYER =
     ["btn_goldnotice"] = 2,
     ["btn_lord_achieve"] = 2,
     ["btn_tansuo"] = 2,
-    ["btn_more_btns (5)"] = 2,
+    ["btn_automass"] = 2,
     ["btn_more_btns (6)"] = 2,
     ["btn_more_btns (7)"] = 2,
     ["btn_more_btns (8)"] = 2,
@@ -363,3 +366,10 @@ SHOW_UNION_POWER =
 --可跨服迁城的时间
 CROSS_SERVER_MOVE_TIME = 3 * 86400
 
+--大地图怪物等级配置，表1是普通怪物等级列表，表2是精英，表3是boss
+mapmonster_lvconfig = 
+{
+    {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25},
+    {6,9,12,15,18,21,25},
+    {12,15,18,21,25,29}
+}

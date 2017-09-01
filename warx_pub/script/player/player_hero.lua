@@ -130,6 +130,14 @@ function call_hero_by_piece(self, hero_propid)
 end
 
 
+function is_valid( hero, action )
+    local status = hero.status
+    if status and status <= HERO_STATUS_TYPE.BEING_CURED then return true end
+    WARN( "[HERO], invalid_status, pid=%d, hid=%s, status=%d, action=%s", hero.pid, hero._id, status, action or "unknown" )
+    return false
+end
+
+
 --------------------------------------------------------------------------------
 -- Function : 英雄升星
 -- Argument : self, hero_idx
@@ -143,12 +151,7 @@ function hero_star_up(self, hero_idx)
     end
 
     local hero = self:get_hero(hero_idx)
-    if not hero then
-        ERROR("hero_star_up: get_hero() failed. pid = %d, hero_idx = %d", self.pid or -1, hero_idx)
-        return
-    end
-
-    if not hero:is_valid() then return end
+    if not hero or not is_valid( hero, "star_up" ) then return end
 
     hero:star_up()
 end
@@ -662,7 +665,6 @@ function get_altar_conf(self)
 end
 
 function do_calc_hero_cure( self, hero, hp )
-    print("do_calc_hero_cure", hp, hero.hp, hero.max_hp)
     if hp > hero.max_hp then return false, E_HP end
     if hp <= hero.hp then return false, E_HP end
 
@@ -683,7 +685,9 @@ end
 function hero_cure( self, hidx, tohp )
     local hero = self:get_hero( hidx )
     if not hero then return ack( self, "hero_cure", E_NO_HERO, 0) end
-    if not hero:is_valid() then ack( self, "cure_hero", resmng.E_HERO_BUSY, mode) end
+
+    local status = hero.status
+    if status ~= HERO_STATUS_TYPE.FREE and status ~= HERO_STATUS_TYPE.BUILDING then return ack( self, "cure_hero", resmng.E_HERO_BUSY, 0 ) end
 
     if tohp > hero.max_hp then tohp = hero.max_hp end
 
@@ -697,7 +701,6 @@ function hero_cure( self, hidx, tohp )
     for mode, num in pairs( res ) do
         self:do_dec_res( mode, math.ceil( num ), VALUE_CHANGE_REASON.CURE )
     end
-
 
     self:hero_offduty( hero )
     hero.status = HERO_STATUS_TYPE.BEING_CURED
@@ -732,7 +735,8 @@ function hero_cure_quick(self, hidx, tohp)
     local hero = self:get_hero( hidx )
     if not hero then return ack( self, "hero_cure", E_NO_HERO, 0) end
 
-    if not hero:is_valid() then ack( self, "cure_hero_quick", resmng.E_HERO_BUSY, mode) end
+    local status = hero.status
+    if status ~= HERO_STATUS_TYPE.FREE and status ~= HERO_STATUS_TYPE.BUILDING then return ack( self, "cure_hero", resmng.E_HERO_BUSY, 0 ) end
 
     if tohp > hero.max_hp then tohp = hero.max_hp end
     local dura, res = self:do_calc_hero_cure( hero, tohp )
@@ -1358,7 +1362,8 @@ function use_hero_skill_item(self, hero_idx, skill_idx, item_idx, num)
     -- 参数校验
     if not hero_idx or not skill_idx or not item_idx or not num or num <= 0 then return end
     local hero = self:get_hero(hero_idx)
-    if not hero or not hero:is_valid() then return end
+
+    if not hero or not is_valid( hero, "use_hero_skill_item" ) then return end
 
     -- 物品类型校验
     if num < 1 then return end
@@ -1386,7 +1391,7 @@ end
 
 function hero_skill_up( self, hero_idx, skill_idx, item_idx, num )
     local hero = self:get_hero(hero_idx)
-    if not hero or not hero:is_valid() then return end
+    if not hero or not is_valid( hero, "hero_skill_up" ) then return end
 
     if num < 1 then return end
     local item = self:get_item(item_idx)
@@ -1413,7 +1418,7 @@ end
 
 function use_skill_special_book(self, hero_idx, skill_idx, item_idx, num, skill_id, exp)
     local hero = self:get_hero(hero_idx)
-    if not hero or not hero:is_valid() then return end
+    if not hero or not is_valid( hero, "use_skill_special_book" ) then return end
 
     local skill = hero.basic_skill[skill_idx]
     if not skill then return end
@@ -1470,10 +1475,7 @@ function use_skill_common_book(self, hero_idx, skill_idx, item_idx, num, skill_i
         return 
     end
     local hero = self:get_hero(hero_idx)
-    if not hero or not hero:is_valid() then
-        WARN("use_skill_common_book: hero isn't valid. pid = %d, hero_idx = %d", self.pid, hero_idx)
-        return
-    end
+    if not hero or not is_valid( hero, "use_skill_common_book" ) then return end
 
     local skill = hero.basic_skill[skill_idx]
     if not skill then
@@ -1534,10 +1536,7 @@ end
 
 function reset_skill_senior(self, hero_idx, skill_idx)
     local hero = self:get_hero(hero_idx)
-    if not hero or not hero:is_valid() then
-        WARN("reset_skill: hero isn't valid. pid = %d, hero_idx = %d", self.pid, hero_idx)
-        return
-    end
+    if not hero or not is_valid( hero, "reset_skill_senior" ) then return end
 
     local skill = hero.basic_skill[skill_idx]
     if skill == nil or skill[1] == 0 then return end
@@ -1565,10 +1564,7 @@ end
 
 function reset_skill_primary(self, hero_idx, skill_idx)
     local hero = self:get_hero(hero_idx)
-    if not hero or not hero:is_valid() then
-        WARN("reset_skill: hero isn't valid. pid = %d, hero_idx = %d", self.pid, hero_idx)
-        return
-    end
+    if not hero or not is_valid( hero, "reset_skill_primary" ) then return end
 
     local skill = hero.basic_skill[skill_idx]
     if skill == nil or skill[1] == 0 then return end
@@ -1579,9 +1575,7 @@ end
 
 function reset_nature( self, hero_idx )
     local hero = self:get_hero( hero_idx )
-    if not hero then return end
-
-    if not hero:is_valid() then return end
+    if not hero or not is_valid( hero, "reset_nature" ) then return end
 
     local itemid = RESET_HERO_NATURE_ITEM
     if not self:dec_item_by_item_id( itemid, 1, VALUE_CHANGE_REASON.HERO_NATURE_RESET ) then 

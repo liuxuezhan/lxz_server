@@ -1,0 +1,22 @@
+#!/bin/bash
+
+path="release_code_on_"$(date +%Y-%m-%d_%H-%M)
+mkdir -p ${path}
+
+find . -name "*.lua" | grep -v "release_code_on_" > flist
+echo "./common/mapBlockInfo.bytes" >> flist
+
+rsync -avh --files-from=flist . ${path}/
+rm -rf ${path}/client
+rm -rf ${path}/client_extra
+rm -rf ${path}/forqc
+rm -rf ${path}/robot
+rm -rf ${path}/extra.lua
+rm -rf ${path}/data/define_effect_type.lua
+
+cd ${path}
+find . -name "*.lua" -exec luac -o {} {} \;
+
+cmd="rsync --dry-run -c -rpv "${path}"/ -e'ssh -i /home/loon/.ssh/game.key' game@server*:game/mapid*/script/"
+echo ${cmd}
+

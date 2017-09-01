@@ -346,6 +346,14 @@ TW_STATE =
     FIGHT = 4,
 }
 
+TW_ACTION =
+{
+    DECLARE = 1,
+    FIGHT = 2,
+    ABANDON = 3,
+    LOST_ALL = 4,
+}
+
 KW_STATE =
 {
     LOCK = 1,
@@ -412,6 +420,7 @@ MAIL_CLASS = {
 
 MAIL_PLAYER_MODE = {
     CHAT = 1,  --玩家聊天
+    CHAT_PLYERINFO = 2,   ---聊天中玩家的信息
 }
 
 MAIL_FIGHT_MODE = {
@@ -421,6 +430,7 @@ MAIL_FIGHT_MODE = {
     ATTACK_FAIL = 4,  -- 进攻失败
     DEFEND_SUCCESS = 5,  -- 防守成功
     DEFEND_FAIL = 6,  -- 防守失败
+    SYS_FAIL=7, --失败
 }
 
 MAIL_SYSTEM_MODE = {
@@ -440,6 +450,7 @@ MAIL_REPORT_MODE = {
 }
 
 MAIL_UNION_MODE = {
+    WRITE_TO_ALL = 0,
     ANNOUNCE = 1,  --通知
 }
 
@@ -453,6 +464,7 @@ MAIL_SYSTEM_SEQ = {
     PRESENT_NO_GET = 6, -- 获得标题
     CONSUME = 7,        -- 消耗标题
     ITEM = 8,           -- 物品展示
+    JUMPTO_UCONSTUCT = 9,   --跳转到军团设施界面
 }
 
 MAIL_UNREAD_OP = {
@@ -609,8 +621,8 @@ TroopAction = {
     Tower           = 26,  --箭塔攻击为 模拟部队攻击
     King            = 27,  --攻击王城相关建筑
     HeroBack        = 28,  --英雄逃回家
-    MonsterAtkPly   = 29,    -- 怪物攻打玩家                --叛军突袭
-    SiegeMonsterCity= 30,    -- 怪物攻打玩家占领NPC      --叛军突袭
+    MonsterAtkPly   = 29,    -- 怪物攻打玩家                --叛军突袭 -- prop_world_unit
+    SiegeMonsterCity= 30,    -- 怪物攻打玩家占领NPC      --叛军突袭  -- prop_monster_city
     SiegeTaskNpc    = 31,   --攻击任务怪
     AtkMC           = 32,   --玩家攻打怪物城市                     --叛军突袭
     SiegeUnion      = 33,
@@ -957,6 +969,7 @@ UNION_EVENT = { --  军团事件类型
     HELP = "help",
     RELATION = "relation",
     WORD = "word",
+    BUFF_ALL = "buff_all",
 }
 
 UNION_EVENT_LOG = {
@@ -1146,9 +1159,9 @@ CULTURE_TYPE = {
 HERO_STATUS_TYPE = {
     FREE             = 1,    -- 待机
     BUILDING         = 2,    -- 城建中
-    DEFENDING        = 3,    -- 驻守中
+    DEFENDING        = 3,    -- 驻守中, replace by MOVING, no use
     MOVING           = 4,    -- 行军中
-    GATHER           = 5,    -- 采集中
+    GATHER           = 5,    -- 采集中, replace by MOVING, no use
     BEING_CURED      = 6,    -- 治疗中
     BEING_CAPTURED   = 7,    -- 被俘虏
     BEING_IMPRISONED = 8,    -- 被监禁
@@ -1309,6 +1322,8 @@ TASK_ACTION = {
     SPECIAL_HERO_LEVEL              = 64,    --特定英雄到达等级
     SPECIAL_HERO_STAR               = 65,    --特定英雄升星
     HERO_NATURE_RESET               = 66,    --特定英雄性格重置
+    UNION_CASTLE_EFFECT             = 67,    --获得军团奇迹effect
+    LORD_RENAME                     = 68,    --领主改名
 
 }
 -- 打开UI任务
@@ -1392,6 +1407,8 @@ g_task_func_relation = {
 ["special_hero_level"] = TASK_ACTION.SPECIAL_HERO_LEVEL,           --特定英雄到达等级
 ["special_hero_star"] = TASK_ACTION.SPECIAL_HERO_STAR,             --特定英雄升星
 ["hero_nature_reset"] = TASK_ACTION.HERO_NATURE_RESET,             --特定英雄性格重置
+["union_castle_effect"] = TASK_ACTION.UNION_CASTLE_EFFECT,         --获得军团奇迹effect
+["lord_rename"] = TASK_ACTION.LORD_RENAME,                         --领主改名
 }
 -------------------------------------------------------------
 --奖励
@@ -1689,7 +1706,7 @@ PLAYER_INIT = {
     pid = 0,
     uid = 0,
     rmb = 0,
-    gold = 99999999,
+    gold = 0,
     silver = 0,
     sinew = 100,
     sinew_tm = 0,
@@ -1822,47 +1839,65 @@ PLAYER_INIT = {
 }
 
 map_city_zone = {
-    [0] = 3001001,
-    [1] = 3002002,
-    [2] = 3003002,
-    [3] = 3004003,
-    [4] = 3005003,
-    [5] = 3006003,
-    [6] = 3007004,
-    [7] = 3008004,
-    [8] = 3009004,
-    [9] = 3010004,
-    [10] = 3011001,
-    [11] = 3012002,
+    [1] = 3018004,
+    [2] = 3028004,
+    [3] = 3027004,
+    [4] = 3030004,
+    [5] = 3029004,
+    [6] = 3017004,
+    [7] = 3014003,
+    [8] = 3026003,
+    [9] = 3025003,
+    [10] = 3024003,
+    [11] = 3008004,
     [12] = 3013002,
-    [13] = 3014003,
-    [14] = 3015003,
-    [15] = 3016003,
-    [16] = 3017004,
-    [17] = 3018004,
-    [18] = 3019004,
-    [19] = 3020004,
-    [20] = 3021001,
-    [21] = 3022002,
-    [22] = 3023002,
-    [23] = 3024003,
-    [24] = 3025003,
-    [25] = 3026003,
-    [26] = 3027004,
-    [27] = 3028004,
-    [28] = 3029004,
-    [29] = 3030004,
-    [30] = 3031001,
-    [31] = 3032002,
-    [32] = 3033002,
+    [13] = 3023002,
+    [14] = 3021001,
+    [15] = 3022002,
+    [16] = 3004003,
+    [17] = 3016003,
+    [18] = 3011001,
+    [19] = 3001001,
+    [20] = 3002002,
+    [21] = 3007004,
+    [22] = 3019004,
+    [23] = 3012002,
+    [24] = 4001001,
+    [25] = 3031001,
+    [26] = 3005003,
+    [27] = 3015003,
+    [28] = 3032002,
+    [29] = 3033002,
+    [30] = 3003002,
+    [31] = 3036003,
+    [32] = 3035003,
     [33] = 3034003,
-    [34] = 3035003,
-    [35] = 3036003,
-    [36] = 3037004,
-    [37] = 3038004,
-    [38] = 3039004,
-    [39] = 3040004,
-    [40] = 4001001
+    [34] = 3006003,
+    [35] = 3010004,
+    [36] = 3020004,
+    [37] = 3037004,
+    [38] = 3038004,
+    [39] = 3039004,
+    [40] = 3040004,
+    [41] = 3009004,
+    [42] = 3018004,
+    [43] = 3028004,
+    [44] = 3027004,
+    [45] = 3030004,
+    [46] = 3029004,
+    [47] = 3008004,
+    [48] = 3008004,
+    [49] = 3007004,
+    [50] = 3005003,
+    [51] = 3010004,
+    [52] = 3009004,
+    [53] = 3040004,
+    [54] = 3039004,
+    [55] = 3038004,
+    [56] = 3037004,
+    [57] = 3020004,
+    [58] = 3019004,
+    [59] = 3017004,
 }
 
 reszone_vertex_postion =
@@ -1897,7 +1932,8 @@ HERO_ROAD_CHAPTER_STATE =
 {
     ACCEPTED = 1,--已经接受任务
     FINISHED = 2,--完成其中某条任务 ,没有全部完成
-    ALL_FINISHED = 3,--完成所有任务
+    CAN_FINISHED = 3,--完成所有任务
+    ALL_FINISHED = 4,--完成所有任务,领取奖励
 }
 
 HERO_TASK_MODE =

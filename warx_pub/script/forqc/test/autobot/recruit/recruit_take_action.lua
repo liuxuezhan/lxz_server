@@ -24,7 +24,7 @@ function RecruitTakeAction:onEnter()
     -- 没有建筑
     if nil == build then
         local propid = build_prop_id[job.mode]
-        self.host.wanted_building:addBuilding(propid, job.priority + 1, 1)
+        self.host.build_manager:addBuilding(propid, job.priority + 1, 1)
         self.host:addRecruitJob(job.mode, job.level, job.num, job.priority, job.accelerate)
         self.fsm:translate("Idle")
         return
@@ -35,7 +35,7 @@ function RecruitTakeAction:onEnter()
     -- 建筑等级不够
     if level > 0 then
         if build_prop.TrainLv < level then
-            self.host.wanted_building:addBuilding(build.propid + 1, job.priority + 1, 1)
+            self.host.build_manager:addBuilding(build.propid + 1, job.priority + 1, 1)
             self.host:addRecruitJob(job.mode, job.level, job.num, job.priority, job.accelerate)
             self.fsm:translate("Idle")
             return

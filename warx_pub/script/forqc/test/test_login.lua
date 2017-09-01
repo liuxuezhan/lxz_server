@@ -11,7 +11,8 @@ Version="0.11.6"
 UDID = "AD921D60486366258809553A3DB49A4A"
 OPEN_ID="0355A2097C13DA0A45028503C360CF70"
 
-UrlVer="http://gw-warx-qq.tapenjoy.com/api/ver/get?ver=%s&udid=%s&os=android&time=%s"
+--UrlVer="http://gw-warx-qq.tapenjoy.com/api/ver/get?ver=%s&udid=%s&os=android&time=%s"
+UrlVer="http://192.168.100.14/resources/dev/android/v9000/27f16bd0f3fd53a635a7bbaf203a0d4e.u"
 
 _G.Json = require("frame/json")
 
@@ -150,13 +151,16 @@ function t1.action( idx )
     --local node = info.data
     local node = {}
     node.map = server_id
+    node.map = 12
     node.open_id = OPEN_ID
     node.account = node.open_id
     node.did = UDID
     node.idx = idx
     gHavePlayers[ idx ] = node
 
-    local sid = connect(ip, 8001, 0, 0 )
+    ip = "139.224.9.97"
+    --local sid = connect(ip, 8001, 0, 0 )
+    local sid = connect(ip, 6001, 1, 0 )
     if sid then
         node.action = "test_login"
         node.gid = sid

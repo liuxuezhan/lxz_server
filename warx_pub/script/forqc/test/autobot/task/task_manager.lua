@@ -9,10 +9,6 @@ local function _onTaskInfoUpdated(self, player, new_data, old_data)
                 new_data.task_type == TASK_TYPE.TASK_TYPE_BRANCH or
                 new_data.task_type == TASK_TYPE.TASK_TYPE_HEROROAD then
                 self:_finishTask(new_data.task_id)
-                -- 临时解决方案，应该根据服务器消息更新相关数据
-                if 130010127 == new_data.task_id then
-                    Rpc:loadData(player, "ef")
-                end
             end
             self:_acceptSubsequentTask(new_data.task_id)
         elseif new_data.task_status == TASK_STATUS.TASK_STATUS_CAN_FINISH then
@@ -43,6 +39,18 @@ function TaskManager.create(...)
     return obj
 end
 
+local function _canHandleTask(task)
+    if TASK_TYPE.TASK_TYPE_TRUNK == task.task_type or
+        TASK_TYPE.TASK_TYPE_BRANCH == task.task_type then
+        return true
+    end
+    if TASK_TYPE.TASK_TYPE_TARGET == task.task_type then
+        if task.task_status == TASK_STATUS.TASK_STATUS_CAN_FINISH then
+            return true
+        end
+    end
+end
+
 function TaskManager:init(player)
     self.player = player
     self.pending_tasks = {}
@@ -51,11 +59,12 @@ function TaskManager:init(player)
     self.player.eventBuildUpdated:add(newFunctor(self, _onBuildUpdated))
 
     for k, v in pairs(self.player._task.cur or {}) do
-        if TASK_TYPE.TASK_TYPE_TRUNK == v.task_type or
-            TASK_TYPE.TASK_TYPE_BRANCH == v.task_type then
+        if _canHandleTask(v) then
             table.insert(self.pending_tasks, v.task_id)
         end
     end
+
+    self:_acceptCastleTask(self.player:get_castle_lv())
 end
 
 function TaskManager:uninit()
@@ -85,7 +94,7 @@ end
 function TaskManager:_acceptCastleTask(castle_lv)
     local tasks = {}
     for k, v in pairs(resmng.prop_task_detail) do
-        if is_task_finished(self.player, v.PreTask) and not is_task_finished(self.player, v.ID) then
+        if (not v.PreTask or is_task_finished(self.player, v.PreTask)) and not is_task_finished(self.player, v.ID) then
             local t, lv = unpack(v.PreCondition)
             if lv <= castle_lv then
                 table.insert(tasks, k)
@@ -142,9 +151,7 @@ local function _getTaskStatusString(task_status)
 end
 
 function TaskManager:_addPendingTask(task)
-    if TASK_TYPE.TASK_TYPE_TRUNK == task.task_type or
-        TASK_TYPE.TASK_TYPE_BRANCH == task.task_type then
-
+    if _canHandleTask(task) then
         for _, v in ipairs(self.pending_tasks) do
             if v == task.task_id then
                 return

@@ -20,13 +20,13 @@ function State:update()
     end
 end
 
-function State:enter()
+function State:enter(...)
     local is_debug = self.fsm:isDebug()
     if is_debug then
         WARN("[StateMachine]%sEnter state begin: %s", self.fsm:_dbgPrefix(), self.name)
     end
     if self.onEnter then
-        self:onEnter()
+        self:onEnter(...)
     end
     if is_debug then
         WARN("[StateMachine]%sEnter state end: %s", self.fsm:_dbgPrefix(), self.name)
@@ -50,6 +50,10 @@ function State:exit()
     if self.needUpdate and self.fsm.updateState then
         self.fsm.delUpdateState(self.fsm)
     end
+end
+
+function State:translate(name, ...)
+    self.fsm:translate(name, ...)
 end
 
 -- Finite State Machine
@@ -86,6 +90,9 @@ function StateMachine:update()
 end
 
 function StateMachine:start()
+    if self.onStart then
+        self:onStart()
+    end
     assert(nil == self.currentState, "state machine has started")
     assert(nil ~= self.initState, "state machine can't start because the initState is nil")
     local state = self.states[self.initState]
@@ -101,9 +108,12 @@ function StateMachine:stop()
     self.currentState = nil
     self.prevState = nil
     state:exit()
+    if self.onStop then
+        self:onStop(state)
+    end
 end
 
-function StateMachine:translate(name)
+function StateMachine:translate(name, ...)
     local state = self.currentState
     assert(nil ~= state, "state machine didn't start")
     local nextState = self.states[name]
@@ -117,7 +127,7 @@ function StateMachine:translate(name)
     self.prevState = state
     self.currentState = nextState
     state:exit()
-    nextState:enter()
+    nextState:enter(...)
     if self:isDebug() then
         self.__dbg_depth = self.__dbg_depth - 1
         WARN("[StateMachine]%sTranslat state from %s to %s, done.", self:_dbgPrefix(), state.name, nextState.name)
@@ -151,10 +161,11 @@ function StateMachine:_dbgPrefix()
 end
 
 local function createStateMachine(self, host)
-    assert(self.initState, "no fsm's initializer")
     local instance = {states = {}, host=host}
     setmetatable(instance, self)
-    instance:initState()
+    if instance.onInit then
+        instance:onInit()
+    end
     return instance
 end
 

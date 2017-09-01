@@ -25,7 +25,7 @@ function TechTakeAction:onEnter()
     end
     local build = get_build(self.host.player, BUILD_CLASS.FUNCTION, BUILD_FUNCTION_MODE.ACADEMY)
     if nil == build then
-        self.host.wanted_building:addBuilding(BUILD_ACADEMY_1, job.priority + 1, 1)
+        self.host.build_manager:addBuilding(BUILD_ACADEMY_1, job.priority + 1, 1)
         self.host.addStudyJob(job.tech_id, job.priority, job.functor)
         _studyNextTech(self)
         return

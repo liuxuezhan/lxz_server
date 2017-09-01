@@ -263,16 +263,20 @@ function union_create(self, name, alias, language, mars)
         end
     end
 
+    local num = resmng.CREATEUNION.cost2
     if self:get_castle_lv() < resmng.CREATEUNION.lv   then
-        if not self:do_dec_res(resmng.DEF_RES_GOLD, resmng.CREATEUNION.cost, VALUE_CHANGE_REASON.UNION_CREATE ) then
-            return
-        end
+       num = resmng.CREATEUNION.cost1
     end
 
     local code = want_insert_unique_name( "name_union", name, { pid=self.pid, account=self.account, map=gMapID, time=gTime, alias=alias, action="create"} )
     if code ~= 0 then
         ack(self, "union_create", resmng.E_DUP_ALIAS) return
     end
+
+    if not self:do_dec_res(resmng.DEF_RES_GOLD, num, VALUE_CHANGE_REASON.UNION_CREATE ) then
+        return
+    end
+
 
     local union = union_t.create(self, name, alias, language, mars)
 
@@ -361,7 +365,8 @@ function union_set_info(self, info)
 
     if union_t.is_legal(self, "ChgFlag") and info.language then
         u.language = info.language
-        player_t.pre_tlog(nil,"UnionList",u.uid,u.name,u.language,1,tostring(u.mc_start_time[1]))
+        player_t.pre_tlog(nil,"UnionList",u.uid,u.name,u.language,1,
+            tostring(u.mc_start_time[1]),u.membercount,u.activity or 0 ) 
     end
 
 
@@ -557,7 +562,7 @@ function union_list(self,name)
         if code ~= true then return end
         if is_sys_name( name ) then return end
 
-        for _, u in pairs( _us or {}  ) do
+        for _, u in pairs( unionmng._us or {}  ) do
             if u  and u:check() and string.find(u.name,name) then
                 local info = sort_info(self,u)
                 if info then 
@@ -568,7 +573,7 @@ function union_list(self,name)
             end
         end
 
-        for _, u in pairs( _us or {}  ) do
+        for _, u in pairs( unionmng._us or {}  ) do
             if u  and u:check() and string.find(u.alias,name) then
                 local info = sort_info(self,u)
                 if info then 
@@ -616,10 +621,12 @@ end
 function union_list2(p)
     local ret = p:union_hot() 
     if not next(ret) then return end
-    local v = ret[1]
-    local leader = getPlayer(v.leader)
-    if not leader then return end
-    Rpc:union_list2(p, {uid= v.uid,alias=v.alias,name=v.name,leader=leader.name,})
+    local v = ret[1] or ret[2]
+    if v then
+        local leader = getPlayer(v.leader)
+        if not leader then return end
+        Rpc:union_list2(p, {uid= v.uid,alias=v.alias,name=v.name,leader=leader.name,})
+    end
 end
 
 function union_hot(p)
@@ -746,7 +753,7 @@ function union_member_title(self, pid, t)
     end
 
     B._union.title = t
-    gPendingSave.union_member[B.pid] = B._union
+    gPendingSave.union_member[B.pid].title = B._union.title
     u:notifyall(resmng.UNION_EVENT.MEMBER, resmng.UNION_MODE.TITLE, B:get_union_info())
     return resmng.E_OK
 
@@ -854,23 +861,24 @@ end
 
 --}}}
 
-function union_troop_buf(self)
+function union_troop_buf(p)
 
-    if check_ply_cross(self) then
-        ack(self, "union_troop_buf", resmng.E_DISALLOWED) return
+    if check_ply_cross(p) then
+        ack(p, "union_troop_buf", resmng.E_DISALLOWED) return
     end
 
-    if not union_t.is_legal(self, "Global2") then return end
-    local u = unionmng.get_union(self.uid)
+    if not union_t.is_legal(p, "Global2") then return end
+    local u = unionmng.get_union(p.uid)
     if not u then return end
     for _, v in pairs(u.buf or {}) do
         if v[1]==90001001 then return end
     end
-    if not self:do_dec_res(resmng.DEF_RES_GOLD, 20000, VALUE_CHANGE_REASON.UNION_TASK) then
+    if not p:do_dec_res(resmng.DEF_RES_GOLD, 20000, VALUE_CHANGE_REASON.UNION_TASK) then
         return
     end
     u:add_buf(90001001,8*60*60)
     Rpc:tips({pid=-1,gid=_G.GateSid}, 2,resmng.UNION_ADD_BUF,{u.name})
+    u:add_log(resmng.UNION_EVENT.BUFF_ALL,resmng.UNION_MODE.ADD,{ name=p.name, })
 end
 
 --{{{ tech & donate
@@ -1585,6 +1593,8 @@ function union_battle_room_info(self, room_id)
     local troop = troop_mng.get_troop(room_id)
     if not troop then return end
 
+    local action = troop.action % 100
+
     local A = get_ety( troop.owner_eid )
     local D = get_ety( troop.target_eid )
     if A and D then
@@ -1597,6 +1607,7 @@ function union_battle_room_info(self, room_id)
         info.def = {}
         local tid = troop._id
 
+        local count = 0
         for pid, arm in pairs( troop.arms or {} ) do
             if pid >= 10000 then
                 local ply = getPlayer( pid )
@@ -1607,8 +1618,26 @@ function union_battle_room_info(self, room_id)
                         table.insert( info.ack, { propid=ply.propid, pid=ply.pid, photo=ply.photo, tid=tid } )
                     end
                 end
+                for _, v in pairs( arm.live_soldier or {} ) do count = count + v end
             else
                 table.insert( info.ack, { propid=A.propid, tid=tid } )
+                if action == TroopAction.SiegeMonsterCity then
+                    local mcid = troop.mcid
+                    local conf = resmng.get_conf( "prop_monster_city", mcid )
+                    if conf then
+                        for _, v in pairs( conf.Arms or {} ) do
+                            count = count + v[1][2]
+                        end
+                    end
+
+                elseif action == TroopAction.MonsterAtkPly then
+                    local conf = resmng.get_conf( "prop_world_unit", A.propid ) 
+                    if conf then
+                        for _, v in pairs( conf.Arms or {} ) do
+                            count = count + v[1][2]
+                        end
+                    end
+                end
                 break
             end
         end
@@ -1622,15 +1651,31 @@ function union_battle_room_info(self, room_id)
                         if ply then
                             table.insert( info.ack, { propid=ply.propid, pid=ply.pid, photo=ply.photo, tid=tid } )
                         end
+                        for pid, arm in pairs( join.arms or {} ) do
+                            for _, v in pairs( arm.live_soldier or {} ) do count = count + v end
+                        end
                     end
                 end
             end
         end
 
+        if is_ply(A) then
+            info.count_atk = { count, A:get_val( "CountRallySoldier" ) }
+        else
+            info.count_atk = { count, 0 }
+        end
+
+        count=0
         local troopD = get_home_troop( D )
         if troopD then
             local tid = troopD._id
             for pid, arm in pairs( troopD.arms or {} ) do
+                for k, v in pairs( arm.live_soldier or {} ) do
+                    if not (action == TroopAction.SiegePlayer and pid == troopD.owner_pid) then
+                        count = count + v
+                    end
+                end
+
                 if pid >= 10000 then
                     local ply = getPlayer( pid )
                     if ply then
@@ -1642,16 +1687,21 @@ function union_battle_room_info(self, room_id)
                     end
                 else
                     table.insert( info.def, { propid=D.propid, tid=tid } )
+                    if is_monster( D ) then
+                        local conf = resmng.get_conf( "prop_world_unit", D.propid )
+                        if conf then
+                            for _, v in pairs( conf.Arms or {} ) do
+                                count = count + v[2]
+                            end
+                            count = math.ceil( count * 0.01 * D.hp )
+                        end
+                    end
                     break
                 end
             end
 
             for tid, action in pairs( D.troop_comings or {} ) do
-                if action == TroopAction.SupportArm or action == TroopAction.HoldDefense or 
-                action == TroopAction.HoldDefenseNPC or
-                action == TroopAction.HoldDefenseKING or
-                action == TroopAction.HoldDefenseLT 
-                    then
+                if action == TroopAction.SupportArm or action == TroopAction.HoldDefense or action == TroopAction.HoldDefenseNPC or action == TroopAction.HoldDefenseKING or action == TroopAction.HoldDefenseLT then
                     local join = troop_mng.get_troop( tid )
                     if join and join:is_go() and join.target_eid == D.eid then
                         if join.owner_pid >= 10000 then
@@ -1659,11 +1709,23 @@ function union_battle_room_info(self, room_id)
                             if ply then
                                 table.insert( info.def, { propid=ply.propid, pid=ply.pid, photo=ply.photo, tid=tid } )
                             end
+                            for _, arm in pairs( join.arms or {} ) do
+                                for _, v in pairs( arm.live_soldier or {} ) do count = count + v end
+                            end
                         end
                     end
                 end
             end
 
+            local count_max = 0
+            if is_ply( D ) then
+                count_max = D:get_val( "CountRelief" )
+            elseif is_lost_temple(D) or is_npc_city(D) or is_king_city(D) then
+                _, count_max = npc_city.hold_limit( D )
+            elseif is_union_miracal( D.propid ) then
+                count_max = union_build_t.get_hold_limit( D )
+            end
+            info.count_def = { count, count_max }
         end
         Rpc:union_battle_room_info_resp(self, { id=room_id, action=troop.action, info=info} )
     end
@@ -2058,10 +2120,6 @@ function union_word_get(p,uid,wid)
     if u then
         local d = union_word.get(p,u,wid)
         Rpc:union_word_get(p, d)
-        p._union.word = p._union.word or {} 
-        gPendingSave.union_member[p.pid].word = gPendingSave.union_member[p.pid].word  or {} 
-        p._union.word[wid]=nil   
-        gPendingSave.union_member[p.pid].word[wid] = nil 
     end
 end
 

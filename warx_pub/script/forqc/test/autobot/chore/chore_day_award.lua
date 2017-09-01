@@ -125,5 +125,5 @@ function ChoreDayAward:_stopWatch()
     self.task_functor = nil
 end
 
-return makeClass(ChoreDayAward)
+return makeChoreClass("DayAward", ChoreDayAward)
 

@@ -502,23 +502,8 @@ end
 -- Others   : 满级或者达到城主等级不能继续升级
 --------------------------------------------------------------------------------
 function can_lv_up(self)
-    --if not self:is_valid() and self.status ~= HERO_STATUS_TYPE.BEING_CURED  then
-    --    WARN("can_lv_up: hero_id(%s) isn't valid.", self._id)
-    --    return
-    --end
-
-    if not self:is_valid() then 
-        WARN("can_lv_up: hero_id(%s) isn't valid.", self._id)
-        return 
-    end
-
     -- 满级
-    if self.lv >= #resmng.prop_hero_lv_exp then
-        return
-    end
-
-    -- TODO: 暂时不校验城主等级
-    --do return true end
+    if self.lv >= #resmng.prop_hero_lv_exp then return end
 
     -- 等级不能超过城主
     local player = getPlayer(self.pid)
@@ -557,65 +542,9 @@ end
 --------------------------------------------------------------------------------
 function get_lv_up_exp(self, lv)
     lv = lv or self.lv + 1
-    --lv = lv or self.lv
     local exp_conf = resmng.get_conf("prop_hero_lv_exp", lv)
-    if not exp_conf then
-        return
-    end
-
+    if not exp_conf then return end
     return exp_conf.NeedExp and exp_conf.NeedExp[self.quality]
-end
-
-
---------------------------------------------------------------------------------
--- Function : 英雄升级
--- Argument : self, count(嵌套调用次数, 避免死循环)
--- Return   : NULL
--- Others   : NULL
---------------------------------------------------------------------------------
-function lv_up(self, count)
-    if not self:is_valid() then
-        ERROR("lv_up: hero_id(%s) isn't valid.", self._id)
-        return
-    end
-
-    count = count or 0
-    -- TODO: 暂定100, 以后修正为英雄等级上限
-    if count >= 100 then
-        ERROR("lv_up: check this function!!! It has been called %d times in a row.", count)
-        return
-    end
-
-    -- 等级限制
-    if not self:can_lv_up() then
-        self.exp = 0
-        LOG("lv_up: hero(%s), can't lv up. clear exp.", self._id)
-        return
-    end
-
-    -- 校验经验值是否足够
-    local exp_need = self:get_lv_up_exp()
-    if not exp_need then
-        ERROR("lv_up: get_lv_up_exp() failed. self.lv = %d, self.quality = %d", self.lv, self.quality)
-        return
-    else
-        if self.exp < exp_need then
-            LOG("lv_up: hero(%s), exp not enough, have %d, need %d", self._id, self.exp, exp_need)
-            return
-        end
-    end
-
-    -- 扣除经验值
-    self.exp = self.exp - exp_need
-
-    -- 升级，修改属性
-    self.lv = self.lv + 1
-    self:up_attr()
-
-    INFO( "[HERO], lv_up, pid=%d, heroid=%s, propid=%s, lv=%d", self.pid, self._id, self.propid, self.lv )
-
-    -- 继续升级
-    return self:lv_up(count + 1)
 end
 
 
@@ -626,25 +555,11 @@ end
 -- Others   : 满星或者达到自身星级上限不能升星
 --------------------------------------------------------------------------------
 function can_star_up(self)
-    if not self:is_valid() then
-        ERROR("can_star_up: hero_id(%s) isn't valid.", self._id)
-        return
-    end
-
-    if self.star >= #resmng.prop_hero_star_up then
-        return
-    end
-
+    if self.star >= #resmng.prop_hero_star_up then return end
     local conf = resmng.get_conf("prop_hero_basic", self.propid)
-    if not conf then
-        return
-    end
-
-    if self.star >= conf.MaxStar then
-        return
-    else
-        return true
-    end
+    if not conf then return end
+    if self.star >= conf.MaxStar then return end
+    return true
 end
 
 function check_hero_lv_ache(player)
@@ -843,33 +758,6 @@ function is_best_personality(self)
 end
 
 
-
---------------------------------------------------------------------------------
--- Function : 改名
--- Argument : self, new_name
--- Return   : NULL
--- Others   : 调用处需要做道具校验和扣除
---------------------------------------------------------------------------------
-function rename_hero(self, new_name)
-    if not self:is_valid() then
-        ERROR("rename_hero: hero_id(%s) isn't valid.", self._id)
-        return
-    end
-
-    if not self or not new_name then
-        ERROR("rename_hero: new_name = %s.", new_name or "nil")
-        return
-    end
-
-    if is_valid_name(new_name) then
-        self.name = new_name
-    else
-        -- ERROR_CODE
-        return
-    end
-end
-
-
 --------------------------------------------------------------------------------
 -- Function : 计算免伤
 -- Argument : self
@@ -880,30 +768,6 @@ function calc_imm(self)
     local conf = resmng.get_conf("prop_hero_basic", self.propid)
     local imm = self.def / (self.def + self.lv * conf.LevelParam1 + conf.LevelParam2)
     return imm
-end
-
-
---------------------------------------------------------------------------------
--- Function : 修改当前血量
--- Argument : self, hp_ratio
--- Return   : succ - true; fail - false
--- Others   : NULL
---------------------------------------------------------------------------------
-function update_hp(self, hp_ratio)
-    if not self:is_valid() then
-        ERROR("update_hp: hero_id(%s) isn't valid.", self._id)
-        return false
-    end
-
-    if not hp_ratio or hp_ratio < 0 or hp_ratio > 1 then
-        ERROR("update_hp: hp_ratio = %f, self.max_hp = %d.", hp or -1, self.max_hp)
-        return false
-    end
-
-    self.hp = math.floor(hp_ratio * self.max_hp)
-    LOG("update_hp: hero._id = %s, hp_ratio = %f, new hp = %d", self._id, hp_ratio, self.hp)
-    print(string.format("update_hp: hero._id = %s, hp_ratio = %f, new hp = %d", self._id, hp_ratio, self.hp))
-    return true
 end
 
 
@@ -979,44 +843,10 @@ end
 function is_valid(self)
     if self.status == HERO_STATUS_TYPE.FREE then return true end
     if self.status == HERO_STATUS_TYPE.BUILDING then return true end
+    if self.status == HERO_STATUS_TYPE.BEING_CURED then return true end
+
     WARN( "hero_is_not_valid, pid = %d, _id = %s, name = %s, status = %d", self.pid, self._id, self.name, self.status )
-
     return false
-
-
-    --local invalid_status = {
-    --    [HERO_STATUS_TYPE.BUILDING]      = true,
-    --    [HERO_STATUS_TYPE.MOVING]      = true,
-    --    [HERO_STATUS_TYPE.BEING_CURED]      = true,
-    --    [HERO_STATUS_TYPE.BEING_CAPTURED]   = true,
-    --    [HERO_STATUS_TYPE.BEING_IMPRISONED] = true,
-    --    [HERO_STATUS_TYPE.BEING_EXECUTED]   = true,
-    --    [HERO_STATUS_TYPE.DEAD]             = true,
-    --}
-    --if invalid_status[self.status] then
-    --    return false
-    --else
-    --    return true
-    --end
-end
-
-
---------------------------------------------------------------------------------
--- Function : is_valid_name
--- Argument : string
--- Return   : true / false
--- Others   : NULL
---------------------------------------------------------------------------------
-function is_valid_name(name)
-    if not name or type(name) ~= "string" then
-        return false
-    end
-
-    -- TODO: 长度限制
-
-    -- TODO: 非法字符
-
-    return true
 end
 
 

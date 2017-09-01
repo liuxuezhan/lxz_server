@@ -108,12 +108,18 @@ function add_task_process(player, task_data, con_num, num)
     if task_data.task_current_num >= con_num then
         --如果是日常任务判断不一样
         if task_data.task_type == TASK_TYPE.TASK_TYPE_DAILY then
-            local limit = resmng.prop_task_daily[task_data.task_id].FinishNum
+            local prop = resmng.prop_task_daily[task_data.task_id]
+            local limit = prop.FinishNum
             for i = task_data.task_daily_num, limit, 1 do
                 if task_data.task_current_num >= con_num then
                     task_data.task_current_num = task_data.task_current_num - con_num
                     task_data.task_daily_num = task_data.task_daily_num + 1
                     player:add_activity(task_data.task_id)
+                    Rpc:tips(player, 1, resmng.COMMON_TIPS_DAILYQUEST, {
+                        prop.Name,
+                        task_data.task_daily_num,
+                        limit,
+                        prop.ActiveNum})
                 end
                 if task_data.task_daily_num >= limit then
                     task_data.task_current_num = con_num
@@ -1224,3 +1230,36 @@ do_task[TASK_ACTION.HERO_NATURE_RESET] = function(player, task_data, con_id, con
     add_task_process(player, task_data, con_num, 1)
     return true
 end
+
+-- 获得军团奇迹Buff
+do_task[TASK_ACTION.UNION_CASTLE_EFFECT] = function(player, task_data, con_lv)
+    if 0 == player.ef_eid then
+        return false
+    end
+    local entity = get_ety(player.ef_eid)
+    if not entity then
+        return false
+    end
+    if not is_union_miracal(entity.propid) then
+        return false
+    end
+    if entity.uid ~= player.uid then
+        return false
+    end
+    con_lv = con_lv > 0 and con_lv or 1
+    local zone_lv = get_pos_lv(player.x, player.y)
+    return update_task_process(task_data, con_lv, zone_lv)
+end
+
+-- 领主改名
+do_task[TASK_ACTION.LORD_RENAME] = function(player, task_data, real_num)
+    if nil == real_num then
+        local smap, pid = string.match(player.name, "^K(%d+)a(%d+)$")
+        if tonumber(smap) == player.smap and tonumber(pid) == player.pid then
+            return false
+        end
+    end
+    add_task_process(player, task_data, 1, 1)
+    return true
+end
+

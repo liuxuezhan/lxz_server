@@ -25,7 +25,7 @@ function post(action, target, ...)
 
         local prop = resmng.prop_offline_notify[action]
         if is_ply(target) then
-            LOG("post %s %s", action, target.jpush_id)
+            LOG("post action %s %s", action, target.jpush_id)
 
             local sub_ntf_list = target.sub_ntf_list or {}
             if not sub_ntf_list[action] then
@@ -49,7 +49,7 @@ function post(action, target, ...)
 
         local offline_ntf_status = target.offline_ntf_status or {}
         if offline_ntf_status[action] then
-            if prop.Time and ( offline_ntf_status[action] - gTime ) < prop.Time then
+            if prop.Time and ( gTime - offline_ntf_status[action]) < prop.Time then
                 return
             end
         end
@@ -223,7 +223,7 @@ ntf_action[resmng.OFFLINE_NOTIFY_MASS] = function(action, ply, atk_ply, union)
 
 end
 
-ntf_action[resmng.OFFLINE_NOTIFY_GATHER] = function(action, ply)
+ntf_action[resmng.OFFLINE_NOTIFY_RETURN] = function(action, ply)
     local prop = resmng.prop_offline_notify[action]
     if not prop then
         return 
@@ -298,37 +298,37 @@ ntf_action[resmng.OFFLINE_NOTIFY_PROTECT] = function(action, ply)
 
 end
 
-ntf_action[resmng.OFFLINE_NOTIFY_MAIL] = function(action, ply, from_ply, union, word)
-    local prop = resmng.prop_offline_notify[action]
-    if not prop then
-        return 
-    end
-
-    union = union or {}
-    local word = from_ply.name
-    if union.alias then
-        word = "(" .. union.alias .. ")" .. word
-    end
-    local param = {word}
-
-    local msg = replace_param(ply.language, prop.Inform, param)
-    if not msg then
-        return 
-    end
-
-    if config.OfflineNtf == 1 then
-        local audience = {
-            ["registration_id"] = {ply.jpush_id},
-        }
-        push_offline_ntf(audience, msg)
-    elseif config.OfflineNtf == 2 then
-        local audience = {
-            ["fcm_id"] = ply.fcm_id
-        }
-        fcm(audience, msg)
-    end
-
-end
+--ntf_action[resmng.OFFLINE_NOTIFY_MAIL] = function(action, ply, from_ply, union, word)
+--    local prop = resmng.prop_offline_notify[action]
+--    if not prop then
+--        return 
+--    end
+--
+--    union = union or {}
+--    local word = from_ply.name
+--    if union.alias then
+--        word = "(" .. union.alias .. ")" .. word
+--    end
+--    local param = {word}
+--
+--    local msg = replace_param(ply.language, prop.Inform, param)
+--    if not msg then
+--        return 
+--    end
+--
+--    if config.OfflineNtf == 1 then
+--        local audience = {
+--            ["registration_id"] = {ply.jpush_id},
+--        }
+--        push_offline_ntf(audience, msg)
+--    elseif config.OfflineNtf == 2 then
+--        local audience = {
+--            ["fcm_id"] = ply.fcm_id
+--        }
+--        fcm(audience, msg)
+--    end
+--
+--end
 
 ntf_action[resmng.OFFLINE_NOTIFY_RESEARCH] = function(action, ply, tech_id)
     local prop = resmng.prop_offline_notify[action]
@@ -592,33 +592,58 @@ ntf_action[resmng.OFFLINE_NOTIFY_TOWER] = function(action)
 
 end
 
-ntf_action[resmng.OFFLINE_NOTIFY_REBEL] = function(action, union)
+ntf_action[resmng.OFFLINE_NOTIFY_REBEL] = function(action, ply)
     local prop = resmng.prop_offline_notify[action]
     if not prop then
         return 
     end
 
-    lang = union.lang
-
-    local msg = replace_param(lang, prop.Inform, {})
+    local msg = replace_param(ply.language, prop.Inform)
     if not msg then
-        return
+        return 
     end
-
 
     if config.OfflineNtf == 1 then
         local audience = {
-            ["registration_id"] = {get_union_push_list(union, "jpush")}
+            ["registration_id"] = {ply.jpush_id},
         }
         push_offline_ntf(audience, msg)
     elseif config.OfflineNtf == 2 then
         local audience = {
-            ["registration_ids"] = {get_union_push_list(union, "fcm")}
+            ["fcm_id"] = ply.fcm_id
         }
         fcm(audience, msg)
     end
 
 end
+
+--ntf_action[resmng.OFFLINE_NOTIFY_REBEL] = function(action, union)
+--    local prop = resmng.prop_offline_notify[action]
+--    if not prop then
+--        return 
+--    end
+--
+--    lang = union.lang
+--
+--    local msg = replace_param(lang, prop.Inform, {})
+--    if not msg then
+--        return
+--    end
+--
+--
+--    if config.OfflineNtf == 1 then
+--        local audience = {
+--            ["registration_id"] = {get_union_push_list(union, "jpush")}
+--        }
+--        push_offline_ntf(audience, msg)
+--    elseif config.OfflineNtf == 2 then
+--        local audience = {
+--            ["registration_ids"] = get_union_push_list(union, "fcm")
+--        }
+--        fcm(audience, msg)
+--    end
+--
+--end
 
 function get_union_push_list(union)
     local push_id_list = {}
@@ -626,11 +651,15 @@ function get_union_push_list(union)
     for k, v in pairs(members or {}) do
         if config.OfflineNtf == 1 then
             if v.jpush_id then
-                table.insert(push_id_list, v.jpush_id)
+                if v.jpush_id ~= "" then
+                    table.insert(push_id_list, v.jpush_id)
+                end
             end
         elseif config.OfflineNtf == 2 then
             if v.fcm_id then
-                table.insert(push_id_list, v.fcm_id)
+                if v.fcm_id ~= "" then
+                    table.insert(push_id_list, v.fcm_id)
+                end
             end
         end
     end
@@ -736,6 +765,7 @@ function fcm(target, msg)
         condition = target.condition,
         --condition =  "'warxmap_7' in topics && 'zh-CN' in topics",
         notification = {
+            sound = "default",
             body = msg,
         },
     } )

@@ -1,6 +1,6 @@
 local Bot = {}
 
-function Bot:initState()
+function Bot:onInit()
     self:addState("StandBy", BotStandBy, true)
     self:addState("Login", BotLogin)
     self:addState("Game", BotGame)

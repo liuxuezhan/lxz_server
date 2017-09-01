@@ -3,17 +3,14 @@ local ScavengerMonsterTakeAction = {}
 local MIN_SINEW = config.Autobot.ScavengeMonsterMinSinew or 20
 
 function ScavengerMonsterTakeAction:onEnter()
-    if 0 == self.host:getTroopCount("Battle") then
-        self.host.eventBusyTroopStarted:add(newFunctor(self, ScavengerMonsterTakeAction._onTroopStarted))
-        self:_initiateRequest()
-    else
-        self.host.eventBusyTroopFinished:add(newFunctor(self, ScavengerMonsterTakeAction._onTroopFinished))
+    if self.host:getTroopCount("Battle") > 0 then
+        self:translate("Rest")
+        return
     end
+    self:_initiateRequest()
 end
 
 function ScavengerMonsterTakeAction:onExit()
-    self.host.eventBusyTroopStarted:del(newFunctor(self, ScavengerMonsterTakeAction._onTroopStarted))
-    self.host.eventBusyTroopFinished:del(newFunctor(self, ScavengerMonsterTakeAction._onTroopFinished))
 end
 
 function ScavengerMonsterTakeAction:_initiateRequest()
@@ -27,23 +24,13 @@ function ScavengerMonsterTakeAction:_initiateRequest()
     local action = {}
     action.name = "AttackLevelMonster"
     action.params = {1, min_level, max_level}
-    INFO("[Autobot|ScavengerMonster|%d] initiate a sieget monster(%d|%d) action.", self.host.player.pid, min_level, max_level)
-    self.host:requestTroop(action, 500)
+    INFO("[Autobot|ScavengerMonster|%d] initiate a siege monster(%d|%d) action.", self.host.player.pid, min_level, max_level)
+    self.host:requestTroop(action, 500, newFunctor(self, self._onAccomplished))
 end
 
-function ScavengerMonsterTakeAction:_onTroopStarted(player, index, troop)
-    if 0 == self.host:getTroopCount("Battle") then
-        return
-    end
-    self.host.eventBusyTroopStarted:del(newFunctor(self, ScavengerMonsterTakeAction._onTroopStarted))
-    self.host.eventBusyTroopFinished:add(newFunctor(self, ScavengerMonsterTakeAction._onTroopFinished))
-end
-
-function ScavengerMonsterTakeAction:_onTroopFinished()
-    if self.host:getTroopCount("Battle") > 0 then
-        return
-    end
-    self.fsm:translate("Rest")
+function ScavengerMonsterTakeAction:_onAccomplished(flag)
+    INFO("[Autobot|ScavengerMonster|%d] siege finished %s.", self.host.player.pid, flag)
+    self:translate("Rest")
 end
 
 return makeState(ScavengerMonsterTakeAction)

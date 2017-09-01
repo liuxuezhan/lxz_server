@@ -335,7 +335,14 @@ local function callRpc( rpc, name, plA, ... )
                 --WARN("callRpc, name=%s, pid=%d, no gid", name, plA.pid)
                 return 
             end
-            pushHead(_G.GateSid, plA.pid, rf.id)
+            if plA.pid < 0 then
+                -- want broad cast to online ply
+                pushHead(_G.GateSid, 0, 22) --NET_BROADCAST_2STATE
+                pushInt(5)  -- STATE_ON
+                pushInt(rf.id)
+            else
+                pushHead(_G.GateSid, plA.pid, rf.id)
+            end
         else
             if not _G.GateSid then return end
 
@@ -365,6 +372,37 @@ local function callRpc( rpc, name, plA, ... )
     LOG("RpcS, pid=%d, pid_num=%d, func=%s", log_pid, log_num, name)
 end
 
+local function broadcastToState(rpc, state, name, ...)
+    local rf = rpc.remoteF[name]
+   	if not rf then
+		error(string.format("can't find remote function named %s",name))
+		return nil 
+	end
+	
+	local arg={...}
+	if #arg ~= #rf.args then
+		for i,v in ipairs(arg) do print(i,v) end
+		error(string.format("expected %d arguments, but passed in %d",#rf.args,#arg))
+	end
+
+    if not _G.GateSid then return end
+
+    -- STATE_IN_QUEUE == 4, STATE_ON == 5
+    if state ~= 4 and state ~= 5 then
+        error(string.format("state must be STATE_IN_QUEUE or STATE_ON! state=%s, name=%s", state, name))
+        return
+    end
+
+    pushHead(_G.GateSid, 0, 22) --NET_BROADCAST_2STATE
+    pushInt(state)
+    pushInt(rf.id)
+
+    push_args( rf.args, arg )
+
+    pushOver()
+
+    LOG("RpcS, broadcastToState=%d, func=%s", state, name)
+end
 
 local mt = {
     __index = function( table, key )
@@ -385,6 +423,7 @@ local function new()
     ins.sendToSock = sendToSock
     ins.debugListAllRpc = debugListAllRpc
     ins.parseFunction = parseFunction
+    ins.broadcastToState = broadcastToState
     setmetatable(ins, mt)
     return ins
 end

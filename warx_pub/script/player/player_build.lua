@@ -257,7 +257,7 @@ function construct(self, x, y, build_propid)
             LOG("[BUILD], construct, pid=%d, propid=%d, x=%d, y=%d ", self.pid, build_propid, x, y)
             return
         else
-            ERROR("construct: get build_idx failed, pid = %d, node.Class = %d, node.Mode = %d.", self.pid, node.Class, node.Mode)
+            WARN("construct: get build_idx failed, pid = %d, node.Class = %d, node.Mode = %d.", self.pid, node.Class, node.Mode)
         end
     end
 
@@ -679,7 +679,7 @@ end
 function acc_build(self, build_idx, acc_type)
     local build = self:get_build(build_idx)
     if not build then
-        ERROR("acc_build: pid = %d, build_idx = %d", self.pid, build_idx or -1)
+        WARN("acc_build: pid = %d, build_idx = %d", self.pid, build_idx or -1)
         return
     end
     --判断生产资源的建筑在生产状态不能加速
@@ -772,7 +772,7 @@ function item_acc_build(self, build_idx, item_idx, num)
 
     local state = build.state
     if state == BUILD_STATE.WAIT then
-        ERROR("item_acc_build: pid = %d, build_idx = %d, build.state = BUILD_STATE.WAIT", self.pid, build_idx)
+        WARN("item_acc_build: pid = %d, build_idx = %d, build.state = BUILD_STATE.WAIT", self.pid, build_idx)
         return
     end
 
@@ -1874,6 +1874,9 @@ function build_action_cancel( self, build_idx )
             build.tmSn = 0
             build.extra = {}
 
+        elseif build:is_altar() then
+            return
+
         elseif prop.Class == BUILD_CLASS.ARMY then
             local id = build:get_extra( "id" )
             local num = build:get_extra( "num" )
@@ -2117,7 +2120,7 @@ function wall_fire( self, dura )
         if is_in_black_land( self.x, self.y ) then
             speed_f = WALL_FIRE_IN_BLACK_LAND
         else
-            speed_f = 1/18 
+            speed_f = 1/18
         end
         wall:set_extra( "speed_f", speed_f )
         wall:set_extra( "tmStart_f", gTime )
@@ -2153,8 +2156,10 @@ function wall_fire( self, dura )
             etypipe.add(self)
         end
         wall:clr_extras( { "hp", "speed_f", "tmStart_f", "tmOver_f", "tmSn_f", "last" } )
+        --self:add_to_do( "tips", 3, resmng.CITYDEFENCE_FIRE_POINT_ZERO, {} )
         self:add_to_do( "add_tips", 3, resmng.CITYDEFENCE_FIRE_POINT_ZERO )
         return 
+
     end
     wall:set_extra( "hp", hp )
 

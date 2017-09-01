@@ -13,8 +13,8 @@ function RecruitManager:init(player)
     self.player = player
     self.eventJobAccepted = newEventHandler()
     self.eventPriorityChanged = newEventHandler()
-    self.player.wanted_building.eventNewBuilding:add(newFunctor(self , self._onNewBuilding))
-    self.player.wanted_building.eventBuildingCompleted:add(newFunctor(self , self._onBuildingCompleted))
+    self.player.build_manager.eventJobAccepted:add(newFunctor(self , self._onNewBuildingJob))
+    self.player.build_manager.eventBuildingCompleted:add(newFunctor(self , self._onBuildingCompleted))
     self.recruit_priority = {
         [BUILD_ARMY_MODE.BARRACKS] = 0,
         [BUILD_ARMY_MODE.STABLES] = 0,
@@ -36,8 +36,8 @@ function RecruitManager:init(player)
 end
 
 function RecruitManager:uninit()
-    self.player.wanted_building.eventNewBuilding:del(newFunctor(self , self._onNewBuilding))
-    self.player.wanted_building.eventBuildingCompleted:del(newFunctor(self , self._onBuildingCompleted))
+    self.player.build_manager.eventJobAccepted:del(newFunctor(self , self._onNewBuildingJob))
+    self.player.build_manager.eventBuildingCompleted:del(newFunctor(self , self._onBuildingCompleted))
     self.eventJobAccepted = nil
     self.eventPriorityChanged = nil
 end
@@ -124,10 +124,10 @@ function RecruitManager:_updateBuildingPriority(propid)
     if nil == prop or BUILD_CLASS.ARMY ~= prop.Class then
         return
     end
-    self:setBuildingPriority(prop.Mode, self.player.wanted_building:getMaxPriority(propid))
+    self:setBuildingPriority(prop.Mode, self.player.build_manager:getMaxPriority(propid))
 end
 
-function RecruitManager:_onNewBuilding(_, propid)
+function RecruitManager:_onNewBuildingJob(propid)
     self:_updateBuildingPriority(propid)
 end
 

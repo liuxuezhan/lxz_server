@@ -46,6 +46,9 @@ module_class("union_t", {
     mc_grade = 1,
     last_join_act_tm = 0,
     act_rank = {},
+    activity  = 0,
+    build_first1  = 0,
+    build_first2  = 0,
 })
 
 --
@@ -343,6 +346,7 @@ end
 
 function set_mc_state(self, stage)
     npc_city.reset_do_mc_citys()
+    self:reset_npc_info_pack()
 
     local prop = {}
     if not stage then
@@ -364,9 +368,10 @@ function set_mc_state(self, stage)
         local _members = self:get_members()
         for _, ply in pairs(_members or {}) do
             ply:send_system_notice(resmng.MAIL_10061, {}, {})
+            offline_ntf.post(resmng.OFFLINE_NOTIFY_REBEL, ply)
         end
         --offline ntf
-        offline_ntf.post(resmng.OFFLINE_NOTIFY_REBEL, self)
+        --offline_ntf.post(resmng.OFFLINE_NOTIFY_REBEL, self)
     end
 
     prop = resmng.prop_mc_stage[stage]
@@ -451,6 +456,7 @@ function do_declare_tw(self, npcEid)
     self.declare_tm = self.declare_tm + 1
     self.last_declare_time = gTime
     self.donate = self.donate - prop.Consume
+    self:reset_npc_info_pack()
 end
 
 function check_time_limit(self, npcId)
@@ -621,6 +627,11 @@ function union_can_atk_citys(self)
         if leader then
            citys =  leader:player_nearly_citys()
         end
+        for _, v in pairs({3010004, 3020004, 3030004, 3030004}) do
+            if not is_in_table(citys, v) then
+                table.insert(citys, v)
+            end
+        end
     end
     --self.can_atk_citys = citys
     return citys
@@ -678,7 +689,8 @@ function create(A, name, alias, language, propid)
 
     insert_global( "unions", id, { name=name, alias=alias, tmCreate=gTime, map=gMapID} )
 
-    player_t.pre_tlog(nil,"UnionList",u.uid,u.name,u.language,0,tostring(u.mc_start_time[1]))
+        player_t.pre_tlog(nil,"UnionList",u.uid,u.name,u.language,0,
+            tostring(u.mc_start_time[1]),u.membercount,u.activity or 0 ) 
 
     return u
 end
@@ -932,46 +944,54 @@ function destory(u)
     INFO("[Union] destory, uid:%s", u.uid)
     local db = dbmng:getGlobal()
     if db then db.name_union:delete( {_id=u.name} ) end
-    player_t.pre_tlog(nil,"UnionList",u.uid,u.name,u.language,2,tostring(u.mc_start_time[1]))
+    player_t.pre_tlog(nil,"UnionList",u.uid,u.name,u.language,2,
+        tostring(u.mc_start_time[1]),u.membercount,u.activity or 0 ) 
 end
 
 
-function add_member(self, A,B)
-    if self.membercount >= self:get_memberlimit() then
-        INFO( "[UNION], add_member, full, uid=%d, pid=%d", self.uid, A.pid )
+function add_member(u, A,B)
+    if u.membercount >= u:get_memberlimit() then
+        INFO( "[UNION], add_member, full, uid=%d, pid=%d", u.uid, A.pid )
         return -1
     end
 
-    if self:has_member(A) then return resmng.E_ALREADY_IN_UNION end
+    if u:has_member(A) then return resmng.E_ALREADY_IN_UNION end
     local old = unionmng.get_union(A:get_uid())
     if old then
         if B then Rpc:tips(B,1,resmng.UNION_ADD_MEMBER_1,{}) end
-        self:notifyall(resmng.UNION_EVENT.MEMBER, resmng.UNION_MODE.UPDATE, {pid=0})
+        u:notifyall(resmng.UNION_EVENT.MEMBER, resmng.UNION_MODE.UPDATE, {pid=0})
         return
     end
 
-    A:set_uid(self)
+    A:set_uid(u)
     etypipe.add(A)
-    self._members[A.pid] = A
-    self.membercount = tabNum(self._members)
+    u._members[A.pid] = A
+    u.membercount = tabNum(u._members)
 
-    self.pow = (self.pow or 0) + A:get_pow()
-    if self.pow > 0 and not self:is_new() then rank_mng.add_data( 5, self.uid, { self.pow } ) end
+    u.pow = (u.pow or 0) + A:get_pow()
+    if u.pow > 0 and not u:is_new() then rank_mng.add_data( 5, u.uid, { u.pow } ) end
 
 
     local t = A:get_union_info()
-    t.uid = self.uid
+    t.uid = u.uid
 
-    self.donate_rank = {} --清除捐献排行
+    u.donate_rank = {} --清除捐献排行
     for _, v in pairs(UNION_CONSTRUCT_TYPE) do
         union_buildlv.get_cons(A,v,1)
     end
-    self:notifyall(resmng.UNION_EVENT.MEMBER, resmng.UNION_MODE.ADD, t)
+    u:notifyall(resmng.UNION_EVENT.MEMBER, resmng.UNION_MODE.ADD, t)
     --任务
     task_logic_t.process_task(A, TASK_ACTION.JOIN_PLAYER_UNION)
     task_logic_t.process_task(A, TASK_ACTION.OCC_NPC_CITY)
-    send_chat_invite(self.chat_room, A)
+    task_logic_t.process_task(A, TASK_ACTION.UNION_CASTLE_EFFECT)
+    send_chat_invite(u.chat_room, A)
 
+    if 9 < u.membercount and u.build_first1 ~= 1  then
+        for _, p in pairs(u._members) do
+            p:send_union_build_mail(resmng.MAIL_10074, {}, {})
+        end
+        u.build_first1 = 1  
+    end
     return 0
 end
 
@@ -1036,7 +1056,7 @@ function rm_member(self, A,kicker)
     local f
     if not self:is_new() then f = A:union_leader_auto() end --移交军团长
 
-    self:notifyall(resmng.UNION_EVENT.MEMBER, resmng.UNION_MODE.DELETE, {name=A.name,pid=A.pid,kicker=kicker.pid})
+    self:notifyall(resmng.UNION_EVENT.MEMBER, resmng.UNION_MODE.DELETE, {name=A.name,pid=A.pid,kname=kicker.name, kicker=kicker.pid})
     A:set_uid()
     etypipe.add(A)
     self._members[A.pid] = nil
@@ -1845,18 +1865,20 @@ function is_in_miracal_range(self, x, y, r)  --在奇迹范围内
         if v.state ~= BUILD_STATE.DESTROY then
             if is_union_miracal(v.propid) then
                 local cc = resmng.get_conf("prop_world_unit",v.propid)
-                local b = {}
-                b.xx,b.yy = (x+r),(y+r)--目标中心点
-                b.x = v.x - cc.Range + r --可以放置范围的左下角
-                b.y = v.y - cc.Range + r
-                b.s = 2*cc.Range + cc.Size - 2*r
-                if b.xx >= b.x and b.xx <= (b.x+b.s) and b.yy >= b.y and b.yy <= (b.y+b.s) then
+
+                local offx = math.abs((x + r) - (v.x + cc.Size * 0.5))
+                local offy = math.abs((y + r) - (v.y + cc.Size * 0.5))
+                if math.max(offx, offy) < (r + cc.Size * 0.5 + cc.Range) then
                     return true
                 end
             end
         end
     end
     return false
+end
+
+function reset_npc_info_pack(self)
+    self.npc_info_pack = nil
 end
 
 

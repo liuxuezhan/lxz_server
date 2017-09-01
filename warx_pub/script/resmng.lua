@@ -126,6 +126,8 @@ do_load(BasePath .. "define_tribute_exchange_limitation")
 do_load(BasePath .. "define_render_level")
 do_load(BasePath .. "define_hero_task_init")
 do_load(BasePath .. "define_hero_task_detail")
+do_load(BasePath .. "define_device")
+do_load(BasePath .. "define_device_gpu")
 
 do_load(BasePath .. "prop_buy_group")
 do_load(BasePath .. "prop_buy")

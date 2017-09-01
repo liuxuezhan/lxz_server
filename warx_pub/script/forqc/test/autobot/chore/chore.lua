@@ -8,6 +8,23 @@ local INSTANT_CHORES =
 }
 local INSTANT_INTERVAL = config.Autobot.ChoreInstantInterval or 2
 
+local CHORES = {}
+function makeChoreClass(name, class)
+    local creator = {}
+    creator.__index = creator
+    creator.create = function(...)
+        local instance = setmetatable({}, class)
+        instance:init(...)
+        return instance
+    end
+
+    class.__index = class
+    class.name = name
+
+    table.insert(CHORES, class)
+    return setmetatable(class, creator)
+end
+
 function Chore:onInit()
 end
 
@@ -15,9 +32,11 @@ function Chore:onEnter()
     self.chores = {}
 
     local player = self.host
-    self.chores.reap = ChoreReap.create(player)
-    self.chores.gacha = ChoreGacha.create(player)
-    self.chores.day_award = ChoreDayAward.create(player)
+    for k, v in ipairs(CHORES) do
+        assert(nil == self.chores[v.name], string.format("exist chore: %s", v.name))
+        local chore = v.create(player)
+        self.chores[v.name] = chore
+    end
 
     self:_startInstantChroes()
 end
@@ -79,8 +98,9 @@ end
 function Chore:_claimMonthlyCard()
     local cur_day = get_days(gTime)
     if cur_day > self.host.tm_yueka_end then
-        INFO("[Autobot|Chore|%d] Month Card is out of time(%d > %d).", self.host.pid, cur_day, self.host.tm_yueka_end)
-        return
+        --INFO("[Autobot|Chore|%d] Month Card is out of time(%d > %d).", self.host.pid, cur_day, self.host.tm_yueka_end)
+        --return
+        Rpc:buy_yueka(self.host)
     end
     if cur_day <= self.host.tm_yueka_cur then
         INFO("[Autobot|Chore|%d] Month Card has been claimed.", self.host.pid)

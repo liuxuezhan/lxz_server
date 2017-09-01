@@ -164,6 +164,7 @@ function get_watchtower_info(troop, dest_load, player)
     end
     if ack_info.action == TroopAction.SupportArm then
         ack_info.load = ack_info.arms_num
+        --ack_info.load = ack_info
     end
 
 
@@ -215,10 +216,11 @@ function fill_watchtower_info(troop)
 
     local dest_load = nil
     if base_action == TroopAction.SupportRes then --如果是物资援助，要把负重算出来
-        dest_load = 0
+        dest_load = {}
         for k, v in pairs(troop.goods or {}) do
             if v[3] > 0 then
-                dest_load = dest_load + math.floor(v[3] * RES_RATE[k])
+                --dest_load = dest_load + math.floor(v[3] * RES_RATE[k])
+                dest_load[ k ] = v
             end
         end
     end

@@ -58,8 +58,8 @@ Autobot.EnableMassivePlayer = true  -- 为 true 启动机器人压力测试
 Autobot.SinglePlayerIdx = 145
 -- PlayerIdx = Massive_PreIdx * 1000000 + [1, Massive_BatchCount] * 1000 + [1,LoopCount]
 Autobot.Massive_PreIdx = 2              -- 前缀ID（可用于不同机器人实例分隔ID段）
-Autobot.Massive_BatchCount = 1        -- 共执行多少次批量登录
-Autobot.Massive_LoopCount = 2          -- 每一批登录玩家数量
+Autobot.Massive_BatchCount = 41        -- 共执行多少次批量登录
+Autobot.Massive_LoopCount = 100          -- 每一批登录玩家数量
 Autobot.Massive_Interval = 1            -- 每间隔多少秒执行一次玩家批量创建/登录
 
 Autobot.ChoreInstantInterval = 2

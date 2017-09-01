@@ -20,9 +20,11 @@ local function _loadAllModule(self)
     end
     _load("auxiliary/fsm")
     _load("auxiliary/object_creator")
+    _load("auxiliary/tools")
     _load("auxiliary/task_mng", "TaskMng")
     _load("auxiliary/autobot_timer", "AutobotTimer")
     _load("auxiliary/autobot", "Autobot")
+    _load("state_machine", "StateMachine")
 
     _load("entity", "Entity")
     _load("bot", "Bot")
@@ -36,9 +38,10 @@ local function _loadAllModule(self)
     -- task
     _load("task/task_manager", "TaskManager")
     -- build queue
-    _load("build_queue/wanted_building", "WantedBuilding")
+    _load("build_queue/build_manager", "BuildManager")
+    _load("build_queue/build_queue_machine", "BuildQueueMachine")
     _load("build_queue/build_queue_idle", "BuildQueueIdle")
-    _load("build_queue/build_queue_building", "BuildQueueBuilding")
+    _load("build_queue/build_queue_working", "BuildQueueWorking")
     _load("build_queue/build_queue_accelerate", "BuildQueueAccelerate")
     -- troop
     _load("troop/troop_manager", "TroopManager")
@@ -46,6 +49,11 @@ local function _loadAllModule(self)
     _load("troop/troop_take_action", "TroopTakeAction")
     _load("troop/troop_wait", "TroopWait")
     _load("troop/troop_rest", "TroopRest")
+    _load("troop/troop_deactive", "TroopDeactive")
+    _load("troop/action/siege_action", "SiegeAction")
+    _load("troop/action/siege_monster", "SiegeMonster")
+    _load("troop/action/siege_task_npc", "SiegeTaskNpc")
+    _load("troop/action/siege_task_player", "SiegeTaskPlayer")
     -- recruit
     _load("recruit/recruit_manager", "RecruitManager")
     _load("recruit/recruit_idle", "RecruitIdle")
@@ -56,11 +64,23 @@ local function _loadAllModule(self)
     _load("tech/tech_idle", "TechIdle")
     _load("tech/tech_take_action", "TechTakeAction")
     _load("tech/tech_studying", "TechStudying")
+    -- union
+    _load("union/union_help_manager", "UnionHelpManager")
+    _load("union/union_manager", "UnionManager")
+    _load("union/union", "Union")
     -- chore
     _load("chore/chore", "Chore")
     _load("chore/chore_reap", "ChoreReap")
     _load("chore/chore_gacha", "ChoreGacha")
     _load("chore/chore_day_award", "ChoreDayAward")
+    _load("chore/chore_ache_reward", "ChoreAcheReward")
+    _load("chore/chore_target_award", "ChoreTargetAward")
+    _load("chore/chore_activity_box", "ChoreActivityBox")
+    _load("chore/chore_mail", "ChoreMail")
+    _load("chore/chore_building", "ChoreBuilding")
+    _load("chore/chore_union_help", "ChoreUnionHelp")
+    _load("chore/chore_union_tech_donate", "ChoreUnionTechDonate")
+    _load("chore/chore_union_buildlv_donate", "ChoreUnionBuildlvDonate")
 
     -- scavenger
     _load("scavenger/scavenger_tech", "ScavengerTech")
@@ -69,14 +89,31 @@ local function _loadAllModule(self)
     _load("scavenger/scavenger_monster_take_action", "ScavengerMonsterTakeAction")
     _load("scavenger/scavenger_monster_recover", "ScavengerMonsterRecover")
 
+    -- labor
+    _load("labor/labor_manager", "LaborManager")
+    _load("labor/union/join_union")
+    _load("labor/union/join_union_get_unions", "JoinUnion_GetUnions")
+    _load("labor/union/join_union_apply_union", "JoinUnion_ApplyUnion")
+    _load("labor/union/join_union_create_union", "JoinUnion_CreateUnion")
+    _load("labor/union/join_union_accomplish", "JoinUnion_Accomplish")
+    _load("labor/levelup_hero")
+    _load("labor/move_to_zone")
+
     c_roi_init()
     c_roi_set_block("common/mapBlockInfo.bytes")
 end
 
 local function _loadAllEntity(self)
     if not config.Autobot.EnableMassivePlayer then
-        local entity = Entity.createEntity(config.Autobot.SinglePlayerIdx)
-        table.insert(self.entities, entity)
+        if nil ~= config.Autobot.MultiPlayerIdx then
+            for _, idx in pairs(config.Autobot.MultiPlayerIdx) do
+                local entity = Entity.createEntity(idx)
+                table.insert(self.entities, entity)
+            end
+        else
+            local entity = Entity.createEntity(config.Autobot.SinglePlayerIdx)
+            table.insert(self.entities, entity)
+        end
     else
         action(function()
             local pre_idx = config.Autobot.Massive_PreIdx

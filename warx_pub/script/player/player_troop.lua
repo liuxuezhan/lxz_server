@@ -145,7 +145,8 @@ function check_arm(self, arm, action)
 
     for k, v in ipairs(hsgo) do
         if v ~= 0 then
-            heromng.go_to_battle(v)
+            local hero = heromng.get_hero_by_uniq_id(v)
+            hero.status = HERO_STATUS_TYPE.MOVING
         end
     end
     self:mark_action( notify_arm )
@@ -725,6 +726,16 @@ function union_mass_create(self, dest_eid, wait_time, arm)
         else
             return
         end
+        local union = unionmng.get_union(self.uid)
+        local tr = D:get_my_troop()
+        if tr then
+            for pid, _ in pairs(tr.arms or {}) do
+                local ply = getPlayer(pid)
+                if ply then
+                    offline_ntf.post(resmng.OFFLINE_NOTIFY_MASS, ply, self, union)
+                end
+            end
+        end
     elseif is_lost_temple(D)  then
         if not can_ply_join_act[ACT_TYPE.LT](self) then
          --   self:add_debug( "can not play level limit" )
@@ -733,6 +744,16 @@ function union_mass_create(self, dest_eid, wait_time, arm)
             end
         end
         action = TroopAction.LostTemple
+        local union = unionmng.get_union(self.uid)
+        local tr = D:get_my_troop()
+        if tr then
+            for pid, _ in pairs(tr.arms or {}) do
+                local ply = getPlayer(pid)
+                if ply then
+                    offline_ntf.post(resmng.OFFLINE_NOTIFY_MASS, ply, self, union)
+                end
+            end
+        end
     elseif is_king_city(D) then
         if not can_ply_join_act[ACT_TYPE.KING](self) then
             --self:add_debug( "can not play level limit" )
@@ -743,6 +764,16 @@ function union_mass_create(self, dest_eid, wait_time, arm)
         action = TroopAction.King
         --任务
         task_logic_t.process_task(self, TASK_ACTION.TROOP_TO_KING_CITY, 1)
+        local union = unionmng.get_union(self.uid)
+        local tr = D:get_my_troop()
+        if tr then
+            for pid, _ in pairs(tr.arms or {}) do
+                local ply = getPlayer(pid)
+                if ply then
+                    offline_ntf.post(resmng.OFFLINE_NOTIFY_MASS, ply, self, union)
+                end
+            end
+        end
     elseif is_monster_city(D) then
         action = TroopAction.AtkMC
         if not can_ply_join_act[ACT_TYPE.MC](self) then
@@ -802,6 +833,8 @@ function union_mass_create(self, dest_eid, wait_time, arm)
             self:rem_buf( resmng.BUFF_SHELL )
         end
     end
+
+    troopA:add_link()
 
     union_hall_t.battle_room_create(troopA)
     reply_ok(self, "union_mass_create", troopA._id)
@@ -868,13 +901,14 @@ function union_mass_join(self, dest_eid, dest_troop_id, arm)
         return
     end
 
+    local info = { propid = dest_tr_target.propid, pid = self.pid }
+
     if not self:can_move_to(dest_tr_target.x, dest_tr_target.y) then
       --  self:add_debug("can not move by castle lv")
         if not player_t.debug_tag then
             return
         end
     end
-
 
     if is_monster(dest_tr_target) then
         if not monster.can_atk_monster[dest_tr_target.grade](self, dest_tr_target) then
@@ -917,6 +951,14 @@ function union_mass_join(self, dest_eid, dest_troop_id, arm)
                 return
             end
         end
+    elseif is_ply( dest_tr_target ) then
+        info.name = dest_tr_target.name
+        if dest_tr_target.uid > 0 then
+            local du = unionmng.get_union( dest_tr_target.uid )
+            if du then
+                info.alias = string.format( "(%s)", du.alias )
+            end
+        end
     end
 
     local troopT = troop_mng.get_troop(dest_troop_id)
@@ -957,9 +999,13 @@ function union_mass_join(self, dest_eid, dest_troop_id, arm)
     troopA.dest_troop_id = dest_troop_id
     troopA:go()
 
+
+
     if troopT.action == TroopAction.SiegeMonster then
         self:dec_sinew( 10 )
     end
+
+    if is_online( T ) then Rpc:mass_join( T, info ) end
 
    -- if is_monster_city(dest) then
    --     if not dest:can_atk_def_mc(self.pid) then
@@ -1034,7 +1080,7 @@ function declare_tw_req(self, dest_eid)
     end
 
     if self:is_troop_full(TroopAction.Declare) then
-        Rpc:tips(self, 3, resmng.COMMON_TIPS_COUNTTROOP_FULL, {})
+        Rpc:tips(self, 3, resmng.ACTIVITIES_TW_DECLARE_RETRY, {})
         --self:add_debug("出征队列达到上限")
         return
     end

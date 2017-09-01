@@ -187,7 +187,9 @@ function attach_wrap_(env, base)
 
     env._meta = {
         __index=function(t, k)
-            if t._pro[k] ~= nil then
+            if not rawget(t, '_pro') then
+                error('_pro is missing')
+            elseif t._pro[k] ~= nil then
                 return t._pro[k]
             else
                 local v = rawget(t, k) or rawget(env, k)

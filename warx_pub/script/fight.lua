@@ -693,7 +693,7 @@ fight.pvp = function(action, A0, D0)
         propidd = D0.owner_propid
     end
 
-    LOG("fight, owner_eidA=%d, target_eidA=%d, troopidA=%d, owner_eidD=%d, troopidD=%d", A0.owner_eid or 0, A0.target_eid or 0, A0._id or 0, D0.owner_eid or 0, D0._id or 0)
+    LOG("fight, action=%s, owner_eidA=%d, target_eidA=%d, troopidA=%d, owner_eidD=%d, troopidD=%d", action or 0, A0.owner_eid or 0, A0.target_eid or 0, A0._id or 0, D0.owner_eid or 0, D0._id or 0)
 
     local report = {{0,0,A0.eid, A0.owner_eid, A0.target_eid, A.heroid, D.heroid, A0.dx, A0.dy, propida, propidd, A0.sx, A0.sy }}
     table.insert(report, {0, 1, _get_num(A), _get_num(D), A.herohp, D.herohp })

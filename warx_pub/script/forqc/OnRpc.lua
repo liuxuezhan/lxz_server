@@ -117,6 +117,11 @@ local pro_event = {
     bufs = "eventBufUpdated",
     genius = "eventGeniusUpdated",
     sinew = "eventSinewUpdated",
+    uid = "eventUnionChanged",
+    build_queue = "eventBuildQueueUpdated",
+    task_target_all_award_index = "eventTargetAwardIndexUpdated",
+    activity = "eventActivityUpdated",
+    activity_box = "eventActivityBoxUpdated",
 }
 
 function OnRpc.statePro( p, info )
@@ -139,6 +144,12 @@ function OnRpc.sync( p, sn )
     end
 end
 
+function OnRpc.fightInfo(p, info)
+    if p.eventFightInfo then
+        p.eventFightInfo(p, info)
+    end
+end
+
 function OnRpc.stateTroop( p, info )
     local id = info._id
     if not p._troop then p._troop = {} end
@@ -148,9 +159,18 @@ function OnRpc.stateTroop( p, info )
             p.eventTroopDeleted(p, id)
         end
     else
-        p._troop[ id ] = info 
+        --p._troop[ id ] = info 
+        local troop = p._troop[ id ]
+        if nil ~= troop then
+            for k, v in pairs(info) do
+                troop[k] = v
+            end
+        else
+            p._troop[ id ] = info
+            troop = info
+        end
         if p.eventTroopUpdated then
-            p.eventTroopUpdated(p, id, info)
+            p.eventTroopUpdated(p, id, troop)
         end
     end
 end
@@ -162,8 +182,14 @@ function OnRpc.stateHero( p, info )
         for k, v in pairs( info ) do
             node[ k ] = v 
         end
+        if p.eventHeroUpdated then
+            p.eventHeroUpdated(p, node)
+        end
     else
         p._hero[ info.idx ] = info
+        if p.eventNewHero then
+            p.eventNewHero(p, info)
+        end
     end
 end
 
@@ -194,6 +220,9 @@ function OnRpc.remEty(p, eid)
         return
     end
     p._etys[eid] = nil
+    if p.eventDelEntity then
+        p.eventDelEntity(p, obj)
+    end
 end
 
 function OnRpc.upd_arm( p, info )
@@ -212,6 +241,28 @@ function OnRpc.get_city_for_robot_ack(p, mode, eid)
     end
 end
 
+function OnRpc.onError(p, cmd_hash, code, reason)
+    local rpcf = Rpc.remoteF[cmd_hash]
+    if nil == rpcf then
+        return
+    end
+    if p.eventRpcError then
+        p.eventRpcError(p, rpcf, code, reason)
+    end
+end
+
+function OnRpc.union_list(p, key, unions)
+    if p.eventGotUnionList then
+        p.eventGotUnionList(p, key, unions)
+    end
+end
+
+function OnRpc.union_reply(p, union_id, name, state)
+    if p.eventUnionReply then
+        p.eventUnionReply(p, union_id, name, state)
+    end
+end
+
 function OnRpc.union_on_create(p,pack)
     p.uid = pack.uid
     if not _us then _us = {}  end
@@ -219,12 +270,21 @@ function OnRpc.union_on_create(p,pack)
     _us[p.uid].build = {}
 end
 
+function OnRpc.union_help_get(p, helps)
+    if p.eventUnionHelpGet then
+        p.eventUnionHelpGet(p, helps)
+    end
+end
+
 function OnRpc.union_load(p,pack)
     if not _us then _us = {}  end
     if not _us[p.uid] then _us[p.uid] = {}  end
     u = _us[p.uid] 
     if pack.key == "info" then
-        u = pack.val
+        --u = pack.val
+        for k, v in pairs(pack.val) do
+            u[k] = v
+        end
     elseif pack.key == "ply" then
     elseif pack.key == "member" then
         for _, v in pairs( pack.val or {} ) do
@@ -234,10 +294,12 @@ function OnRpc.union_load(p,pack)
         end
     elseif pack.key == "apply" then
         u._apply = pack.val
-    elseif pack.key == "mass" then
-    elseif pack.key == "aid" then
+    elseif pack.key == "mass" then elseif pack.key == "aid" then
     elseif pack.key == "tech" then
-        p.utech = pack.val.info 
+        p.utech = p.utech or {}
+        for k, v in pairs(pack.val.info) do
+            p.utech[v.idx] = v
+        end
     elseif pack.key == "donate" then
         p.donate = pack.val
     elseif pack.key == "union_donate" then
@@ -265,7 +327,26 @@ function OnRpc.union_load(p,pack)
     elseif pack.key == "enlist" then
     elseif pack.key == "ef" then
     end
+    if p.eventUnionLoaded then
+        if pack.key == "tech" then
+            p.eventUnionLoaded.__debug = true
+        end
+        p.eventUnionLoaded(p, pack.key, u)
+        p.eventUnionLoaded.__debug = nil
+    end
 end
+
+local union_broadcast_events = {
+    [UNION_EVENT.MEMBER] = 
+    {
+        [UNION_MODE.ADD] = "eventAddUnionMember",
+    },
+    [UNION_EVENT.HELP] = 
+    {
+        [UNION_MODE.ADD] = "eventUnionHelpAdd",
+        [UNION_MODE.DELETE] = "eventUnionHelpDel",
+    },
+}
 
 function OnRpc.union_broadcast(p,key,mode,data)
     if key == "build" then
@@ -274,6 +355,16 @@ function OnRpc.union_broadcast(p,key,mode,data)
             _us[p.uid].build[data.idx] = data
         elseif mode == resmng.OPERATOR.DELETE then 
             _us[p.uid].build[data.idx] = nil
+        end
+    end
+    local events = union_broadcast_events[key]
+    if nil ~= events then
+        local event_name = events[mode]
+        if nil ~= event_name then
+            local handler = p[event_name]
+            if nil ~= handler then
+                handler(p, data)
+            end
         end
     end
 end
@@ -369,16 +460,42 @@ end
 
 function OnRpc.union_tech_info(p, info)
     p.union_tech_info = info
+
+    p.utech = p.utech or {}
+    local tech = p.utech[info.idx]
+    if nil ~= tech then
+        for k, v in pairs(info) do
+            tech[k] = v
+        end
+    else
+        tech = info
+        p.utech[info.idx] = tech
+    end
+
+    if p.eventUnionTechInfo then
+        p.eventUnionTechInfo(p, tech)
+    end
 end
 
 function OnRpc.union_donate_info(p, info)
-    p.union_donate_info = info
+    --p.union_donate_info = info
+    p.donate = info
+    if p.eventUnionDonateInfo then
+        p.eventUnionDonateInfo(p, info)
+    end
 end
 function OnRpc.union_buildlv_donate(p, info)
     p.union_buildlv_donate = info
-end
-function OnRpc.union_tech_info(p, pack)
-    p.union_tech_info = pack 
+
+    local prop = resmng.prop_union_buildlv[info.id]
+    p.buildlv = p.buildlv or {}
+    p.buildlv.buildlv = p.buildlv.buildlv or {}
+    p.buildlv.buildlv[prop.Mode] = info
+    p.buildlv.log[prop.Mode].tm = gTime
+
+    if p.eventUnionBuildlvDonate then
+        p.eventUnionBuildlvDonate(p, info)
+    end
 end
 
 function OnRpc.union_mission_get(p,info)
@@ -407,6 +524,72 @@ end
 function OnRpc.get_npc_map_ack( p, info )
     --pause()
     dumpTab( info, "get_npc_map_ack" )
+end
+
+function OnRpc.ping( p )
+    Rpc:ping(p)
+end
+
+function OnRpc.ache_info_ack(p, info)
+    p._ache = p._ache or {}
+    p._ache.count = info.ache
+    p._ache.ache = info.ache_stat
+    p._ache.ache_point = info.ache_point
+    if p.eventAcheInfoUpdated then
+        p.eventAcheInfoUpdated(p, p._ache)
+    end
+end
+
+function OnRpc.set_ache(p, idx, time)
+    p._ache = p._ache or {}
+    p._ache.ache = p._ache.ache or {}
+
+    p._ache.ache[idx] = time
+    if p.eventAcheUpdated then
+        p.eventAcheUpdated(p, idx, time)
+    end
+end
+
+function OnRpc.set_count(p, id, count)
+    p._ache = p._ache or {}
+    p._ache.count = p._ache.count or {}
+
+    p._ache.count[id] = count
+    if p.eventAcheCountUpdated then
+        p.eventAcheCountUpdated(p, id, count)
+    end
+end
+
+function OnRpc.display_ntf(p, pack)
+    if p.eventDisplayNotify then
+        p.eventDisplayNotify(p, pack)
+    end
+end
+
+function OnRpc.mail_load(p, mails)
+    if p.eventMailLoad then
+        for k, v in pairs(mails) do
+            p.eventMailLoad(p, v)
+        end
+    end
+
+    if 0 == #mails and p.eventAllMailLoaded then
+        p.eventAllMailLoaded(p)
+    end
+end
+
+function OnRpc.mail_notify(p, mails)
+    if p.eventNewMail then
+        for k, v in pairs(mails) do
+            p.eventNewMail(p, v)
+        end
+    end
+end
+
+function OnRpc.mail_fetch_resp(p, sns)
+    if p.eventMailFetchResponse then
+        p.eventMailFetchResponse(p, sns)
+    end
 end
 
 return OnRpc

@@ -60,12 +60,41 @@ local function _initEventHandler(self)
     _addEventHandler(player, "eventBufUpdated")
     _addEventHandler(player, "eventBuildUpdated")
     _addEventHandler(player, "eventNewBuild")
+    _addEventHandler(player, "eventHeroUpdated")
+    _addEventHandler(player, "eventNewHero")
     _addEventHandler(player, "eventTaskInfoUpdated")
     _addEventHandler(player, "eventTroopDeleted")
     _addEventHandler(player, "eventTroopUpdated")
+    _addEventHandler(player, "eventFightInfo")
     _addEventHandler(player, "eventSinewUpdated")
     _addEventHandler(player, "eventNewEntity")
     _addEventHandler(player, "eventNewEntities")
+    _addEventHandler(player, "eventDelEntity")
+    _addEventHandler(player, "eventRpcError")
+    _addEventHandler(player, "eventAcheInfoUpdated")
+    _addEventHandler(player, "eventAcheUpdated")
+    _addEventHandler(player, "eventAcheCountUpdated")
+    _addEventHandler(player, "eventDisplayNotify")
+    _addEventHandler(player, "eventTargetAwardIndexUpdated")
+    _addEventHandler(player, "eventActivityUpdated")
+    _addEventHandler(player, "eventActivityBoxUpdated")
+    _addEventHandler(player, "eventMailLoad")
+    _addEventHandler(player, "eventAllMailLoaded")
+    _addEventHandler(player, "eventNewMail")
+    _addEventHandler(player, "eventMailFetchResponse")
+    -- union
+    _addEventHandler(player, "eventUnionChanged")
+    _addEventHandler(player, "eventBuildQueueUpdated")
+    _addEventHandler(player, "eventGotUnionList")
+    _addEventHandler(player, "eventUnionReply")
+    _addEventHandler(player, "eventAddUnionMember")
+    _addEventHandler(player, "eventUnionHelpGet")
+    _addEventHandler(player, "eventUnionHelpAdd")
+    _addEventHandler(player, "eventUnionHelpDel")
+    _addEventHandler(player, "eventUnionLoaded")
+    _addEventHandler(player, "eventUnionTechInfo")
+    _addEventHandler(player, "eventUnionDonateInfo")
+    _addEventHandler(player, "eventUnionBuildlvDonate")
 end
 
 function Entity:initPlayer(player)
@@ -80,9 +109,12 @@ function Entity:initPlayer(player)
     self.sinew_update_timer = AutobotTimer:addPeriodicTimer(newFunctor(self, Entity._updateSinew), SINEW_UPDATE_INTERVAL)
 
     self:addEye(player.x, player.y)
+    self.rpcErrorHandlers = {}
+    player.eventRpcError:add(newFunctor(self, self._onRpcError))
 end
 
 function Entity:uninitPlayer()
+    player.eventRpcError:del(newFunctor(self, self._onRpcError))
     AutobotTimer:delPeriodicTimer(self.sinew_update_timer)
     self:_unregisterHandler()
     self:_uninitManager()
@@ -91,14 +123,29 @@ end
 function Entity:_initManager()
     local player = self.player
 
-    local wanted_building = WantedBuilding.create(self)
-    wanted_building:init()
-    player.wanted_building = wanted_building
+    player.labor_manager = LaborManager.create(self)
+    player.build_manager = BuildManager.create(self)
     player.recruit_manager = RecruitManager.create(self)
     player.tech_manager = TechManager.create(self)
     player.troop_manager = TroopManager.create(self)
 
     player.task_manager = TaskManager.create(self)
+
+    player.union_help_manager = UnionHelpManager.create(self)
+     -- union
+     if 0 ~= player.uid then
+         self.union = UnionManager:getUnion(player.uid)
+         player.eventUnionLoaded:add(newFunctor(self, self._onUnionLoaded))
+         if nil ~= self.union then
+             Rpc:union_load(player, "build")
+             Rpc:union_load(player, "member")
+             Rpc:union_load(player, "relation")
+             Rpc:union_load(player, "tech")
+             Rpc:union_load(player, "mars")
+             Rpc:union_load(player, "buf")
+             Rpc:union_load(player, "mall")
+         end
+     end
 end
 
 function Entity:_uninitManager()
@@ -108,7 +155,7 @@ function Entity:_uninitManager()
     player.troop_manager:uninit()
     player.tech_manager:uninit()
     player.recruit_manager:uninit()
-    player.wanted_building:uninit()
+    player.build_manager:uninit()
 end
 
 function Entity:_registerHandler()
@@ -212,6 +259,19 @@ function Entity:_updateEffect()
     self._effects = ef
 end
 
+function Entity:get_num(what, ...)
+    --local ef_u,ef_ue = player:get_union_ef()
+    local ef_u, ef_ue = {}, {}
+    local ef_s = self._effects
+    local ef_gs = {}
+    --local ef_gs = kw_mall.gsEf or {} -- globle buff
+    if ... == nil then
+        return get_num_by(what, ef_s, ef_u, ef_ue, ef_gs)
+    else
+        return get_num_by(what, ef_s, ef_u, ef_ue, ef_gs, ...)
+    end
+end
+
 function Entity:get_val(what, ...)
     --local ef_u,ef_ue = player:get_union_ef()
     local ef_u, ef_ue = {}, {}
@@ -227,6 +287,10 @@ end
 
 function Entity:get_castle_lv()
     return math.floor(self.propid % 1000)
+end
+
+function Entity:is_in_union()
+    return 0 ~= self.player.uid
 end
 
 function Entity:can_move_to(x, y)
@@ -251,6 +315,22 @@ end
 
 function Entity:_onBuildUpdated(build)
     self:_updateEffect()
+end
+
+function Entity:get_hero(hero_id)
+    for k, v in pairs(self.player._hero or {}) do
+        if v.propid == hero_id then
+            return v
+        end
+    end
+end
+
+function Entity:get_item(item_id)
+    for k, v in pairs(self.player._item or {}) do
+        if v[2] == item_id then
+            return v
+        end
+    end
 end
 
 function Entity:getZonePos()
@@ -325,7 +405,7 @@ function Entity:_onMovEye(x, y)
                 local zone_index = (my_x + adjacent_zone[v][1]) * ZONE_COUNT_X + my_y + adjacent_zone[v][2]
                 zones[zone_index] = true
             end
-            for k, v in pairs(self.player._etys) do
+            for k, v in pairs(self.player._etys or {}) do
                 local ex = math.floor(v.x / ZONE_WIDTH)
                 local ey = math.floor(v.y / ZONE_WIDTH)
                 local eindex = ex * ZONE_COUNT_X + ey
@@ -349,6 +429,129 @@ end
 function Entity:moveEye(x, y)
     Rpc:movEye(self.player, gMapID, x, y)
     self:_onMovEye(x, y)
+end
+
+function Entity:addRpcErrorHandler(name, functor)
+    self.rpcErrorHandlers[name] = self.rpcErrorHandlers[name] or newEventHandler()
+    self.rpcErrorHandlers[name]:add(functor)
+end
+
+function Entity:delRpcErrorHandler(name, functor)
+    if nil == self.rpcErrorHandlers[name] then
+        return
+    end
+    self.rpcErrorHandlers[name]:del(functor)
+end
+
+function Entity:_onRpcError(player, rpcf, code, reason)
+    local handler = self.rpcErrorHandlers[rpcf.name]
+    if nil == handler then
+        return
+    end
+    handler(code, reason)
+end
+
+-- union
+function Entity:_onUnionLoaded(player, what, union)
+    if nil == self.union then
+        return
+    end
+    self.union.onUnionLoaded(player, what, union)
+end
+
+function Entity:getDonatableTechs()
+    local techs = {}
+    local total_lv = self:calcTechLv()
+    for k, v in pairs(resmng.prop_union_tech) do
+        if 0 == v.Lv then
+            local tech = self.player.utech[v.Idx]
+            if nil ~= tech then
+                local prop = resmng.prop_union_tech[tech.id + 1]
+                if nil ~= prop and tech.exp < prop.Exp * prop.Star then
+                    table.insert(techs, tech.idx)
+                end
+            else
+                if total_lv >= TechValidCond[v.Class] then
+                    table.insert(techs, v.Idx)
+                end
+            end
+        end
+    end
+    return techs
+end
+
+function Entity:calcTechLv()
+    local lv = 0
+    for k, v in pairs(self.player.utech or {}) do
+        local prop = resmng.prop_union_tech[v.id]
+        lv = lv + prop.Lv
+    end
+    return lv
+end
+
+function Entity:getTech(tech_idx)
+    return self.player.utech[tech_idx]
+end
+
+function Entity:getDonatableBuildlvMode()
+    for _, mode in pairs(UNION_CONSTRUCT_TYPE) do
+        local log = self.player.buildlv.log
+        if can_date(log[mode].tm, gTime) then
+            local have_item = true
+            for k, v in pairs(log[mode].cons) do
+                local item = self:get_item(v[2])
+                if item[3] < v[3] then
+                    have_item = false
+                    break
+                end
+            end
+            if have_item then
+                return mode
+            end
+        end
+    end
+end
+
+function Entity:fallInTroop()
+    local armys = {}
+    local count = self:get_val("CountSoldier")
+    for id, num in pairs(self.player._arm) do
+        if num < count then
+            armys[id] = num
+            count = count - num
+        else
+            armys[id] = count
+            count = 0
+            break
+        end
+    end
+    local heroes = {}
+
+    return {live_soldier = armys}
+end
+
+function Entity:isTaskAccepted(task_id)
+    for k, v in pairs(self.player._task.cur) do
+        if v.task_id == task_id then
+            return v.task_status == TASK_STATUS.TASK_STATUS_ACCEPTED
+        end
+    end
+end
+
+function Entity:get_buf(bufid)
+    for k, v in pairs(self.bufs or {}) do
+        if v[1] == bufid then
+            return v
+        end
+    end
+end
+
+function Entity:get_buf_remain(bufid)
+    local buf = self:get_buf(bufid)
+    if buf then
+        return buf[3] - gTime
+    end
+    return 0
 end
 
 return Entity

@@ -152,5 +152,5 @@ function ChoreGacha:_stopWatch()
     self.task_functor = nil
 end
 
-return makeClass(ChoreGacha)
+return makeChoreClass("Gacha", ChoreGacha)
 

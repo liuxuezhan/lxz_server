@@ -23,5 +23,5 @@ function ChoreReap:_doReap()
     INFO("[Autobot|ChoreReap|%d] Reap resource from %d building.", self.player.pid, count)
 end
 
-return makeClass(ChoreReap)
+return makeChoreClass("Reap", ChoreReap)
 

@@ -7,6 +7,12 @@ function TroopRest:onEnter()
     self.timer_id = AutobotTimer:addTimer(function()
         self.fsm:translate("TakeAction")
     end, REST_TIME)
+    -- 如果troop太多，将自己移除
+    if self.host:checkTroopQueue(self.fsm) then
+        if not self.host:isActive() then
+            self:translate("Idle")
+        end
+    end
 end
 
 function TroopRest:onExit()

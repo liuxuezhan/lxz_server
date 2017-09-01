@@ -529,6 +529,18 @@ function on_day_pass_daily_task(self)
         self:do_delete_task(v)
     end
 
+    local u = unionmng.get_union(self.uid)
+    if u and u.activity_day ~= get_days(gTime) then
+        u.activity = 0 
+        for _, p in pairs(u._members) do
+            u.activity = u.activity + p.activity 
+        end
+        player_t.pre_tlog(nil,"UnionList",u.uid,u.name,u.language,4,
+            tostring(u.mc_start_time[1]),u.membercount,u.activity or 0 ) 
+        u.activity_day = get_days(gTime)
+    end
+
+    
     self.activity = 0
     self.activity_box = {}
     self.activity_box = self.activity_box

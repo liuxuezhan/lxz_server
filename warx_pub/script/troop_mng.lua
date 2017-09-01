@@ -416,7 +416,7 @@ gTroopActionTrigger[TroopAction.SiegePlayer] = function(troop)
     if owner.uid > 0 and owner.uid == dest.uid then return troop:back() end
 
     if dest:is_shell() then
-        owner:send_system_notice( resmng.MAIL_10019 )
+        owner:send_fight_fail_mail( resmng.MAIL_10019 )
         troop:back()
         return
     end
@@ -517,6 +517,48 @@ gTroopActionTrigger[TroopAction.SiegePlayer] = function(troop)
             end
         end
         if sum > 0 then union_mission.ok( owner, UNION_MISSION_CLASS.ACT_PLY,sum) end
+        -- 战损补偿
+        local lose_count = dest:get_count(resmng.ACH_COUNT_DEFENSE_LOSE)
+        local arm = defense_troop.arms[dest.pid]
+        if arm.lost > 100000 or 1 == lose_count then
+            local mail_id, text_param = resmng.MAIL_10077, {}
+            if 0 ~= dest.uid then
+                local union = unionmng.get_union(dest.uid)
+                if nil ~= union and union.membercount > 1 then
+                    mail_id = resmng.MAIL_10073
+                    local names = {}
+                    local members = {}
+                    local leader_id = union.leader
+                    local is_leader = leader_id == dest.pid
+                    local count = is_leader and 6 or 5
+
+                    for k, v in pairs(union:get_members()) do
+                        if leader_id == v.pid then
+                            if not is_leader then
+                                table.insert(names, v.name)
+                            end
+                        elseif dest.pid ~= v.pid then
+                            table.insert(members, v)
+                        end
+                    end
+
+                    if #members <= count then
+                        for k, v in pairs(members) do
+                            table.insert(names, v.name)
+                        end
+                    else
+                        for i = 1, count do
+                            local index = math.random(#members)
+                            table.insert(names, members[index].name)
+                            table.remove(members, index)
+                        end
+                    end
+
+                    text_param = names
+                end
+            end
+            dest:send_system_notice(mail_id, {}, text_param)
+        end
     end  
     defense_troop:back_no_arm_support_troop()
 
@@ -863,8 +905,10 @@ gTroopActionTrigger[TroopAction.SiegeMonster] = function(ack_troop)
             task_logic_t.process_task(tmp_player, TASK_ACTION.ATTACK_LEVEL_MONSTER, mid, 1)
 
             --周限时活动
-            if prop_monster ~= nil then
-                weekly_activity.process_weekly_activity(tmp_player, WEEKLY_ACTIVITY_ACTION.ATK_MONSTER, prop_monster.Clv, 1)
+            if dest.hp <= 0 then
+                if prop_monster ~= nil then
+                    weekly_activity.process_weekly_activity(tmp_player, WEEKLY_ACTIVITY_ACTION.ATK_MONSTER, prop_monster.Clv, 1)
+                end
             end
         end
     end
@@ -1121,7 +1165,9 @@ gTroopActionTrigger[TroopAction.Dig] = function(troop)
         if owner then
             local alias = ""
             local union = unionmng.get_union( owner.uid )
-            if union then alias = union.alias end
+            if union then 
+                alias = string.format("(%s)", union.alias )
+            end
             Rpc:tips({pid=-1, gid=_G.GateSid}, 2, resmng.NOTIFY_TREASURE_ROB, { owner.name, alias, dest.x, dest.y} )
             player_t.add_chat({pid=-1,gid=_G.GateSid}, 0, 0, {pid=0}, "", resmng.CHAT_NOTIFY_TREASURE, { owner.name, alias, dest.x, dest.y} )
         end
@@ -1233,9 +1279,9 @@ gTroopActionTrigger[TroopAction.Gather] = function(troop)
                     local union = unionmng.get_union(ply.uid)
                     local abbr = nil
                     if union ~= nil then
-                        dply:send_system_notice(resmng.MAIL_10027, {}, {prop.Name, dest.x, dest.y, union.alias, ply.name})
+                        dply:send_fight_fail_mail(resmng.MAIL_10027, {}, {prop.Name, dest.x, dest.y, union.alias, ply.name})
                     else
-                        dply:send_system_notice(resmng.MAIL_10030, {}, {prop.Name, dest.x, dest.y, ply.name})
+                        dply:send_fight_fail_mail(resmng.MAIL_10030, {}, {prop.Name, dest.x, dest.y, ply.name})
                     end
                     watch_tower.building_def_clear(dest, dtroop)
                 else
@@ -1289,9 +1335,9 @@ gTroopActionTrigger[TroopAction.Refugee] = function(troop)
                     --    local union = unionmng.get_union(ply.uid)
                     --    local abbr = nil
                     --    if union ~= nil then
-                    --        dply:send_system_notice(resmng.MAIL_10027, {}, {prop.Name, dest.x, dest.y, union.alias, ply.name})
+                    --        dply:send_fight_fail_mail(resmng.MAIL_10027, {}, {prop.Name, dest.x, dest.y, union.alias, ply.name})
                     --    else
-                    --        dply:send_system_notice(resmng.MAIL_10030, {}, {prop.Name, dest.x, dest.y, ply.name})
+                    --        dply:send_fight_fail_mail(resmng.MAIL_10030, {}, {prop.Name, dest.x, dest.y, ply.name})
                     --    end
 
                     else
@@ -1399,6 +1445,15 @@ function generate_spy_report(ply, spied_ply, def_troop, content)
     if not is_ply(spied_ply) then
         return
     end
+
+    --玩家信息
+    content.photo = spied_ply.photo
+    local union = unionmng.get_union(spied_ply.uid)
+    if union ~= nil then
+        content.union_abbr = union.alias
+    end
+    content.player_name = spied_ply.name
+    content.player_lv = spied_ply.lv
 
     local b = ply:get_watchtower()
     local cur_watchtower_lv = 1
@@ -1538,23 +1593,17 @@ function spy_castle(player, dest_obj, content)
     task_logic_t.process_task(player, TASK_ACTION.SPY_PLAYER_CITY, 1)
 
     if spied_ply:is_shell() then
-        player:send_system_notice( resmng.MAIL_10020 )
+        player:send_fight_fail_mail( resmng.MAIL_10020 )
         return false
     end
     if spied_ply:get_buf_remain( resmng.BUFF_ANTI_SPY ) > 0 then
-        player:send_system_notice( resmng.MAIL_10021 )
+        player:send_fight_fail_mail( resmng.MAIL_10021 )
         return false
     end
 
     generate_spy_report(player, spied_ply, spied_ply:get_defense_troop(), content)
     local cur_watchtower_lv = content.watch
     --玩家信息
-    content.photo = spied_ply.photo
-    local union = unionmng.get_union(spied_ply.uid)
-    if union ~= nil then
-        content.union_abbr = union.alias
-    end
-    content.player_name = spied_ply.name
     content.x = spied_ply.x
     content.y = spied_ply.y
 
@@ -1654,12 +1703,6 @@ function spy_res(player, dest_obj, content)
     end
 
     --玩家信息
-    content.photo = spied_ply.photo
-    local union = unionmng.get_union(spied_ply.uid)
-    if union ~= nil then
-        content.union_abbr = union.alias
-    end
-    content.player_name = spied_ply.name
     content.x = dest_obj.x
     content.y = dest_obj.y
 end
@@ -1674,12 +1717,6 @@ function spy_camp(player, dest_obj, content)
     end
 
     --玩家信息
-    content.photo = spied_ply.photo
-    local union = unionmng.get_union(spied_ply.uid)
-    if union ~= nil then
-        content.union_abbr = union.alias
-    end
-    content.player_name = spied_ply.name
     content.x = dest_obj.x
     content.y = dest_obj.y
 end
@@ -1694,12 +1731,6 @@ function spy_dig(player, dest_obj, content)
     end
 
     --玩家信息
-    content.photo = spied_ply.photo
-    local union = unionmng.get_union(spied_ply.uid)
-    if union ~= nil then
-        content.union_abbr = union.alias
-    end
-    content.player_name = spied_ply.name
     content.x = dest_obj.x
     content.y = dest_obj.y
 end
@@ -1819,6 +1850,7 @@ gTroopActionTrigger[TroopAction.Spy] = function(spy_troop)
 
     elseif is_res( dest_obj ) == true then
     --资源点
+        if dest_obj.pid == 0 then return end
         spy_res(player, dest_obj, mail_content)
         owner_propid = dest_obj.propid
 
@@ -1853,9 +1885,9 @@ gTroopActionTrigger[TroopAction.Spy] = function(spy_troop)
         if dest_obj.pid and dest_obj.pid >= 10000 then
             local spied_ply = getPlayer(dest_obj.pid)
             if union ~= nil and string.len(union.alias) >= 3 then
-                spied_ply:send_system_notice(resmng.MAIL_10026, {union.alias, player.name}, {prop_owner.Name, dest_obj.x, dest_obj.y, union.alias, player.name})
+                spied_ply:send_fight_fail_mail(resmng.MAIL_10026, {union.alias, player.name}, {prop_owner.Name, dest_obj.x, dest_obj.y, union.alias, player.name})
             else
-                spied_ply:send_system_notice(resmng.MAIL_10029, {player.name}, {prop_owner.Name, dest_obj.x, dest_obj.y, player.name})
+                spied_ply:send_fight_fail_mail(resmng.MAIL_10029, {player.name}, {prop_owner.Name, dest_obj.x, dest_obj.y, player.name})
             end
         end
     end
@@ -1871,9 +1903,9 @@ gTroopActionTrigger[TroopAction.Spy] = function(spy_troop)
                 if k >= 10000 then
                     local spied_ply = getPlayer(k)
                     if union ~= nil and string.len(union.alias) >= 3 then
-                        spied_ply:send_system_notice(resmng.MAIL_10026, {union.alias, player.name}, {prop_spied.Name, dest_obj.x, dest_obj.y, union.alias, player.name})
+                        spied_ply:send_fight_fail_mail(resmng.MAIL_10026, {union.alias, player.name}, {prop_spied.Name, dest_obj.x, dest_obj.y, union.alias, player.name})
                     else
-                        spied_ply:send_system_notice(resmng.MAIL_10029, {player.name}, {prop_spied.Name, dest_obj.x, dest_obj.y, player.name})
+                        spied_ply:send_fight_fail_mail(resmng.MAIL_10029, {player.name}, {prop_spied.Name, dest_obj.x, dest_obj.y, player.name})
                     end
                 end
             end
@@ -2154,7 +2186,7 @@ gTroopActionTrigger[TroopAction.TaskAtkPly] = function(ack_troop)
         for pid, arm in pairs(ack_troop.arms or {}) do
             local tmp_ply = getPlayer(pid)
             if tmp_ply ~= nil then
-                tmp_ply:send_system_notice(resmng.MAIL_10028)
+                tmp_ply:send_fight_fail_mail(resmng.MAIL_10028)
             end
         end
     else
@@ -2611,6 +2643,15 @@ gTroopActionTrigger[TroopAction.SiegeNpc] = function(ack_troop)
     local p = get_ety(ack_troop.owner_eid)
     union_task.ok(p,dest,UNION_TASK.NPC) --攻击后领取军团悬赏任务
     union_mission.ok( p, UNION_MISSION_CLASS.NPC_CITY, 1) 
+    if win == true then
+        local def_union = unionmng.get_union(defense_troop.owner_uid)
+        if def_union then
+            if get_table_valid_count(def_union.npc_citys or {}) == 0 then
+                 npc_city.npc_log(TW_ACTION.LOST_ALL, {uid = defense_troop.owner_uid }) 
+            end
+        end
+    end
+    npc_city.npc_log(TW_ACTION.FIGHT, {atk_uid = ack_troop.owner_uid, def_uid = defense_troop.owner_uid, is_win = win, npc_id = dest.propid})
 end
 
 --单独攻击王城战建筑
@@ -3771,6 +3812,7 @@ function do_kick_mass(troop, pid)
 
     local T = getPlayer( troop.owner_pid )
     local arm = troop.arms[ pid ]
+    troop_t.notify_owner( troop )
     if arm then
         troop.arms[ pid ] = nil
         local A = getPlayer(pid)

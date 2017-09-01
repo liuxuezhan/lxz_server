@@ -1,16 +1,19 @@
 local BotGame = {}
 local HeartInterval = 60
 
-local function _createBuildQueue(self, which_queue)
-    local data = {entity = self.host, player = self.host.player, which_queue = which_queue}
-    local line = Workline:createInstance(data)
-    line:addState("Idle", BuildQueueIdle, true)
-    line:addState("Building", BuildQueueBuilding)
+local function _createBuildQueue(self, queue_index)
+    local build_manager = self.host.player.build_manager
+    local line = BuildQueueMachine:createInstance(build_manager)
+    line.queue_index = queue_index
+    line:addState("Idle", BuildQueueIdle)
+    --line:addState("AskHelp", BuildAskHelp)
+    line:addState("Working", BuildQueueWorking)
     line:addState("Accelerate", BuildQueueAccelerate)
     self:_addWorkline(line)
     return line
 end
 
+--[[
 local function _createTroopWorkline(self)
     local troop_manager = self.host.player.troop_manager
     local line = Workline:createInstance(troop_manager)
@@ -22,6 +25,7 @@ local function _createTroopWorkline(self)
     self:_addWorkline(line)
     return line
 end
+]]
 
 local function _createRecruitWorkline(self, mode)
     local recruit_manager = self.host.player.recruit_manager
@@ -45,7 +49,7 @@ local function _createTechWorkline(self)
 end
 
 local function _createChoreWorkline(self)
-    local line = Workline:createInstance(self.host.player)
+    local line = Workline:createInstance(self.host)
     line:addState("Chore", Chore, true)
     self:_addWorkline(line)
     return line
@@ -100,7 +104,7 @@ function BotGame:onEnter()
 
     -- 建筑修建工作线
     _createBuildQueue(self, 1)
-    --_createBuildQueue(self, 2)
+    _createBuildQueue(self, 2)
 
     -- 招兵工作线
     _createRecruitWorkline(self, BUILD_ARMY_MODE.BARRACKS)
@@ -114,7 +118,7 @@ function BotGame:onEnter()
     -- 铁匠工作线
 
     -- 行军工作线
-    _createTroopWorkline(self)
+    --_createTroopWorkline(self)
     --_createTroopWorkline(self)
 
     -- 特殊工作线

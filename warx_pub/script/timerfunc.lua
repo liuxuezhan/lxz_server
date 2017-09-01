@@ -1,5 +1,6 @@
 module("timer")
 
+local min = 0
 _funs["cron"] = function(sn)
     timer.cron_base_func()
 
@@ -38,30 +39,29 @@ _funs["cron"] = function(sn)
 
     local db = dbmng:tryOne()
     local total = 0
+    local tlog_onlines = { }
     local onlines = gOnlines
     local gone = {}
     for pid, node in pairs( onlines ) do
         local offset = gTime - node[2]
+        local p = getPlayer( pid ) 
         if offset < 300 then
             total = total + 1
-        elseif offset < 400 then
-            local p = getPlayer( pid ) 
-            if p then
-                Rpc:ping( p )
+            if p and p.vGameAppid and p.PlatID then
+                if not tlog_onlines[p.vGameAppid] then tlog_onlines[p.vGameAppid] = {} end
+                tlog_onlines[p.vGameAppid][p.PlatID] = (tlog_onlines[p.vGameAppid][p.PlatID] or 0) + 1 
             end
-        else
-            local p = getPlayer( pid ) 
-            if p then
-                rawset( p, "gid", nil )
-                p.tm_logout = p.tick
-                if p.tm_logout < p.tm_login then p.tm_logout = p.tm_login+1 end
-
-                if db then
-                    local dura = node[2] - node[1]
-                    db.online:update( {_id=pid}, { ["$inc"] = {online=dura } }, true )
-                    table.insert( gone, pid )
+        elseif offset < 400 then
+            total = total + 1
+            if p then 
+                Rpc:ping( p ) 
+                if p.vGameAppid and p.PlatID then
+                    if not tlog_onlines[p.vGameAppid] then tlog_onlines[p.vGameAppid] = {} end
+                    tlog_onlines[p.vGameAppid][p.PlatID] = (tlog_onlines[p.vGameAppid][p.PlatID] or 0) + 1 
                 end
             end
+        else
+            if p then player_t.onBreak( p, p.sockid or 0 ) end
         end
         player_t.g_online_num = total
     end
@@ -69,15 +69,15 @@ _funs["cron"] = function(sn)
 
     INFO( "[Online], %d", player_t.g_online_num )
     player_t.pre_tlog(nil,"GameSvrState",config.GameHost,(player_t.g_online_num or 0),(get_sys_status("start") or 0) ,0 )
+
+    min = min + 1
+    for k, v in pairs( tlog_onlines or {} ) do
+        player_t.tlog_ten(nil,"onlinecnt",tms2str(), k, gTime, config.Country, gMapID, 0, v[0] or 0 , v[1] or 0 )
+    end
+    if (min%5) == 0 then player_t.tlog_ten(nil,"GameSvrState" ) end
 end
 
-_funs["monitor"] = function(sn, num)
-    --timer.new("monitor", 20, (num+1))
-    --monitoring(MONITOR_TYPE.TOTAL)
-    if num % 3 == 0 then
-        --monitoring(MONITOR_TYPE.LUAOBJ)
-    end
-end
+
 
 _funs["cure"] = function(sn, pid)
     local p = getPlayer(pid)

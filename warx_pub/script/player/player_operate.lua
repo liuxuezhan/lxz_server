@@ -121,6 +121,12 @@ function operate_on_day_pass(self)
         local activity = operate_activity.get_activity_by_id(id)
         if activity == nil or activity.is_end == 1 then
             table.insert(clear_list, id)
+        elseif nil ~= info[OPERATE_PLAYER_DATA.VERSION] then
+            local prop = resmng.get_conf("prop_operate_activity", id)
+            if prop.CirculationNum then
+                self.operate_activity[id] = {}
+                self.operate_activity[id][OPERATE_PLAYER_DATA.VERSION] = activity.version
+            end
         end
     end
 

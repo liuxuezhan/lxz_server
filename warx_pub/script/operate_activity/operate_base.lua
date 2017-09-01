@@ -276,6 +276,11 @@ function CActivityBase:tick()
 		need_save = true
 		if self.is_end == 1 then
 			Rpc:broadcast_operate_end({pid = -1, gid = _G.GateSid}, self.activity_id)
+        elseif gTime >= self.start_time then
+            self.is_start = 1
+            self.is_end = 0
+            self:reset_rank()
+            self:start_activity()
 		end
 	end
 	if self.is_start == 1 and self.is_end == 0 then

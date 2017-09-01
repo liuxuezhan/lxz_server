@@ -36,15 +36,10 @@ function _notify_queue_init(node, pos)
 end
 
 function _notify_queue_update(data)
-    local sids = {}
-    for i, v in ipairs(_login_queue) do
-        if v.inited == true then
-            table.insert(sids, v.sid)
-        end
-    end
-    if #sids > 0 then
-        INFO("Login queue update! send to %d sessions", #sids)
-        Rpc:sendToSock(sids, "login_in_queue_update", data)
+    if next(data) then
+        -- STATE_IN_QUEUE == 4, STATE_ON == 5
+        INFO("Login queue update!")
+        Rpc:broadcastToState(4, "login_in_queue_update", data)
     end
 end
 
@@ -52,7 +47,7 @@ function _remove_from_queue(sid)
     -- remove from queue
     for i, v in ipairs(_login_queue) do
         if v.sid == sid then
-            _change_cache[#_change_cache+1] = sid
+            _change_cache[#_change_cache+1] = v.login_id
             _login_sid_tab[sid] = nil
             table.remove(_login_queue, i)
             return
@@ -91,35 +86,41 @@ function after_break(sid)
     end
 end
 
-
 function update()
+    if not next( _login_queue ) then return end
+
     local max_num = can_handle_login_num() 
+
     local remove_sids = {}
     for i, v in ipairs(_login_queue) do
-        if i < max_num then
-            table.insert(remove_sids, v.sid)
-            action(player_t.handle_login_from_queue, unpack(v.pack))
-            begJob()
-        else
-            break
-        end
+        table.insert(remove_sids, v.sid)
+        action(handle_login_from_queue, unpack(v.pack))
+        if i >= max_num then break end
     end
 
     for i, sid in ipairs(remove_sids) do
         _remove_from_queue(sid)
     end
 
-    if _last_update_time == 0 then
-        _last_update_time = gTime
-    end
+    if _last_update_time == 0 then _last_update_time = gTime end
+
     if _last_update_time ~= gTime then
         -- update必须先于init，不然玩家的pos不对
-        _notify_queue_update(_change_cache)
-        _change_cache = {}
+        if next( _change_cache ) then 
+            _notify_queue_update(_change_cache)
+            _change_cache = {}
+        end
 
-        for i, v in ipairs(_login_queue) do
-            if v.enter_time + 1 < gTime and not v.inited then
-                _notify_queue_init(v, i)
+        -- 排队时间超过1秒才给提示（1秒-2秒间）
+        local v = nil
+        for i = #_login_queue, 1, -1 do
+            v = _login_queue[i]
+            if v.enter_time < gTime - 1 then
+                if not v.inited then
+                    _notify_queue_init(v, i)
+                else
+                    break
+                end
             end
         end
 

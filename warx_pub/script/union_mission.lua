@@ -171,7 +171,7 @@ function ok(p,cond,num)
     local u = unionmng.get_union(p.uid)
     if not u then return end
     if not u.task then return end
-    for _,v in pairs (u.task.cur or {} ) do
+    for k,v in pairs (u.task.cur or {} ) do
         if v.state == TASK_STATUS.TASK_STATUS_ACCEPTED then 
             local c = resmng.get_conf("prop_union_task",v.class*1000 + u.task.lv )
             if not c then return end
@@ -191,6 +191,7 @@ function ok(p,cond,num)
                     v.sort[p.pid].name =  p.name  
                     v.sort[p.pid].num =  num  
                 end
+                v.sort[p.pid].tm =  gTime  
                 task_logic_t.process_task(p, TASK_ACTION.FINISH_UNION_TASK, v.sort[p.pid].num)
                 gPendingSave.union_mission[p.uid] = u.task 
                 return

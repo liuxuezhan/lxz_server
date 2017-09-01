@@ -6,35 +6,35 @@ local ZONE_WIDTH = 16
 local SEARCH_DISTANCE = 2
 local REGION_SEARCH_INTERVAL = 2
 
-local layer_info =                                                           
-{                                                                            
-    {-1, -1, 1, 0},                                                          
-    {1, -1, 0, 1},                                                           
-    {1, 1, -1, 0},                                                           
-    {-1, 1, 0, -1},                                                          
-}                                                                            
+local layer_info =
+{
+    {-1, -1, 1, 0},
+    {1, -1, 0, 1},
+    {1, 1, -1, 0},
+    {-1, 1, 0, -1},
+}
 
-local function regions(max_layer)                                                  
-    local function circle(layer)                                             
-        for k, v in ipairs(layer_info) do                                    
-            local start_x = layer * v[1]                                     
-            local start_y = layer * v[2]                                     
-            local count = layer * 2                                          
-            for i = 0, count - 1 do                                          
-                coroutine.yield(start_x + v[3] * i, start_y + v[4] * i)      
-            end                                                              
-        end                                                                  
-    end                                                                      
+local function regions(max_layer)
+    local function circle(layer)
+        for k, v in ipairs(layer_info) do
+            local start_x = layer * v[1]
+            local start_y = layer * v[2]
+            local count = layer * 2
+            for i = 0, count - 1 do
+                coroutine.yield(start_x + v[3] * i, start_y + v[4] * i)
+            end
+        end
+    end
 
-    local function all_regions()                                             
-        coroutine.yield(0, 0)                                                
-        for i = 1, max_layer do                                              
-            circle(i)                                                        
-        end                                                                  
-    end                                                                      
+    local function all_regions()
+        coroutine.yield(0, 0)
+        for i = 1, max_layer do
+            circle(i)
+        end
+    end
 
     return coroutine.wrap(all_regions)
-end                                                                          
+end
 
 function AttackLevelMonster.create(...)
     local obj = setmetatable({}, AttackLevelMonster)

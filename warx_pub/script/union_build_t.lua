@@ -193,7 +193,7 @@ function remove(e)
         local tr = troop_mng.get_troop(e.my_troop_id)
         if tr then tr:back() end
         del(e)
-        u:notifyall("build", resmng.OPERATOR.DELETE, e)
+        u:notifyall(resmng.UNION_EVENT.BUILD_SET, resmng.OPERATOR.DELETE, e)
         return
     end
 
@@ -450,7 +450,7 @@ function save(obj)
         local u = unionmng.get_union(obj.uid)
         if u then
             u.build[obj.idx] = obj
-            u:notifyall("build", resmng.OPERATOR.UPDATE, obj)
+            u:notifyall(resmng.UNION_EVENT.BUILD_SET, resmng.OPERATOR.UPDATE, obj)
         end
     end
 end
@@ -486,6 +486,7 @@ function buf_open(e)--奇迹生成
                     else
                         print( "buf_open, pid, eid", ply.pid, e.eid )
                         ply.ef_eid = e.eid
+                        task_logic_t.process_task(ply, TASK_ACTION.UNION_CASTLE_EFFECT)
                     end
                 end
             end
@@ -514,7 +515,10 @@ end
 function ply_move(ply, ignore)--迁城变奇迹影响
     ply.ef_eid = 0
     local builds = get_around_eids( ply.eid, 25 )
-    if not builds then return end
+    if not builds then
+        task_logic_t.process_task(ply, TASK_ACTION.UNION_CASTLE_EFFECT)
+        return
+    end
 
     local x, y = ply.x, ply.y
     local w = 4 -- player castle size
@@ -537,6 +541,9 @@ function ply_move(ply, ignore)--迁城变奇迹影响
                 end
             end
         end
+    end
+    if math.huge ~= sn then
+        task_logic_t.process_task(ply, TASK_ACTION.UNION_CASTLE_EFFECT)
     end
 end
 
@@ -605,6 +612,14 @@ function build_complete( obj )
                 chg.tmOver = troop.tmOver
                 troop:do_notify_owner( chg )
                 buf_open( obj )
+                local u = unionmng.get_union( obj.uid )
+                if u.build_first2 ~= 1  then
+                    for _, p in pairs(u._members) do
+                        p:send_union_build_mail(resmng.MAIL_10075, {}, {})
+                        p:send_union_build_mail(resmng.MAIL_10076, {}, {})
+                    end
+                    u.build_first2 = 1  
+                end
             else
                 troop:back()
                 obj.my_troop_id = 0

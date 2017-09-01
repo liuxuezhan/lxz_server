@@ -371,6 +371,55 @@ function upload_user_ack(self)
     return
 end
 
+function tlog_ten(p,name,...)--接腾讯经分
+    if not config.TlogTen then return end
+    local info 
+    if name == "GameSvrState" then
+        info = {
+        name,
+        tms2str(),
+        config.GameHost or "0.0.0.0",
+        gMapID,
+        }
+    elseif name == "onlinecnt" then
+        info = {
+        name,
+        }
+    else
+        info = {
+        name,
+        gMapID,
+        tms2str(),
+        p.vGameAppid or "NULL",
+        p.PlatID or 0,
+        0,
+        p.account,
+        }
+    end
+
+    for _, v in pairs( {...} ) do
+        if type(v) == "number" and v > (2^31-1) then
+            table.insert(info,1987654321)
+        else
+            table.insert(info,v)
+        end
+    end
+
+    if name == "PlayerRegister" or name == "PlayerLogin" or name == "PlayerLogout" then
+        local c = resmng.get_conf("prop_language_cfg",p.language)
+        if c then
+            table.insert(info,c.TencentID or 6 )
+        else
+            table.insert(info,6 )
+        end
+    end
+
+    --lxz(info)
+    info = table.concat(info, '|')
+    c_tlog2(1,info)
+
+end
+
 function pre_tlog(self,name,...)
 
     if not config.TlogSwitch then return end
@@ -439,18 +488,14 @@ function pre_tlog(self,name,...)
     end
 
     for _, v in pairs( {...} ) do
-        if type(v) == "number" and v > math.pow(2,32) then
-            table.insert(info,2100000000)
+        if type(v) == "number" and v > (2^31-1) then
+            table.insert(info,1987654321)
         else
             table.insert(info,v)
         end
     end
 
-	if name == "UnionList" and #info ==11 then
-		for i=1,8 do table.insert(info,"null") end
-	else
-		for i=1,10 do table.insert(info,"null") end
-	end
+    for i=1,10 do table.insert(info,"null") end
 
     --lxz(info)
     info = table.concat(info, '|')
@@ -517,6 +562,11 @@ function is_block_account( open_id )
 end
 
 function debug_login_with_pid(sockid, pid, from_map)
+    pushHead(_G.GateSid, 0, 21)  -- NET_SET_IN_QUEUE
+    pushInt(sockid)
+    pushInt(from_map)
+    pushOver()
+
     p = getPlayer(pid)
     if not p then
         return
@@ -841,7 +891,6 @@ function firstPacket2(self, sockid, server_id, info)
 
     INFO( "firstPacket2, from=%s, sockid=%d, ip=%s, open_id=%s, pid=%d, did=%s, cival=%d, signature=%s, time=%s, toke=%s, token_expire=%s, version=%s, extra=%s",
     from_map, sockid , ip, open_id, pid, info.did, cival, signature,  time, token,  token_expire, version, extra )
-    --]]
 
     if is_block_account( open_id ) then
         Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.BLOCK_ACCOUNT)
@@ -892,7 +941,7 @@ function firstPacket2(self, sockid, server_id, info)
     return handle_login_from_queue(table.unpack(pack))
 end
 
-function handle_login_from_queue(sockid, pid, open_id, ip, cival, token, from_map, did)
+function handle_login_from_queue(sockid, pid, open_id, ip, cival, token, from_map, did,client )
     if pid > 0 then
         local p = getPlayer( pid )
         if not p then
@@ -907,7 +956,7 @@ function handle_login_from_queue(sockid, pid, open_id, ip, cival, token, from_ma
     end
 
     if pid == 0 then
-        local acc = gAccounts[ open_id] 
+        local acc = gAccounts[ open_id ]
         if acc then
             local tick = 0
             for k, v in pairs( acc ) do
@@ -1016,6 +1065,7 @@ function handle_login_from_queue(sockid, pid, open_id, ip, cival, token, from_ma
         info.ip = p.ip
         Rpc:callAgent(p.map, "agent_login", p.pid, info)
     else
+
         pushHead(_G.GateSid, 0, 9)  -- set server id
         pushInt(sockid)
         pushInt(from_map)
@@ -1025,7 +1075,25 @@ function handle_login_from_queue(sockid, pid, open_id, ip, cival, token, from_ma
     end
 
     --todo
-    p.ip = ip
+    for k, v in pairs( client or {}) do 
+        if type(v)=="string" then 
+            p[k] = string.gsub(v,"|"," ") 
+            if k== "GLVersion" then 
+                p[k] = string.sub(p[k],1,256) 
+            elseif k== "ClientVersion"  
+                and k== "SystemSoftware"  
+                and k== "SystemHardware" 
+                and k== "TelecomOper" 
+                and k== "Network"  
+                and k== "CpuHardware"  
+                and k== "GLRender"  
+                and k== "DeviceId"  then
+                p[k] = string.sub(p[k],1,64) 
+            end
+        else 
+            p[k] = v 
+        end
+    end
     p:pre_tlog("PlayerLogin",p.gold,0,"iphone6","ios","oper","wifi","800","600",2000)
     return p
 end
@@ -1107,33 +1175,62 @@ function king_online(self)
     end
 end
 
-function onBreak(self, sockid)
-    INFO("[LOGIN], off, pid=%d, lv=%s, gold=%s, name=%s, sockid=%d", self.pid or 0, self.lv, self.gold, self.name or "unknonw", sockid)
-    if self.tm_login == gTime then self.tm_login = gTime - 1 end
-    self.tm_logout = gTime
-    if self.pid ~= 0 then
-        self:remEye()
+function fetch_online_time( pid, mark )
+    local node = gOnlines[ pid ]
+    if node then
+        mark = mark or gTime
+        local count = mark - node[1]
+        node[1] = mark
+        return count
+    end
+    return 0
+end
 
-        rawset( self, "gid", nil )
+
+function mark_online_time( pid, mark )
+    local p = getPlayer( pid )
+    if p then
+        mark = mark or gTime
+
+        local clv = p:get_castle_lv()
+        local dura = fetch_online_time( pid, mark )
+        local update = string.format( "INSERT INTO tcaplus (pid, day, gameappid, platid, openid, zoneareaid, level, viplevel, money, diamond, iFriends, regtime, lastime, online, nlogin) VALUES (%d, FROM_UNIXTIME(%d,\"%%Y%%m%%d\"), \"%s\", %d, \"%s\", %d, %d, %d, %d, %d, %d, FROM_UNIXTIME(%d, \"%%Y%%m%%d\"), FROM_UNIXTIME(%d, \"%%Y%%m%%d\"), %d, %d) ON DUPLICATE KEY UPDATE level=%d, viplevel=%d, money=%d, lastime=FROM_UNIXTIME(%d, \"%%Y%%m%%d\"), online=online+%d, nlogin=nlogin+1", p.pid, mark, config.APP_ID, 1, p.account, gMapID, clv, p.vip_lv, p.gold, 0, 0, p.tm_create, p.tm_login, dura, 1, clv, p.vip_lv, p.gold, p.tm_login, dura )
+        to_tool( 0, {type="mysql", sql_query=update})
+        WARN( "%s", update )
+
+        local db = dbmng:tryOne()
+        if db then
+            db.online:update( {_id=p.pid}, { ["$inc"] = {online=dura } }, true )
+        end
+    end
+end
+
+function onBreak(p, sockid)
+    if p.pid ~= 0 then
+        INFO( "[LOGIN], of, pid,%d, open_id,%s, sock,%d, lv,%s, gold,%s, exp,%s, ip,%s, name,%s", p.pid, p.account, p.sockid or 0, p.propid % 1000, p.gold, p.exp, p.ip or 0, p.name )
+        if p.tm_login == gTime then p.tm_login = gTime - 1 end
+        p.tm_logout = gTime
+        mark_online_time( p.pid )
+
+        p:remEye()
+
+        rawset( p, "gid", nil )
         if g_online_num and  g_online_num  > 0 then g_online_num = g_online_num  - 1 end
+        gOnlines[ p.pid ] = nil
 
-        local node = gOnlines[ self.pid ]
-        if node then
-            local dura = node[2] - node[1]
-            if dura > 0 then
-                local db = dbmng:tryOne()
-                if db then
-                    db.online:update( {_id=self.pid}, { ["$inc"] = {online=dura } }, true )
-                end
-            end
-            gOnlines[ self.pid ] = nil
-        end
-
-        local u  = unionmng.get_union(self.uid)
+        local u  = unionmng.get_union(p.uid)
         if u then
-            u:notifyall(resmng.UNION_EVENT.MEMBER, resmng.UNION_MODE.UPDATE, {pid=self.pid,tm_login=self.tm_login,tm_logout=self.tm_logout})
+            u:notifyall(resmng.UNION_EVENT.MEMBER, resmng.UNION_MODE.UPDATE, {pid=p.pid,tm_login=p.tm_login,tm_logout=p.tm_logout})
         end
-        self:pre_tlog("PlayerLogout",self.gold,0)
+        p:pre_tlog("PlayerLogout",p.gold,0)
+        p:tlog_ten("PlayerLogout", gTime-p.tm_login, p:get_castle_lv(), 0,
+                        p.ClientVersion or "NULL", p.SystemSoftware or "NULL", p.SystemHardware or "NULL",
+                        p.TelecomOper or "NULL", p.Network or "NULL", 
+                        p.ScreenWidth or 0, p.ScreenHight or 0, 
+                        p.Density or 0, p.RegChannel or 0, 
+                        p.CpuHardware or "NULL", p.Memory or 0, 
+                        p.GLRender or "NULL", p.GLVersion or "NULL", p.DeviceId or "NULL", 
+                        p.ip or "0.0.0.0" )
     end
     login_queue.after_break(sockid)  --退出队列
 end
@@ -1786,7 +1883,7 @@ function recalc_shell( self )
             self:add_state( state )
         elseif remain == 0 and self:is_state( state ) then
             self:rem_state( state )
-            offline_ntf.post(resmng.OFFLINE_NOTIFY_PROTECT, self, {}, {})
+            --offline_ntf.post(resmng.OFFLINE_NOTIFY_PROTECT, self, {}, {})
         end
     end
 end
@@ -2039,7 +2136,7 @@ end
 
 
 
-function add_bonus(self, bonus_policy, tab, reason, ratio )
+function add_bonus(self, bonus_policy, tab, reason, ratio,cost )
     if bonus_policy == nil or tab == nil or reason == nil then
         return false
     end
@@ -2048,7 +2145,7 @@ function add_bonus(self, bonus_policy, tab, reason, ratio )
     if get_tab and #get_tab > 0 then
         local msg_notify = {}
         for k, v in pairs(get_tab) do
-            self:do_add_bonus(v[1], v[2], v[3], ratio, reason)
+            self:do_add_bonus(v[1], v[2], v[3], ratio, reason,cost)
             v[3] = v[3] * ratio
             table.insert(msg_notify, v)
             if v[1] == "item" then
@@ -2063,7 +2160,7 @@ function add_bonus(self, bonus_policy, tab, reason, ratio )
     return true
 end
 
-function do_add_bonus(self, class, mode, num, ratio, reason)
+function do_add_bonus(self, class, mode, num, ratio, reason,cost)
     if not num then
         ERROR( "do_add_bonus, pid=%d, class=%s, mode=%s", self.pid, class, mode )
         return
@@ -2085,7 +2182,7 @@ function do_add_bonus(self, class, mode, num, ratio, reason)
                     end
                 end
             end
-            self:addItem(mode, real_num, reason)
+            self:addItem(mode, real_num, reason,cost)
         else
             ERROR( "do_add_bonus, class=%s, mode=%s, num=%s", class, mode, num )
         end
@@ -2297,6 +2394,9 @@ function gm_user(self, cmd)
     elseif choose == "debug1" then
         debug_tag = 1
     elseif choose == "lxz" then
+        self:send_union_build_mail(resmng.MAIL_10074, {}, {})
+        self:send_union_build_mail(resmng.MAIL_10075, {}, {})
+        self:send_union_build_mail(resmng.MAIL_10076, {}, {})
         --[[
         local u = self:union()
         for _, v in pairs(u.build or {}) do v.val = 100 end
@@ -3593,118 +3693,120 @@ function do_inc_res_protect(self, mode, num, reason)
     end
 end
 
-function do_inc_res_normal(self, mode, num, reason)
+function do_inc_res_normal(p, mode, num, reason)
     if mode < 1 then return end
 
     if not reason then
-        ERROR("do_inc_res_normal: pid = %d, don't use the default reason.", self.pid)
+        ERROR("do_inc_res_normal: pid = %d, don't use the default reason.", p.pid)
         reason = resmng.VALUE_CHANGE_REASON.DEFAULT
     end
 
     if num < 0 then
-        WARN("do_inc_res, pid=%d, num=%d, reason=%s, num<0", self.pid, num, reason)
+        WARN("do_inc_res, pid=%d, num=%d, reason=%s, num<0", p.pid, num, reason)
         return
     end
     num = math.floor( num )
 
-    INFO( "[RES], inc, pid=%d, mode=%d, num=%d, reason=%s, normal", self.pid, mode, num, reason or 0)
+    INFO( "[RES], inc, pid=%d, mode=%d, num=%d, reason=%s, normal", p.pid, mode, num, reason or 0)
 
     if mode <= resmng.DEF_RES_ENERGY then
-        local node = self.res[ mode ]
+        local node = p.res[ mode ]
         if not node then return end
-        if mode == resmng.DEF_RES_FOOD then self:refresh_food() end
+        if mode == resmng.DEF_RES_FOOD then p:refresh_food() end
         node[1] = math.floor(node[1] + num)
-        self.res = self.res
+        p.res = p.res
             
-        self:pre_tlog("MoneyFlow",0,calc_res(mode,num),10 + mode,0,calc_res(mode,node[1]),reason )
+        p:pre_tlog("MoneyFlow",0,calc_res(mode,num),10 + mode,0,calc_res(mode,node[1]),reason )
 
     elseif mode == resmng.DEF_RES_MARSEXP then
-        union_god.add_exp(self,num)
+        union_god.add_exp(p,num)
 
     elseif mode == resmng.DEF_RES_PERSONALHONOR then
-        union_member_t.add_donate(self, num,reason)
-        local union = unionmng.get_union(self:get_uid())
-        if union then union:add_donate(num * 1.4, self) end
+        union_member_t.add_donate(p, num,reason)
+        local union = unionmng.get_union(p:get_uid())
+        if union then union:add_donate(num * 1.4, p) end
     elseif mode == resmng.DEF_RES_UNITHONOR then
         -- 不做任何事情
 
     elseif mode == resmng.DEF_RES_LORDEXP then
-        self:add_exp(num)
+        p:add_exp(num)
 
     elseif mode == resmng.DEF_RES_VIPEXP then
-        self:vip_add_exp(num)
+        p:vip_add_exp(num)
 
     elseif mode == resmng.DEF_RES_LORDSINEW then
-        self:inc_sinew( num )
+        p:inc_sinew( num )
 
     else
         local conf = resmng.get_conf("prop_resource", mode)
         if conf then
             local key = conf.CodeKey
-            self[ key ] = math.floor((self[ key ] or 0) + num)
+            p[ key ] = math.floor((p[ key ] or 0) + num)
             if mode == resmng.DEF_RES_GOLD  then
-                self:pre_tlog("MoneyFlow",0,num,2,0,self[key],reason )
+                p:pre_tlog("MoneyFlow",0,num,2,0,p[key],reason )
+                p:tlog_ten("MoneyFlow",0,p:get_castle_lv(),p[key],num,0,reason,0,1,p.ip or "0.0.0.0" )
             elseif mode == resmng.DEF_RES_SILVER  then
-                self:pre_tlog("MoneyFlow",0,num,1,0,self[key],reason )
+                p:pre_tlog("MoneyFlow",0,num,1,0,p[key],reason )
             end
         end
     end
 end
 
-function do_dec_res(self, mode, num, reason)
+function do_dec_res(p, mode, num, reason)
     if not reason then
-        ERROR("do_dec_res: pid = %d, don't use the default reason.", self.pid)
+        ERROR("do_dec_res: pid = %d, don't use the default reason.", p.pid)
         reason = resmng.VALUE_CHANGE_REASON.DEFAULT
     end
 
     if num < 0 then
-        WARN("do_dec_res, pid=%d, num=%d, reason=%s, num>=0", self.pid, num, reason)
+        WARN("do_dec_res, pid=%d, num=%d, reason=%s, num>=0", p.pid, num, reason)
         return
     end
 
     num = math.floor(num)
     if num < 1 then num = 1 end
 
-    INFO( "[RES], dec, pid=%d, mode=%d, num=%d, reason=%s", self.pid, mode, num, reason or 0)
+    INFO( "[RES], dec, pid=%d, mode=%d, num=%d, reason=%s", p.pid, mode, num, reason or 0)
 
     if mode > resmng.DEF_RES_ENERGY then
         local conf = resmng.get_conf("prop_resource", mode)
         if conf then
             local key = conf.CodeKey
-            if self[ key ] and self[ key ] >= num then
-                self[ key ] = math.floor(self[ key ] - num)
+            if p[ key ] and p[ key ] >= num then
+                p[ key ] = math.floor(p[ key ] - num)
                 if  mode ==resmng.DEF_RES_GOLD  then
-                    self:add_count( resmng.ACH_COUNT_GOLD_COST, num )
-                    self:pre_tlog("MoneyFlow",0,num,2,1,self[key],reason )
-                    union_mission.ok(self,UNION_MISSION_CLASS.COST, num)
+                    p:add_count( resmng.ACH_COUNT_GOLD_COST, num )
+                    p:pre_tlog("MoneyFlow",0,num,2,1,p[key],reason )
+                    p:tlog_ten("MoneyFlow",0,p:get_castle_lv(),p[key],num,0,reason,1,1,p.ip or "0.0.0.0")
+                    union_mission.ok(p,UNION_MISSION_CLASS.COST, num)
                 elseif mode == resmng.DEF_RES_SILVER  then
-                    self:pre_tlog("MoneyFlow",0,num,1,1,self[key],reason )
+                    p:pre_tlog("MoneyFlow",0,num,1,1,p[key],reason )
                 end
                 return true
             end
-            INFO( "[RES], dec, not enough, pid=%d, mode=%d, num=%s, have=%s", self.pid, mode, num, self[ key ] or 0 )
+            INFO( "[RES], dec, not enough, pid=%d, mode=%d, num=%s, have=%s", p.pid, mode, num, p[ key ] or 0 )
             return false
         end
     else
-        local node = self.res[ mode ]
+        local node = p.res[ mode ]
         if not node then return end
 
-        if mode == resmng.DEF_RES_FOOD then self:refresh_food() end
+        if mode == resmng.DEF_RES_FOOD then p:refresh_food() end
 
         if node[1] >= num then
             node[1] = math.floor(node[1] - num)
-            self.res = self.res
+            p.res = p.res
             return true
 
         elseif node[1] + node[2] >= num then
             num = num - node[1]
             node[1] = 0
             node[2] = math.floor(node[2] - num)
-            self.res = self.res
+            p.res = p.res
             return true
 
         else
-            INFO( "[RES], dec, not enough, pid=%d, mode=%d, num=%s, have=[%s, %s]", self.pid, mode, num, node[1], node[2] )
+            INFO( "[RES], dec, not enough, pid=%d, mode=%d, num=%s, have=[%s, %s]", p.pid, mode, num, node[1], node[2] )
             return false
 
         end
@@ -4239,6 +4341,10 @@ function migrate( self, x, y )
             self:dec_gold( 2000, VALUE_CHANGE_REASON.MIGRATE )
             task_logic_t.process_task(self, TASK_ACTION.USE_ITEM, resmng.ITEM_ADVANCEDMOVE, 1)
         end
+        local u = unionmng.get_union(self.uid)
+        if u then
+            u:notifyall(resmng.UNION_EVENT.MEMBER, resmng.UNION_MODE.UPDATE, self:get_union_info())
+        end
         reply_ok( self, "migrate", 0)
     end
 end
@@ -4453,12 +4559,11 @@ function change_name(self, name)
     --end
 
 
-    local code = check_name_avalible( name )
-    if code ~= true then
+    local flag, code = check_name_avalible( name )
+    if flag ~= true then
         ack(self, "change_name", resmng.E_DISALLOWED )
-        INFO("[ChangeName], code=%d, pid=%d, old=%s, new=%s", code, self.pid, old, name )
+        INFO("[ChangeName], code=%s, pid=%d, old=%s, new=%s", code, self.pid, old, name )
     end
-
 
     if is_sys_name( name ) then 
         ack(self, "change_name", resmng.E_DISALLOWED )
@@ -4493,6 +4598,8 @@ function change_name(self, name)
     rank_mng.update_info_player( self.pid )
 
     INFO("[ChangeName], code=%d, pid=%d, old=%s, new=%s", 0, self.pid, old, name )
+
+    task_logic_t.process_task(self, TASK_ACTION.LORD_RENAME, 1)
 
     --rank_mng.change_name( 1, self.pid, name )
     --rank_mng.change_name( 2, self.pid, name )
@@ -4872,6 +4979,160 @@ function act_info_tag_req(self, act_type)
 end
 
 ----npc city
+--
+function npc_info_by_propid_req(self, propid)
+    local eid = npc_city.get_npc_eid_by_propid(propid)
+    if not eid then
+        return
+    end
+
+    local npc = get_ety(eid)
+    if not npc then
+        return
+    end
+
+    local city = {}
+    local num, max , pow = npc:hold_limit(self)
+    local def_union = unionmng.get_union(npc.uid)
+    npc_city.format_union(npc)
+    city.unions = npc.unions
+    city.armsNum = num
+    city.armsPow = pow
+    city.propid = npc.propid
+    city.state = npc.state
+    city.startTime = npc.startTime
+    city.endTime = npc.endTime
+    city.kw_buff = npc.kw_buff
+    local uinfo = {}
+    if def_union then
+        uinfo.pow = def_union:union_pow()
+        uinfo.membercount = def_union.membercount
+        uinfo.flag = def_union.flag
+        city.uinfo = uinfo
+    end
+
+    Rpc:npc_info_by_propid_ack(self, city)
+end
+
+function union_npc_info_req(self)
+    local union = unionmng.get_union(self.uid)
+    if not union then
+        return
+    end
+    local state, startTime, endTime = npc_city.get_npc_state()
+    local pointType = POINT_MALL_TYPE[POINT_MALL.MANOR]
+    local pack = {}
+    if union.npc_info_pack then
+        pack = union.npc_info_pack
+    end
+    pack.tw_credit = self[pointType] or 0
+    pack.tw_state = state
+    pack.tw_endTime = endTime
+    pack.mc_startTime = union.mc_start_time or union:get_default_time()
+    pack.mc_state = union.monster_city_stage
+    local pointType1 = POINT_MALL_TYPE[POINT_MALL.MONSTER]
+    pack.mc_credit = self[pointType1] or 0
+    pack.abd_tm = union.abd_city_time
+    pack.declare_time = union.declare_tm
+    local can_atks = union:union_can_atk_citys()
+    local can_atk_citys = {}
+    for k, v in pairs(can_atks or {}) do
+        local eid = npc_city.have[v] or 0
+        local npc = get_ety(eid)
+        local city = {}
+        if npc and not union.declare_wars[eid] then
+            local num, max , pow = npc:hold_limit(self)
+            local def_union = unionmng.get_union(npc.uid)
+            npc_city.format_union(npc)
+            city.unions = npc.unions
+            city.armsNum = num
+            city.armsPow = pow
+            city.propid = npc.propid
+            city.state = npc.state
+            city.startTime = npc.startTime
+            city.endTime = npc.endTime
+            city.kw_buff = npc.kw_buff
+            local uinfo = {}
+            if def_union then
+                uinfo.pow = def_union:union_pow()
+                uinfo.membercount = def_union.membercount
+                uinfo.flag = def_union.flag
+                city.uinfo = uinfo
+            end
+            table.insert(can_atk_citys, city)
+        end
+    end
+    pack.can_atk_citys = can_atk_citys
+
+    local declare_citys = {}
+    for k, v in pairs(union.declare_wars or {}) do
+        local npc = get_ety(v)
+        local city = {}
+        if npc then
+            local num, max = npc:hold_limit(self)
+            local def_union = unionmng.get_union(npc.uid)
+            npc_city.format_union(npc)
+            city.unions = npc.unions
+            city.armsNum = num
+            --city.armsNum = num
+            city.propid = npc.propid
+            city.state = npc.state
+            city.startTime = npc.startTime
+            city.endTime = npc.endTime
+            city.kw_buff = npc.kw_buff
+            local uinfo = {}
+            if def_union then
+                uinfo.pow = def_union:get_pow()
+                uinfo.membercount = def_union.membercount
+                uinfo.flag = def_union.flag
+                city.uinfo = uinfo
+            end
+            table.insert(declare_citys, city)
+        end
+    end
+    pack.declare_citys = declare_citys
+
+    if union.npc_info_pack then
+        Rpc:union_npc_info_ack(self, pack)
+        return
+    end
+
+    pack.reward = 0
+    local citys = {}
+    for k, v in pairs(union.npc_citys or {}) do
+        local npc = get_ety(v)
+        local city = {}
+        if npc then
+            local num, max, pow= npc:hold_limit(self)
+            local def_union = unionmng.get_union(npc.uid)
+            npc_city.format_union(npc)
+            city.unions = npc.unions
+            city.armsNum = num
+            city.armsPow = pow
+            city.propid = npc.propid
+            city.state = npc.state
+            city.startTime = npc.startTime
+            city.endTime = npc.endTime
+            city.kw_buff = npc.kw_buff
+            local mc = union_t.get_live_mc(v)
+            if mc then
+                city.is_mc_atk = true
+            end
+            local uinfo = {}
+            if def_union then
+                uinfo.pow = def_union:get_pow()
+                uinfo.membercount = def_union.membercount
+                uinfo.flag = def_union.flag
+                city.uinfo = uinfo
+            end
+            table.insert(citys, city)
+        end
+    end
+    pack.citys = citys
+    union.npc_info_pack = pack
+    Rpc:union_npc_info_ack(self, pack)
+end
+
 function npc_act_info_req(self)
     local pack = {}
     local union = unionmng.get_union(self.uid)
@@ -5196,19 +5457,22 @@ function get_union_npc_rank_req(self)
             if city then
                 local uid = city.uid
                 local conf = prop_world_unit[ city.propid ]
+                points[uid] = points[uid] or {}
                 if (not uid) or (uid == 0) then
                     if occupys and occupys[ city.propid ] then
                         local uid = occupys[ city.propid ]
-                        points[ uid ] = ( points[ uid ] or 0 ) + conf.Boss_point
+                        points[uid] = points[uid] or {}
+                        points[ uid ] = { ( points[ uid ][1] or 0 ) + conf.Boss_point, (points[uid][2] or 0 )+ 1}
                     else
                         local conf = prop_world_unit[ city.propid ]
                         local uid = conf and conf.Flag and conf.Flag[4]
                         if uid then
-                            points[ uid ] = ( points[ uid ] or 0 ) + conf.Boss_point
+                            points[uid] = points[uid] or {}
+                            points[ uid ] = {( points[ uid ][1] or 0 ) + conf.Boss_point, (points[uid][2] or 0 )+ 1} 
                         end
                     end
                 else
-                    points[ uid ] = (points[ uid ] or 0) + conf.Boss_point
+                    points[ uid ] = { (points[ uid ][1] or 0) + conf.Boss_point, (points[uid][2] or 0 )+ 1}
                 end
             end
         end
@@ -5217,12 +5481,12 @@ function get_union_npc_rank_req(self)
             if uid < 10000 then
                 local conf = resmng.prop_default_union[ uid ]
                 if conf then
-                    table.insert( rank, { conf.ID, conf.Fullname, point } )
+                    table.insert( rank, { uid = conf.ID, name = conf.Fullname, alias = conf.Shortname, flag = conf.Flag, score = point[1], num = point[2] } )
                 end
             else
                 local union = unionmng.get_union( uid )
                 if union then
-                    table.insert( rank, { uid, union.name, point } )
+                    table.insert( rank, { uid = uid, name = union.name, alias = union.alias, flag = union.flag, score = point[1], num = point[2] } )
                 end
             end
         end
@@ -5230,6 +5494,10 @@ function get_union_npc_rank_req(self)
     end
 
     Rpc:get_union_npc_rank_ack( self, { s_id = gMapID, rank=rank } )
+end
+
+function npc_log_req(self)
+    Rpc:npc_log_ack(self, npc_city.npc_logs or {})
 end
 
 function npc_info_req(self, eid)
@@ -5457,7 +5725,12 @@ function get_eye_info_by_propid(self, propid)
     if is_type_propid(propid, EidType.KingCity) then
         eid = king_city.get_city_by_propid(propid)
     end
-    self:get_eye_info(eid)
+    if is_type_propid(propid, EidType.NpcCity) then
+        eid = npc_city.get_npc_eid_by_propid(propid) 
+    end
+    if eid then
+        self:get_eye_info(eid)
+    end
 end
 
 function get_eye_info(self,eid)--查询大地图建筑信息
@@ -6287,7 +6560,8 @@ function set_mc_start_time_req(self, time, grade)
     local u = unionmng.get_union(self.uid)
     if u then
         union_t.set_mc_start(u, time, grade, self)
-        player_t.pre_tlog(nil,"UnionList",u.uid,u.name,u.language,3,tostring(u.mc_start_time[1]))
+        player_t.pre_tlog(nil,"UnionList",u.uid,u.name,u.language,3,
+            tostring(u.mc_start_time[1]),u.membercount,u.activity or 0 ) 
         mc_info_req(self)
     end
 end
@@ -6377,7 +6651,8 @@ function chat_account_info_req(self)
 end
 
 function create_chat_account(ply)
-   --to_tool(0, {url = config.Chat_url or CHAT_URL, type = "chat", method = "post", cmd = "create_chat", user = tostring(ply.pid), host = CHAT_HOST,password = tostring(ply.pid)})
+    --to_tool(0, {type = "chat", cmd = "create_chat", user = tostring(ply.pid), host = CHAT_HOST, password = tostring(ply.pid)})
+   to_tool(0, {url = config.Chat_url or CHAT_URL, type = "chat", method = "post", cmd = "create_chat", user = tostring(ply.pid), host = CHAT_HOST,password = tostring(ply.pid)})
 end
 
 --- register result  chat call back
@@ -6415,6 +6690,7 @@ end
 function city_break( self, attacker )
     self:release_all_prisoner()
     self:wall_fire( 1800 )
+    self:add_count(resmng.ACH_COUNT_DEFENSE_LOSE, 1)
 end
 
 function vip_add_exp( self, exp )
@@ -6836,8 +7112,7 @@ function player_nearly_citys(self)
     local propid1 = 0
     for k, v in pairs(resmng.prop_world_unit) do
         if v.Class == CLASS_UNIT.NPC_CITY then
-            --local dis = math.pow((self.x - v.X),2) + math.pow((self.y - v.Y), 2)
-            local dis = (self.x - v.X)^2 + (self.y - v.Y)^2
+            local dis = math.pow((self.x - v.X),2) + math.pow((self.y - v.Y), 2)
             if shot == 0 then
                 propid = v.ID
                 shot = dis
@@ -7040,7 +7315,7 @@ function query_around( self, param, eid, range )
 
     local ety = get_ety( eid )
     if ety then
-        local eids = get_around_eids( self.eid, range )
+        local eids = get_around_eids( ety.eid, range )
         local infos = {}
         for _, eid in pairs( eids ) do
             local e = get_ety( eid )
@@ -7476,14 +7751,19 @@ function get_device_grade( self, device, gpu, frenquency, core )
 end
 
 function clear_outline()
+    if true then return end
+
     for _, p in pairs(gPlys) do
         if p.pid >= 10000 then clear_one(p) end
     end
 end
 
 function clear_one(p)
-    local tm = p.tm_logout
-    if tm ==0 then  tm = p.tm_login end
+    if true then return end
+
+    if is_online( p ) then return end
+    local tm = math.max( p.tm_login or 0, p.tm_logout or 0 )
+
     local lv = p:get_castle_lv()
     local day = PLY_CLEAR[lv] or PLY_CLEAR[#PLY_CLEAR]
     if day and day ~= 0 and day < get_diff_days(tm, gTime) then
@@ -7515,4 +7795,7 @@ function clear_one(p)
         gPlys[ p.pid ] = nil
     end
 end
+
+
+_G.handle_login_from_queue = player_t.handle_login_from_queue
 

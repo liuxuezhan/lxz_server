@@ -36,7 +36,7 @@ function check(u)
     if out_num == 100  then
         local d = u.word[id]
         gPendingDelete.union_word[d._id] = 1
-        d=nil
+        u.word[id] = nil
     end
 
     if in_num == 100  then return false end
@@ -84,6 +84,7 @@ function info(d,pid)
     v.wid = d.wid
     v.word = d.word
     v.uid = d.uid
+    v.tm_top = d.tm_top
     local p = getPlayer(d.pid)
     if not p then return {}  end
     v.name = p.name
@@ -149,6 +150,9 @@ function update(p,wid,title,word)
     d.title= title
     d.word = word
     d.tm = gTime
+    for k, v in pairs( d or {}) do
+        if type(k)=="number" then d[k] = nil end
+    end
     gPendingInsert.union_word[d._id] = d 
     u:notifyall(resmng.UNION_EVENT.WORD, resmng.UNION_MODE.UPDATE,{d.wid},p )
     return

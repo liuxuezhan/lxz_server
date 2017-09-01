@@ -16,9 +16,9 @@
 --    action(start_action, "forqc/test/t1")
 --end
 --action(start_action, "forqc/test/t0")
---action(start_action, "forqc/test/test_login")
+action(start_action, "forqc/test/test_login")
 --action(start_action, "forqc/test/tdb")
 --action(start_action, "forqc/test/ip_rule")
 --action(start_action, "forqc/test/PerformanceTest2")
-action(start_action, "forqc/test/autobot")
+--action(start_action, "forqc/test/autobot")
 

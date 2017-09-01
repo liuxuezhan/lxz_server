@@ -114,6 +114,20 @@ task_action[TASK_ACTION.ATTACK_SPECIAL_MONSTER] = function(self, task, monster_i
     self.host.player.troop_manager:requestTroop(action, _getTaskPriority(task))
 end
 
+task_action[TASK_ACTION.SPY_SPECIAL_PLY] = function(self, task, con_id)
+    local player = self.host.player
+    local x = player.x + math.random(5, 10)
+    local y = player.y + math.random(5, 10)
+    Rpc:spy_task_ply(player, task.task_id, player.eid, x, y)
+end
+
+task_action[TASK_ACTION.ATTACK_SPECIAL_PLY] = function(self, task, monster_id)
+    local action = {}
+    action.name = "AttackSpecialPlayer"
+    action.params = {task.task_id, monster_id}
+    self.host.player.troop_manager:requestTroop(action, _getTaskPriority(task)) 
+end
+
 task_action[TASK_ACTION.ATTACK_LEVEL_MONSTER] = function(self, task, con_type, con_level, con_num)
     local action = {}
     action.name = "AttackLevelMonster"
@@ -167,7 +181,7 @@ task_action[TASK_ACTION.CITY_BUILD_LEVEL_UP] = function(self, task, con_type, co
 
     if con_num > cur_num then
         local propid = con_type * 1000 + con_level
-        self.host.player.wanted_building:addBuilding(propid, _getTaskPriority(task), con_num)
+        self.host.player.build_manager:addBuilding(propid, _getTaskPriority(task), con_num)
     end
 end
 
@@ -345,41 +359,61 @@ task_action[TASK_ACTION.HAS_HERO_NUM] = function(self, task, con_quality, con_st
         end
     end
 end
-function blocks(start_x, start_y, end_x, end_y)
-    local function traverse_block()
-        local diff_x = end_x - start_x
-        local diff_y = end_y - start_y
-        local step = math.abs(diff_x) >= math.abs(diff_y) and math.abs(diff_x) or math.abs(diff_y)
-        local gradient_x = diff_x / step
-        local gradient_y = diff_y / step
-        local cur_x = start_x + 0.5
-        local cur_y = start_y + 0.5
-        local last_x = cur_x
-        local last_y = cur_y
-        for i = 1, step do
-            cur_x = cur_x + gradient_x
-            cur_y = cur_y + gradient_y
-            if math.floor(last_x) ~= math.floor(cur_x) or math.floor(last_y) ~= math.floor(cur_y) then
-                last_x = cur_x
-                last_y = cur_y
-                coroutine.yield(math.floor(last_x), math.floor(last_y))
-            end
-        end
-    end
-    return coroutine.wrap(traverse_block)
-end
 
 task_action[TASK_ACTION.MOVE_TO_ZONE] = function(self, task, con_lv)
-    local player_x = math.floor(self.host.player.x / 16)
-    local player_y = math.floor(self.host.player.y / 16)
-    for x, y in blocks(player_x, player_y, 40, 40) do
-        local zone_lv = c_get_zone_lv(x, y)
-        if zone_lv == con_lv then
-            local start_x = x * 16 + 2
-            local start_y = y * 16 + 2
-            local end_x = (x + 1) * 16 - 2
-            local end_y = (y + 1) * 16 - 2
-            INFO("[Autobot|TaskAction|MoveToZone|%d] find zone %d, %d, %d.", self.host.player.pid, x, y, zone_lv)
+    self.host.player.labor_manager:createLabor("MoveToZone", nil, self.host.player, con_lv)
+end
+
+task_action[TASK_ACTION.JOIN_PLAYER_UNION] = function(self, task)
+    local labor = self.host.player.labor_manager:createLabor("JoinUnion", nil, self.host.player)
+end
+
+task_action[TASK_ACTION.SPECIAL_HERO_LEVEL] = function(self, task, con_id, con_lv)
+    self.host.player.labor_manager:createLabor("LevelupHero", nil, self.host.player, con_id, con_lv)
+end
+
+task_action[TASK_ACTION.UNION_TECH_DONATE] = function(self, task, con_num, con_acc)
+    -- 该任务由ChoreUnionTechDonate自动完成，该处暂时无需处理
+end
+
+local function _isBuyableRes(id, castle_lv)
+    if id == 3 then
+        return castle_lv >= 10
+    elseif id == 4 then
+        return castle_lv >= 15
+    else
+        return true
+    end
+end
+
+task_action[TASK_ACTION.MARKET_BUY_NUM] = function(self, task, con_type, con_num)
+    local player = self.host.player
+    if 1 == con_type then
+        -- 黑市
+    elseif 2 == con_type then
+        -- 物资市场
+        local market = get_build(player, BUILD_CLASS.FUNCTION, BUILD_FUNCTION_MODE.RESOURCESMARKET)
+        local castle_lv = player:get_castle_lv()
+        if nil ~= market then
+            local id
+            local buy_count = math.huge
+            local combo = 0
+            for k, v in pairs(market.extra) do
+                if _isBuyableRes(v[1], castle_lv) then
+                    if v[3] < buy_count then
+                        id = v[1]
+                        buy_count = v[3]
+                        combo = v[4]
+                    elseif v[3] == buy_count then
+                        if v[4] > combo then
+                            id = v[1]
+                            combo = v[4]
+                        end
+                    end
+                end
+            end
+            INFO("[Autobot|ScavengerTask|%d] buy res %d", player.pid, id)
+            Rpc:buy_res(self.host.player, id)
         end
     end
 end

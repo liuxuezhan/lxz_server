@@ -73,7 +73,7 @@ function get_cons(ply,mode,flag)
         end
 
         ply._union.buildlv[mode].cons=cons
-        gPendingSave.union_member[ply.pid] = ply._union
+        gPendingSave.union_member[ply.pid].buildlv = ply._union.buildlv
 
     end
     return ply._union.buildlv[mode].cons

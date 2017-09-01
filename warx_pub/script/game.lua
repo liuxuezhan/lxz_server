@@ -38,7 +38,7 @@ function do_reload()
     do_load("resmng")
     do_load("frame/login_queue")
     do_load("game")
-    do_load("mem_monitor")
+    --do_load("mem_monitor")
     do_load("constant/constant")
     do_load("common/define")
     do_load("common/tools")
@@ -349,7 +349,9 @@ function rem_ety( eid )
     if ety then
         gRemEty[ eid ] = 1
         if ety.rooms then
-            for _, rid in pairs( ety.rooms ) do
+            local rooms = ety.rooms
+            ety.rooms = {}
+            for _, rid in pairs( rooms ) do
                 local troop = troop_mng.get_troop( rid )
                 if troop then
                     union_hall_t.battle_room_remove( troop )
@@ -508,8 +510,51 @@ end
 
 
 function test(id)
-    local co = coroutine.create( test_thread )
-    coroutine.resume( co )
+    local ids = {
+        1126899027,
+        1102086740,
+        1182492387,
+        1155074289,
+        1472712897,
+        1516365754,
+        400966909,
+        1738872541,
+        206363805,
+        2109937726,
+        748250112,
+        725300714,
+        1842281961,
+        1449300907,
+        589167955,
+        755679002,
+        153557797,
+        183746984,
+        1103581438,
+        1102596737,
+        1502480137,
+        359104097,
+        1569020298,
+        531667754,
+        229421465,
+        670793038,
+        1430348317,
+        247599181,
+        1923780972,
+        393583197,
+    }
+    for _, v in ipairs( ids ) do
+        local node = Rpc.localF[ v ]
+        print( node.name )
+    end
+
+    local s = debug.tablemark(10)
+    for k, v in pairs( s ) do
+        print( k, v )
+    end
+
+
+    --local co = coroutine.create( test_thread )
+    --coroutine.resume( co )
 end
 
 function test4()
@@ -541,6 +586,10 @@ function on_shutdown()
     end
     if next( player_t.gChat ) then gPendingSave.status.chat = player_t.gChat end
 
+    for pid, node in pairs( gOnlines ) do
+        player_t.mark_online_time( pid )
+    end
+
     _G.gInit = "SystemSaving"
 end
 
@@ -556,13 +605,13 @@ function ack(self, funcname, code, reason)
     assert(code)
     code = code or resmng.E_OK
     reason = reason or resmng.E_OK
-    -- if not Rpc.localF[funcname] then
-    --     WARN("func:%s, code:%s, reason:%s", funcname, code, reason)
-    --     return
-    -- end
-    -- local hash = Rpc.localF[funcname].id
-    -- INFO("pid=%d,uid=%d,func:%s, code:%s, reason:%s",self.pid,self.uid, funcname, code, reason)
-    Rpc:onError(self, funcname, code, reason)
+    if not Rpc.localF[funcname] then
+        WARN("func:%s, code:%s, reason:%s", funcname, code, reason)
+        return
+    end
+    local hash = Rpc.localF[funcname].id
+    INFO("pid=%d,uid=%d,func:%s, code:%s, reason:%s",self.pid,self.uid, funcname, code, reason)
+    Rpc:onError(self, hash, code, reason)
 end
 
 function copyTab2(object)
@@ -888,7 +937,6 @@ function mark_access( pid )
         node[2] = gTime
     end
 end
-
 
 function getPlayer(pid)
     if pid then

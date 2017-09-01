@@ -337,7 +337,7 @@ function mail_send_union(self, title, content)
         local members = union:get_members()
         if members then
             for _, p in pairs( members ) do
-                local m = {class=MAIL_CLASS.UNION, mode=MAIL_UNION_MODE.ANNOUNCE, from=self.pid, content=v, its=0}
+                local m = {class=MAIL_CLASS.UNION, mode=MAIL_UNION_MODE.ANNOUNCE, from=self.pid, content=v, its=0, lv = self.pid}
                 p:mail_new( m )
             end
         end
@@ -512,7 +512,7 @@ function generate_fight_mail(troop_action, ack_troop, def_troop, is_win, catch_h
         for pid, arm in pairs(ack_troop.arms) do
             local tmp_ply = getPlayer(pid)
             if tmp_ply ~= nil then
-                tmp_ply:send_system_notice(resmng.MAIL_10028)
+                tmp_ply:send_fight_fail_mail(resmng.MAIL_10028)
             end
         end
     else
@@ -718,4 +718,44 @@ function send_tribute_mail(self, mail_id, title_parm, text_parm, consume_item, g
     self:mail_new({from=0, name="", class=MAIL_CLASS.SYSTEM, mode=MAIL_SYSTEM_MODE.NORMAL, title="", content=content, its=nil})
     return true
 end
+
+function send_union_build_mail(self, mail_id, title_parm, text_parm)
+    local prop_tab = resmng.get_conf("prop_mail", mail_id)
+    if prop_tab == nil then
+        return false
+    end
+
+    local content = {}
+    content.propid = mail_id
+    content.title_parm = title_parm
+    content.seq = {
+        {type=MAIL_SYSTEM_SEQ.NOTICE},
+        {type=MAIL_SYSTEM_SEQ.CONTENT, parm=text_parm},
+        {type=MAIL_SYSTEM_SEQ.JUMPTO_UCONSTUCT, parm=self.uid},
+    }
+    content.extra = {}
+
+    self:mail_new({from=0, name="", class=MAIL_CLASS.SYSTEM, mode=MAIL_SYSTEM_MODE.NORMAL, title="", content=content, its=nil})
+    return true
+end
+
+function send_fight_fail_mail(self, mail_id, title_parm, text_parm)
+    local prop_tab = resmng.get_conf("prop_mail", mail_id)
+    if prop_tab == nil then
+        return false
+    end
+
+    local content = {}
+    content.propid = mail_id
+    content.title_parm = title_parm
+    content.seq = {
+        {type=MAIL_SYSTEM_SEQ.NOTICE},
+        {type=MAIL_SYSTEM_SEQ.CONTENT, parm=text_parm},
+    }
+    content.extra = {}
+
+    self:mail_new({from=0, name="", class=MAIL_CLASS.FIGHT, mode=MAIL_FIGHT_MODE.SYS_FAIL, title="", content=content, its=nil})
+    return true
+end
+
 

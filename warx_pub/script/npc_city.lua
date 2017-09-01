@@ -32,6 +32,7 @@ citys = citys or {}
 have = have or {}
 map_pack = map_pack -- 不要加{}
 do_mc_citys = do_mc_citys -- 不要加{}
+npc_logs = npc_logs or {} -- 攻城掠地记录
 
 function reset_map_pack()
     map_pack = nil
@@ -141,8 +142,19 @@ function load_npc_city()
     end
 
     init_npc_citys(have)
+    load_tw_state()
     --init_redis_list()
    --test_npc()
+end
+
+function load_tw_state()
+    local db = dbmng:getOne()
+    local info = db.status:findOne({_id = "npc_city"})
+    if not info then
+        info = {_id = "npc_city"}
+        db.status:insert(info)
+    end
+    npc_logs = info.npc_logs or {}
 end
 
 function get_npc_eid_by_propid(propid)
@@ -349,6 +361,7 @@ function fight_state(npcCity)
                 player_t.send_system_notice(ply, resmng.MAIL_10057, {pro.Name},{pro.Name})
                 offline_ntf.post(resmng.OFFLINE_NOTIFY_FIGHT, ply, pro.NameOffline)
             end
+            union:reset_npc_info_pack()
         end
     end
 
@@ -834,6 +847,9 @@ function do_npc_declare(atkEid, npcEid)
     local ply = get_ety(atkEid)
     local declares = npcCity.declareUnions or {}
     declares[ply.uid] = ply.uid
+
+    npc_log(TW_ACTION.DECLARE, {atk_uid = ply.uid, def_uid = npcCity.uid, npc_id = npcCity.propid})
+
     npcCity.declareUnions = declares
     if npcCity.state == TW_STATE.DECLARE then
         prepare_state(npcCity)
@@ -1383,6 +1399,12 @@ function abandon_npc(self)
     del_timer(self)
 
     self:drop_city(self.uid) -- post to cross center
+    npc_city.npc_log(TW_ACTION.ABANDON, {uid = self.uid, npc_id = self.propid})
+    if union then
+        if get_table_valid_count(union.npc_citys or {}) == 0 then
+            npc_city.npc_log(TW_ACTION.LOST_ALL, {uid = union.uid }) 
+        end
+    end
 
     change_city_uid(self, 0)
     self.my_troop_id = 0
@@ -1826,7 +1848,18 @@ end
 function change_city_uid(self, uid)
     if is_npc_city(self) or is_king_city(self) then
         reset_map_pack()
+        if is_npc_city(self) then
+            local new_union = unionmng.get_union(uid)
+            if new_union then
+                new_union:reset_npc_info_pack()
+            end
+            local old_union = unionmng.get_union(self.uid)
+            if old_union then
+                old_union:reset_npc_info_pack()
+            end
+        end
     end
+
     if is_lost_temple(self) then
         lost_temple.reset_map_lt_info()
     end
@@ -1841,6 +1874,76 @@ function change_city_state(self, state)
     INFO("[ACT] change city state last = %d, new = %d", self.state, state)
     self.state = state
     reset_map_pack()
+    local union = unionmng.get_union(self.uid)
+    if union then
+        union:reset_npc_info_pack()
+    end
+end
+
+function npc_log(action, pack)
+    if #npc_logs > 100 then
+        table.remove(npc_logs)
+    end
+    local log = {}
+    if action == TW_ACTION.DECLARE then
+        log.action = TW_ACTION.DECLARE
+        local union = unionmng.get_union(pack.atk_uid)
+        if not union then
+            return
+        end
+        log.atk_alias = union.alias
+        log.atk_name = union.name
+        log.npc_id = pack.npc_id
+        log.tm = gTime
+        local def_union = unionmng.get_union(pack.def_uid)
+        if def_union then
+            log.def_alias = def_union.alias
+            log.def_name = def_union.name
+        end
+    end
+
+    if action == TW_ACTION.FIGHT then
+        log.action = TW_ACTION.FIGHT
+        local union = unionmng.get_union(pack.atk_uid) 
+        if not union then
+            return
+        end
+        log.atk_alias =  union.alias
+        log.atk_name = union.name
+        log.npc_id = pack.npc_id
+        log.tm = gTime
+        local def_union = unionmng.get_union(pack.def_uid)
+        if def_union then
+            log.def_alias = def_union.alias
+            log.def_name = def_union.name
+        end
+        log.is_win = pack.is_win
+    end
+
+    if action == TW_ACTION.ABANDON then
+        log.action = TW_ACTION.ABANDON
+        local union = unionmng.get_union(pack.uid)
+        if not union then
+            return
+        end
+        log.def_alias = union.alias
+        log.def_name = union.name
+        log.npc_id = pack.npc_id
+        log.tm = gTime
+    end
+
+    if action == TW_ACTION.LOST_ALL then
+        log.action = TW_ACTION.LOST_ALL
+        local union = unionmng.get_union(pack.uid)
+        if not union then
+            return
+        end
+        log.def_alias = union.alias
+        log.def_name = union.name
+        log.tm = gTime
+    end
+    table.insert(npc_logs, 1, log)
+    gPendingSave.status["npc_city"].npc_logs = npc_logs
 end
 
 

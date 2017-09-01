@@ -33,13 +33,19 @@ function TroopManager:init(player)
     self.march_jobs = {}
     self.eventNewTroopJob = newEventHandler()
 
-    self.max_troop_index = 2
+    local troop_count = self:_getMaxTroopCount()
+    self.troop_queue = {}
+    for i = 1, troop_count do
+        self:_createTroopQueue()
+    end
+
     self.troops = {}
     self.player.eventTroopUpdated:add(newFunctor(self,TroopManager._onTroopUpdated))
     self.player.eventTroopDeleted:add(newFunctor(self,TroopManager._onTroopDeleted))
-    self:_initTroops()
     self.eventBusyTroopStarted = newEventHandler()
     self.eventBusyTroopFinished = newEventHandler()
+    self.eventStateChanged = newEventHandler()
+    self:_initTroops()
 end
 
 function TroopManager:uninit()
@@ -71,69 +77,125 @@ function TroopManager:_resortJobs()
     end)
 end
 
-function TroopManager:getTroopData(index)
-    return self.troops[index]
-end
-
 function TroopManager:getTroopCount(group)
     local count = 0
-    for k, v in pairs(self.troops) do
-        local action = math.floor(v.troop.action % 100)
-        if ActionGroup[group][action] then
+    for k, v in pairs(self.troop_queue) do
+        local action = v.troop_action
+        if nil == group or ActionGroup[group][action] then
             count = count + 1
         end
     end
     return count
 end
 
+function TroopManager:checkTroopQueue(queue)
+    local troop_count = self:_getMaxTroopCount()
+    if #self.troop_queue <= troop_count then
+        return true
+    end
+    for k, v in ipairs(self.troop_queue) do
+        if queue == v then
+            queue:stop()
+            table.remove(self.troop_queue, k)
+            return
+        end
+    end
+end
+
+function TroopManager:_getMaxTroopCount()
+    --return self.player:get_val("TroopCount")
+    return 1
+end
+
+function TroopManager:_createTroopQueue()
+    local queue = Workline:createInstance(self)
+    queue:addState("Idle", TroopIdle, true)
+    queue:addState("TakeAction", TroopTakeAction)
+    queue:addState("Wait", TroopWait)
+    queue:addState("Rest", TroopRest)
+    queue:addState("Deactive", TroopDeactive)
+    table.insert(self.troop_queue, queue)
+    queue:start()
+end
+
+function TroopManager:_getTroopQueue(index)
+    if index <= 0 then
+        return
+    end
+    if index > #self.troop_queue then
+        self:_createTroopQueue()
+        return _getTroopQueue(index)
+    end
+    return self.troop_queue[index]
+end
+
 function TroopManager:_initTroops()
+    local count = 0
     for k, v in pairs(self.player._troop) do
         for pid, army in pairs(v.arms) do
             if pid == self.player.pid then
+                count = count + 1
                 local data = {}
-                data.index = #self.troops + 1
                 data.troop_id = k
                 data.troop = v
-                self.troops[data.index] = data
+                self.troops[k] = data
+
+                -- bind to troop queue
+                local queue = self:_getTroopQueue(count)
+                queue:translate("Wait", v)
+
+                INFO("[Autobot|TroopManager|%d] I have a busy troop %d|%d have %d seconds remaining.",
+                    self.player.pid,
+                    v._id,
+                    v.action,
+                    v.tmOver - gTime)
                 break
             end
         end
     end
-    INFO("[Autobot|TroopManager|%d] I have %d busy troop.", self.player.pid, #self.troops)
 end
 
-function TroopManager:_getEmptyIndex()
-    for index = 1, self.max_troop_index do
-        if nil == self.troops[index] then
-            return index
-        end
-    end
+function TroopManager:activeTroop()
+    self.inactive = nil
+    self.eventStateChanged(true)
+end
+
+function TroopManager:deactiveTroop()
+    self.inactive = true
+    self.eventStateChanged(false)
+end
+
+function TroopManager:isActive()
+    return not self.inactive
 end
 
 function TroopManager:_onTroopUpdated(player, troop_id, troop)
-    for index, v in pairs(self.troops) do
+    for k, v in pairs(self.troops) do
         if troop_id == v.troop_id then
             -- ignore troop info update, like accelerate
-            self.troops[index].troop = troop
+            self.troops[k].troop = troop
             return
         end
     end
     local data = {}
-    data.index = self:_getEmptyIndex()
     data.troop_id = troop_id
     data.troop = troop
-    self.troops[data.index] = data
-    self.eventBusyTroopStarted(self.player, data.index, data.troop)
+    self.troops[troop_id] = data
+    self.eventBusyTroopStarted(self.player, troop_id, troop)
 end
 
 function TroopManager:_onTroopDeleted(player, troop_id)
-    for index, v in pairs(self.troops) do
+    for k, v in pairs(self.troops) do
         if troop_id == v.troop_id then
-            self.troops[index] = nil
-            self.eventBusyTroopFinished(self.player, index, v.troop)
+            self.troops[k] = nil
+            self.eventBusyTroopFinished(self.player, k, v.troop)
             break
         end
     end
+end
+
+function TroopManager:hasBusyTroop()
+    return (nil ~= next(self.troops))
 end
 
 return makeClass(TroopManager)

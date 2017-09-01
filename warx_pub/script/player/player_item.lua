@@ -46,9 +46,9 @@ function get_item(self, idx)
 end
 
 -- one item = {idx, id, num, extra ...}
-function inc_item(self, id, num, reason)
+function inc_item(p, id, num, reason,cost)
     num = math.floor( num )
-    local its = self:get_item()
+    local its = p:get_item()
     local hit = false
     local idx = 0
     local total = num
@@ -74,20 +74,21 @@ function inc_item(self, id, num, reason)
         end
     end
 
-    self:add_item_pend(idx)
-    INFO("[ITEM] inc, pid = %d, idx = %d, item_id = %d, num = %d, total = %d, reason = %d.", self.pid, idx, id, num, total, reason or 0)
+    p:add_item_pend(idx)
+    INFO("[ITEM] inc, pid = %d, idx = %d, item_id = %d, num = %d, total = %d, reason = %d.", p.pid, idx, id, num, total, reason or 0)
 
     --任务
-    task_logic_t.process_task(self, TASK_ACTION.GET_ITEM, id, num)
-    task_logic_t.process_task(self, TASK_ACTION.GET_TASK_ITEM, id, num)
+    task_logic_t.process_task(p, TASK_ACTION.GET_ITEM, id, num)
+    task_logic_t.process_task(p, TASK_ACTION.GET_TASK_ITEM, id, num)
 
-    self:pre_tlog("ItemFlow",0,0,id,num,its[idx][3],reason,0,2,0)
+    p:pre_tlog("ItemFlow",0,0,id,num,its[idx][3],reason,0,2,0)
+    p:tlog_ten("ItemFlow",p:get_castle_lv(),0,0,id,num,its[idx][3],reason,0,cost or 0,0,0,p.ip or "0.0.0.0")
     reason = reason or VALUE_CHANGE_REASON.DEFAULT
     if reason == VALUE_CHANGE_REASON.DEFAULT then
-        ERROR("inc_item: pid = %d, don't use the default reason.", self.pid)
+        ERROR("inc_item: pid = %d, don't use the default reason.", p.pid)
     end
     -- dumpTab( its, "inc_item" )
-    -- print("[ITEM] inc_item: pid = %d, idx = %d, item_id = %d, num = %d, total = %d, reason = %d.", self.pid, idx, id, num, its[idx][3], reason)
+    -- print("[ITEM] inc_item: pid = %d, idx = %d, item_id = %d, num = %d, total = %d, reason = %d.", p.pid, idx, id, num, its[idx][3], reason)
 end
 
 function add_item_pend(self, idx)
@@ -122,31 +123,32 @@ registe_update_callback( "item", player_t.on_check_pending_item )
 -- Return   : true / false
 -- Others   : NULL
 --------------------------------------------------------------------------------
-function dec_item(self, idx, num, reason)
-    if not self or not idx or not num or num <= 0 then
-        ERROR("dec_item: pid = %d, idx = %d, num = %d", self and self.pid or -1, idx or -1, num or -1)
+function dec_item(p, idx, num, reason)
+    if not p or not idx or not num or num <= 0 then
+        ERROR("dec_item: pid = %d, idx = %d, num = %d", p and p.pid or -1, idx or -1, num or -1)
         return false
     end
     num = math.floor( num )
 
-    local item = self:get_item(idx)
+    local item = p:get_item(idx)
     local propid = item[2]
     if item and item[3] >= num then
         item[3] = item[3] - num
-        self:add_item_pend(idx)
+        p:add_item_pend(idx)
 
         reason = reason or VALUE_CHANGE_REASON.DEFAULT
         if reason == VALUE_CHANGE_REASON.DEFAULT then
-            ERROR("dec_item: pid = %d, don't use the default reason.", self.pid)
+            ERROR("dec_item: pid = %d, don't use the default reason.", p.pid)
         end
-        INFO("[ITEM] dec, pid = %d, idx = %d, item_id = %d, num = %d, total = %d, reason = %d.", self.pid, idx, item[2], num, item[3], reason or 0)
+        INFO("[ITEM] dec, pid = %d, idx = %d, item_id = %d, num = %d, total = %d, reason = %d.", p.pid, idx, item[2], num, item[3], reason or 0)
         --任务
-        task_logic_t.process_task(self, TASK_ACTION.USE_ITEM, propid, num)
-        task_logic_t.process_task(self, TASK_ACTION.GET_TASK_ITEM, propid, -num)
-        self:pre_tlog("ItemFlow",0,0,propid,num,item[3],reason,0,2,1)
+        task_logic_t.process_task(p, TASK_ACTION.USE_ITEM, propid, num)
+        task_logic_t.process_task(p, TASK_ACTION.GET_TASK_ITEM, propid, -num)
+        p:pre_tlog("ItemFlow",0,0,propid,num,item[3],reason,0,2,1)
+        p:tlog_ten("ItemFlow",p:get_castle_lv(),0,0,propid,num,item[3],reason,0,0,0,1,p.ip or "0.0.0.0" )
         return true
     else
-        LOG("[ITEM] dec_item: pid = %d, idx = %d, item_id = %d, num = %d > have = %d", self.pid, idx, item[2], num, item and item[3] or -1)
+        WARN("[ITEM] dec_item: pid = %d, idx = %d, item_id = %d, num = %d > have = %d", p.pid, idx, item[2], num, item and item[3] or -1)
         return false
     end
 end
@@ -198,9 +200,9 @@ function dec_item_by_item_id(self, item_id, num, reason)
 end
 
 
-function addItem(self, id, num, reason)
+function addItem(self, id, num, reason,cost)
     num = math.floor( num )
-    if num > 0 then self:inc_item(id, num, reason or VALUE_CHANGE_REASON.DEBUG) end
+    if num > 0 then self:inc_item(id, num, reason or VALUE_CHANGE_REASON.DEBUG,cost) end
 end
 
 
@@ -517,15 +519,15 @@ function skill_piece_decompose( self, id, count )
 end
 
 
-function buy_item(self, id, num, use)
+function buy_item(p, id, num, use)
     if num <= 0 then 
-        WARN( "[ITEM], NUM_ERROR, buy, pid=%d, id=%d, num=%d", self.pid, id, num )
+        WARN( "[ITEM], NUM_ERROR, buy, pid=%d, id=%d, num=%d", p.pid, id, num )
         return 
     end
     local conf = resmng.get_conf("prop_mall", id)
     if conf then
         local cost = math.ceil(conf.NewPrice * num)
-        if self:doCondCheck(resmng.CLASS_RES, resmng.DEF_RES_GOLD, cost) then
+        if p:doCondCheck(resmng.CLASS_RES, resmng.DEF_RES_GOLD, cost) then
             if use == 1 then
                 if conf.CheckUse == 1 then
                     for k, v in pairs( conf.Item ) do
@@ -533,7 +535,7 @@ function buy_item(self, id, num, use)
                             local itemid = v[2]
                             local itemp = resmng.get_conf( "prop_item", itemid )
                             if itemp then
-                                if not self:do_item_check( itemp ) then 
+                                if not p:do_item_check( itemp ) then 
                                     return
                                 end
                             end
@@ -542,8 +544,8 @@ function buy_item(self, id, num, use)
                 end
             end
 
-            self:doConsume(resmng.CLASS_RES, resmng.DEF_RES_GOLD, cost, VALUE_CHANGE_REASON.MALL_PAY)
-            INFO( "[ITEM], buy, pid=%d, itemid=%d, count=%d, use=%d", self.pid, id, num, use or 0 )
+            p:doConsume(resmng.CLASS_RES, resmng.DEF_RES_GOLD, cost, VALUE_CHANGE_REASON.MALL_PAY)
+            INFO( "[ITEM], buy, pid=%d, itemid=%d, count=%d, use=%d", p.pid, id, num, use or 0 )
 
             if use == 1 then
                 for k, v in pairs( conf.Item ) do
@@ -554,21 +556,21 @@ function buy_item(self, id, num, use)
                         local itemp = resmng.get_conf( "prop_item", itemid )
                         if itemp then
                             if itemp.Action then
-                                if self:do_item_check( itemp ) then
-                                    player_t.use_item_logic[itemp.Action](self,itemp.ID, num, itemp)
+                                if p:do_item_check( itemp ) then
+                                    player_t.use_item_logic[itemp.Action](p,itemp.ID, num, itemp)
                                     flag = true
                                 end
                             end
                         end
                     end
                     if not flag then
-                        self:add_bonus("mutex_award", {v},  VALUE_CHANGE_REASON.MALL_BUY, num)
+                        p:add_bonus("mutex_award", {v},  VALUE_CHANGE_REASON.MALL_BUY, num,cost)
                     end
                 end
             else
-                self:add_bonus("mutex_award", conf.Item,  VALUE_CHANGE_REASON.MALL_BUY, num)
+                p:add_bonus("mutex_award", conf.Item,  VALUE_CHANGE_REASON.MALL_BUY, num,cost)
             end
-            self:pre_tlog("StoreBuy",0,id,num,conf.Class,2,cost)
+            p:pre_tlog("StoreBuy",0,id,num,conf.Class,2,cost)
         end
     end
 end

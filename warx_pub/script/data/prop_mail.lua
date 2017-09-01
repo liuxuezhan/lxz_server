@@ -82,4 +82,8 @@ prop_mail = {
 	[MAIL_10071] = { ID = MAIL_10071, Class = 1, Name = UNION_NEWUNION_MANAGER_1, Title = LG_MAIL_TITLE_10044, Content = LG_MAIL_CONTENT_10072, AddBonus = nil,},
 	[MAIL_10072] = { ID = MAIL_10072, Class = 1, Name = UNION_NEWUNION_MANAGER_1, Title = LG_MAIL_TITLE_10068, Content = LG_MAIL_CONTENT_10073, AddBonus = nil,},
 	[MAIL_10073] = { ID = MAIL_10073, Class = 1, Name = UNION_NEWUNION_MANAGER_1, Title = LG_MAIL_TITLE_10069, Content = LG_MAIL_CONTENT_10074, AddBonus = {"mutex_award",{{"res",1,500000,10000},{"res",2,500000,10000},{"item",10001001,1,10000}}},},
+	[MAIL_10074] = { ID = MAIL_10074, Class = 1, Name = UNION_NEWUNION_MANAGER_1, Title = LG_MAIL_TITLE_10070, Content = LG_MAIL_CONTENT_10075, AddBonus = nil,},
+	[MAIL_10075] = { ID = MAIL_10075, Class = 1, Name = UNION_NEWUNION_MANAGER_1, Title = LG_MAIL_TITLE_10071, Content = LG_MAIL_CONTENT_10076, AddBonus = nil,},
+	[MAIL_10076] = { ID = MAIL_10076, Class = 1, Name = UNION_NEWUNION_MANAGER_1, Title = LG_MAIL_TITLE_10072, Content = LG_MAIL_CONTENT_10077, AddBonus = nil,},
+	[MAIL_10077] = { ID = MAIL_10077, Class = 1, Name = UNION_NEWUNION_MANAGER_1, Title = LG_MAIL_TITLE_10073, Content = LG_MAIL_CONTENT_10078, AddBonus = {"mutex_award",{{"res",1,500000,10000},{"res",2,500000,10000},{"item",10001001,1,10000}}},},
 }

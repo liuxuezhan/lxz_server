@@ -34,7 +34,7 @@ function add(p,mode)--膜拜
 
     if not p:do_dec_res(c.Cons[mode][1], c.Cons[mode][2], VALUE_CHANGE_REASON.UNION_GOD) then return end
     p._union.god_log.tm = gTime
-    gPendingSave.union_member[p.pid] = p._union
+    gPendingSave.union_member[p.pid].god_log = p._union.god_log
 
     p:add_bonus(c.WorshipItem[mode][1], c.WorshipItem[mode][2],VALUE_CHANGE_REASON.UNION_GOD)
     union_mission.ok(p,UNION_MISSION_CLASS.GOD,1)
@@ -73,7 +73,7 @@ function get(p)--获取升级礼包
     if c then
         p:add_bonus(c.UpgradeItem[1][1], c.UpgradeItem[1][2],VALUE_CHANGE_REASON.UNION_GOD)
         p._union.god_log.lv = p._union.god_log.lv + 1
-        gPendingSave.union_member[p.pid] = p._union
+        gPendingSave.union_member[p.pid].god_log = p._union.god_log
         p:union_load("mars")
     end
 end

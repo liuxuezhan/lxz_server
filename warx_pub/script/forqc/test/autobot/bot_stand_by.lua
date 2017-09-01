@@ -17,7 +17,7 @@ function BotStandBy:onExit()
 end
 
 function BotStandBy:onTimer()
-    --INFO("[Autobot|StandBy]%s is ready to login", self.host.name)
+    INFO("[Autobot|StandBy]%s is ready to login", self.host.idx)
     self.fsm:translate("Login")
 end
 

@@ -40,6 +40,7 @@ FORCE_ATTR=
 
 --- king wars state pace fight ...
 season = season  or 0  -- 王城战期数
+start_tm = start_tm --王城战默认开始时间
 kings = kings or {}
 officers = officers or {}
 state = state or 0     -- 王城战目前的状态
@@ -98,6 +99,7 @@ function load_kw_state()
     officers = info.officers or {}
     season = info.season or 0
     timerId = info.timer or 0
+    start_tm = info.start_tm 
 end
 
 function init_king_citys()
@@ -150,22 +152,47 @@ function is_kw_unlock()
     if prop then
         time = prop.Spantime
     end
-    if ( gTime - get_sys_status("start") or 0 ) > time  then
-        return 1
-    end
+
     -- 四个堡垒被占领
-    local num = 0
-    if npc_city.citys then
-        for k, v in pairs(npc_city.citys or {}) do
-            local npcCity = get_ety(v) 
-            if npcCity.lv == 1 and (npcCity.uid ~= 0 ) then
-                num = num + 1
+    if not start_tm then
+        local num = 0
+        if npc_city.citys then
+            for k, v in pairs(npc_city.citys or {}) do
+                local npcCity = get_ety(v) 
+                if npcCity.lv == 1 and (npcCity.uid ~= 0 ) then
+                    num = num + 1
+                end
+            end
+            if num == 4 then
+                start_tm = 26 * 86400
+                gPendingSave.status["kwState"].start_tm = start_tm
+                for _, eid in pairs(citys or {}) do
+                    local city = get_ety(eid)
+                    if city then
+                        local prop = resmng.prop_world_unit[city.propid]
+                        if prop then
+                            if prop.Lv ~= CITY_TYPE.FORT then
+                                city.endTime = city.endTime - start_tm
+                                etypipe.add(city)
+                                if prop.Lv == CITY_TYPE.TOWTER then
+                                    try_set_tower_range(city)
+                                end
+                            end
+                        end
+                    end
+                end
             end
         end
-        if num == 4 then
-            if ( gTime - get_sys_status("start") or 0 ) > 30 * 86400  then
-                return 2
-            end
+    end
+
+    if start_tm then
+        time = time - start_tm
+    end
+    if ( gTime - get_sys_status("start") or 0 ) > time  then
+        if time ==  prop.Spantime then
+            return 1
+        else
+            return 2
         end
     end
 
@@ -798,7 +825,7 @@ function try_fire_king(city)
                     if union then
                         local _members = union:get_members()
                         for k, ply in pairs(_members or {}) do
-                            player_t.send_system_notice(ply, resmng.MAIL_10052, {}, {})
+                            player_t.send_fight_fail_mail(ply, resmng.MAIL_10052, {}, {})
                         end
                     end
                     fire_win(kingCity, city)
@@ -875,7 +902,7 @@ function try_fire_troop(city, troopId)
                     for pid, _ in pairs(troop.arms) do
                         local ply = getPlayer(pid)
                         if ply then
-                             player_t.send_system_notice(ply, resmng.MAIL_10051, {}, {})
+                             player_t.send_fight_fail_mail(ply, resmng.MAIL_10051, {}, {})
                         end
                     end
                     if troop:check_no_arm() and troop:check_no_hero() then
@@ -1078,10 +1105,12 @@ function reset_other_city(kingCity)
     for k, v in pairs(citys or {}) do
         local city = get_ety(k)
         if city then
-            if resmng.prop_world_unit[city.propid].Lv ~= CITY_TYPE.KING_CITY then
-                clear_timer(city)
-            end
+            --if resmng.prop_world_unit[city.propid].Lv ~= CITY_TYPE.KING_CITY then
+            --    clear_timer(city)
+            --end
             if resmng.prop_world_unit[city.propid].Lv == CITY_TYPE.TOWER then
+                clear_timer(city)
+                city.status = 1 --要塞失效
                 npc_city.change_city_uid(city, kingCity.uid)
                 --city.pid = kingCity.pid 
                 city.uname = kingCity.uname
@@ -1099,6 +1128,7 @@ function reset_other_city(kingCity)
                     city.my_troop_id = nil
                 end
             elseif resmng.prop_world_unit[city.propid].Lv == CITY_TYPE.FORT then
+                clear_timer(city)
                 city.occuTime = gTime
                 --try_atk_king(city)
                 try_fire_king(city)
@@ -1548,6 +1578,7 @@ function select_officer(king, pid, index)
     if officers[ index ] then
         local ply = getPlayer(officers[index])
         if ply then
+            rem_officer_buff(ply)
             ply.officer = 0
             etypipe.add(ply)
         end
@@ -1600,8 +1631,9 @@ function rem_officer(king, index)
     end
     local ply = getPlayer(officers[index])
     if ply then
-        ply.officer = 0
         rem_officer_buff(ply)
+        ply.officer = 0
+        etypipe.add(ply)
     end
     officers[index] = nil
     gPendingSave.status["kwState"].officers = officers

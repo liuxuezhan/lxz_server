@@ -5,7 +5,7 @@ function union_donate_summary()
     local n = 1
     for _, u in pairs(unionmng.get_all()) do
 
-        if n % 50 == 0 then 
+        if n % 10 == 0 then 
             begJob() 
             wait(1) 
         end
@@ -21,7 +21,7 @@ function union_donate_week()
     local n = 1
     for _, u in pairs(unionmng.get_all()) do
 
-        if n % 50 == 0 then 
+        if n % 10 == 0 then 
             begJob() 
             wait(1) 
         end
@@ -66,13 +66,21 @@ function on_day_pass()
 
 
         --玩家跨天
-        for k, v in pairs(gPlys) do
-            if v:is_online() then
-                if get_diff_days(gTime, v.cross_time) > 0 then
-                    v:on_day_pass()
+        local day_over = _G.gDayStart - 1
+        local now = gTime
+        local onlines = gOnlines
+        for pid, node in pairs( onlines ) do
+            local p = getPlayer( pid ) 
+            if p then
+                if get_diff_days(gTime, p.cross_time) > 0 then
+                    p:on_day_pass()
+                    if now - day_over < 60 then
+                        player_t.mark_online_time( pid, day_over )
+                    end
                 end
             end
         end
+
         --抽卡限制重置
         gacha_limit_t.gacha_limit_on_day_pass()
         --周限时活动

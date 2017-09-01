@@ -15,8 +15,8 @@ function TechManager:init(player)
     self.eventPriorityChanged = newEventHandler()
     self.tech_priority = 0
     self.building_priority = 0
-    self.player.wanted_building.eventNewBuilding:add(newFunctor(self , self._onNewBuilding))
-    self.player.wanted_building.eventBuildingCompleted:add(newFunctor(self , self._onBuildingCompleted))
+    self.player.build_manager.eventJobAccepted:add(newFunctor(self , self._onNewBuildingJob))
+    self.player.build_manager.eventBuildingCompleted:add(newFunctor(self , self._onBuildingCompleted))
 
     self.learned_tech = {}
     for k, v in pairs(player.tech) do
@@ -30,8 +30,8 @@ end
 
 function TechManager:uninit()
     player.eventTechUpdated:del(newFunctor(self, TechManager._onTechUpdated))
-    self.player.wanted_building.eventNewBuilding:del(newFunctor(self , self._onNewBuilding))
-    self.player.wanted_building.eventBuildingCompleted:del(newFunctor(self , self._onBuildingCompleted))
+    self.player.build_manager.eventJobAccepted:del(newFunctor(self , self._onNewBuildingJob))
+    self.player.build_manager.eventBuildingCompleted:del(newFunctor(self , self._onBuildingCompleted))
     self.eventJobAccepted = nil
     self.eventPriorityChanged = nil
 end
@@ -51,8 +51,13 @@ function TechManager:canStudyTech()
 end
 
 function TechManager:addStudyJob(tech_id, priority, functor)
+    local prop = resmng.prop_tech[tech_id]
+    if nil == prop then
+        return
+    end
     local job = {
         tech_id = tech_id,
+        dura = prop.Dura,
         priority = priority,
         functor = functor,
     }
@@ -83,7 +88,10 @@ end
 
 function TechManager:_resortJobs()
     table.sort(self.study_jobs, function(a, b)
-        return a.priority > b.priority
+        if a.priority ~= b.priority then
+            return a.priority > b.priority
+        end
+        return a.dura < b.dura
     end)
 end
 
@@ -105,10 +113,10 @@ function TechManager:_updateBuildingPriority(propid)
         BUILD_FUNCTION_MODE.ACADEMY ~= prop.Mode then
         return
     end
-    self:setBuildingPriority(self.player.wanted_building:getMaxPriority(propid))
+    self:setBuildingPriority(self.player.build_manager:getMaxPriority(propid))
 end
 
-function TechManager:_onNewBuilding(_, propid)
+function TechManager:_onNewBuildingJob(propid)
     self:_updateBuildingPriority(propid)
 end
 

@@ -124,4 +124,5 @@ prop_achievement_var = {
 	[ACH_TASK_KILL_SOLDIER9] = { ID = ACH_TASK_KILL_SOLDIER9, Way = "count", Param = nil,},
 	[ACH_TASK_KILL_SOLDIER10] = { ID = ACH_TASK_KILL_SOLDIER10, Way = "count", Param = nil,},
 	[ACH_COUNT_KILL_POW] = { ID = ACH_COUNT_KILL_POW, Way = "count", Param = nil,},
+	[ACH_COUNT_DEFENSE_LOSE] = { ID = ACH_COUNT_DEFENSE_LOSE, Way = "count", Param = nil,},
 }

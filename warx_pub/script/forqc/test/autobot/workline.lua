@@ -1,8 +1,5 @@
 local Workline = {}
 
-function Workline:initState()
-end
-
 function Workline.addUpdateState(fsm)
     local entity = fsm.host.entity
     entity.update_states = entity.update_states or {}

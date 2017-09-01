@@ -328,9 +328,9 @@ function home(self)
 
     --offline ntf
     local base_action = self:get_base_action()
-    if base_action == TroopAction.Gather or  base_action == TroopAction.LostTemple then
-        offline_ntf.post(resmng.OFFLINE_NOTIFY_GATHER, owner)
-    end
+    --if base_action == TroopAction.Gather or  base_action == TroopAction.LostTemple then
+        offline_ntf.post(resmng.OFFLINE_NOTIFY_RETURN, owner)
+    --end
 
     local arm = self.arms and self.arms[ pid ]
     if not arm then return end
@@ -668,6 +668,7 @@ function split_pid(self, pid)
 
         self.arms[ pid ] = nil
         self:save()
+        notify_owner( self )
 
         local troop = false
         local owner = getPlayer(pid)
@@ -681,6 +682,7 @@ function split_pid(self, pid)
             troop.curx = self.curx
             troop.cury = self.cury
         end
+
 
         for k, v in pairs( self.arms ) do
             if k >= 10000 then
@@ -935,7 +937,6 @@ function clr_extra(self, key)
 end
 
 function add_tr_ef(self, bufid)
-    WARN( "add_tr_buf, tr_id=%d, buf=%d", self._id, bufid)
     local t = self.ef_extra or {}
     local node = resmng.prop_buff[ bufid ]
     if node then
@@ -946,12 +947,11 @@ function add_tr_ef(self, bufid)
             end
         end
     end
-    INFO(string.format("add_tr_buf, bufid=%d", bufid))
+    INFO(string.format("add_tr_buf, troop=%d, buf=%d", self._id, bufid))
     self.ef_extra = t
 end
 
 function rem_tr_ef(self, bufid)
-    WARN( "rem_tr_buf, tr_id=%d, buf=%d", self._id, bufid)
     local t = self.ef_extra or {}
     local node = resmng.prop_buff[bufid]
     if node then
@@ -963,7 +963,7 @@ function rem_tr_ef(self, bufid)
             end
         end
     end
-    INFO(string.format("rem_tr_buf, bufid=%d", bufid))
+    INFO(string.format("rem_tr_buf, troop=%d, buf=%d", self._id, bufid))
     self.ef_extra = t
 end
 
@@ -2123,5 +2123,13 @@ function try_hold_for_test( A, dest )
     end
     save( D )
     troop_mng.delete_troop( A._id )
+end
+
+function troop_discount(self, discount)
+    for _, arm in pairs(self.arms or {}) do
+        for k, num in pairs(arm.live_soldier or {}) do
+            arm.live_soldier[k] = math.floor(num * discount)
+        end
+    end
 end
 

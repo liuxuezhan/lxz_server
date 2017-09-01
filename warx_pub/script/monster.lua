@@ -793,7 +793,7 @@ end
 
 function loop()
     local idx = scan_id
-    for i = 1, 320, 1 do
+    for i = 1, 80, 1 do
         if idx >= 6400 then idx = 0 end
         scan_id = idx
         if distrib[ idx ] then

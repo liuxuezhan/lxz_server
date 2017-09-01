@@ -545,6 +545,7 @@ function gen_monster_and_atk(city, prop)
                 local remain_tr = troop_mng.get_troop(id)
                 if remain_tr then
                     remain_tr:rem_hero()
+                    remain_tr:troop_discount(0.25)
                     remain_tr:merge(tr)
                 end
             end
@@ -748,12 +749,13 @@ function after_fight(atkTroop, defenseTroop)
 
         if union and npcCity then
             local city_pro = resmng.prop_world_unit[npcCity.propid]
-            if city_pro then
+            if union.mc_grade > 1 and city_pro then
                 king_city.common_ntf(resmng.MC_LOSE, {union.name, city_pro.Name, union.alias}, union)
-                local _members = union:get_members()
-                for _, ply in pairs(_members or {}) do
-                    ply:send_system_notice(resmng.MAIL_10063, {city_pro.Name}, {city_pro.Name})
-                end
+            end
+
+            local _members = union:get_members()
+            for _, ply in pairs(_members or {}) do
+                ply:send_system_notice(resmng.MAIL_10063, {city_pro.Name}, {city_pro.Name})
             end
 
             if (union.mc_grade or 1 )> 1 then

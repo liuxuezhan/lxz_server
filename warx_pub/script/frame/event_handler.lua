@@ -1,23 +1,45 @@
 local eventHandler_mt = {
     __call = function(t, ...)
+        --t:log("[EventHandler] call begin.")
         for k, v in pairs(t.__subscriber) do
-            k(...)
+            if v then
+                k(...)
+                --t:log("[EventHandler] call %s.", k)
+            end
+        end
+        --t:log("[EventHandler] call finish.")
+        for k, v in pairs(t.__subscriber) do
+            if not v then
+                t.__subscriber[k] = nil
+            end
         end
     end,
     __index = eventHandler_mt,
+    log = function(self, msg, ...)
+        if not self.__debug then
+            return
+        end
+        WARN(msg, ...)
+    end,
     add = function(self, functor)
+        --self:log("[EventHandler] add functor %s.", functor)
         for k, v in pairs(self.__subscriber) do
             if k == functor then
-                ERROR("[EventHandler] try to add same functor.")
+                if v then
+                    ERROR("[EventHandler] try to add same functor.")
+                else
+                    self.__subscriber[k] = true
+                end
                 return
             end
         end
         self.__subscriber[functor] = true
     end,
     del = function(self, functor)
+        --self:log("[EventHandler] del functor %s.", functor)
         for k, v in pairs(self.__subscriber) do
             if k == functor then
-                self.__subscriber[k] = nil
+                self.__subscriber[k] = false
                 break
             end
         end

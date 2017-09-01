@@ -251,11 +251,11 @@ function wait_for_time( secs )
     coroutine.yield( "wait_for_time" )
 end
 
-function sync( p )
+function sync( p, not_wait )
     local sn = getSn( "sync" )
     Rpc:sync( p, sn )
 
-    while true do
+    while not not_wait do
         if p.sn and p.sn >= sn then return end
         wait_for_ack( p, "sync" )
     end
@@ -408,7 +408,7 @@ function loadData( p )
     Rpc:getTime( p, gTime )
     Rpc:loadData( p, "pro" )
     Rpc:loadData( p, "build" )
-    Rpc:union_load( p, "what" )
+    Rpc:union_load( p, "info" )
     Rpc:loadData( p, "ef_eid" )
     Rpc:loadData( p, "item" )
     Rpc:loadData( p, "hero" )

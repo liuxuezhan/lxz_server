@@ -405,6 +405,9 @@ Server = {
     npc_info_req = "int eid",
     get_union_npc_req = "", --  取得本军团占领的npc
     npc_act_info_req =  "", -- npc 活动页面
+    union_npc_info_req =  "", -- 军团npc info
+    npc_info_by_propid_req = "int propid",
+    npc_log_req = "",
     abandon_npc = "int eid", -- 弃城
     abd_npc_cond_req = "int eid", -- 弃城条件
     post_npc_change = "int npc_propid, int occu_gs_id, int tag", --post npc change to cross mng center
@@ -550,8 +553,9 @@ Server = {
     ip_rule = "unsigned int cmd, unsigned int ip",
 
     ping = "",
-    accept_hero_road_chapter = "int chapter_id, int line_id",
-    get_hero_road_task_award = "int chapter_id, int line_id, int task_id",
+    accept_hero_road_chapter = "int chapter_id",
+    get_hero_road_task_award = "int chapter_id, int task_id",
+    get_hero_road_chapter_award = "int chapter_id",
     server_map_king_info = "",
 
     get_device_grade = "string device, string gpu, int frenquency, int core",
@@ -585,6 +589,7 @@ Client = {
 
     first_packet_ack = "int error_code", -- 登录验证信息
     login_in_queue_init = "pack info", -- 登录队列满
+    login_in_queue_update = "pack info", -- 登录队列更新
 
     get_characters = "pack infos",
 
@@ -824,6 +829,9 @@ Client = {
     npc_info_ack = "pack info",
     get_union_npc_ack = "pack info",
     npc_act_info_ack =  "pack info",
+    union_npc_info_ack =  "pack info",
+    npc_info_by_propid_ack = "pack info",
+    npc_log_ack = "pack info",
     declare_tw_ack = "int eid, int ret", --- 宣战 
     declare_tw_status_ack = "int eid, pack info", --- 宣战 
     abd_npc_cond_ack = "pack info", -- 弃城条件
@@ -975,7 +983,10 @@ Client = {
 
     certify ="int code",
 
-    get_auto_mass = "pack info"
+    get_auto_mass = "pack info",
+
+    mass_join = "pack info", -- { propid, alias, name, pid }
+
 }
 
 CrossQuery = {

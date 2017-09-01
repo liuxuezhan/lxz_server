@@ -80,7 +80,7 @@ function buy(ply,propid,num)
             if ply._union.donate < c.Val*num then return end
 
             ply._union.donate = ply._union.donate - c.Val*num
-            gPendingSave.union_member[ply.pid] = ply._union
+            gPendingSave.union_member[ply.pid].donate = ply._union.donate
 
             v.num = v.num - num
             table.insert(u.mall.buy,{name=ply.name,propid=propid,num=num,tm=gTime})

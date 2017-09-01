@@ -281,7 +281,7 @@ function start_lt()
     set_timer(LT_STATE.DOWN)
 
     --offline ntf
-    --offline_ntf.post(resmng.OFFLINE_NOTIFY_TOWER)
+    offline_ntf.post(resmng.OFFLINE_NOTIFY_TOWER)
 
     update_lt_ntf()  -- 推送更新通知
 end
