@@ -26,10 +26,13 @@
 ```
 [lualib]==>[lualib-src]==>[skynet-src]
 ```
+注解版本:
+https://github.com/liuxuezhan/skynet_with_note
+https://github.com/peimin/skynet_with_comment
 
 启动流程
-skynet_main.c  加载配置文件 
-skynet_start.c 启动4个主线程 
+skynet_main.c  main函数:            加载配置文件
+skynet_start.c skynet_start函数:    初始化模块,启动4个主线程 
 skynet_server.c 创建skynet服务和call通信 
 skynet_env.c 设置和获得lua的环境变量
 skynet_module.c 简单的用一个数组，然后通è查询服务模块是否在数组中。
@@ -37,7 +40,9 @@ skynet_handle.c 服务编号管理
 skynet_harbor.c 启动节点服务，以及注册和发消息给远程节点。
 skynet_monitor.c 监视服务
 skynet_mq.c 消息队列
-skynet_timer.c 定时器
+
+skynet_timer.c 定时器 skynet_timer_init函数--修改推时间 + lua从数据库加载定时器
+
 skynet_socket.c 网络接口
 
 网络模块
