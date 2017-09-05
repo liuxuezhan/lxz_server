@@ -46,6 +46,13 @@ skynet_timer.c
 skynet_timer_init函数--修改推时间 + lua从数据库加载定时器
 
 skynet_socket.c 网络接口
+server
+listen(socket-bind-listen-向epoll管道发送监听命令) 
+start(epoll绑定fd)
+accept
+
+client(socket -- connect)
+
 
 网络模块
 socket_server.h
