@@ -41,7 +41,9 @@ skynet_harbor.c 启动节点服务，以及注册和发消息给远程节点。
 skynet_monitor.c 监视服务
 skynet_mq.c 消息队列
 
-skynet_timer.c 定时器 skynet_timer_init函数--修改推时间 + lua从数据库加载定时器
+skynet_timer.c
+定时器(HashedWheelTimer时间轮算法,插入和删除的时间复杂度都是O(1))
+skynet_timer_init函数--修改推时间 + lua从数据库加载定时器
 
 skynet_socket.c 网络接口
 
