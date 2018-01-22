@@ -713,6 +713,29 @@ function cross_kill_hero(self, pid, hero_idx)
     end
 end
 
+function notify_cross_award(self, pids)
+    timer.new("batch_claim_cross_award", 2, pids)
+end
+
+function claim_player_cross_award(self, pid)
+    local awards = player_rank_award.claim_all_awards(pid)
+    if not awards then
+        return
+    end
+    Rpc:callAgent(self.pid, "claim_player_cross_award_ack", pid, awards)
+end
+
+function claim_player_cross_award_ack(self, pid, awards)
+    local player = getPlayer(pid)
+    if not player then
+        return
+    end
+    for k, v in pairs(awards) do
+        player:send_system_notice(v[2], {}, v[4], v[3])
+        WARN("[Cross|RankAward] Player %d claimed award %d", pid, v[1])
+    end
+end
+
 function send_cross_award(self, rank_mode, reward_mode, id, award, param)
     do_send_award[rank_mode](reward_mode, id, award, param)
 end
@@ -1006,5 +1029,71 @@ do_gm_cmd["sendjoinrun"] = function(param)
     return {code = 1, msg = "success"}
 end
 
+-- periodic_activity
+function periodic_activity_get_activity_data(self)
+    periodic_activity_manager.sync_activity_data(self.pid, PERIODIC_ACTIVITY.DAILY)
+    periodic_activity_manager.sync_activity_data(self.pid, PERIODIC_ACTIVITY.BIHOURLY)
+end
 
+function periodic_activity_sync_data(self, mode, group_id, sn, start_time, end_time)
+    if self.pid ~= gCenterID then
+        return
+    end
+    daily_activity.update_data(mode, group_id, sn, start_time, end_time)
+end
+
+function periodic_activity_reset_player_data(self, mode)
+    if self.pid ~= gCenterID then
+        return
+    end
+    if mode == PERIODIC_ACTIVITY.DAILY then
+        for _, ply in pairs(gPlys or {}) do
+            ply.daily_activity_info = {
+                activity_num = 0,
+                rank_lv = 1,
+                score = {},
+                award_tag = 0,
+            }
+        end
+    elseif mode == PERIODIC_ACTIVITY.BIHOURLY then
+        for _, ply in pairs(gPlys or {}) do
+            ply.bihourly_activity_info = {
+                activity_num = 0,
+                rank_lv = 1,
+                score = {},
+                award_tag = 0,
+            }
+        end
+    end
+end
+
+function periodic_activity_upload_score(self, mode, sn, gid, pid, rank_lv, score, time)
+    periodic_activity_manager.upload_score(mode, gid, pid, rank_lv, score, time)
+    Rpc:callAgent(self.pid, "periodic_activity_upload_score_ack", mode, sn, pid)
+end
+
+function periodic_activity_upload_score_ack(self, mode, sn, pid)
+    local player = getPlayer(pid)
+    if player then
+        player:clear_periodic_upload_watcher(mode, sn)
+    end
+end
+
+function periodic_activity_get_my_rank(self, mode, gid, pid, rank_lv)
+    local rank_pos = periodic_activity_manager.get_my_rank(mode, gid, pid, rank_lv)
+    print("periodic_activity_get_my_rank", rank_pos)
+    Rpc:callAgent(self.pid, "periodic_activity_get_my_rank_ack", mode, pid, rank_pos)
+end
+
+function periodic_activity_get_my_rank_ack(self, mode, pid, rank_pos)
+    local player = getPlayer(pid)
+    print("periodic_activity_get_my_rank_ack", player, pid, mode, rank_pos)
+    if player then
+        Rpc:get_my_periodic_rank(player, mode, rank_pos)
+    end
+end
+
+function periodic_activity_gm_refresh_activity(self, mode, index)
+    periodic_activity_manager.refresh_activity(mode, index)
+end
 

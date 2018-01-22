@@ -146,9 +146,8 @@ end
 
 function is_valid( hero, action )
     local status = hero.status
-    if status and status <= HERO_STATUS_TYPE.BEING_CURED then return true end
-    WARN( "[HERO], invalid_status, pid=%d, hid=%s, status=%d, action=%s", hero.pid, hero._id, status, action or "unknown" )
-    return false
+    if HERO_NO_OPT[ status ] then return false end
+    return true
 end
 
 

@@ -1,3 +1,6 @@
+﻿SECONDS_ONE_HOUR = 3600
+SECONDS_ONE_DAY = 86400
+SECONDS_ONE_WEEK = 86400 * 7
 
 --概率总和
 TOTAL_RATE = 10000
@@ -30,9 +33,51 @@ DIALOG_CULTURE_MAP = { 201, 203, 205, 207}--文明选择后的势力图对话（
 DIALOG_HERO_GACHA = {13,52,93,136}--第一次抽卡完成后，武将的对话配置。
 DIALOG_GACHA_MONSTER_TASK = {130061044,130062044,130063044,130064044}--第一次抽卡完成后，打怪的任务id。
 
-DAILY_ACTIVITY_CASTLE = {15,19,23,26,28,30}  --每日限时活动城堡等级分档
-DAILY_ACTIVITY_RANK = {1,2,3,6,10,20,50} --每日限时活动排行榜分档
-DAILY_ACTIVITY_RANK_ID = {28,29,30,31,32,33,34} --每日限时活动排行榜在rank表中的id
+DAILY_ACTIVITY_CASTLE = {15,19,23,26,28,30}  
+DAILY_ACTIVITY_RANK = {1,2,3,6,10,20,50} 
+DAILY_ACTIVITY_RANK_ID = {28,29,30,31,32,33} 
+
+PERIODIC_ACTIVITY_UPLOAD_WATCHER = 30
+PERIODIC_ACTIVITY_CFG = {
+    [PERIODIC_ACTIVITY.DAILY] = {
+        RANK_CLASS = CUSTOM_RANK_CLASS.DAILY_ACTIVITY,
+        DURATION = SECONDS_ONE_DAY,
+        PROP_BASIC = "prop_daily_activity",
+        PROP_CROSS = "prop_daily_activity_cross_group",
+        PROP_GROUP = "prop_daily_activity_group",
+        PROP_AWARD = "prop_daily_activity_award",
+        PROP_SCORE = "prop_daily_activity_score",
+        RANK_MAIL_ID = 10102,
+        RANK_SECTION = {1,2,3,6,10,20,50},              -- 每日限时活动排行榜分档
+        RANK = {                                        -- 每日限时活动排行榜在rank表中的id
+            [1] = {CastleMinLv = 6,  CastleLv = 15, Skeys = {-1, 1}, Num = 150, Limit = 150, Keys = {"score", "time"}},
+            [2] = {CastleMinLv = 16, CastleLv = 19, Skeys = {-1, 1}, Num = 150, Limit = 150, Keys = {"score", "time"}},
+            [3] = {CastleMinLv = 20, CastleLv = 23, Skeys = {-1, 1}, Num = 150, Limit = 150, Keys = {"score", "time"}},
+            [4] = {CastleMinLv = 24, CastleLv = 26, Skeys = {-1, 1}, Num = 150, Limit = 150, Keys = {"score", "time"}},
+            [5] = {CastleMinLv = 27, CastleLv = 28, Skeys = {-1, 1}, Num = 150, Limit = 150, Keys = {"score", "time"}},
+            [6] = {CastleMinLv = 29, CastleLv = 30, Skeys = {-1, 1}, Num = 150, Limit = 150, Keys = {"score", "time"}},
+        },
+    },
+    [PERIODIC_ACTIVITY.BIHOURLY] = {
+        RANK_CLASS = CUSTOM_RANK_CLASS.BIHOURLY_ACTIVITY,
+        DURATION = SECONDS_ONE_HOUR * 2,
+        PROP_BASIC = "prop_bihourly_activity",
+        PROP_CROSS = "prop_bihourly_activity_cross_group",
+        PROP_GROUP = "prop_bihourly_activity_group",
+        PROP_AWARD = "prop_bihourly_activity_award",
+        PROP_SCORE = "prop_bihourly_activity_score",
+        RANK_MAIL_ID = 10104,
+        RANK_SECTION = {1,2,3,6,10,20,50},              -- 每日限时活动排行榜分档
+        RANK = {                                        -- 每日限时活动排行榜在rank表中的id
+            [1] = {CastleMinLv = 6,  CastleLv = 15, Skeys = {-1, 1}, Num = 150, Limit = 150, Keys = {"score", "time"}},
+            [2] = {CastleMinLv = 16, CastleLv = 19, Skeys = {-1, 1}, Num = 150, Limit = 150, Keys = {"score", "time"}},
+            [3] = {CastleMinLv = 20, CastleLv = 23, Skeys = {-1, 1}, Num = 150, Limit = 150, Keys = {"score", "time"}},
+            [4] = {CastleMinLv = 24, CastleLv = 26, Skeys = {-1, 1}, Num = 150, Limit = 150, Keys = {"score", "time"}},
+            [5] = {CastleMinLv = 27, CastleLv = 28, Skeys = {-1, 1}, Num = 150, Limit = 150, Keys = {"score", "time"}},
+            [6] = {CastleMinLv = 29, CastleLv = 30, Skeys = {-1, 1}, Num = 150, Limit = 150, Keys = {"score", "time"}},
+        },
+    },
+}
 
 RANGE_LV = { 3380, 1104, 816, 528, 240, 16 }
 BUY_SILVER_COST = 150  -- 购买银币比率恒定150:1
@@ -227,7 +272,7 @@ RESET_HERO_NATURE_ITEM = resmng.ITEM_4006001
 TRIBUTE_EXCHANGE_LOOP = 86400
 TRIBUTE_EXCHANGE_TAX = 10
 
-WEEKLY_ACTIVITY_CIRCULATION = 0 --周限时活动间隔周数
+WEEKLY_ACTIVITY_CIRCULATION = 1 --周限时活动间隔周数
 WEEKLY_ACTIVITY_OPEN_TIME = 7 --周限时活动开放时间
 
 SPECIAL_DIG = 16001003
@@ -345,7 +390,7 @@ MAINUI_TOP_BTN_LAYER =
     ["btn_operate"] = 1,
     ["btn_world_event"] = 2,
     ["DailyTask"] = 1,
-    ["btn_shop_ac"] = 1,
+    ["btn_shop_ac"] = 3,
     ["acitity_btn"] = 1,
     ["btn_lordrank"] = 2,
     ["btn_goldnotice"] = 2,
@@ -355,10 +400,12 @@ MAINUI_TOP_BTN_LAYER =
     ["btn_fb_like"] = 2,
     ["btn_questionnaire"] = 2,
     ["btn_heroxiulian"] = 2,
-    ["btn_shouchong"] = 2,
-    ["check_in"] = 2,
-    ["btn_qiri"] = 2,
-    ["btn_yueka"] = 2,
+	["btn_customer_service"] = 2,
+    ["btn_shouchong"] = 4,
+    ["check_in"] = 4,
+    ["btn_qiri"] = 4,
+    ["btn_yueka"] = 4,
+	["btn_brantch_task"] = 1,
 }
 
 SHOW_UNION_POWER = 
@@ -401,3 +448,9 @@ mapmonster_lvconfig =
 
 --修改服务器名字金币消耗
 Server_ChangeName_GoldCost = 2000
+
+
+OPERATE_DICE_ONE = 500
+OPERATE_DICE_TEN = 4500
+
+

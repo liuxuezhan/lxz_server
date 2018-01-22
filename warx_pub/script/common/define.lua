@@ -1,4 +1,4 @@
---------------------------------------------------------------------------------
+﻿--------------------------------------------------------------------------------
 
 --时区偏移数值 秒
 TIME_ZONE = 0
@@ -88,6 +88,7 @@ VALUE_CHANGE_REASON = {
     TRAIN  = 52, --招募士兵
     JUNGLE = 53,   --打怪
     SUPPORT_RES = 54, --资源物资
+    OPERATE_DICE = 55,  --转盘
 
     BLACK_MARKET_PAY = 61, --黑市支付
     BLACK_MARKET_BUY = 62, --黑市购买
@@ -318,15 +319,22 @@ RANK_ACTION = {
     KING_ACT = 6,
 }
 
-CUSTON_RANK_CLASS = {
+CUSTOM_RANK_CLASS = {
     CROSS_RANK = 1,
     CROSS_REFUGEE = 2,
+    DAILY_ACTIVITY = 3,
+    BIHOURLY_ACTIVITY = 4,
 }
 
 CUSTOM_RANK_MODE = {
     PLY = 1, 
     UNION = 2,
     GS = 3,
+}
+
+PERIODIC_ACTIVITY = {
+    DAILY = 1,
+    BIHOURLY = 2,
 }
 
 UNION_RANK_MODE = {
@@ -372,6 +380,8 @@ TW_ACTION =
     FIGHT = 2,
     ABANDON = 3,
     LOST_ALL = 4,
+    LOST = 5,
+    WIN = 6,
 }
 
 KW_STATE =
@@ -1155,6 +1165,7 @@ E_NO_BUILD = 1020
 E_NO_VIP = 1021
 E_LV = 1022
 E_CAN_NOT_DO_HERO_TASK = 1023
+E_ATK_NPC_CITY_DUPLICATE = 1024
 
 
 -- overflow
@@ -1211,6 +1222,14 @@ HERO_STATUS_TYPE = {
     DEAD             = 10,   -- 死亡
     DESTROY          = 11,   -- 解雇
     HERO_TASK        = 12,   -- 英雄任务
+}
+-- 英雄不可操作状态
+HERO_NO_OPT = {
+    [HERO_STATUS_TYPE.BEING_CAPTURED] = true,
+    [HERO_STATUS_TYPE.BEING_IMPRISONED] = true,
+    [HERO_STATUS_TYPE.BEING_EXECUTED] = true,
+    [HERO_STATUS_TYPE.DEAD] = true,
+    [HERO_STATUS_TYPE.DESTROY] = true,
 }
 
 -- 品质
@@ -1541,6 +1560,7 @@ OPERATE_ACTIVITY_TYPE = {
     NORMAL = 1,             --普通活动通用
     LORD_RANK = 2,          --领主排行榜
     OCCUPY_RANK = 3,        --军团占领城市排行榜
+    PERSON = 4,             --个人活动
 }
 
 OPERATE_SCORE_TYPE_INC = 1     --计算出来的分数参与类型 增量
@@ -1902,8 +1922,8 @@ PLAYER_INIT = {
     weekly_activitiy_num = 0,   --周限时活动计数
     weekly_activity_info = {{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0}},    --周限时活动标记 {积分,领奖标志,活动开启时主堡等级}
 
-    daily_activity_info = {rank_lv = 1, score = 0, award_tag = 0}, --每日活动
-    daily_activitiy_num = 0,   --每日限时活动计数
+    daily_activity_info = {activity_num = 0, rank_lv = 1, score = {}, award_tag = 0}, --每日活动
+    bihourly_activity_info = {activity_num = 0, rank_lv = 1, score = {}, award_tag = 0}, --地狱活动
 
   --  operate_activity = {},  --运营活动
 

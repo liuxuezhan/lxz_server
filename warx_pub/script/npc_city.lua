@@ -191,18 +191,18 @@ function get_npc_eid_by_propid(propid)
 end
 
 function on_day_pass()
-    for k, v in pairs(citys or {}) do
-        local npc = get_ety(v)
-        if npc then
-            if npc.uid ~= 0 then
-                local prop = resmng.prop_world_unit[npc.propid]
-                if prop then
-                    local score = prop.Boss_point or 0
-                    update_union_score(npc.uid, score, 14)
-                end
-            end
-        end
-    end
+ --   for k, v in pairs(citys or {}) do
+ --       local npc = get_ety(v)
+ --       if npc then
+ --           if npc.uid ~= 0 then
+ --               local prop = resmng.prop_world_unit[npc.propid]
+ --               if prop then
+ --                   local score = prop.Boss_point or 0
+ --                   update_union_score(npc.uid, score, 14)
+ --               end
+ --           end
+ --       end
+ --   end
 end
 
 function update_act_tag()
@@ -246,7 +246,7 @@ function update_ply_score(key, level)
 
     local org_score = rank_mng.get_score(12, key) or 0
     score = score + org_score
-    if score < 0 then
+    if score <= 0 then
         socre = 0
         rank_mng.rem_data( 12, key )
     else
@@ -425,7 +425,7 @@ function fight_state(npcCity)
 
     local pack = {}
     pack.mode = DISPLY_MODE.NPC
-    pack.state = TW_STATE.FIGHT
+    pack.state = TW_ACTION.FIGHT
     pack.npc_id = npcCity.propid
 
     local def_union = unionmng.get_union(npcCity.uid)
@@ -600,6 +600,12 @@ function start_tw(tm)
     local left_tm = end_tm - gTime
     actTimer = timer.new("tw_stage", left_tm, TW_STATE.PACE)
     gPendingSave.status["npc_city"].actTimer  = actTimer
+
+    if season % 2 == 0 then
+        rank_mng.clear(12)
+        rank_mng.clear(14)
+    end
+
     season = season + 1
     gPendingSave.status["npc_city"].season = season
 
@@ -669,6 +675,13 @@ function end_tw()
         local npcCity = gEtys[ k ]
         if npcCity then
             pace_state(npcCity)
+            if npcCity.uid ~= 0 then
+                local prop = resmng.prop_world_unit[npcCity.propid]
+                if prop then
+                    local score = prop.Boss_point or 0
+                    update_union_score(npcCity.uid, score, 14)
+                end
+            end
         end
     end
 
@@ -970,7 +983,7 @@ function declare_notify(atk_eid, npc_eid)
 
     local pack = {}
     pack.mode = DISPLY_MODE.NPC
-    pack.state = TW_STATE.DECLARE
+    pack.state = TW_ACTION.DECLARE
     pack.npc_id = npc.propid
     pack.atk_info = {u_name = union.name, u_alias = union.alias, u_flag = union.flag}
     pack.atk_num = get_table_valid_count(npc.declareUnions or {})
@@ -1324,8 +1337,19 @@ function make_new_defender(ackTroop, defenseTroop, npcCity)
 
     if def_u then
         local _members = def_u:get_members()
+        local pack = {}
+        pack.mode = DISPLY_MODE.NPC
+        pack.state= TW_ACTION.LOST
+        pack.npc_id = npcCity.propid
+        if maxUnion then
+            pack.atk_info = {u_name = maxUnion.name, u_alias = maxUnion.alias, u_flag = maxUnion.flag}
+            if npcCity.dmg then
+                pack.max_dmg_pid = find_max_dmg_ply(npcCity, maxHurtUnion)
+            end
+        end
         for _, ply in pairs(_members or {}) do
             player_t.send_system_notice(ply, resmng.MAIL_10058, {prop.Name},{prop.Name, maxUnion.name})
+            ply:add_to_do("display_ntf", pack)
         end
     end
 end
@@ -1387,7 +1411,7 @@ function deal_npc_new_defender(newdefender, npcCity, ackTroop)
         local _members = maxUnion:get_members()
         local pack = {}
         pack.mode = DISPLY_MODE.NPC
-        pack.state= TW_STATE.PACE
+        pack.state= TW_ACTION.WIN
         pack.npc_id = npcCity.propid
         if npcCity.dmg then
             pack.max_dmg_pid = find_max_dmg_ply(npcCity, maxHurtUnion)

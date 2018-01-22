@@ -1,0 +1,19 @@
+--
+-- $Id$
+--
+
+module( "resmng" )
+svnnum("$Id$")
+
+prop_bihourly_activity_group = {
+
+	[BIHOURLY_ACTIVITY_GROUP_1] = { ID = BIHOURLY_ACTIVITY_GROUP_1, Group = {3,5}, Weight = 1000,},
+	[BIHOURLY_ACTIVITY_GROUP_2] = { ID = BIHOURLY_ACTIVITY_GROUP_2, Group = {4,6}, Weight = 1000,},
+	[BIHOURLY_ACTIVITY_GROUP_3] = { ID = BIHOURLY_ACTIVITY_GROUP_3, Group = {5,7}, Weight = 1000,},
+	[BIHOURLY_ACTIVITY_GROUP_4] = { ID = BIHOURLY_ACTIVITY_GROUP_4, Group = {3,6}, Weight = 1000,},
+	[BIHOURLY_ACTIVITY_GROUP_5] = { ID = BIHOURLY_ACTIVITY_GROUP_5, Group = {4,5}, Weight = 1000,},
+	[BIHOURLY_ACTIVITY_GROUP_6] = { ID = BIHOURLY_ACTIVITY_GROUP_6, Group = {3,7}, Weight = 1000,},
+	[BIHOURLY_ACTIVITY_GROUP_7] = { ID = BIHOURLY_ACTIVITY_GROUP_7, Group = {5,6}, Weight = 1000,},
+	[BIHOURLY_ACTIVITY_GROUP_8] = { ID = BIHOURLY_ACTIVITY_GROUP_8, Group = {4,7}, Weight = 1000,},
+	[BIHOURLY_ACTIVITY_GROUP_9] = { ID = BIHOURLY_ACTIVITY_GROUP_9, Group = {7,6}, Weight = 1000,},
+}

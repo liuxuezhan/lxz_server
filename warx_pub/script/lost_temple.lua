@@ -48,14 +48,14 @@ end
 function get_next_active_tm()
     local prepare_time =  1800
     if actState == 1 then
-        local prop_off =  resmng.get_conf("prop_lt_stage", 0) 
+        local prop_off =  resmng.get_conf("prop_lt_stage", 2) 
         local prop_on = resmng.get_conf("prop_lt_stage", 1)
         return end_time + prop_off.Spantime + prepare_time, end_time + prop_on.Spantime + prop_off.Spantime
     else
-        local prop = resmng.get_conf("prop_lt_stage", 1)
-        if prop then
-            return end_time, end_time + prop.Spantime
-        end
+        local prop_off =  resmng.get_conf("prop_lt_stage", 2) 
+        local prop_on = resmng.get_conf("prop_lt_stage", 1)
+        return end_time + prop_off.Spantime + prepare_time, end_time + prop_on.Spantime + prop_off.Spantime
+        --return end_time, end_time + prop.Spantime
     end
 end
 
@@ -292,7 +292,7 @@ function start_lt()
 
     local prop = resmng.prop_lt_stage[actState]
     if prop then
-        end_time = gTime + prop.Spantime
+        end_time = start_time + prop.Spantime
         gPendingSave.status["lostTemple"].end_time = end_time
     end
 

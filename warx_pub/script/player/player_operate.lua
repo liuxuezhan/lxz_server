@@ -59,10 +59,78 @@ function get_operate_activity( self, id )
         if not node then
             node =  {_id=self.pid.."_"..id,pid=self.pid,activity_id=id,}
             self._operate_activity[ id ] = node
+            gPendingSave.operate_activity[node._id]  = node
         end
         return node
     else
         return self._operate_activity
+    end
+end
+
+function updata_single_op_data(self, activity_id, data)
+    if activity_id then
+        local datas = self:get_operate_activity()
+        if datas["op_data"] == nil then
+            self:get_single_op_data( activity_id)
+        end
+        gPendingSave.operate_activity[datas._id][activity_id] = data
+    end
+end
+
+function get_single_op_data(self, activity_id)
+    if activity_id then
+        local prop_tab = resmng.get_conf("prop_operate_activity", activity_id)
+        local data = operate_activity.OpActivityData[activity_id]
+        if prop_tab.Type ==  OPERATE_ACTIVITY_TYPE.PERSON then
+            local datas = self:get_operate_activity()
+            if datas["op_data"] == nil then
+                datas["op_data"] = {_id=self.pid.."_op_data", pid=self.pid, activity_id="_op_data"}
+                gPendingSave.operate_activity[datas.op_data._id] = datas["op_data"]
+            end
+            if datas["op_data"][activity_id] == nil then
+                if operate_activity.OpActivityData[activity_id] then
+                    local data1 = operate_activity.get_obj_by_type(prop_tab.Type, data)
+                    local start_tab = prop_tab.StartTime
+                    local class = start_tab[1]
+                    if class == "tmcreate" then
+                        local st_tm = get_zero_tm(self.tm_create)
+                        data1.start_time = st_tm + start_tab[2]
+                        data1.end_time = data1.start_time + prop_tab.Duration
+                        if prop_tab.Circulation ~= nil and data1.end_time <= gTime then
+                            local period = prop_tab.Duration + prop_tab.Circulation
+                            local span = gTime - self.end_time
+                            data1.start_time = data1.start_time + math.floor(span / period) * period
+                            data1.end_time = data1.start_time + prop_tab.Duration
+                        end
+                    end
+                    data1:tick()
+                    datas["op_data"][activity_id] = data1
+                    gPendingSave.operate_activity[datas.op_data._id][activity_id] = data1
+                end
+            end
+            return  datas["op_data"][activity_id]
+        else
+            return data
+        end
+    else
+        return 
+    end
+end
+
+function get_op_activity_data(self, activity_id)
+    if activity_id then
+        return self:get_single_op_data(activity_id)
+    else
+        local datas = {}
+        for k, v in pairs(operate_activity.OpActivityData or {}) do
+            local prop_tab = resmng.get_conf("prop_operate_activity", k)
+            if prop_tab.Type ==  OPERATE_ACTIVITY_TYPE.PERSON then
+                datas[k] = self:get_single_op_data(k)
+            else
+                datas[k] = v
+            end
+        end
+        return datas
     end
 end
 
@@ -97,7 +165,7 @@ function set_operate_info(p, activity_id, class, key, value)
 
     --活动计数标记赋值
     if d[OPERATE_PLAYER_DATA.VERSION] == nil then
-        local activity = operate_activity.get_activity_by_id(activity_id)
+        local activity = operate_activity.get_activity_by_id(p, activity_id)
         if activity ~= nil then
             d[OPERATE_PLAYER_DATA.VERSION] = activity.version
             gPendingSave.operate_activity[d._id][OPERATE_PLAYER_DATA.VERSION] = activity.version 
@@ -114,7 +182,7 @@ function update_operate_info(p, activity_id, class, key, value)
 
     --活动计数标记赋值
     if d[OPERATE_PLAYER_DATA.VERSION] == nil then
-        local activity = operate_activity.get_activity_by_id(activity_id)
+        local activity = operate_activity.get_activity_by_id(p, activity_id)
         if activity ~= nil then
             d[OPERATE_PLAYER_DATA.VERSION] = activity.version
             gPendingSave.operate_activity[d._id][OPERATE_PLAYER_DATA.VERSION] = activity.version 
@@ -148,7 +216,7 @@ function operate_on_day_pass(p)
     local upds = {}
     for id, d in pairs(p._operate_activity or {}) do
         if type(id) == "number" then
-            local activity = operate_activity.get_activity_by_id(id)
+            local activity = operate_activity.get_activity_by_id(p, id)
             if activity == nil or activity.is_end == 1 then
                 table.insert( upds, { activity_id=id, delete=true} )
                 p._operate_activity[id] = nil
@@ -162,6 +230,16 @@ function operate_on_day_pass(p)
                     table.insert( upds, t )
                 end
             end
+        elseif id == tostring(p.pid).."_op_data" then
+            local need_save = false
+            for k, v in pairs(d or {}) do
+                if v:tick() then
+                    need_save = true
+                end
+                if need_save then
+                    gPendingInsert.operate_activity[d._id] = d
+                end
+            end
         end
     end
     if p then Rpc:operate_activity_update_data(p, upds ) end
@@ -171,7 +249,7 @@ function operate_check_all_version(p)
     local oas = get_operate_activity( p )
     for id, d in pairs(oas or {}) do
         if type(id) == "number" then
-            local activity = operate_activity.get_activity_by_id(id)
+            local activity = operate_activity.get_activity_by_id(p, id)
             if activity ~= nil then
                 if d[OPERATE_PLAYER_DATA.VERSION] ~= nil then
                     if activity.version ~= d[OPERATE_PLAYER_DATA.VERSION] then

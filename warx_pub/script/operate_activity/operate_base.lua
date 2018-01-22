@@ -35,18 +35,20 @@ end
 
 --活动抽象类  (活动必须继承这个类)
 CActivityBase = DeclareClass("CActivityBase")
-function CActivityBase:Ctor()
-	self.activity_id = 0
-	self.start_time = 0
-	self.end_time = 0
+function CActivityBase:Ctor(...)
+    local arg = {...}
+    data = arg[1] or {}
+	self.activity_id = data.activity_id or 0
+	self.start_time = data.start_time or 0
+	self.end_time = data.end_time or 0
 
-	self.is_start = 0
-	self.is_end = 0
-	self.action_array = {}
-	self.action_startid = 0
-	self.action_endid = 0
+	self.is_start = data.is_start or 0
+	self.is_end = data.is_end or 0
+	self.action_array = data.action_array or {}
+	self.action_startid = data.action_startid or 0
+	self.action_endid = data.action_endid or 0
 
-	self.version = 0
+	self.version = data.version or 0
 end
 
 ------------------------------
@@ -235,7 +237,7 @@ function CActivityBase:init_action()
 end
 
 function CActivityBase:calc_stamp(con_tb)
-	local stamp = 0
+	local stamp = gTime
 	local class = con_tb[1]
 	if class == "relative" then
 		local con_day = con_tb[2]

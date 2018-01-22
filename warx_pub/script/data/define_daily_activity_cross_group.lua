@@ -1,0 +1,10 @@
+--
+-- $Id$
+--
+
+module( "resmng" )
+svnnum("$Id$")
+
+DAILY_ACTIVITY_CROSS_GROUP_1 = 1
+DAILY_ACTIVITY_CROSS_GROUP_2 = 2
+DAILY_ACTIVITY_CROSS_GROUP_3 = 3

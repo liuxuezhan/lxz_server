@@ -20,25 +20,25 @@ local wanted_ranks = {
 }
 
 local function get_rank_base_id(group_index)
-    return 1000000 + group_index * 1000
+    return custom_rank_mng.get_rank_id(CUSTOM_RANK_CLASS.CROSS_RANK, group_index, 0)
 end
 
 local function get_refugee_rank_id(group_index)
-    return 2000000 + group_index * 1000
+    return custom_rank_mng.get_rank_id(CUSTOM_RANK_CLASS.CROSS_REFUGEE, group_index, 0)
 end
 
 function create_ranks(group_index)
     local base_id = get_rank_base_id(group_index)
     for k, v in pairs(wanted_ranks) do
-        custom_rank_mng.create_rank(base_id + k, v.skeys, v.ntops, CUSTON_RANK_CLASS.CROSS_RANK, k, "cross_rank_c")
+        custom_rank_mng.create_rank(base_id + k, v.skeys, v.ntops, CUSTOM_RANK_CLASS.CROSS_RANK, k, "cross_rank_c")
     end
     local refugee_rank_id = get_refugee_rank_id(group_index)
-    custom_rank_mng.create_rank(refugee_rank_id, {-1}, 50, CUSTON_RANK_CLASS.CROSS_REFUGEE, CUSTOM_RANK_MODE.PLY "cross_rank_c")
+    custom_rank_mng.create_rank(refugee_rank_id, {-1}, 50, CUSTOM_RANK_CLASS.CROSS_REFUGEE, CUSTOM_RANK_MODE.PLY, "cross_rank_c")
 end
 
 function reset_all_ranks()
-    custom_rank_mng.reset_rank(CUSTON_RANK_CLASS.CROSS_RANK)
-    custom_rank_mng.reset_rank(CUSTON_RANK_CLASS.CROSS_REFUGEE)
+    custom_rank_mng.reset_rank(CUSTOM_RANK_CLASS.CROSS_RANK)
+    custom_rank_mng.reset_rank(CUSTOM_RANK_CLASS.CROSS_REFUGEE)
     clear_all_info()
 end
 

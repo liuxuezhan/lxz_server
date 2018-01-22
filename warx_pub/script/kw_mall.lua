@@ -336,7 +336,7 @@ function buy(ply, index)
             end
         end
     end
-        --table.insert(gsBuffs, good.itemId)
+    --table.insert(gsBuffs, good.itemId)
     --gPendingSave.status["kwState"].gsBuffs = gsBuffs
     gPendingSave.status["gsBuffs"].gsBuffs = gsBuffs
     gPendingSave.status["kwState"].shelf = shelf

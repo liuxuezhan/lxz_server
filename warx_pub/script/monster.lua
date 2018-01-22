@@ -713,9 +713,9 @@ function do_check(zx, zy, isloop)
         for k, v in pairs(node or {})  do
             local eid = v.eid
             local ety = get_ety(eid)
-            if ety then
+            if ety and is_monster(ety) then
                 if ety.grade == BOSS_TYPE.NORMAL then
-                    if can_date(ety.born)  then
+                    if can_date(ety.born) then
                         rem_monster(ety)
                     else
                         normalNum = normalNum + 1
@@ -1005,9 +1005,17 @@ end
 --end
 
 function rem_monster(self)
+    if is_monster(ety)  == false then
+        return
+    end
+
+    if  self.grade == nil or self.zx == nil or self.zy == nil then -- 防御
+        return 
+    end
+
+    local idx = self.zy * 80 + self.zx
     if self.grade >= BOSS_TYPE.ELITE and self.grade < BOSS_TYPE.SUPER then 
         local boss = boss_grade[self.grade] or {} 
-        local idx = self.zy * 80 + self.zx 
         boss[idx] = nil
         boss_grade[self.grade] = boss
     end
@@ -1019,15 +1027,12 @@ function rem_monster(self)
     if self.grade == BOSS_TYPE.SPECIAL then
         local lv = c_get_zone_lv(self.zx, self.zy)
         local boss_list = boss_special[lv] or {}
-        local idx = self.zy * 80 + self.zx
         boss_list[idx] = nil
         boss_special[lv] = boss_list
     end
 
     troop_mng.delete_troop(self.my_troop_id)
-
     rem_ety(self.eid)
-
 end
 
 function troop_back(troop)

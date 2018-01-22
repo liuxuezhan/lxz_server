@@ -6,9 +6,10 @@ function post(action, target, ...)
     --    return
     --end
     --
-    LOG("post %s", action)
+    INFO("post %s", action)
 
     if not ntf_action[action] then
+        WARN("no this action")
         return
     end
 
@@ -25,7 +26,7 @@ function post(action, target, ...)
 
         local prop = resmng.prop_offline_notify[action]
         if is_ply(target) then
-            LOG("post action %s %s", action, target.jpush_id)
+            INFO("post action %s %s", action, target.jpush_id)
 
             local sub_ntf_list = target.sub_ntf_list or {}
             if not sub_ntf_list[action] then
@@ -370,6 +371,54 @@ ntf_action[resmng.OFFLINE_NOTIFY_RESEARCH] = function(action, ply, tech_id)
         fcm(audience, msg, action)
     end
 
+end
+
+ntf_action[resmng.OFFLINE_NOTIFY_RESFULL] = function(action, ply)
+    local prop = resmng.prop_offline_notify[action]
+    if not prop then
+        return 
+    end
+
+    local msg = replace_param(ply.language, prop.Inform)
+    if not msg then
+        return
+    end
+
+    if config.OfflineNtf == 1 then
+        local audience = {
+            ["registration_id"] = {ply.jpush_id},
+        }
+        push_offline_ntf(audience, msg)
+    elseif config.OfflineNtf == 2 then
+        local audience = {
+            ["fcm_id"] = ply.fcm_id
+        }
+        fcm(audience, msg, action)
+    end
+end
+
+ntf_action[resmng.OFFLINE_NOTIFY_DAILYAWARD] = function(action, ply)
+    local prop = resmng.prop_offline_notify[action]
+    if not prop then
+        return 
+    end
+
+    local msg = replace_param(ply.language, prop.Inform)
+    if not msg then
+        return
+    end
+
+    if config.OfflineNtf == 1 then
+        local audience = {
+            ["registration_id"] = {ply.jpush_id},
+        }
+        push_offline_ntf(audience, msg)
+    elseif config.OfflineNtf == 2 then
+        local audience = {
+            ["fcm_id"] = ply.fcm_id
+        }
+        fcm(audience, msg, action)
+    end
 end
 
 ntf_action[resmng.OFFLINE_NOTIFY_BUILD] = function(action, ply, build_id)
@@ -752,7 +801,7 @@ function get_server_tag()
 end
 
 function fcm(target, msg, action)
-    INFO("fcm %s, %s", target.registration_id, msg)
+    INFO("fcm %s, %s", target.fcm_id, msg)
     to_tool( 0, { 
         type = "common", 
         mode = "fcm", 

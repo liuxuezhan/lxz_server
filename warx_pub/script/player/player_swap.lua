@@ -16,6 +16,11 @@ function can_swap_out( self, urgent )
         [3] = 14400,-- 4 hour
         [4] = 28800, -- 8 hour
         [5] = 57600, -- 16 hour
+        -- [1] = 5, -- 1 hour
+        -- [2] = 5, -- 2 hour
+        -- [3] = 5,-- 4 hour
+        -- [4] = 5, -- 8 hour
+        -- [5] = 5, -- 16 hour
     }
 
     local offtm = gTime - math.max( math.max( self.tm_login, self.tm_logout ), self.tm_create )

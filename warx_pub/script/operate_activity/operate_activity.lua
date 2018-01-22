@@ -28,15 +28,19 @@ function save_operate_activity(data)
 	gPendingSave.status["operate_activity"][unit.activity_id] = unit
 end
 
-function get_obj_by_type(type)
+function get_obj_by_type(type, ...)
 	if type == OPERATE_ACTIVITY_TYPE.NORMAL then
-		return NormalActivity:New()
+		return NormalActivity:New(...)
 
 	elseif type == OPERATE_ACTIVITY_TYPE.LORD_RANK then
-		return LordRankActivity:New()
+		return LordRankActivity:New(...)
 
 	elseif type == OPERATE_ACTIVITY_TYPE.OCCUPY_RANK then
-		return OccupyRankActivity:New()
+		return OccupyRankActivity:New(...)
+
+	elseif type == OPERATE_ACTIVITY_TYPE.PERSON then
+		return NormalActivity:New(...)
+
 	end
 end
 
@@ -108,12 +112,14 @@ end
 --operate_activity.process_operate_activity(OPERATE_ACTIVITY_ACTION.KILL_SOLDIER)
 --operate_activity.process_operate_activity(OPERATE_ACTIVITY_ACTION.OCCUPY_CITY)
 
-function get_activity_by_id(activity_id)
-	return OpActivityData[activity_id]
+function get_activity_by_id(ply, activity_id)
+    return ply:get_single_op_data(activity_id) -- some act base on each ply not globe 
+	--return OpActivityData[activity_id]
 end
 
 function process_operate_activity(player, action, ...)
-	for k, v in pairs(OpActivityData) do
+    local op_datas = player:get_op_activity_data()
+	for k, v in pairs(op_datas or {}) do
 		local prop_tab = resmng.get_conf("prop_operate_activity", v.activity_id)
 		if prop_tab.Open == 1 then
 			v:process_action(player, action, ...)
@@ -125,6 +131,9 @@ function exchage(player, activity_id, exchange_id)
 	if OpActivityData[activity_id] == nil then
 		return
 	end
+    if player:get_op_activity_data(activity_id) == nil then
+        return
+    end
 	local prop_tab = resmng.get_conf("prop_operate_activity", activity_id)
 	if prop_tab ~= nil and prop_tab.Open == 1 then
 		OpActivityData[activity_id]:exchage(player, exchange_id)
@@ -135,6 +144,9 @@ function single_get(player, activity_id)
 	if OpActivityData[activity_id] == nil then
 		return
 	end
+    if player:get_op_activity_data(activity_id) == nil then
+        return
+    end
 	local prop_tab = resmng.get_conf("prop_operate_activity", activity_id)
 	if prop_tab ~= nil and prop_tab.Open == 1 then
 		OpActivityData[activity_id]:single_get(player)
@@ -143,9 +155,10 @@ end
 
 function packet_activity_list(p)
 	local msg = {}
-	for k, v in pairs(OpActivityData or {}) do
-		local prop_tab = resmng.get_conf("prop_operate_activity", v.activity_id)
-		if prop_tab.Open == 1 and v.is_end == 0 then
+    local op_datas = p:get_op_activity_data()
+	for k, v in pairs(op_datas or {}) do
+		local prop_tab = resmng.get_conf("prop_operate_activity", k)
+		if prop_tab and prop_tab.Open == 1 and v.is_end == 0 then
 			v:first_start(p)
 			local unit = {}
 			unit.id = v.activity_id
@@ -159,6 +172,15 @@ function packet_activity_list(p)
         if not p._operate_activity then rawset(p, "_operate_activity", t) end
     end
 
+    -- hardcode operate_activity
+    if _G.gOperateDiceTime > 0 then
+        local unit = {}
+        unit.id = resmng.OPERATE_ACTIVITY_10
+        unit.start_time = _G.gOperateDiceTime
+        unit.end_time = _G.gOperateDiceTime + 72 * 3600
+        table.insert( msg, unit )
+    end
+
     local datas = p:get_operate_activity()
     Rpc:operate_activity_list_resp(p, msg, datas)
 end
@@ -167,6 +189,9 @@ function task_get(player, activity_id, task_id)
 	if OpActivityData[activity_id] == nil then
 		return
 	end
+    if player:get_op_activity_data(activity_id) == nil then
+        return
+    end
 	local prop_tab = resmng.get_conf("prop_operate_activity", activity_id)
 	if prop_tab ~= nil and prop_tab.Open == 1 then
 		OpActivityData[activity_id]:task_get(player, task_id)

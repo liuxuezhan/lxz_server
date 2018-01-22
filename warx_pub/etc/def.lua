@@ -86,7 +86,8 @@ function c_add_eye(pid,x, y)
         end
     end
 end
-
+function c_set_debug(a)
+end
 function c_add_ety(...)
     local d = {...} 
     for pid, _ in pairs(c_pid or {} ) do

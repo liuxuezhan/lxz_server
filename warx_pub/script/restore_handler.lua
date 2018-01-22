@@ -391,9 +391,14 @@ function post_init()
     daily_task_filter.init_filter()
     INFO("-- init odaily task filter done  ---")
 
+    --[[
     INFO("-- init daily activity ---------")
     daily_activity.init_daily_activity()
     INFO("-- init daily activity done  ---")
+    --]]
+    INFO("-- init daily activity manager ---------")
+    periodic_activity_manager.init_data()
+    INFO("-- init daily activity manager done  ---")
 end
 
 function action()
@@ -423,6 +428,7 @@ function action()
     INFO("-- load_player -------------")
     load_player()
     player_t.change_operate_activity()--转档
+    player_t.change_pay_state()--转档
     INFO("-- load_player done --------")
     --monitoring(MONITOR_TYPE.LOADDATA, "load_player")
     --
@@ -441,11 +447,16 @@ function action()
     operate_activity.load_operate_activity()
     INFO("-- load_operate_activity done --------")
     --monitoring(MONITOR_TYPE.LOADDATA, "load_operate_activity")
-    --
+
+    --[[
     INFO("-- load_daily_activity -------------")
     daily_activity.load_daily_activity()
     INFO("-- load_daily_activity done --------")
     --monitoring(MONITOR_TYPE.LOADDATA, "load_daily_activity")
+    --]]
+    INFO("-- load_periodic_activity_manager -------------")
+    periodic_activity_manager.load_data()
+    INFO("-- load_periodic_activity_manager done --------")
 
 
     INFO("-- load_union --------------")

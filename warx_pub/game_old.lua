@@ -27,6 +27,9 @@ function load_game_module()
     Rpc.reload_user_struct_define = function() do_load("war_pub/rpc/struct") end
     do_reload()
 
+
+    gOperateDiceTime = 0
+    gOperateDiceIdx = 0
 end
 
 
@@ -129,6 +132,7 @@ function do_reload()
     do_load("cross/cross_rank_c")
     do_load("cross/cross_act")
     do_load("cross/cross_score")
+    do_load("cross/player_rank_award")
     do_load("refugee")
     do_load("gmmng")
     do_load("gmcmd")
@@ -149,6 +153,9 @@ function do_reload()
     do_load("watch_tower")
     do_load("act_mng")
     do_load("daily_activity")
+    do_load("cross_activities/periodic_activity_manager")
+    do_load("cross_activities/periodic_main_activity")
+    do_load("cross_activities/periodic_activity")
 
     --gTimeReload = c_get_time()
 end
@@ -241,6 +248,7 @@ function get_eid(mode)
         local eid = eid_max * 4096 + gMapID
         if not gEtys[ eid ] then
             g_eid_max = eid_max
+            if i >= 2000 then WARN( "[EID], not enough, %d", i ) end
             return eid
         end
     end
@@ -530,83 +538,10 @@ end
 
 
 function test(id)
-    --local p = getPlayer( 590003 )
-    --player_t.swap_out( p )
-
-
-    local db = dbmng:getOne()
-    db.player:update( {}, { ["$unset"]={ ["lv"]='', } }, false, true ) 
-
-    --to_tool(0, {type = "echo", string = "hhhhhh"}) 
-    --to_toolv2(0, {type = "echo", string = "hhhhhh"}, 6002) 
-
-    --cjson = require( "cjson" )
-    --json = cjson.new()  
-    --json_text = '{ "foo": "bar" }'  
-    --value = json.decode(json_text)  
-    --for k,v in pairs(value) do print("json", k, v) end 
-
-
-    --gmcmd.move_player( { 5950004, 5950000 } )
-
-    --for k, v in pairs( heromng._heros ) do
-    --    if v.status == HERO_STATUS_TYPE.MOVING then
-    --        local tid = v.troop
-    --        if tid ~= 0 then
-    --            local troop = troop_mng.get_troop( tid )
-    --            if not troop then
-    --                INFO( "Troop,%d, Pid,%d, Hero,%s", tid, v.pid, v._id )
-    --            end
-    --        end
-    --    end
-    --end
-
-
-    --local ids = {
-    --    1126899027,
-    --    1102086740,
-    --    1182492387,
-    --    1155074289,
-    --    1472712897,
-    --    1516365754,
-    --    400966909,
-    --    1738872541,
-    --    206363805,
-    --    2109937726,
-    --    748250112,
-    --    725300714,
-    --    1842281961,
-    --    1449300907,
-    --    589167955,
-    --    755679002,
-    --    153557797,
-    --    183746984,
-    --    1103581438,
-    --    1102596737,
-    --    1502480137,
-    --    359104097,
-    --    1569020298,
-    --    531667754,
-    --    229421465,
-    --    670793038,
-    --    1430348317,
-    --    247599181,
-    --    1923780972,
-    --    393583197,
-    --}
-    --for _, v in ipairs( ids ) do
-    --    local node = Rpc.localF[ v ]
-    --    print( node.name )
-    --end
-
-    --local s = debug.tablemark(10)
-    --for k, v in pairs( s ) do
-    --    print( k, v )
-    --end
-
-
-    --local co = coroutine.create( test_thread )
-    --coroutine.resume( co )
+    local p = getPlayer( 1540004 )
+    if p then
+        p:operate_dice_action( 1 )
+    end
 end
 
 function test4()
@@ -801,6 +736,11 @@ function init_game_data()
     db.mail:delete( { tm = { [ "$lt" ] = tm_delete } } )
     player_t.clear_outline() 
 
+    if gMapID ~= gCenterID then
+        daily_activity.init_daily_activity()
+    else
+        periodic_activity_manager.sync_all_data()
+    end
 end
 
 

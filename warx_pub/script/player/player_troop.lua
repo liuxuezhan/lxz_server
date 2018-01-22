@@ -89,7 +89,6 @@ function check_arm(self, arm, action)
         return 
     end
 
-
     local my_troop = troop_mng.get_troop(self.my_troop_id)
     if my_troop == nil then
         INFO( "[CheckArm], no_home_troop, pid=%d, name=%s, action=%s", self.pid, self.name, action )
@@ -874,7 +873,26 @@ function union_mass_create(self, dest_eid, wait_time, arm)
         else
             return
         end
+
         local union = unionmng.get_union(self.uid)
+        if union then
+            for _, tid in pairs( union.battle_room_ids or {} ) do
+                local troop = troop_mng.get_troop( tid )
+                if troop and troop.is_mass == 1 and troop.target_eid == dest_eid then
+                    local pid = troop.owner_pid
+                    local p = getPlayer( pid )
+                    if p and p.eid then
+                        if p.uid == self.uid then 
+                            WARN( "ATTACK NPC_CITY, uid,%d, eid,%d, tid,%s", union.uid, dest_eid, tid )
+                            ack( self, "union_mass_create", E_ATK_NPC_CITY_DUPLICATE )
+                            return 
+                        end
+                    end
+                end
+            end
+        end
+
+
         local tr = D:get_my_troop()
         if tr then
             for pid, _ in pairs(tr.arms or {}) do
@@ -1046,6 +1064,17 @@ function union_mass_join(self, dest_eid, dest_troop_id, arm)
     if not dest_tr_target then return end
 
     if dest_tr.owner_pid == self.pid then return end
+
+    for pid, _ in pairs( dest_tr.arms or {} ) do
+        if pid == self.pid then return end
+    end
+
+    for _, tid in pairs( self.busy_troop_ids or {} ) do
+        local tr = troop_mng.get_troop( tid )
+        if tr then
+            if tr.dest_troop_id == dest_troop_id then return end
+        end
+    end
 
     local info = { propid = dest_tr_target.propid, pid = self.pid }
 

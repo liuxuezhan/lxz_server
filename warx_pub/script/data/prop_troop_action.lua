@@ -56,4 +56,5 @@ prop_troop_action = {
 	[SiegeDig] = { TroopAction = SiegeDig, SpeedMarch = 1, SpeedMarchPvE = 0, SpeedRally = 0, SpeedCavaran = 0, Default = 20, IsPvp = 1, CanSpecial = 0,},
 	[Exchange] = { TroopAction = Exchange, SpeedMarch = 0, SpeedMarchPvE = 0, SpeedRally = 0, SpeedCavaran = 0, Default = 20, IsPvp = 0, CanSpecial = 1,},
 	[HeroTask] = { TroopAction = HeroTask, SpeedMarch = 0, SpeedMarchPvE = 0, SpeedRally = 0, SpeedCavaran = 0, Default = 200, IsPvp = 0, CanSpecial = 0,},
+	[SiegePlayerMail] = { TroopAction = SiegePlayerMail, SpeedMarch = 1, SpeedMarchPvE = 0, SpeedRally = 0, SpeedCavaran = 0, Default = nil, IsPvp = 1, CanSpecial = 0,},
 }

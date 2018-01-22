@@ -39,4 +39,5 @@ prop_cron = {
     --{game="*", boot=nil, min="0", hour="3", day="*", month="*", wday="*", action="stop_boss_attack_city", arg={}},
     {game="*", boot=nil, min="0", hour="4", day="*", month="*", wday="*", action="rem_all_mc", arg={}},
     {game="*", boot=nil, min="30", hour="23", day="*", month="*", wday="*", action="upload_gs_info", arg={}},
+    {game="*", boot=true, min="0", hour="0", day="*", month="*", wday="5,1", action="operate_dice", arg={}}
 }

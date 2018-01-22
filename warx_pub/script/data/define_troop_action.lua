@@ -54,3 +54,4 @@ Dig = 46
 SiegeDig = 47
 Exchange = 48
 HeroTask = 49
+SiegePlayerMail = 50

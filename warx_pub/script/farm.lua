@@ -10,10 +10,10 @@ function checkin(m)
     local idx = zy * 80 + zx
     local node = distrib[ idx ]
     if not node then
-        node = {}
+        node = setmetatable({}, { __mode="v" } )
         distrib[ idx ] = node
     end
-    table.insert(node, m.eid)
+    node[ m.eid ] = m
 end
 
 function farm_reset()
@@ -117,19 +117,23 @@ function do_check(zx, zy, isloop)
         local node = distrib[ idx ]
 
         local news = {}
-        for k, eid in pairs(node or {})  do
-            local ety = get_ety(eid)
-            if ety then
-                if isloop and ety.pid == 0 and ety.born < gTime - 12 * 3600 then
-                    rem_ety(eid)
-                else
-                    table.insert(news, eid)
-                end
+
+        local dels = {}
+        local num = 0
+        for eid, ety in pairs(node or {})  do
+            if ety.eid ~= eid then
+                table.insert( dels, eid )
+            elseif isloop and ety.pid == 0 and ety.born < gTime - 12 * 3600 then
+                table.insert( dels, eid )
+                rem_ety( eid )
+            else
+                num = num + 1
             end
         end
-        distrib[ idx ] = news
+        for _, eid in pairs( dels ) do
+            node[ eid ] = nil
+        end
 
-        local num = #news
         local access = c_get_map_access(zx, zy)
         if math.abs(gTime - access) > 3600 then
             if num == 0 then

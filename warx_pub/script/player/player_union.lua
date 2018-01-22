@@ -1613,6 +1613,8 @@ function make_room_list( troop )
         info.list = {}
         info.list.ack = get_name_info( A )
         info.list.def = get_name_info( D )
+        info.pos = { {A.x, A.y }, {D.x, D.y} }
+
         if troop:get_base_action() == TroopAction.SiegeMonsterCity then
             info.list.ack.extra = troop.mcid
         end

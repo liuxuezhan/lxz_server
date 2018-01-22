@@ -222,6 +222,7 @@ end
 
 local function callAgent( rpc, map, name, ... )
     lxz(map,name)
+    if map~=gMapID  then return  end 
     if not rpc.localF then return  end 
     local rf = rpc.localF[name]
    	if not rf then

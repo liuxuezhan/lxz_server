@@ -1,4 +1,4 @@
-module("Protocol")
+﻿module("Protocol")
 Server = {
 
     agent_test_struct = "int id, array struct UnionMember mems, string name",
@@ -231,10 +231,22 @@ Server = {
     upload_refugee_score = "int gs_id, int pid, int score",
     send_cross_award = "int mode, int reward_mode, int id, pack award , pack param",
     send_end_tw_award = "int uid, pack award",
+    notify_cross_award = "pack pids",
+    claim_player_cross_award = "int pid",
+    claim_player_cross_award_ack = "int pid, pack awards",
     cross_refugee_info_req = "",
     cross_refugee_rank_info = "int version",
     cross_refugee_rank_info_req = "int pid, int gs_id, int version",
     cross_refugee_rank_info_ack = "int pid, pack info",
+    -- cross periodic_activity
+    periodic_activity_get_activity_data = "",
+    periodic_activity_sync_data = "int mode, int group_id, int sn, int start_time, int end_time",
+    periodic_activity_reset_player_data = "int mode",
+    periodic_activity_upload_score = "int mode, int sn, int gid, int pid, int rank_lv, int score, int time",
+    periodic_activity_upload_score_ack = "int mode, int sn, int pid",
+    periodic_activity_get_my_rank = "int mode, int gid, int pid, int rank_lv",
+    periodic_activity_get_my_rank_ack = "int mode, int pid, int rank_pos",
+    periodic_activity_gm_refresh_activity = "int mode, int index",
 
     -- allience
     -- tech = {info={{idx,id,exp,tmOver},{...}},mark={idx,idx}}
@@ -443,6 +455,7 @@ Server = {
     abandon_npc = "int eid", -- 弃城
     abd_npc_cond_req = "int eid", -- 弃城条件
     post_npc_change = "int royal_id, int occu_gs_id, int tag", --post npc change to cross mng center
+    get_npc_buff_req = "", --npc buf
     get_city_for_robot_req = "int mode, pack cond", -- robot get a npc eid
     ---- king city 
     officers_info_req = "",  --任命官员大厅
@@ -509,6 +522,7 @@ Server = {
     load_rank = "int idx, int version",
     load_my_rank_score = "int idx",
     load_my_rank_pos = "int idx",
+    get_my_periodic_rank = "int mode",
 
     set_client_parm = "string key, string data",
     set_show_equip = "int flag",
@@ -637,6 +651,12 @@ Server = {
     city_event = "int id, int yes",
 
     fight_action = "pack arm, int bossid", 
+
+    -- periodic activity data
+    periodic_activity_data_req = "int mode",
+
+    operate_dice_query = "",
+    operate_dice_action = "int isTen",
 
 }
 
@@ -912,6 +932,7 @@ Client = {
     abd_npc_cond_ack = "pack info", -- 弃城条件
     get_city_for_robot_ack = "int mode, int eid", -- robot get a npc eid
     npc_ft_result_ntf = "pack info",  --npc战斗结果通知
+    get_npc_buff_ack = "pack info", -- npc buff
 
     --kingcity war
     officers_info_ack = "pack info",
@@ -974,6 +995,7 @@ Client = {
     rank_pos = "int idx, int pos",
     load_my_rank_score = "int idx",
     load_my_rank_pos= "int pos",
+    get_my_periodic_rank = "int mode, int pos",
     -- achievement
     ache_info_ack = "pack info",
     set_ache = "int key, int val",
@@ -1076,6 +1098,12 @@ Client = {
     query_robber = "pack info", -- { propid, eid, x, y }
 
     fight_action = "int bossid, int win, pack report", 
+
+    -- periodic activity data
+    periodic_activity_data_ack = "int mode, pack info",
+
+    operate_dice_query = "int start, int idx",
+    operate_dice_action = "pack info",
 
 }
 

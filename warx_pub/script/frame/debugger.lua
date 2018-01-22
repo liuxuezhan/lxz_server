@@ -933,8 +933,10 @@ local function debugger_loop(ev, vars, file, line, idx_watch)
   --}}}
 
   while true do
+      c_set_debug(1)
     io.write("[DEBUG]> ")
     local line = io.read("*line")
+    c_set_debug(0)
     if line == nil then io.write('\n'); line = 'exit' end
 
     -- if string.find(line, "^[a-z]+") then

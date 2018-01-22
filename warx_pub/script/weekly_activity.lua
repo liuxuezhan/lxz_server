@@ -331,17 +331,16 @@ function send_score_award(ply, index, aid)
 end
 
 function pack_activity(player)
-	if gTime < g_weekly_activity_data.start_time then
-		return
-	end
-	if player.weekly_activitiy_num ~= g_weekly_activity_data.activity_num then
-		player:clear_weekly_activity()
-		player.weekly_activitiy_num = g_weekly_activity_data.activity_num
-	end
-	local ply_info = player.weekly_activity_info[g_weekly_activity_data.current_index]
-	if ply_info[3] == 0 then
-		ply_info[3] = player:get_castle_lv()
-		player.weekly_activity_info = player.weekly_activity_info
+	if gTime >=  g_weekly_activity_data.start_time then
+        if player.weekly_activitiy_num ~= g_weekly_activity_data.activity_num then
+            player:clear_weekly_activity()
+            player.weekly_activitiy_num = g_weekly_activity_data.activity_num
+        end
+        local ply_info = player.weekly_activity_info[g_weekly_activity_data.current_index]
+        if ply_info[3] == 0 then
+            ply_info[3] = player:get_castle_lv()
+            player.weekly_activity_info = player.weekly_activity_info
+        end
 	end
 
     local msg = {}

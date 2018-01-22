@@ -135,6 +135,7 @@ function create(account, map, pid, culture)
     rawset( ply, "_count", {})
     rawset( ply, "_ache", {} )
     rawset( ply, "_operate_activity", {} )
+    rawset( ply, "_pay_state", {} )
 
     gEtys[ eid ] = ply
     etypipe.add(ply)
@@ -879,7 +880,7 @@ end
 ---------------------------------------------------
 
 function firstPacket2(self, sockid, server_id, info, ip)
-    --dumpTab( info, "loginInfo", 100, true)
+    dumpTab( info, "loginInfo", 100, true)
     local from_map = info.server_id
     local cival = info.cival
     local pid = info.pid
@@ -890,6 +891,8 @@ function firstPacket2(self, sockid, server_id, info, ip)
     local token_expire = info.token_expire
     local extra = info.extra or ""
     local version = info.version
+    local device = string.gsub( info.device or "unknown", ",", "_")
+    local os = string.gsub(info.os or "unknown", ",", "_")
 
     if config.IsEnableGm == 1 and info.debug then
         debug_login_with_pid(sockid, pid, from_map)
@@ -957,11 +960,13 @@ function firstPacket2(self, sockid, server_id, info, ip)
     table.insert(pack,  from_map)
     table.insert(pack,  info.did)
     table.insert(pack,  info.info)
+    table.insert(pack,  device )
+    table.insert(pack,  os )
     return handle_login_from_queue(table.unpack(pack))
     
 end
 
-function handle_login_from_queue(sockid, pid, open_id, ip, cival, token, from_map, did, client )
+function handle_login_from_queue(sockid, pid, open_id, ip, cival, token, from_map, did, client, device, os )
     if not client then
         --WARN( "%s, %s, %s, %s, %s, %s, %s, %s", open_id, ip, cival, token, from_map, did, client or "unknown" )
         --print( sockid, pid, open_id, ip, cival, token, from_map, did, client )
@@ -1011,7 +1016,7 @@ function handle_login_from_queue(sockid, pid, open_id, ip, cival, token, from_ma
         end
 
         if pid == 0 then
---            INFO( "firstPacket2, TimeMark,%d, new_account, open_id,%s, did,%s, ip,%s, pid,0", gTime, open_id, did or "unknown", ip or "unknown" )
+            INFO( "firstPacket2, TimeMark,%d, create_account, open_id,%s, pid,0, did,%s, ip,%s, device,%s, os,%s", gTime, open_id, did or "unknown", ip or "unknown", device, os )
             Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.NO_CHARACTER)
             return
         else
@@ -1046,7 +1051,7 @@ function handle_login_from_queue(sockid, pid, open_id, ip, cival, token, from_ma
             end
 
             if pid == 0 then
-                INFO( "firstPacket2, send_to_socket, no_character, new_account, open_id,%s, did,%s, ip,%s", open_id, did or "unknown", ip or "unknown" )
+                --INFO( "firstPacket2, send_to_socket, no_character, new_account, open_id,%s, did,%s, ip,%s", open_id, did or "unknown", ip or "unknown" )
                 Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.NO_CHARACTER)
                 return
             else
@@ -1066,12 +1071,19 @@ function handle_login_from_queue(sockid, pid, open_id, ip, cival, token, from_ma
             end
 
             pid = getId("pid")
-
             p = player_t.create(open_id, gMapID, pid, cival, ip)
             if not p then
                 Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.LOGIN_ERROR)
                 return
             end
+
+            if p.tm_create - act_mng.start_act_tm >= 3 * 86400 then
+                local prop = resmng.get_conf("prop_mail", 10105)
+                if prop then
+                    p:send_system_notice(10105, {}, {})
+                end
+            end
+
             --gPendingInsert.online[ pid ] = { online = 0, pid=pid, uid=open_id, did=did, create=gTime, ip=ip} 
             gTotalCreate = gTotalCreate + 1
             p:add_bonus("mutex_award", {{"item", 2025001, 1, 10000}}, VALUE_CHANGE_REASON.REASON_LV_ITEM)
@@ -1116,7 +1128,7 @@ function handle_login_from_queue(sockid, pid, open_id, ip, cival, token, from_ma
             --            p.GLRender or "NULL", p.GLVersion or "NULL", p.DeviceId or "NULL", 
             --            p.ip or "0.0.0.0" )
 
-            INFO( "firstPacket2, create_character, open_id,%s, did,%s, pid,%d, idx,%d, civil,%d, ip,%s, %s", open_id, did or "unknown", pid, count+1, cival, ip or "unknown", p.ClientVersion or "NULL" )
+            INFO( "firstPacket2, TimeMark,%d, create_character, open_id,%s, pid,%s, did,%s, ip,%s, device,%s, os,%s, idx,%d, cival,%d, %s", gTime, open_id, pid, did or "unknown", ip, device, os, count+1, cival, p.ClientVersion or "NULL" )
         end
     end
 
@@ -1141,7 +1153,7 @@ function handle_login_from_queue(sockid, pid, open_id, ip, cival, token, from_ma
         gPendingSave.player[ p.pid ].token = token
     end
 
-    --INFO( "firstPacket2, TimeMark,%d, login, open_id,%s, did,%s, ip,%s, pid,%d", gTime, open_id, did or "unknown", ip or "unknown", p.pid )
+    INFO( "firstPacket2, TimeMark,%d, login, open_id,%s, pid,%d, did,%s, ip,%s, device,%s, os,%s, lv,%d, tmcreate,%d", gTime, open_id, p.pid, did or "unknown", ip or "unknown", device, os, (p.propid or 1001)%1000, p.tm_create )
 
     p:upload_user_info()
 
@@ -1837,6 +1849,7 @@ function check_pending()
                     if p._mail then p._mail = nil end
                     if p.yueka then p.yueka = nil end
                     if p._operate_activity then p._operate_activity = nil end 
+                    if p._pay_state then p._pay_state = nil end
                     if p._cur_task_list then clear_task( p ) end
                 end
 
@@ -2777,7 +2790,9 @@ function gm_user(self, cmd)
     elseif choose == "debug1" then
         debug_tag = 1
     elseif choose == "lxz" then
-        player_t.check_say()
+        --player_t.check_say2()
+        gTotalMarkH = 0 
+        gTotalMarkL = 0 
         -- _lxz_sn = (_lxz_sn or gTime ) + 1
         -- local t = { pid=1,cpid="wm.app.credit1",order_id=_lxz_sn,quantity=123,ext_info=Json.encode({player_id=self.pid,}),}  
         -- agent_t.do_gm_cmd["pay"]( t )
@@ -2999,7 +3014,7 @@ function gm_user(self, cmd)
         monster.on_day_pass()
         npc_city.on_day_pass()
         npc_city.try_start_tw()
-        daily_activity.on_day_pass()
+        king_city.try_unlock_kw()
         self:on_day_pass()
 
     elseif choose == "addarm" then
@@ -3255,6 +3270,8 @@ function gm_user(self, cmd)
         self.activity = tonumber(get_parm(1))
     elseif choose == "dailyresetbox" then
         self.activity_box = {}
+    elseif choose == "dailyactivity_refresh" then
+        Rpc:callAgent(gCenterID, "periodic_activity_gm_refresh_activity", tonumber(get_parm(1)), tonumber(get_parm(2)))
     elseif choose == "finishtask" then
         local task_id = tonumber(get_parm(1))
         self:gm_finish_task(task_id)
@@ -3657,6 +3674,11 @@ function loadData(p, what)--本函数严禁加日志
             mail_compensate( p )
         end
 
+        if gOperateDiceTime > 0 then
+            operate_dice_query( p )
+        end
+        p:claim_cross_award()
+
         if gClientExtraPost then Rpc:do_string( p, gClientExtraPost ) end
 
     end
@@ -3834,6 +3856,10 @@ function clear_cross_data(self)
     end
 end
 
+function claim_cross_award(self)
+    Rpc:callAgent(gCenterID, "claim_player_cross_award", self.pid)
+end
+
 function get_build_timers_and_del(self)
     local bs = self:get_build()
     local timers = {}
@@ -3889,38 +3915,64 @@ end
 
 
 function say(self, saying, i)
-    LOG("[SAY], pid,%d, tm,%d, lv,%d, say,%s, ", self.pid, gTime - self.tm_create, self.propid % 1000, saying )
-    local d = {_id=bson.objectid(),pid=self.pid,tm=gTime-self.tm_create,say=saying } 
-    gPendingSave.say[d._id] = d
+    INFO("[SAY], pid,%d, tm,%d, lv,%d, say,%s, ", self.pid, gTime - self.tm_create, self.propid % 1000, saying )
+    if (gTime - self.tm_create) > 10*60 then return  end
+    local t = {}
+    for v in string.gmatch(saying,'[^,]+') do
+        table.insert(t,v)
+    end
 
     --Rpc:say1(self, saying, i)
 end
 
-function check_say()
-    local s = {}
+
+function check_say2(day)
+    local a,b={},{}
+    day = day or 1
     local db = dbmng:getOne()
-    for pid, _ in pairs(gPlys) do
-        local info = db.say:find({pid=pid})
-        if info then
-            s[pid] = s[pid] or {} 
-            while info:hasNext() do
-                local d = info:next()
-                table.insert(s[pid],d)
-            end
-            table.sort(s[pid],function (a,b) return a.tm<b.tm end)
-            local sn 
-            for _, v in pairs(s[pid]) do
-                 if sn==v.say  
-                    and (not v.say:find("worldmap_small") )
-                    and (not v.say:find("worldmaproot/CameraRoot") ) --地图移动
-                    and  (not v.say:find("city_base/DragCamera") ) --城内移动
-                    and  (not v.say:find("city_base/buildings/city_build") )--城内建筑 
-                    then 
-                    print(v.pid,v.tm,v.say)
-                end
-                sn = v.say
+    local info = db.say:find()
+    if info then
+        while info:hasNext() do
+            local num = 0
+            local d = info:next()
+            if d.tm > day *24*60*60  then b[d.pid] = 1 end
+            if d.tm < 10*60 then 
+                a[d.pid] = a[d.pid] or {} 
+                a[d.pid][d.say] = (a[d.pid][d.say] or 0) + 1 
             end
         end
+
+    end
+
+    for pid, v in pairs(b) do 
+        b[pid] = a[pid]
+        a[pid] = nil 
+    end
+
+    local t,num= {},0
+    for pid, v in pairs(a) do 
+        num = num + 1
+        for k, n in pairs(v) do 
+            for k, v in pairs(t) do LOG("[SAYa]%d, %d, %s", pid,n,k ) end
+            t[k] = (t[k] or 0 ) + n 
+        end
+    end
+
+    for k, v in pairs(t) do 
+        LOG("[SAYa1]%f,%s",(v/num),k )
+    end
+
+    t,num= {},0
+    for pid, v in pairs(b) do 
+        num = num + 1
+        for k, n in pairs(v) do 
+            for k, v in pairs(t) do LOG("[SAYb]%d, %d, %s", pid,n,k ) end
+            t[k] = (t[k] or 0 ) + n 
+        end
+    end
+
+    for k, v in pairs(t) do 
+        LOG("[SAYb1]%f,%s",(v/num),k )
     end
 end
 
@@ -5746,6 +5798,24 @@ function union_npc_info_req(self)
     Rpc:union_npc_info_ack(self, pack)
 end
 
+function get_npc_buff_req(self)
+    local pack = {}
+    for k, v in pairs(npc_city.citys) do
+        local city = get_ety(k)
+        if city then
+            local conf = resmng.get_conf( "prop_world_unit", city.propid ) 
+            if conf then
+                if conf.Lv == 1 then
+                    local union = unionmng.get_union(city.uid) or {}
+                    local info = {propid = city.propid, uid = city.uid, uname = union.name, ualias = union.alias, uflag = union.flag, buf = city.kw_buff}
+                    table.insert(pack, info)
+                end
+            end
+        end
+    end
+    Rpc:get_npc_buff_ack(self, pack)
+end
+
 function npc_act_info_req(self)
     local pack = {}
     local union = unionmng.get_union(self.uid)
@@ -6216,6 +6286,13 @@ function act_info_req(self)
             local clock = timer.get(king_city.timerId)
             if clock then
                 act.end_time = clock.over
+            elseif act_mng.start_act_tm and king_city.state == KW_STATE.LOCK then
+                local prop = resmng.prop_kw_stage[KW_STATE.LOCK]
+                local time =  60 * 86400 
+                if prop then
+                    time = prop.Spantime + 3 * 86400
+                end
+                act.endTime = act_mng.start_act_tm + time - (king_city.start_tm or 0)
             end
         end
 
@@ -6234,7 +6311,7 @@ function act_info_req(self)
     --周限时活动,这个是后面设计加在这个地方的，所以比较特殊
     if self.map == gMapID then
         pack["weekly_activity"] = weekly_activity.pack_activity(self)
-        pack["daily_activity"] = daily_activity.pack_activity(self)
+        pack["daily_activity"] = daily_activity.pack_activity(self, PERIODIC_ACTIVITY.DAILY)
     end
 
     Rpc:act_info_ack(self, pack)
@@ -6613,6 +6690,13 @@ function kw_info_req(self)
     pack.state = king_city.state
     if time then
         pack.endTime = time.over
+    elseif act_mng.start_act_tm and king_city.state == KW_STATE.LOCK then
+        local prop = resmng.prop_kw_stage[KW_STATE.LOCK]
+        local time =  60 * 86400 
+        if prop then
+            time = prop.Spantime + 3 * 86400
+        end
+        pack.endTime = act_mng.start_act_tm + time - (king_city.start_tm or 0)
     end
 
     local kingCity = king_city.get_king()
@@ -6821,7 +6905,8 @@ function officers_info_req(self)
             officer.lv = ply:get_castle_lv()
             local union = unionmng.get_union(ply.uid)
             if union then
-                officer.union = union.alias
+                officer.u_name = union.name
+                officer.u_alias = union.alias
             end
         else
             officer.index = k
@@ -6829,7 +6914,8 @@ function officers_info_req(self)
             officer.name = v[2]
             officer.photo = v[3]
             officer.lv = v[4]
-            officer.union = v[5]
+            officer.u_name = v[5]
+            officer.u_alias = v[6]
         end
         officers[k] = officer
     end
@@ -6857,22 +6943,25 @@ function honour_wall_req(self)
     local kings = {}
     local season = king_city.season
     local start_year = os.date("%Y", get_sys_status("start") or 0 ) or 0
+    pack.start_year = start_year
     for k, v in pairs(king_city.kings) do
         local ply = getPlayer(v[2])
         local plyName = v[6]
         local plyPhoto = v[13] or 1
         local unionName = v[9]
+        local unionalias = v[14]
         if ply then
             plyName = ply.name
             plyPhoto = ply.photo
         end
         local union = unionmng.get_union(v[3])
         if union then
-            unionName = union.alias
+            unionName = union.name
+            unionalias = union.alias
         end
         local year = os.date("%Y", v[5]) or 0
         local point = string.format("%0.2f", (v[4] / v[10] or 1))
-        table.insert(kings, {k, v[2], plyName, unionName, tonumber(point), v[5], math.floor(year - start_year + 1), plyPhoto})
+        table.insert(kings, {k, v[2], plyName, unionName, unionalas, tonumber(point), v[5], math.floor(year - start_year + 1), plyPhoto})
     end
     pack.kings = kings
     pack.season = season
@@ -6937,7 +7026,8 @@ function find_player_by_name_req(self, name)
             pack.uid = p.uid
             pack.officer = p:get_officer()
             local union = unionmng.get_union(p.uid)
-            if union then pack.uname = union.alias or "" end
+            if union then pack.ualias = union.alias or "" end
+            if union then pack.uname = union.name or "" end
         end
     end
     Rpc:find_player_by_name_ack(self, pack)
@@ -7645,14 +7735,32 @@ function load_my_rank_pos(self, idx)
             key = self.uid
         end
         if key ~= nil then
-            local pos = rank_mng.get_rank( idx, key)
-            if pos ~= nil and pos > 0 then
-                Rpc:load_my_rank_pos(self, pos)
+            if is_in_table(PERIODIC_ACTIVITY_CFG[PERIODIC_ACTIVITY.DAILY].RANK, idx) then
+                self:get_my_periodic_rank(PERIODIC_ACTIVITY.DAILY)
             else
-                Rpc:load_my_rank_pos(self, 0)
+                local pos = rank_mng.get_rank( idx, key)
+                if pos ~= nil and pos > 0 then
+                    Rpc:load_my_rank_pos(self, pos)
+                else
+                    Rpc:load_my_rank_pos(self, 0)
+                end
             end
         end
     end
+end
+
+function get_my_periodic_rank(self, mode)
+    if mode == PERIODIC_ACTIVITY.DAILY then
+        daily_activity.check_player_data(self, mode)
+        Rpc:callAgent(gCenterID, "periodic_activity_get_my_rank", mode, self.emap, self.pid, self.daily_activity_info.rank_lv)
+    elseif mode == PERIODIC_ACTIVITY.BIHOURLY then
+        daily_activity.check_player_data(self, mode)
+        Rpc:callAgent(gCenterID, "periodic_activity_get_my_rank", mode, self.emap, self.pid, self.bihourly_activity_info.rank_lv)
+    end
+end
+
+function periodic_activity_data_req(self, mode)
+    Rpc:periodic_activity_data_ack(self, mode, daily_activity.pack_activity(self, mode))
 end
 
 function set_client_parm(p, key, data)
@@ -8371,8 +8479,45 @@ function clear_weekly_activity(self)
     self.weekly_activity_info = {{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0}}
 end
 
-function clear_daily_activity(self)
-    self.daily_activity_info = {}
+function clear_periodic_activity(self, mode)
+    if mode == PERIODIC_ACTIVITY.DAILY then
+        self.daily_activity_info = {}
+    elseif mode == PERIODIC_ACTIVITY.BIHOURLY then
+        self.bihourly_activity_info = {}
+    end
+end
+
+function set_periodic_upload_watcher(self, mode)
+    self.periodic_upload_timer = self.periodic_upload_timer or {}
+    self.periodic_upload_timer[mode] = self.periodic_upload_timer[mode] or {sn = 0, timer_id = 0}
+
+    local timer_info = self.periodic_upload_timer[mode]
+    timer_info.sn = timer_info.sn + 1
+
+    local t = timer.get(timer_info.timer_id)
+    if not t then
+        timer_info.timer_id = timer.new("periodic_upload_score_watcher", PERIODIC_ACTIVITY_UPLOAD_WATCHER, self.pid, mode)
+    else
+        timer.adjust(timer_info.timer_id, gTime + PERIODIC_ACTIVITY_UPLOAD_WATCHER)
+    end
+
+    return timer_info.sn
+end
+
+function clear_periodic_upload_watcher(self, mode, sn)
+    if not self.periodic_upload_timer or not self.periodic_upload_timer[mode] then
+        return
+    end
+    if self.periodic_upload_timer[mode].sn ~= sn then
+        return
+    end
+    timer.del(self.periodic_upload_timer[mode].timer_id)
+    self.periodic_upload_timer[mode].timer_id = 0
+end
+
+function reupload_periodic_score(self, mode)
+    WARN("[PeriodicActivity] re-upload periodic score of player %d|%s", self.pid, mode)
+    daily_activity.upload_score(self, mode)
 end
 
 function get_weekly_activity_total(self)
@@ -8703,7 +8848,7 @@ function chat_load_session( self )
                 end
                 table.insert( nodes, node )
             end
-            dumpTab( nodes, "chat_load_session", 100, true )
+            --dumpTab( nodes, "chat_load_session", 100, true )
         end
     end
 end
@@ -9075,6 +9220,50 @@ function cross_clear_timer( self )
     timer_ex.clear_timer(self.pid)
     return tms
 end
+
+
+function operate_dice_query( self )
+    if gOperateDiceTime == 0 then
+        Rpc:operate_dice_query( self, 0,0 )
+    else
+        Rpc:operate_dice_query( self, gOperateDiceTime, gOperateDiceIdx )
+    end
+end
+
+function operate_dice_action( self, isTen )
+    local t = gOperateDiceTime
+    if t > 0 then
+        if gTime >= gOperateDiceTime and gTime <= gOperateDiceTime + 3600 * 72 then
+            local idx = gOperateDiceIdx
+            local conf = resmng.prop_dice[ idx ]
+
+            if conf then
+                local gold = OPERATE_DICE_ONE
+                if isTen == 1 then gold = OPERATE_DICE_TEN end
+                if self:dec_gold( gold, VALUE_CHANGE_REASON.OPERATE_DICE ) then
+
+                    local pending = gPendingBonus[ self.pid ]
+                    gPendingBonus[ self.pid ] = {}
+
+                    if isTen == 1 then
+                        for i = 1, 10, 1 do
+                            add_bonus( self, "mutual_award", conf.Items, VALUE_CHANGE_REASON.OPERATE_DICE )
+                        end
+                    else
+                        add_bonus( self, "mutual_award", conf.Items, VALUE_CHANGE_REASON.OPERATE_DICE )
+                    end
+
+                    local msg_notify = gPendingBonus[ self.pid ]
+                    gPendingBonus[ self.pid ] = pending
+
+                    Rpc:operate_dice_action( self, msg_notify )
+
+                end
+            end
+        end
+    end
+end
+
 
 --function cross_clear_timer(self)
 --    local timers = {}

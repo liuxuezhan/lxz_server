@@ -354,8 +354,10 @@ end
 
 _funs["build"] = function(sn, pid, build_idx, ...)
     local p = getPlayer(pid)
-    union_help.del(p,sn)
-    p:doTimerBuild(sn, build_idx, ...)
+    if p then
+        union_help.del(p,sn)
+        p:doTimerBuild(sn, build_idx, ...)
+    end
 end
 
 _funs["mass"] = function(sn, uid, idx)
@@ -579,4 +581,43 @@ _funs["cross_migrate_back"] = function(sn, pid)
     end
 end
 
+_funs["batch_claim_cross_award"] = function(sn, pids)
+    for _, pid in pairs(pids) do
+        local player = getPlayer(pid)
+        if player then
+            player:claim_cross_award()
+        end
+    end
+end
+
+_funs["periodic_bihourly_activity"] = function(sn)
+    periodic_activity_manager.on_bihour_pass()
+    return 1
+end
+
+_funs["periodic_upload_score_watcher"] = function(sn, pid, mode)
+    local player = getPlayer(pid)
+    if not player then
+        return
+    end
+    return player:reupload_periodic_score(mode)
+end
+
+_funs["operate_dice"] = function()
+    crontab.operate_dice()
+end
+
+_funs["ship_fcm"] = function(sn, pid)
+    local ply = getPlayer(pid)
+    if ply then
+        offline_ntf.post(resmng.OFFLINE_NOTIFY_DAILYAWARD, ply)
+    end
+end
+
+_funs["res_fcm"] = function(sn, pid)
+    local ply = getPlayer(pid)
+    if ply then
+        offline_ntf.post(resmng.OFFLINE_NOTIFY_RESFULL, ply)
+    end
+end
 

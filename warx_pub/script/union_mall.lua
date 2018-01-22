@@ -1,6 +1,35 @@
 -- 军团商店模块
 module(..., package.seeall)
 
+
+function change()
+    local db = dbmng:getOne()
+    local info = db.union_mall:find({})
+    while info:hasNext() do
+        local d = info:next()
+        for k, v in pairs(d.item or {}) do
+            local t = {_id = d._id.."_"..v.propid, uid=d._id, propid=v.propid,num=v.num}  
+            db.union_mall_item:insert(t)
+        end
+
+        for k, v in pairs(d.mark or {}) do
+            local t = {_id = d._id.."_"..v.propid, uid=d._id, propid=v.propid}  
+            db.union_mall_mark:insert(t)
+        end
+
+        for k, v in pairs(d.add or {}) do
+            local t = { _id=bson.objectid(), uid=d._id, name = v.name,propid=v.propid,num=v.num,tm=v.tm }
+            db.union_mall_add:insert(t)
+        end
+
+        for k, v in pairs(d.buy or {}) do
+            local t = { _id=bson.objectid(), uid=d._id, name = v.name,propid=v.propid,num=v.num,tm=v.tm }
+            db.union_mall_buy:insert(t)
+        end
+    end
+    db.union_mall:delete({}) 
+end
+
 function add(p,propid,num)
     local u = unionmng.get_union(p:get_uid())
     if not u then return end
@@ -29,6 +58,7 @@ function add(p,propid,num)
     u:notifyall("mall", resmng.OPERATOR.ADD,{propid=propid,num=d.num } )
 end
 
+
 function clear(uid)--删除军团时清除数据
     dbmng:getOne().union_mall_mark:delete({uid=uid})
     dbmng:getOne().union_mall_add:delete({uid=uid})
@@ -36,31 +66,6 @@ function clear(uid)--删除军团时清除数据
     dbmng:getOne().union_mall_item:delete({uid=uid})
 end
 
-function mark0(ply,propid,flag)
-    local u = unionmng.get_union(ply:get_uid())
-    if not u then return false end
-    if not u.mall then
-        u.mall= { _id=u.uid,add={},buy={},mark={}}
-        gPendingSave.union_mall[u.uid] = u.mall
-    end
-    local f = 0
-    for k, v in pairs(u.mall.mark or {}) do
-        if v.propid == propid  and v.pid == ply.pid then
-            if flag == 0 then
-                u.mall.mark[k]=nil
-                gPendingSave.union_mall[u.uid].mark = u.mall.mark
-                u:notifyall("mall_mark", resmng.OPERATOR.UPDATE,{pid=ply.pid,name=ply.name,propid=propid,flag=flag } )
-            end
-            return
-        end
-    end
-
-    if flag == 1 then
-        table.insert(u.mall.mark,{pid = ply.pid,propid=propid,})
-        gPendingSave.union_mall[u.uid].mark = u.mall.mark
-        u:notifyall("mall_mark", resmng.OPERATOR.UPDATE,{pid=ply.pid,name=ply.name,propid=propid,flag=flag } )
-    end
-end
 
 function mark(p,propid,flag)
     local u = unionmng.get_union(p:get_uid())
@@ -142,9 +147,10 @@ function get(uid)
     return {list={},mark={} }
 end
 
-function load()--启动加载
-    local db = dbmng:getOne()
 
+function load()--启动加载
+    change()
+    local db = dbmng:getOne()
     local info = db.union_mall_mark:find({})
     while info:hasNext() do
         local d = info:next()

@@ -1,4 +1,4 @@
-local Struct = {}
+﻿local Struct = {}
 
 Struct.UnionMember = "int pid, string name, int lv, int language, int rank, string title, int photo, int eid, int x,int y, int pow, int tm_login, int tm_logout, int buildlv, int propid, int tm_join, int donate, int nation"
 Struct.UnionEnlist = "string text, int lv, int pow,int check"

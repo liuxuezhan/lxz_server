@@ -143,7 +143,7 @@ function init_king_state(kingCity)
     local k_prop = resmng.prop_world_unit[kingCity.propid]
     if k_prop then
         if k_prop.Lv ~= CITY_TYPE.FORT then
-            kingCity.endTime = act_mng.start_act_tm + time
+            kingCity.endTime = act_mng.start_act_tm + time + 3 * 86400 
         end
     end
     etypipe.add(kingCity)
@@ -203,7 +203,7 @@ function is_kw_unlock()
     if start_tm then
         time = time - start_tm
     end
-    if ( gTime - act_mng.start_act_tm or 0 ) > time  then
+    if ( gTime - act_mng.start_act_tm or 0 ) >= time  then
         if time ==  prop.Spantime then
             return 1
         else
@@ -1531,7 +1531,7 @@ end
 function select_king(union, pid)
     local ply = getPlayer(pid)
     if ply and ply.map == gMapID and union:has_member(ply) then
-        local king = {season, pid, union.uid, 0, gTime, ply.name, ply.flag, ply:get_castle_lv(), union.name, 0, union.language, ply.culture, ply.photo}
+        local king = {season, pid, union.uid, 0, gTime, ply.name, ply.flag, ply:get_castle_lv(), union.name, 0, union.language, ply.culture, ply.photo, union.alias}
         -- 国王加入到
         kings[season] = king
         gPendingSave.status["kwState"].kings = kings
@@ -1616,7 +1616,7 @@ function select_officer(king, pid, index)
         officers[preOfficer] = nil
         ply:change_officer(index)
         ply.select_time = gTime
-        officers[index] = {pid, ply.name, ply.photo, ply:get_castle_lv(), u and u.alias}
+        officers[index] = {pid, ply.name, ply.photo, ply:get_castle_lv(), u and u.name, u and u.alias}
         gPendingSave.status["kwState"].officers = officers
 
         local prop

@@ -840,9 +840,16 @@ function after_fight(atkTroop, defenseTroop)
                 king_city.common_ntf(resmng.MC_LOSE, {union.name, city_pro.Name, union.alias}, union)
             end
 
+            local pack = {}
+            pack.mode = DISPLY_MODE.NPC
+            pack.state= TW_ACTION.LOST
+            pack.npc_id = npcCity.propid
+            pack.mc_propid = mc.propid
+
             local _members = union:get_members()
             for _, ply in pairs(_members or {}) do
                 ply:send_system_notice(resmng.MAIL_10063, {city_pro.Name}, {city_pro.Name})
+                ply:add_to_do("display_ntf", pack)
             end
 
             if (union.mc_grade or 1 )> 1 then

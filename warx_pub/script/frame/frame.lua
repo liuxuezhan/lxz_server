@@ -55,6 +55,10 @@ function thanks()
         local info = table.concat({"GameStart",config.SERVER_ID,tms2str(gTime)}, '|')
         c_tlog(info)
     end
+    if config.Place then
+        local info = table.concat({"GameStart",config.SERVER_ID,tms2str(gTime)}, '|')
+        c_tlog2(1, info)
+    end
 end
 
 
@@ -448,6 +452,8 @@ function do_threadPK2()
                         if Protocol.CrossQuery[ fname ] then
                             LOG("RpcR, pid=%d, func=%s, frame=%d", pid, fname, gFrame )
                             player_t[ fname ]( {pid=pid, uid=0, gid=_G.GateSid}, unpack( data ) )
+                        else
+                            WARN("RpcR, pid=%d, can not find player for local function. fname=[%s]", pid, fname)
                         end
                     end
 

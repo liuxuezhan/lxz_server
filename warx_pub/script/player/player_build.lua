@@ -924,6 +924,30 @@ function reap(self, idx)
         --任务
         task_logic_t.process_task(self, TASK_ACTION.GET_RES, (prop.Mode+4)) -- +4是为了让类型和表里面的对上，mode实际是1234，任务表里面是5678
         n.tmStart = gTime
+        self:find_next_reap_tm(idx)
+    end
+end
+
+function find_next_reap_tm(self, idx)
+    local list = self.res_reap_tm or {}
+    list[idx] = gTime
+    local st_tm = gTime
+    for idx, v in pairs(list or {}) do
+        if st_tm > v then
+            st_tm = v
+        end
+    end
+    self.res_reap_tm  = list
+    local node = timer.get(self.res_fcm_tm)
+    if node then
+        if node.start < st_tm then
+            timer.del(self.res_fcm_tm)
+            local tm = timer.new("res_fcm", 9 * 3600, self.pid)
+            self.res_fcm_tm = tm
+        end
+    else
+        local tm = timer.new("res_fcm", 9 * 3600, self.pid)
+        self.res_fcm_tm = tm
     end
 end
 
@@ -949,7 +973,6 @@ end
 
 
 function equip_split(self, id)
-    print("equip_split", id)
     local n = self:get_equip(id)
     if not n then return LOG("equip_split, no equip") end
     if n.pos ~= 0 then return end -- equip_on
@@ -960,7 +983,13 @@ function equip_split(self, id)
     self:obtain(prop.Split, 1, VALUE_CHANGE_REASON.SPLIT)
     self:equip_rem(id, VALUE_CHANGE_REASON.SPLIT)
 
-
+    local infos = {}
+    for _, v in pairs( prop.Split ) do
+        if v[1] == 6 then
+            table.insert( infos, {"item", v[2], v[3]} )
+        end
+    end
+    Rpc:notify_bonus( self, infos )
 end
 
 

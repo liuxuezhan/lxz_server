@@ -81,7 +81,7 @@ function on_day_pass()
         gacha_limit_t.gacha_limit_on_day_pass()
         --周限时活动
         weekly_activity.on_day_pass()
-        daily_activity.on_day_pass()
+        periodic_activity_manager.on_day_pass()
 
         _G.gSysStatus.pass_day_tick = gTime
         set_sys_status("pass_day_tick", gTime)
@@ -103,8 +103,6 @@ end
 
 function send_tw_award()
     npc_city.send_score_award()
-    rank_mng.clear(12)
-    rank_mng.clear(14)
 end
 
 function send_mc_award()
@@ -185,3 +183,67 @@ end
 function operate_activity_tick()
     operate_activity.heart_beat()
 end
+
+function operate_dice()
+    local open_time = get_sys_status("start")
+    local tm = os.date( "*t", open_time )
+    _G.gOperateDiceTime = 0
+    _G.gOperateDiceIdx = 0
+
+    local unlock_time = os.time( {year=tm.year, month=tm.month, day=tm.day+7, hour=0, min=0, sec=0} )
+    if gTime < unlock_time then
+        timer.new( "operate_dice", unlock_time - gTime + 1 )
+        return
+    end
+
+    local tm_base = 0
+    if tm.wday >= 2 then
+        tm_base = open_time - ( (tm.wday-2) * 3600 * 24 + tm.hour * 3600 + tm.min * 60 + tm.sec )
+    else
+        tm_base = open_time - ( (tm.wday-6) * 3600 * 24 + tm.hour * 3600 + tm.min * 60 + tm.sec )
+    end
+
+    local OneWeek = 3600 * 24 * 7
+    local OneDay = 3600 * 24
+
+    local nweek = math.floor( ( gTime - tm_base ) / OneWeek ) + 1
+    local offset = ( gTime - tm_base ) % OneWeek
+
+    local start = 0
+    if nweek == 1 then
+        start = gTime + OneWeek - offset + OneDay * ( 4 + 7 )
+
+    elseif nweek == 2 then
+        start = gTime + OneWeek - offset + OneDay * ( 4 )
+
+    elseif nweek % 2 == 1 then
+        if offset >= 4 * OneDay then
+            start = gTime - ( offset - 4 * OneDay )
+        else
+            start = gTime + ( 4 * OneDay - offset )
+        end
+    else
+        start = gTime + OneWeek - offset + OneDay * ( 4 )
+    end
+    _G.gOperateDiceTime = start
+
+    local idx = 0
+    if start > 0 then
+        nweek = math.floor( ( start - tm_base ) / OneWeek ) + 1
+        idx = math.floor( (nweek - 1)/2 )
+        local conf = resmng.prop_dice
+        local total = #conf
+        idx = idx % total
+        if idx == 0 then idx = total end
+        _G.gOperateDiceIdx = idx
+        WARN( "OperateDice, nweek,%d, idx,%d", nweek, idx )
+    end
+
+    Rpc:operate_dice_query( {pid=-1,gid=_G.GateSid}, start, idx )
+
+    local t = os.date( "*t", _G.gOperateDiceTime )
+    for k, v in pairs( t ) do
+        WARN( "OperateDice, %s, %s", k, v )
+    end
+end
+

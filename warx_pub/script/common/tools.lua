@@ -1,4 +1,4 @@
--- Hx@2015-11-25 : common functions
+﻿-- Hx@2015-11-25 : common functions
 
 function string.split(str, delimiter)
     if str == nil or str == "" or delimiter == nil then
@@ -872,9 +872,16 @@ function get_cur_hour(timestamp)
     return math.floor(s / 3600)
 end
 
-function get_next_day_stamp(timestamp)
-    local dest_days = get_days(timestamp) + 1
+function get_next_day_stamp(timestamp, offset)
+    offset = offset or 1
+    local dest_days = get_days(timestamp) + offset
     return (dest_days * 86400)
+end
+
+function get_next_round_stamp(timestamp, round_time, offset)
+    offset = offset or 1
+    local count = math.floor(timestamp / round_time) + offset
+    return count * round_time
 end
 
 
@@ -1462,6 +1469,10 @@ function check_ply_cross(ply)
 --        return false
 --    end
  --   return true
+end
+
+function is_center_server()
+    return gCenterID == gMapID
 end
 
 --------------------------------------------------------------------

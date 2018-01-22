@@ -45,6 +45,10 @@ function load_rank(rank)
     end
 end
 
+function get_rank_id(class, mode, id)
+    return class * 1000000 + mode * 1000 + id
+end
+
 function reset_rank(class)
     local dels = {}
     for k, v in pairs(ranks) do

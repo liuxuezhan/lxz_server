@@ -1704,31 +1704,32 @@ function union_create(name,num)
             table.insert(ps,p)
         end
     end
+    lxz()
 
     if num < 10 then return ps end 
 
-    -- local id = 10021001
-    -- local obj = set_build(a, id, a.x, a.y ) 
-    -- sync(a)
-    -- build(a,obj,1)
-    -- sync(a)
+    local id = 10021001
+    local obj = set_build(a, id, a.x, a.y ) 
+    sync(a)
+    build(a,obj,1)
+    sync(a)
 
-    -- id = 10007001
-    -- local obj2 = set_build(a, id, obj.x, obj.y, 14 ) 
-    -- sync(a)
-    -- build(a,obj2,1)
+    id = 10007001
+    local obj2 = set_build(a, id, obj.x, obj.y, 14 ) 
+    sync(a)
+    build(a,obj2,1)
 
 
-    -- -- id = 10031001
-    -- -- obj2 = set_build(a, id, obj.x+50, obj.y+50, 14 ) 
-    -- -- sync(a)
-    -- -- build(a,obj2,1)
-
-    -- id = 10004001
-    -- lxz()
-    -- obj2 = set_build(a, id, obj.x, obj.y, 14 ) 
+    -- id = 10031001
+    -- obj2 = set_build(a, id, obj.x+50, obj.y+50, 14 ) 
     -- sync(a)
     -- build(a,obj2,1)
+
+    id = 10004001
+    lxz()
+    obj2 = set_build(a, id, obj.x, obj.y, 14 ) 
+    sync(a)
+    build(a,obj2,1)
 
 
     return ps 

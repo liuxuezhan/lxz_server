@@ -1,23 +1,86 @@
 module("player_t")
 
+function change_pay_state()
+    for _, p in pairs( gPlys or {}) do
+        if p._pro.pay_state then
+            local as = p._pro.pay_state
+            as.pid = p.pid
+            as._id = p.pid
+            gPendingInsert.pay_state[p.pid] = as
+            rawset( p, "_pay_state", as )
+            p.pay_state = nil
+            WARN( "update %d pay_state", p.pid )
+        end
+    end
+
+    local db = dbmng:getOne()
+    if db then
+        db.player:update( {}, { ["$unset"]={ ["pay_state"]='', } }, false, true )
+    else
+        ERROR( "change_pay_state, can not get db" )
+    end
+end
+
+function do_load_pay_state( self )
+    if not self._pay_state then
+        local db = self:getDb()
+        local info = db.pay_state:findOne({_id=self.pid})
+        if not self._pay_state then rawset(self, "_pay_state", info or {}) end
+    end
+end
+
+function get_pay_state(self, key)
+    if not self._pay_state then do_load_pay_state(self) end
+    if key then
+        local node = self._pay_state[key] or {}
+        if not node then
+            node = {_id = self.pid.."_"..key, pid = self.pid}
+            self._pay_state[key] = node
+            gPendingSave.pay_state[node._id] = node
+        end
+        return node
+    else
+        return self._pay_state
+    end
+end
+
+function set_pay_state(self, val)
+    val._id = self.pid
+    gPendingSave.pay_state[self.pid] = val
+end
+
+function set_pay_state1(self, key, val)
+    local data = self:get_pay_state()
+    if val == nil then
+        gPendingDel.pay_state[self.pid][key] = 0
+    else
+        data[key] = val
+        gPendingSave.pay_state[self.pid][key] = val
+    end
+end
+
 function get_can_buy_list_req(self, force)
     local pack = {}
-    local pay_state = self.pay_state or {}
+    local pay_state = self:get_pay_state()
     local can_buy_list = pay_state.can_buy_list or {}
     local last_refresh_timeline = pay_state.last_refresh_timeline or 0
     local last_buy_time = pay_state.last_buy_time 
     if check_daily_buy(last_buy_time) and get_table_valid_count(pay_state.daily_buy_history or {}) > 0 then
         pay_state.daily_buy_history = {}
+        self:set_pay_state1("daily_buy_history", pay_state.daily_buy_history)  
     end
 
     if check_refresh(last_refresh_timeline ) then
         self:gen_can_buy_list(pay_state)
         pay_state.last_refresh_timeline = pay_mall.refresh_time
         pay_state.new_list = {}
+        self:set_pay_state1("last_refresh_timeline", pay_state.last_refresh_timeline)  
+        self:set_pay_state1("new_list", pay_state.new_list)  
         --pay_state.last_refresh_time = gTime
     end
 
-    self.pay_state = pay_state
+    self._pay_state = pay_state
+    --self:set_pay_state(pay_state)
 
     local normal_buy_list = {}
     for k, v in pairs( pay_state.normal_buy_list or {}) do
@@ -54,7 +117,7 @@ function get_can_buy_list_req(self, force)
 end
 
 function gen_next_buy_list(ply, product_id)
-    local pay_state = ply.pay_state
+    local pay_state = ply:get_pay_state()
    -- for k, v in pairs( pay_state.normal_buy_list or {}) do
    --     if v == product_id then
    --         pay_state.normal_buy_list[k] = nil
@@ -89,9 +152,10 @@ function gen_next_buy_list(ply, product_id)
             end
         end
         pay_state.gift_buy_list[k] = v
-        pay_state.new_list = new_list
     end
-    ply.pay_state = pay_state
+    pay_state.new_list = new_list
+    ply:set_pay_state1("gift_buy_list", pay_state.gift_buy_list)
+    ply:set_pay_state1("new_list", pay_state.new_list)
     ply:get_can_buy_list_req()
 end
 
@@ -171,6 +235,7 @@ function gen_group_list(self, group, pay_state)
         end
     end
     pay_state.gift_buy_list = gift_buy_list
+    self:set_pay_state1("gift_buy_list", pay_state.gift_buy_list)
 end
 
 function add_can_buy_id( self, product_id, buy_list) --查看是否有高优先级的存在
@@ -234,6 +299,7 @@ function gen_normal_buy_list(self, pay_state)
         end
     end
     pay_state.normal_buy_list = normal_buy_list
+    self:set_pay_state1("normal_buy_list", pay_state.normal_buy_list)
 end
 
 function check_can_buy( self, product_id) --查看是否有高优先级的存在
@@ -293,7 +359,7 @@ end
 check_each_cond = {}
 
 check_each_cond["buy_peruser"] = function(ply, mode, action, id, num)
-    local pay_state = ply.pay_state or {} 
+    local pay_state = ply:get_pay_state()
     local buy_history = pay_state.buy_history or {}
     local history = buy_history[id] or {}
     local count = get_table_valid_count(history or {} )
@@ -301,7 +367,7 @@ check_each_cond["buy_peruser"] = function(ply, mode, action, id, num)
 end
 
 check_each_cond["buy_perday"] = function(ply, mode, action, id, num)
-    local pay_state = ply.pay_state or {} 
+    local pay_state = ply:get_pay_state()
     local buy_history = pay_state.daily_buy_history or {}
     local history = buy_history[id] or {}
     local count = get_table_valid_count(history or {} )
@@ -313,8 +379,13 @@ check_each_cond["lv_build"] = function(ply, mode, action, con_lv)
     return compare(lv, con_lv, action)
 end
 
+check_each_cond["lv_ply"] = function(ply, mode, action, con_lv)
+    local lv = ply:get_castle_lv()
+    return compare(lv, con_lv, action)
+end
+
 function is_in_can_buy_list(self, product_id)
-    local pay_state = self.pay_state or {}
+    local pay_state = self:get_pay_state()
 
     local normal_buy_list = pay_state.normal_buy_list or {}
     if normal_buy_list[product_id] then
@@ -328,13 +399,13 @@ function is_in_can_buy_list(self, product_id)
         end
     end
 
-
     return false
 end
 
 function process_order(self, product_id)
-    local pay_state = self.pay_state or {}
+    local pay_state = self:get_pay_state()
     pay_state.last_buy_time = gTime
+    self:set_pay_state1("last_buy_time", gTime)
     local prop = resmng.prop_buy[product_id]
     if prop then
         for k, v in pairs(prop.Limited or {}) do
@@ -407,22 +478,22 @@ function do_pay(self, prop)
 end
 
 do_record["buy_peruser"] = function(ply, product_id)
-    local pay_state = ply.pay_state or {}
+    local pay_state = ply:get_pay_state()
     local buy_history = pay_state.buy_history or {}
     local history = buy_history[product_id] or {}
     table.insert(history, {product_id, gTime})
     buy_history[product_id] = history
     pay_state.buy_history = buy_history
-    ply.pay_state = pay_state
+    ply:set_pay_state1("buy_history", pay_state.buy_history)  
 end
 
 do_record["buy_perday"] = function(ply, product_id)
-    local pay_state = ply.pay_state or {}
+    local pay_state = ply:get_pay_state()
     local buy_history = pay_state.daily_buy_history or {}
     local history = buy_history[product_id] or {}
     table.insert(history, {product_id, gTime})
     buy_history[product_id] = history
     pay_state.daily_buy_history = buy_history
-    ply.pay_state = pay_state
+    ply:set_pay_state1("daily_buy_history", pay_state.daily_buy_history)  
 end
 
