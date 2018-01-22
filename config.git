@@ -1,0 +1,16 @@
+[core]
+	repositoryformatversion = 0
+	filemode = true
+	bare = false
+	logallrefupdates = true
+[remote "origin"]
+	url = https://github.com/liuxuezhan/lxz_server.git
+	fetch = +refs/heads/*:refs/remotes/origin/*
+[branch "master"]
+	remote = origin
+	merge = refs/heads/master
+[submodule "skynet"]
+	url = https://github.com/liuxuezhan/skynet.git
+[user]
+    name = lxz
+    email = 253550465@qq.com 
