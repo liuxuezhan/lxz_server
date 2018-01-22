@@ -13,6 +13,7 @@ function get_can_buy_list_req(self, force)
     if check_refresh(last_refresh_timeline ) then
         self:gen_can_buy_list(pay_state)
         pay_state.last_refresh_timeline = pay_mall.refresh_time
+        pay_state.new_list = {}
         --pay_state.last_refresh_time = gTime
     end
 
@@ -26,6 +27,7 @@ function get_can_buy_list_req(self, force)
         end
     end
 
+    --gen_group_list(self, {[5]={idx=8,end_time=math.huge} }, pay_state)
     local gift_buy_list = {}
     for k, v in pairs( pay_state.gift_buy_list or {}) do
         local gift = copyTab(v)
@@ -108,7 +110,7 @@ function check_refresh(last_refresh_timeline)
         return true
     end
 
-    if gTime > last_refresh_timeline then
+    if gTime >= last_refresh_timeline then
         return true
     end
 
@@ -135,9 +137,7 @@ end
 function gen_gift_list(self, pay_state)
     --local group = self:get_enable_group(self, pay_state) or {}
     local group = pay_mall.get_enable_group()
-
-
-    gen_group_list(self, group, pay_state)
+    self:gen_group_list(group, pay_state)
 end
 
 function gen_group_list(self, group, pay_state)
@@ -151,7 +151,7 @@ function gen_group_list(self, group, pay_state)
     end
 
     for k, v in pairs(dels) do
-        gift_buy_list[k] = nil
+        gift_buy_list[v] = nil
     end
 
     for k, v in pairs(group or {}) do
@@ -336,7 +336,6 @@ function process_order(self, product_id)
     local pay_state = self.pay_state or {}
     pay_state.last_buy_time = gTime
     local prop = resmng.prop_buy[product_id]
-    print("buy num", product_id)
     if prop then
         for k, v in pairs(prop.Limited or {}) do
             if do_record[v[1]] then
@@ -346,50 +345,64 @@ function process_order(self, product_id)
     end
 end
 
-function agent_on_pay(self, product_id, real, map_id)
+function agent_on_pay(self, product_id, real, map_id, force)
     LOG("agent_on_pay from map %d, pid %d, product_id %d", map_id, self.pid, product_id)
-    return self:on_pay(product_id, real)
+    return self:on_pay(product_id, real, force)
 end
 
-function on_pay( self, product_id, real )
-    LOG("ply pay pid %d, product_id %d", self.pid, product_id)
+function on_pay( self, product_id, real, force)
     if real or ( not config.Release ) then
         local prop = resmng.prop_buy[product_id]
         if prop then
-            if product_id == 50 or product_id == 51 then
-                self:set_yueka()
+            WARN( "[pay], pid,%d, openid,%s, product_id,%d, price,%s, lv,%d, ip,%s", self.pid, self.account, product_id, prop.NewPrice_US or "0",  self.propid % 1000,  self.ip or "0.0.0.0" )
+
+            if prop.Class == 2 then
+                self:set_yueka(product_id)
             else
+                if force == true then
+                    WARN("GM GMC PAY send product without any limit pid %d, product_id %d ", self.pid, product_id)
+                    self:do_pay(prop)
+                    return {code = 1, msg = "success"}
+                end
+
                 if not self:check_can_buy(product_id) then
-                    LOG("GM CMD PAY product id buy limited")
+                    WARN("GM CMD PAY product id buy limited, pid %d, product_id %d ", self.pid, product_id)
                     return {code = 0, msg = "product buy limited"}
                 end
 
                 if not self:is_in_can_buy_list(product_id) then
-                    LOG("GM CMD PAY product did not in buy list")
+                    WARN("GM CMD PAY product did not in buy list, pid %d, product_id %d ", self.pid, product_id)
                     return {code = 0, msg = "product did not in buy list"}
                 end
-
-                local msg_ntf = {}
-                if prop.Gold and prop.Gold > 0 then
-                    self:do_inc_res_normal(6, prop.Gold, VALUE_CHANGE_REASON.GM_PAY)
-                    table.insert(msg_ntf, {"res", 6, prop.Gold})
-                end
-
-                if prop.ExtraGold and prop.ExtraGold > 0 then
-                    self:do_inc_res_normal(6, prop.ExtraGold, VALUE_CHANGE_REASON.GM_PAY)
-                    table.insert(msg_ntf, {"res", 6, prop.ExtraGold})
-                end
-                Rpc:notify_bonus(self, msg_ntf)
-
-                if prop.Item_ExtraGift and prop.Item_ExtraGift > 0 then
-                    agent_t.gm_add_ply_item(self, {{"item", prop.Item_ExtraGift, 1, 10000}}, VALUE_CHANGE_REASON.GM_PAY)
-                end
+                self:do_pay(prop)
             end
 
             self:process_order(product_id)
             self:gen_next_buy_list(product_id)
             return {code = 1, msg = "success"}
         end
+    end
+end
+
+function do_pay(self, prop)
+    local msg_ntf = gPendingBonus[ self.pid ]
+    if not msg_ntf then
+        msg_ntf = {}
+        gPendingBonus[ self.pid ] = msg_ntf
+    end
+
+    if prop.Gold and prop.Gold > 0 then
+        self:do_inc_res_normal(6, prop.Gold, VALUE_CHANGE_REASON.GM_PAY)
+        table.insert(msg_ntf, {"res", 6, prop.Gold})
+    end
+
+    if prop.ExtraGold and prop.ExtraGold > 0 then
+        self:do_inc_res_normal(6, prop.ExtraGold, VALUE_CHANGE_REASON.GM_PAY)
+        table.insert(msg_ntf, {"res", 6, prop.ExtraGold})
+    end
+
+    if prop.Item_ExtraGift and prop.Item_ExtraGift > 0 then
+        agent_t.gm_add_ply_item(self, {{"item", prop.Item_ExtraGift, 1, 10000}}, VALUE_CHANGE_REASON.GM_PAY)
     end
 end
 

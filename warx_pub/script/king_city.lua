@@ -20,6 +20,7 @@ module_class("king_city",
     acc_recover_times = 0,  --箭塔复活次数
     timers = {},
     atk_troops = {},
+    royal = ROYAL_STATE.NO_ROYAL
     --atk_troops= {},    --攻击该城市的部队
     --leave_troops = {},  --从该城市出发的部队
 })
@@ -41,6 +42,7 @@ FORCE_ATTR=
 --- king wars state pace fight ...
 season = season  or 0  -- 王城战期数
 start_tm = start_tm --王城战默认开始时间
+king_server_name = king_server_name
 kings = kings or {}
 officers = officers or {}
 state = state or 0     -- 王城战目前的状态
@@ -100,6 +102,7 @@ function load_kw_state()
     season = info.season or 0
     timerId = info.timer or 0
     start_tm = info.start_tm 
+    king_server_name = info.king_server_name
 end
 
 function init_king_citys()
@@ -140,9 +143,10 @@ function init_king_state(kingCity)
     local k_prop = resmng.prop_world_unit[kingCity.propid]
     if k_prop then
         if k_prop.Lv ~= CITY_TYPE.FORT then
-            kingCity.endTime = gTime + time
+            kingCity.endTime = act_mng.start_act_tm + time
         end
     end
+    etypipe.add(kingCity)
 end
 
 function is_kw_unlock()
@@ -154,7 +158,7 @@ function is_kw_unlock()
     end
 
     -- 四个堡垒被占领
-    if not start_tm then
+    if not start_tm or start_tm == 0 then
         local num = 0
         if npc_city.citys then
             for k, v in pairs(npc_city.citys or {}) do
@@ -164,8 +168,19 @@ function is_kw_unlock()
                 end
             end
             if num == 4 then
-                start_tm = 26 * 86400
+                start_tm = 30 * 86400
                 gPendingSave.status["kwState"].start_tm = start_tm
+
+                local prop_ntf = resmng.get_conf("prop_act_notify", resmng.KW_SPECIAL_PREPARE)
+                if prop_ntf then
+                    if prop_ntf.Notify then
+                        Rpc:tips({pid=-1,gid=_G.GateSid}, 2, prop_ntf.Notify,{})
+                    end
+                    if prop_ntf.Chat1 then
+                        player_t.add_chat({pid=-1,gid=_G.GateSid}, 0, 0, {pid=0}, "", prop_ntf.Chat1, {})
+                    end
+                end
+
                 for _, eid in pairs(citys or {}) do
                     local city = get_ety(eid)
                     if city then
@@ -188,7 +203,7 @@ function is_kw_unlock()
     if start_tm then
         time = time - start_tm
     end
-    if ( gTime - get_sys_status("start") or 0 ) > time  then
+    if ( gTime - act_mng.start_act_tm or 0 ) > time  then
         if time ==  prop.Spantime then
             return 1
         else
@@ -224,7 +239,9 @@ function init_kw()
         end
     end
     reset_all_city()
-    season = 0
+    start_tm = nil
+    gPendingSave.status["kwState"].start_tm = 0
+    season =0
     gPendingSave.status["kwState"].season = season
     officers = {}
     gPendingSave.status["kwState"].officers = officers
@@ -282,7 +299,7 @@ function prepare_kw_notify(mode)
     if mode == 1 then
         ntf_id = resmng.KW_PREPARE
     elseif mode == 2 then
-        ntf_id = resmng.KW_SPECIAL_PREPARE
+        ntf_id = resmng.KW_PREPARE
     end
 
     local prop = resmng.get_conf("prop_act_notify", ntf_id)
@@ -523,13 +540,18 @@ function add_last_king_debuff()
     end
 end
 
-function clear_city_uid()
+function clear_npcs_by_uid(uid)
     for k, v in pairs(citys or {}) do
         local city = get_ety(k)
-        npc_city.chang_city_uid(city, 0)
-         --初始化所以王城的uid都是0  这样才不会互相误伤
-        --city.pid = 0
+        if city.uid == uid then
+            city:clear_city_uid()
+        end
     end
+end
+
+function clear_city_uid(self)
+    npc_city.change_city_uid(self, 0)
+    etypipe.add(self)
 end
 
 function reset_all_city()
@@ -537,8 +559,13 @@ function reset_all_city()
         local city = get_ety(k)
         if city then
             npc_city.change_city_uid(city, 0)
-            troop_mng.delete_troop(city.my_troop_id)
-            city.my_troop_id = nil
+            local tr = troop_mng.get_troop(city.my_troop_id)
+            if tr then
+                if tr.owner_eid == city.eid then
+                    troop_mng.delete_troop(city.my_troop_id)
+                end
+            end
+            city.my_troop_id = 0
             etypipe.add(city)
         end
     end
@@ -554,7 +581,7 @@ function fight_again()
         if kingCity.uid ~= 0 then
             do_timer()
         else
-            kingCity.endTime = nil
+            kingCity.endTime = 1
         end
         etypipe.add(kingCity)
     end
@@ -608,8 +635,8 @@ function do_peace_city()
             elseif resmng.prop_world_unit[city.propid].Lv == CITY_TYPE.TOWER then
                 clear_timer(city)
                 city.status = 1
-                city.startTime = nil
-                city.endTime = nil
+                city.startTime = 1
+                city.endTime = 1
             end
             etypipe.add(city)
         end
@@ -686,7 +713,7 @@ function fire_win(kingCity, atkCity)
     if union then
         --kingCity.uname = union.alias
     end
-    kingCity.my_troop_id = nil
+    kingCity.my_troop_id = 0
     clear_timer(atkCity)
 
     deal_new_defender[CITY_TYPE.KING_CITY](kingCity)
@@ -1119,13 +1146,13 @@ function reset_other_city(kingCity)
                 if troop.owner_eid ~= city.eid then
                     if troop.owner_uid ~= kingCity.uid then
                         troop:back()
-                        city.my_troop_id = nil
+                        city.my_troop_id = 0
                         watch_tower.building_def_clear(city, troop)
                     end
                     --troop_back(troop)
                 else  --清除要塞原npc部队
                     troop_mng.delete_troop(troop._id)
-                    city.my_troop_id = nil
+                    city.my_troop_id = 0
                 end
             elseif resmng.prop_world_unit[city.propid].Lv == CITY_TYPE.FORT then
                 clear_timer(city)
@@ -1189,7 +1216,7 @@ after_atk_win[CITY_TYPE.FORT] = function(atkTroop, defenseTroop)
 
     npc_city.change_city_uid(city, atkTroop.owner_uid)
     --city.pid = atkTroop.owner_pid
-    city.my_troop_id = nil
+    city.my_troop_id = 0
     local union = unionmng.get_union(city.uid)
     if union then
         city.uname = union.name
@@ -1209,7 +1236,7 @@ end
 after_atk_win[CITY_TYPE.TOWER] = function(atkTroop, defenseTroop)
     local city = get_ety(atkTroop.target_eid)
     city.status = 0
-    city.my_troop_id = nil
+    city.my_troop_id = 0
     clear_timer(city)
 
     local union = unionmng.get_union(atkTroop.owner_uid)
@@ -1267,7 +1294,7 @@ after_atk_win[CITY_TYPE.KING_CITY] = function(atkTroop, defenseTroop)
 
     npc_city.change_city_uid(city, atkTroop.owner_uid)
     --city.pid = atkTroop.owner_pid
-    city.my_troop_id = nil
+    city.my_troop_id = 0
     local union = unionmng.get_union(city.uid)
     if union then
         city.uname = union.name
@@ -1324,9 +1351,9 @@ function clear_timer(city)
     for k, v in pairs(city.timers or {}) do
         timer.del(v)
     end
-    city.startTime = nil
-    city.endTime = nil
-    city.timers = nil
+    city.startTime = 1
+    city.endTime = 1
+    city.timers = {}
     etypipe.add(city)
 end
 
@@ -1406,8 +1433,8 @@ function reset_tower(city)
 
     clear_timer(city)
     city.status = 1
-    city.startTime = nil
-    city.endTime = nil
+    city.startTime = 1
+    city.endTime = 1
     etypipe.add(city)
     try_set_tower_range(city)
 end
@@ -1503,20 +1530,17 @@ end
 
 function select_king(union, pid)
     local ply = getPlayer(pid)
-    if ply and union:has_member(ply) then
-        local king = {season, pid, union.uid, 0, gTime, ply.name, ply.flag, ply:get_castle_lv(), union.name, 0}
+    if ply and ply.map == gMapID and union:has_member(ply) then
+        local king = {season, pid, union.uid, 0, gTime, ply.name, ply.flag, ply:get_castle_lv(), union.name, 0, union.language, ply.culture, ply.photo}
         -- 国王加入到
         kings[season] = king
-        --table.insert(kings,  king)
         gPendingSave.status["kwState"].kings = kings
-        ply.officer = KING   -- 任命国王
-        add_officer_buff(ply)
+        ply:change_officer(KING)
 
         common_ntf(resmng.KW_CROWN, {ply.name, union.alias})
 
-        officers[KING] = pid
+        officers[KING] = {pid, ply.name, ply.photo, ply:get_castle_lv(), union.alias}
         gPendingSave.status["kwState"].officers = officers
-        etypipe.add(ply)
     end
 end
 
@@ -1536,7 +1560,7 @@ function common_ntf(ntf_id, param, union)
 end
 
 function add_officer_buff(ply)
-    local prop = resmng.get_conf("prop_kw_officer", ply.officer or 0)
+    local prop = resmng.get_conf("prop_kw_officer", ply:get_officer())
     if prop then
         for k, buf_id in pairs(prop.Buff or {}) do
             ply:add_buf(buf_id, -1)
@@ -1545,7 +1569,7 @@ function add_officer_buff(ply)
 end
 
 function rem_officer_buff(ply)
-    local prop = resmng.get_conf("prop_kw_officer", ply.officer or 0)
+    local prop = resmng.get_conf("prop_kw_officer", ply:get_officer())
     if prop then
         for k, buf_id in pairs(prop.Buff or {}) do
             ply:rem_buf(buf_id, -1)
@@ -1563,6 +1587,10 @@ function select_officer(king, pid, index)
         return
     end
 
+    if ply.map ~= gMapID then
+        return
+    end
+
     ply.select_time = ply.select_time or 0
 
     if ply.select_time ~= 0 and ply.select_time - gTime < 600 then
@@ -1576,23 +1604,21 @@ function select_officer(king, pid, index)
         return
     end
     if officers[ index ] then
-        local ply = getPlayer(officers[index])
+        local ply = getPlayer(officers[index][1])
         if ply then
-            rem_officer_buff(ply)
-            ply.officer = 0
-            etypipe.add(ply)
+            ply:change_officer(0)
         end
     end
-    if ply and (ply.offiecer ~= KING) then
-        local preOfficer = ply.officer
+    if ply and (ply:get_officer() ~= KING) then
+        local u = ply:get_union() 
+
+        local preOfficer = ply:get_officer()
         officers[preOfficer] = nil
-        ply.officer = index
+        ply:change_officer(index)
         ply.select_time = gTime
-        add_officer_buff(ply)
-        officers[index] = pid
+        officers[index] = {pid, ply.name, ply.photo, ply:get_castle_lv(), u and u.alias}
         gPendingSave.status["kwState"].officers = officers
 
-        local u = ply:get_union() 
         local prop
         if u and (not u:is_new()) then
             prop = resmng.get_conf("prop_act_notify", resmng.OFFICIAL_APPOINTMENT)
@@ -1620,8 +1646,6 @@ function select_officer(king, pid, index)
                 end
             end
         end
-
-        etypipe.add(ply)
     end
 end
 
@@ -1629,11 +1653,9 @@ function rem_officer(king, index)
     if kings[season][2] ~= king.pid then
         return
     end
-    local ply = getPlayer(officers[index])
+    local ply = getPlayer(officers[index][1])
     if ply then
-        rem_officer_buff(ply)
-        ply.officer = 0
-        etypipe.add(ply)
+        ply:change_officer(0)
     end
     officers[index] = nil
     gPendingSave.status["kwState"].officers = officers
@@ -1659,23 +1681,39 @@ function clear_officer()
     
     if king then
         local ply = getPlayer(king[2])
-        rem_officer_buff(ply)
         if ply then
-            ply.officer = 0
+            ply:change_officer(0)
         end
-        etypipe.add(ply)
     end
     for k, v in pairs(officers or {}) do 
-        local ply = getPlayer(v)
-        rem_officer_buff(ply)
+        local ply = getPlayer(v[1])
         if ply then
-            ply.officer = 0
+            ply:change_officer(0)
         end
-        etypipe.add(ply)
     end
 
     officers = {}
     gPendingSave.status["kwState"].officers = officers
+end
+
+function clear_foreign_data()
+    for k, v in pairs(officers or {}) do 
+        local player = getPlayer(v[1])
+        if not player or check_ply_cross(player) then
+            officers[k] = nil
+        end
+    end
+    gPendingSave.status["kwState"].officers = officers
+    
+    for k, v in pairs(citys or {}) do
+        local city = get_ety(k)
+        if city and 0 ~= city.uid then
+            local u = unionmng.get_union(city.uid)
+            if not u or u.map_id then
+                city:clear_city_uid()
+            end
+        end
+    end
 end
 
 function add_kw_buff(union, tr)
@@ -1711,3 +1749,30 @@ end
 function update_act_tag()
     act_tag = gTime
 end
+
+function update_royal_data()
+    for k, v in pairs(citys or {}) do
+        local city = get_ety(v)
+        if city then
+            local prop = resmng.prop_world_unit[city.propid]
+            if prop then
+                if CITY_TYPE.KING_CITY == prop.Lv then
+                    city.royal = ROYAL_STATE.ROYAL_FREE
+                    etypipe.add(city)
+                    break
+                end
+            end
+        end
+    end
+end
+
+function clear_royal_data()
+    for k, v in pairs(citys or {}) do
+        local city = get_ety(v)
+        if city and city.royal ~= ROYAL_STATE.NO_ROYAL then
+            city.royal = ROYAL_STATE.NO_ROYAL
+            etypipe.add(city)
+        end
+    end
+end
+

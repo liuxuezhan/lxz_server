@@ -126,7 +126,7 @@ prop_effect_type = {
 	["CountHelp"] = { ID = "CountHelp", Index = 102, Default = 3, BuffName = LG_EFFECT_TYPE_NAME_108000101, BuffDesc = LG_EFFECT_TYPE_BUFFDESC_108100101,},
 	["CountUnionStore"] = { ID = "CountUnionStore", Index = 103, Default = nil, BuffName = LG_EFFECT_TYPE_NAME_108000102, BuffDesc = LG_EFFECT_TYPE_BUFFDESC_108100102,},
 	["SpeedCaravan"] = { ID = "SpeedCaravan", Index = 104, Default = nil, BuffName = LG_EFFECT_TYPE_NAME_108000103, BuffDesc = LG_EFFECT_TYPE_BUFFDESC_108100103,},
-	["CountRelief"] = { ID = "CountRelief", Index = 105, Default = nil, BuffName = LG_EFFECT_TYPE_NAME_108000104, BuffDesc = LG_EFFECT_TYPE_BUFFDESC_108100104,},
+	["CountRelief"] = { ID = "CountRelief", Index = 105, Default = 500, BuffName = LG_EFFECT_TYPE_NAME_108000104, BuffDesc = LG_EFFECT_TYPE_BUFFDESC_108100104,},
 	["WeightDeal"] = { ID = "WeightDeal", Index = 106, Default = nil, BuffName = LG_EFFECT_TYPE_NAME_108000105, BuffDesc = LG_EFFECT_TYPE_BUFFDESC_108100105,},
 	["TimeHelp"] = { ID = "TimeHelp", Index = 107, Default = 30, BuffName = LG_EFFECT_TYPE_NAME_108000106, BuffDesc = LG_EFFECT_TYPE_BUFFDESC_108100106,},
 	["CountGarrison"] = { ID = "CountGarrison", Index = 108, Default = 0, BuffName = LG_EFFECT_TYPE_NAME_108000107, BuffDesc = LG_EFFECT_TYPE_BUFFDESC_108100107,},

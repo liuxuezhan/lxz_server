@@ -1,10 +1,17 @@
 
 function load_game_module()
+    --if not config.GameAppIDs then 
+    --    WARN( " config file should have GameAppIDs like next line" )
+    --    WARN( " GameAppIDs = { [\"NULL\"] = 0 }" )
+    --    os.exit( -1 )
+    --end
+
     if config.Version == nil or type(config.Version) ~= "number" then
         _G.gInit = "Shutdown"
         WARN("shutdown, because Version is error")
-        --return
+        os.exit( -1 )
     end
+
     gMapID = getMap()
     gMapNew = 1
     gCenterID = config.CENTER_ID or 999
@@ -38,7 +45,6 @@ function do_reload()
     do_load("resmng")
     do_load("frame/login_queue")
     do_load("game")
-    --do_load("mem_monitor")
     do_load("constant/constant")
     do_load("common/define")
     do_load("common/tools")
@@ -64,12 +70,12 @@ function do_reload()
     do_load("player/player_skill")
     do_load("player/player_gacha") --抽卡
     do_load("player/player_ache")
-    do_load("player/player_title")
     do_load("player/player_pay_mall")
     do_load("player/player_operate")
     do_load("player/player_hero_road")
     do_load("player/player_hero_task")
-    --do_load("player/player_hero_equip")
+    do_load("player/player_hero_equip")
+    do_load("player/player_swap")
     do_load("agent_t")
     do_load("build_t")
     do_load("player/player_troop")
@@ -77,6 +83,8 @@ function do_reload()
     do_load("troop_mng")
     do_load("heromng")
     do_load("hero/hero_t")
+    do_load("hero/hero_equip_t")
+   -- do_load("hero/hero_task_t")
     do_load("fight")
     do_load("farm")
     do_load("restore_handler") 
@@ -104,6 +112,7 @@ function do_reload()
     do_load("union_buildlv")
     do_load("union_hero_task")
     do_load("new_union")
+    do_load("yueka_t")
     do_load("triggers")
     do_load("daily_task_filter")
     do_load("task_logic_t")
@@ -113,6 +122,7 @@ function do_reload()
     do_load("kw_mall")
     do_load("use_item_logic")
     do_load("rank_mng")
+    do_load("custom_rank_mng")
     do_load("cross/gs_t")
     do_load("cross/cross_mng_c")
     do_load("cross/cross_refugee_c")
@@ -137,6 +147,8 @@ function do_reload()
 
     do_load("offline_ntf")
     do_load("watch_tower")
+    do_load("act_mng")
+    do_load("daily_activity")
 
     --gTimeReload = c_get_time()
 end
@@ -150,12 +162,16 @@ function tool()
 end
 
 function tool_test()
-    for i=1 , 500 , 1 do
+--    for i=1 , 500 , 1 do
         --to_tool(0, {type = "login_server", cmd = "upload_ply_info", appid = APP_ID, open_id = tostring(i), pid = tostring(i), logic = tostring(gMapID), level = tostring(1), name = "tool_test", custom = "1", token = 1, signature=1})
-        to_tool(0, {url = "http://192.168.100.12:18083/", method = "post", appid = APP_ID, open_id = tostring(i), pid = tostring(i), logic = tostring(gMapID), level = tostring(i), name = tostring(i), custom = tostring(i), token = i, signature=i})
-    end
+      --  to_tool(0, {url = "http://192.168.100.12:18083/", method = "post", appid = APP_ID, open_id = tostring(i), pid = tostring(i), logic = tostring(gMapID), level = tostring(i), name = tostring(i), custom = tostring(i), token = i, signature=i})
+  --  end
+  --to_tool(0, {type="mysql", sql_query="insert into tool (b) values (\"cc\")" })
+ --qto_tool(0, {type="mysql", sql_query="REPLACE INTO tcapluse ('pid', 'day', 'gameappid', 'platid', 'openid', 'zoneareaid', 'level', 'viplevel', 'money', 'diamond', 'iFriends', 'regtime', 'lastime') VALUES (4282816, CURDATE(), \"gameappid\", 1, \"9f0abaf621c16eab62bd84268eca0490\", 3, 10, 2, 2521, 0, 0, FROM_UNIXTIME(1502972279, \"%Y%m%d\"), FROM_UNIXTIME(1503058868, \"%Y%m%d\"));"})
+  --to_tool(0, {type="mysql", sql_query="REPLACE INTO tcaplus (pid, day, gameappid, platid, openid, zoneareaid, level, viplevel, money, diamond, iFriends, regtime, lastime) VALUES (4282815, CURDATE(), \"gameappid\", 1, \"9f0abaf621c16eab62bd84268eca0490\", 3, 10, 2, 2521, 0, 0, FROM_UNIXTIME(1502972279, \"%Y%m%d\"), FROM_UNIXTIME(1503058868, \"%Y%m%d\"))"})
+  to_tool(0, {type = "echo", string = "hhhhhh"})
     print("do tool test ")
-    timer.new("tool_test", 1)
+   -- timer.new("tool_test", 1)
 end
 
 function chat_test()
@@ -219,9 +235,9 @@ g_eid_max = 0
 
 function get_eid(mode)
     local eid_max = g_eid_max
-    for i = 1, 65536, 1 do
+    for i = 1, 131071, 1 do
         eid_max = eid_max + 1
-        if eid_max > 65535 then eid_max = 1 end
+        if eid_max >= 131071 then eid_max = 1 end
         local eid = eid_max * 4096 + gMapID
         if not gEtys[ eid ] then
             g_eid_max = eid_max
@@ -237,7 +253,7 @@ end
 
 function get_ply(eid)
     local e = get_ety(eid)
-    if is_ply(e) then return e end
+    if e and is_ply(e) then return e end
 end
 
 function get_mon(eid)
@@ -313,7 +329,11 @@ function get_ety(eid)
     if not eid then return end
     if eid == 0 then return end
     local e =  gEtys[ eid ]
-    return e
+    if e and e.eid == eid then 
+        return e 
+    else
+        return
+    end
 end
 
 
@@ -510,47 +530,79 @@ end
 
 
 function test(id)
-    local ids = {
-        1126899027,
-        1102086740,
-        1182492387,
-        1155074289,
-        1472712897,
-        1516365754,
-        400966909,
-        1738872541,
-        206363805,
-        2109937726,
-        748250112,
-        725300714,
-        1842281961,
-        1449300907,
-        589167955,
-        755679002,
-        153557797,
-        183746984,
-        1103581438,
-        1102596737,
-        1502480137,
-        359104097,
-        1569020298,
-        531667754,
-        229421465,
-        670793038,
-        1430348317,
-        247599181,
-        1923780972,
-        393583197,
-    }
-    for _, v in ipairs( ids ) do
-        local node = Rpc.localF[ v ]
-        print( node.name )
-    end
+    --local p = getPlayer( 590003 )
+    --player_t.swap_out( p )
 
-    local s = debug.tablemark(10)
-    for k, v in pairs( s ) do
-        print( k, v )
-    end
+
+    local db = dbmng:getOne()
+    db.player:update( {}, { ["$unset"]={ ["lv"]='', } }, false, true ) 
+
+    --to_tool(0, {type = "echo", string = "hhhhhh"}) 
+    --to_toolv2(0, {type = "echo", string = "hhhhhh"}, 6002) 
+
+    --cjson = require( "cjson" )
+    --json = cjson.new()  
+    --json_text = '{ "foo": "bar" }'  
+    --value = json.decode(json_text)  
+    --for k,v in pairs(value) do print("json", k, v) end 
+
+
+    --gmcmd.move_player( { 5950004, 5950000 } )
+
+    --for k, v in pairs( heromng._heros ) do
+    --    if v.status == HERO_STATUS_TYPE.MOVING then
+    --        local tid = v.troop
+    --        if tid ~= 0 then
+    --            local troop = troop_mng.get_troop( tid )
+    --            if not troop then
+    --                INFO( "Troop,%d, Pid,%d, Hero,%s", tid, v.pid, v._id )
+    --            end
+    --        end
+    --    end
+    --end
+
+
+    --local ids = {
+    --    1126899027,
+    --    1102086740,
+    --    1182492387,
+    --    1155074289,
+    --    1472712897,
+    --    1516365754,
+    --    400966909,
+    --    1738872541,
+    --    206363805,
+    --    2109937726,
+    --    748250112,
+    --    725300714,
+    --    1842281961,
+    --    1449300907,
+    --    589167955,
+    --    755679002,
+    --    153557797,
+    --    183746984,
+    --    1103581438,
+    --    1102596737,
+    --    1502480137,
+    --    359104097,
+    --    1569020298,
+    --    531667754,
+    --    229421465,
+    --    670793038,
+    --    1430348317,
+    --    247599181,
+    --    1923780972,
+    --    393583197,
+    --}
+    --for _, v in ipairs( ids ) do
+    --    local node = Rpc.localF[ v ]
+    --    print( node.name )
+    --end
+
+    --local s = debug.tablemark(10)
+    --for k, v in pairs( s ) do
+    --    print( k, v )
+    --end
 
 
     --local co = coroutine.create( test_thread )
@@ -566,8 +618,8 @@ function check_pending()
         do_rem_ety( eid )
     end
     gRemEty = {}
-    player_t.check_pending()
     warxG_check_save()
+    player_t.check_pending()
 end
 
 function on_shutdown()
@@ -581,10 +633,10 @@ function on_shutdown()
             chg.cury    = troop.cury
             chg.tmCur    = troop.tmCur
 
-            print( "save troop", troop._id, troop.curx or troop.sx, troop.cury or troop.sy, troop.tmCur )
+            WARN( "[TROOP], save_on_shutdown, id,%s, x,%4.2f, y,%4.2f, tmCur,%s", troop._id, troop.curx or troop.sx or 0, troop.cury or troop.sy or 0, troop.tmCur or 0 )
         end
     end
-    if next( player_t.gChat ) then gPendingSave.status.chat = player_t.gChat end
+    if next( player_t.gChat or {} ) then gPendingSave.status.chat = player_t.gChat end
 
     for pid, node in pairs( gOnlines ) do
         player_t.mark_online_time( pid )
@@ -646,8 +698,8 @@ function module_class( name, example, table_name )
 
     local mt = {
         __index = function ( t, k )
-            if t._pro[ k ] then return t._pro[ k ] end
-            if _example[ k ] then
+            if t._pro[ k ] or t._pro[k] == false then return t._pro[ k ] end
+            if _example[ k ] ~= nil then
                 local v = _example[ k ]
                 if type( v ) == "table" then
                     t._pro[ k ] = copyTab2( v )
@@ -657,19 +709,19 @@ function module_class( name, example, table_name )
                 end
             end
             return rawget( _G[ _name ], k )
-            -- todo is it ok?
-            --return _G[ _name ][ k ]
         end,
        
         __newindex = function( t, k, v )
-            if _example[ k ] then
+            if _example[ k ] ~= nil then
                 if type(v) ~= "table" then
                     if t._pro[k] ~= v then
                         t._pro[ k ] = v
+                        --print( _table_name, ",", k, ",", v )
                         _G.gPendingSave[ _table_name ][ t._id ][ k ] = v
                         return
                     end
                 end
+                --print( _table_name, ",", t._id, ",", k, ",", v )
                 t._pro[ k ] = v
                 _G.gPendingSave[ _table_name ][ t._id ][ k ] = v
             else
@@ -748,6 +800,7 @@ function init_game_data()
     db.mail:delete( { tm_drop = { [ "$gt" ] = 0, [ "$lt" ] = tm_drop } } )
     db.mail:delete( { tm = { [ "$lt" ] = tm_delete } } )
     player_t.clear_outline() 
+
 end
 
 
@@ -830,11 +883,6 @@ function get_top_plys(num)
     return  rank_mng:get_range(3, 1, num)
 end
 
-function upload_act_score(mode, key, val)
-    local class = 1
-    Rpc:callAgent(gCenterID, "upload_act_score", class, mode, key, val)
-end
-
 function arm_id( culture, id )
     return ( culture * 1000000 ) + ( id % 1000000 )
 end
@@ -863,12 +911,15 @@ function make_sure_save( )
 
             for tab, recs in pairs( infos ) do
                 for id, chgs in pairs( recs ) do
-                    if not chgs._a_ then
+                    local op = chgs._a_
+                    if not op then
                         db[ tab ]:update({_id=id}, {["$set"] = chgs }, true)
-                    elseif chgs._a_ == 0 then
+                    elseif op == 0 then
                         db[ tab ]:delete({_id=id})
                     else 
+                        chgs._a_ = nil
                         db[ tab ]:update( {_id=id}, chgs, true )
+                        chgs._a_ = op
                     end
                 end
             end
@@ -876,6 +927,11 @@ function make_sure_save( )
             local info = db:runCommand("getLastError")
             local flag = false
             if info and info.ok then
+                if info.errmsg or info.writeErrors or info.writeConcernError then
+                    WARN( "[DB], global, error" )
+                    dumpTab( info, "global_check_save", 100, true )
+                end
+
                 if node[1] == co then
                     node[2] = 0
                     gGlobalWaiting = false 
@@ -919,8 +975,16 @@ function update_global( tab, key, info )
         node = {}
         gGlobalPending[ tab ] = node
     end
-    info._id = key
-    node[ key ] = info
+
+    local rnode = node[ key ]
+    if not rnode then
+        rnode = {}
+        node[ key ] = rnode
+    end
+
+    for k, v in pairs( info ) do
+        rnode[ k ] = v
+    end
 end
 
 function insert_global( tab, key, info )
@@ -955,12 +1019,279 @@ end
 
 
 function can_handle_login_num()
-    local max_online_num = config.MaxOnlineNum or 1000
+    local max_online_num = config.MaxOnlineNum or 4000
     local load_num_pre_sec = config.LoadNumPreSec or 2
     local num = max_online_num - player_t.g_online_num
-    if num <= 0 then
-        return 0
-    end
+    if num <= 0 then return 0 end
 
     return math.min(num, load_num_pre_sec)
 end
+
+function gSyncFunction() 
+    player_t.frame_end()
+end
+
+function get_player_map(pid)
+    local db = dbmng:getGlobal()
+    local info = db.players:findOne({_id=pid})
+    if info then
+        return info.emap
+    end
+end
+
+function get_union_map(uid)
+    local db = dbmng:getGlobal()
+    local info = db.unions:findOne({_id=uid})
+    if info then
+        return info.map
+    end
+end
+
+timer_ex = timer_ex or {
+    mark_func = timer.mark,
+    timers = {},
+    wanted_timer = {
+        cure = 1,
+        hero_cure = 1,
+        hero_task = 1,
+        troop = 1,
+        build = 1,
+        expiry = 1,
+        buf = 1,
+        city_fire = 1,
+        rem_buf_build = 1,
+        remove_state = 1,
+        cross_migrate_back = 1,
+    },
+}
+
+function timer_ex.mark(node)
+    timer_ex.mark_func(node)
+    timer_ex.mark_only(node)
+end
+
+function timer_ex.mark_only(node)
+    if timer_ex.wanted_timer[node.what] then
+        local pid = node.param[1]
+        if node.delete then
+            if timer_ex.timers[pid] then
+                timer_ex.timers[pid][node._id] = nil
+            end
+        else
+            timer_ex.timers[pid] = timer_ex.timers[pid] or {}
+            timer_ex.timers[pid][node._id] = gTime
+        end
+    end
+end
+
+function timer_ex.get_timers(pid)
+    return timer_ex.timers[pid]
+end
+
+function timer_ex.clear_timer(pid)
+    timer.mark = timer_ex.mark_func
+    for k, v in pairs(timer_ex.timers[pid] or {}) do
+        timer.del(k)
+    end
+    timer.mark = timer_ex.mark
+    timer_ex.timers[pid] = nil
+end
+
+function timer_ex.wrap()
+    timer.mark = timer_ex.mark
+end
+
+
+function table_mark()
+    local t = debug.tablemark(100)
+
+    local info = {}
+    for k, v in pairs( t ) do
+        local idx = string.find( v, ",", 1, true )
+        local count = string.sub( v, 1, idx - 1 )
+        local location = string.sub( v, idx + 1 )
+        table.insert( info, {tonumber(count), location} )
+    end
+
+    table.sort( info, function (A,B) return A[1] < B[1] end )
+
+    for k, v in ipairs( info ) do
+        print( v[1], v[2] )
+    end
+end
+
+function encodeURI(s)
+    s = string.gsub(s, "([^%w%.%- ])", function(c) return string.format("%%%02X", string.byte(c)) end)
+    return string.gsub(s, " ", "+")
+end
+
+function decodeURI(s)
+    s = string.gsub(s, '%%(%x%x)', function(h) return string.char(tonumber(h, 16)) end)
+    return s
+end
+
+function to_37_chat_center(ply, mode, msg, tar_ply)
+    local to_ply = tar_ply or {}
+    local body = {
+        time = gTime,
+        uid = ply.account,
+        gid = 1002794,
+        dsid = tostring(gMapID),
+        type = mode,
+        actor_name = encodeURI(ply.name),
+        actor_id = ply.pid,
+        to_uid = to_ply.account or "",
+        to_actor_name = to_ply.name or "",
+        content = encodeURI(msg),
+        chat_time = gTime,
+    }
+
+   local send_body = ""
+   for k, v in pairs(body or {}) do
+       local val = v
+       if type(v) == "number" then
+           val = tostring(v)
+       end
+       if send_body == "" then
+           send_body = k .."=".. val
+       else
+           send_body = send_body .. "&" .. k .."=".. val
+       end
+   end
+
+    to_tool(0,
+    {
+        url = "http://cm2.api.37.com.cn",
+        method = "post",
+        content_type = "application/x-www-form-urlencoded",
+        body = send_body
+    }
+    )
+end
+
+--function async_chat(ply, mode, msg, tar_ply)
+--    local to_ply = tar_ply or {}
+--    local key = "4Makr5AIzlwQp9P3mGfiV+q@7jRYXdL6"
+--    local uid = ply.account
+--    local gid = 1002794
+--    local dsid = tostring(gMapID)
+--
+--    local body = {
+--    time = gTime,
+--    uid = ply.account,
+--    gid = gid,
+--    dsid = dsid,
+--    type = mode,
+--    actor_name = encodeURI(ply.name),
+--    actor_id = ply.pid,
+--    content = encodeURI(msg),
+--    idfa = "",
+--    oudid = "",
+--    idfv = "",
+--    mac = "",
+--    imei = "",
+--    user_ip = "",
+--    chat_time = tostring(gTime),
+--    to_uid = to_ply.account,
+--    to_actor_name = to_ply.name,
+--    actor_level = player_t.get_castle_lv(to_ply),
+--    actor_recharge_gold = to_ply.gold,
+--    sign = string.lower(c_md5(key .. uid .. tostring(gid) .. dsid .. tostring(gTime) .. tostring(mode))),
+--}
+--    local sn = to_tool(0,
+--    {
+--        url = "http://cm3.api.37.com.cn/Content/_checkContent",
+--        method = "post",
+--        body = Json.encode(body)
+--    }
+--    )
+--    return sn
+--end
+
+function async_chat(ply, mode, msg, tar_ply)
+    local get_type_by_mode = 
+    {
+        [resmng.ChatChanelEnum.World] = 1,
+        [resmng.ChatChanelEnum.Union] = 2,
+        [resmng.ChatChanelEnum.Culture] = 3,
+        [resmng.ChatChanelEnum.Notice] = 7,
+    }
+    local to_ply = tar_ply or {}
+    local key = "D3%ZkY8UwtZS(Pk6"
+    local uid = ply.account
+    local gid = 1002794
+    local dsid = tostring(gMapID)
+    local body = {
+    time = gTime,
+    uid = ply.account,
+    gid = gid,
+    dsid = dsid,
+    type = get_type_by_mode[mode],
+    actor_name = encodeURI(ply.name),
+    actor_id = ply.pid,
+    content = encodeURI(msg),
+    --idfa = "",
+    --oudid = "",
+    --idfv = "",
+    --mac = "",
+    --imei = "",
+    --user_ip = "",
+    chat_time = tostring(gTime),
+    to_uid = to_ply.account,
+    to_actor_name = to_ply.name,
+    actor_level = player_t.get_castle_lv(to_ply),
+    actor_recharge_gold = to_ply.gold,
+    sign = string.lower(c_md5(key .. uid .. tostring(gid) .. dsid .. tostring(gTime) .. tostring(mode))),
+}
+
+   local send_body = ""
+   for k, v in pairs(body or {}) do
+       local val = v
+       if type(v) == "number" then
+           val = tostring(v)
+       end
+       if send_body == "" then
+           send_body = k .."=".. val
+       else
+           send_body = send_body .. "&" .. k .."=".. val
+       end
+   end
+
+    local sn = to_tool(0,
+    {
+        url = "http://cm3.api.37.com.cn/Content/_checkContent",
+        method = "post",
+        content_type = "application/x-www-form-urlencoded",
+        body = send_body
+        --body = "time=1512998323& uid=db8ea08bbeafae22cb52dd16743bfede&gid=1002794&dsid=7&type=1& sign=f089afa67822338cab069f211e2c1c71&actor_name=K7a70000&actor_id=70000&chat_time=1512998323&content=ffff"
+    })
+    return sn
+end
+
+function deal_tool_ack(req, pid, sn, data)
+    if req.url and handle_tool_ack[req.url] then
+        handle_tool_ack[req.url](req, pid, sn, data)
+    end
+end
+
+handle_tool_ack = {}
+
+handle_tool_ack["http://cm3.api.37.com.cn/Content/_checkContent"] = function(req, pid, sn, data)
+    if data.result == 1 then
+        local third_ret = Json.decode(tostring(data.third_ret or ""))
+        if third_ret.state == 1 then
+            send_chat(sn)
+        end
+    end
+end
+
+function send_chat(sn)
+    local chat_info = player_t.gPendingChat[sn]
+    if chat_info then
+        player_t.do_chat(chat_info.ply, chat_info.channel, chat_info.speaker, chat_info.word)
+        player_t.gPendingChat[sn] = nil
+    end
+end
+
+
+

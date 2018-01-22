@@ -104,7 +104,7 @@ function CActivityBase:exchage(player, exchange_id)
 	self:handout_exchange_award(player, exchange_id)
 end
 --领取单一奖励
-function CActivityBase:single_get(player)
+function CActivityBase:single_get(p)
 	local prop_activity = resmng.get_conf("prop_operate_activity", self.activity_id)
 	if prop_activity == nil or prop_activity.SingleBonus == nil then
 		return
@@ -114,27 +114,40 @@ function CActivityBase:single_get(player)
 	if prop_activity.ActionRange[1] ~= prop_activity.ActionRange[2] then
 		return
 	end
-	local action_flag = player:get_operate_info(self.activity_id, OPERATE_PLAYER_DATA.ACTION)
-	if action_flag == nil then
-		return
-	end
 
 	local action_id = prop_activity.ActionRange[1]
-	local num = action_flag[action_id]
-	if num == nil then
-		return
-	end
 	local prop_action = resmng.get_conf("prop_operate_action", action_id)
 	if prop_action == nil then
 		return
 	end
+
+    local num = 0
+    if prop_action.Action[1] == "union_power" then
+        local u = p:get_union()
+        if not u then
+            return
+        end
+        num = u:union_pow()
+    else
+        local action_flag = p:get_operate_info(self.activity_id, OPERATE_PLAYER_DATA.ACTION)
+        if action_flag == nil then
+            return
+        end
+
+        local num = action_flag[action_id]
+        if num == nil then
+            return
+        end
+    end
+
 	if num >= prop_action.Num then
-		player:add_bonus(prop_activity.SingleBonus[1], prop_activity.SingleBonus[2], VALUE_CHANGE_REASON.REASON_OPERATE_SINGLE)
-		player:set_operate_info(self.activity_id, OPERATE_PLAYER_DATA.ACTION_AWARD, action_id, 1)
+		p:add_bonus(prop_activity.SingleBonus[1], prop_activity.SingleBonus[2], VALUE_CHANGE_REASON.REASON_OPERATE_SINGLE)
+		p:set_operate_info(self.activity_id, OPERATE_PLAYER_DATA.ACTION_AWARD, action_id, 1)
+        --p:tlog_ten2("ActivityFlow",p.vip_lv,self.activity_id,action_id)
 	end
 end
 --多条目领奖
-function CActivityBase:task_get(player, task_id)
+function CActivityBase:task_get(p, task_id)
 	local prop_activity = resmng.get_conf("prop_operate_activity", self.activity_id)
 	if prop_activity == nil or prop_activity.ActionRange == nil then
 		return
@@ -148,23 +161,37 @@ function CActivityBase:task_get(player, task_id)
 		return
 	end
 
-	local action_data = player:get_operate_info(self.activity_id, OPERATE_PLAYER_DATA.ACTION)
+	local action_data = p:get_operate_info(self.activity_id, OPERATE_PLAYER_DATA.ACTION)
 	if action_data == nil then
-		return
+        if prop_action.Action[1] ~= "union_power" then
+            return
+        else
+            action_data = {}
+        end
 	end
 
-	local award_data = player:get_operate_info(self.activity_id, OPERATE_PLAYER_DATA.ACTION_AWARD)
+	local award_data = p:get_operate_info(self.activity_id, OPERATE_PLAYER_DATA.ACTION_AWARD)
 	if award_data ~= nil and award_data[task_id] ~= nil then
-		return
+        return
 	end
 
 	local num = action_data[task_id]
 	if num == nil then
-		return
+        if prop_action.Action[1] == "union_power" then
+            local u = p:get_union()
+            if not u then
+                return
+            end
+            num = u:union_pow()
+        else
+            return
+        end
 	end
+
 	if num >= prop_action.Num then
-		player:add_bonus(prop_action.Bonus[1], prop_action.Bonus[2], VALUE_CHANGE_REASON.REASON_OPERATE_SINGLE)
-		player:set_operate_info(self.activity_id, OPERATE_PLAYER_DATA.ACTION_AWARD, task_id, 1)
+		p:add_bonus(prop_action.Bonus[1], prop_action.Bonus[2], VALUE_CHANGE_REASON.REASON_OPERATE_SINGLE)
+		p:set_operate_info(self.activity_id, OPERATE_PLAYER_DATA.ACTION_AWARD, task_id, 1)
+        --p:tlog_ten2("ActivityFlow",p.vip_lv,self.activity_id,task_id)
 		return
 	end
 end
@@ -304,9 +331,10 @@ function CActivityBase:handout_rank_award()
 			local pids = rank_mng.get_range(prop_tab.Rank, prop_award.RankRange[1], prop_award.RankRange[2])
 			local temp_rank = prop_award.RankRange[1]
 			for k, pid in pairs(pids or {}) do
-				local ply = getPlayer(pid)
-				if ply ~= nil and prop_award.Mail ~= nil then
-					ply:send_system_notice(prop_award.Mail, {}, {temp_rank}, prop_award.Bonus[2])
+				local p = getPlayer(pid)
+				if p ~= nil and prop_award.Mail ~= nil then
+					p:send_system_notice(prop_award.Mail, {}, {temp_rank}, prop_award.Bonus[2])
+                    --p:tlog_ten2("ActivityFlow",p.vip_lv,self.activity_id,i)
 				end
 				temp_rank = temp_rank + 1
 			end
@@ -442,8 +470,43 @@ function CActivityBase:finish_action(action, player, prop_action, ...)
 
 	elseif action == OPERATE_ACTIVITY_ACTION.COLLECT_GRADE_HERO then--收集不通品阶的英雄
 		return self:action_collect_grade_hero(player, prop_action, ...)
-
+	elseif action == OPERATE_ACTIVITY_ACTION.CASTLE_UP then--城堡升级
+		return self:action_castle_upgrade(player, prop_action, ...)
+	elseif action == OPERATE_ACTIVITY_ACTION.FIGHT_POWER then--战力提升
+		return self:action_power_improve(player, prop_action, ...)
+	elseif action == OPERATE_ACTIVITY_ACTION.UNION_POWER then--军团战力提升
+		return self:action_union_power_improve(player, prop_action, ...)
 	end
+end
+
+function CActivityBase:action_castle_upgrade(player, prop_action, real_num)
+    if real_num == nil then
+        return
+    end
+
+	local action, con_type = unpack(prop_action.Action)
+	player:update_operate_info(self.activity_id, OPERATE_PLAYER_DATA.ACTION, prop_action.ID, real_num)
+	return OPERATE_SCORE_TYPE_INC, (prop_action.Score * real_num)
+end
+
+function CActivityBase:action_power_improve(player, prop_action, real_num)
+    if real_num == nil then
+        return
+    end
+
+	local action, con_type = unpack(prop_action.Action)
+	player:update_operate_info(self.activity_id, OPERATE_PLAYER_DATA.ACTION, prop_action.ID, real_num)
+	return OPERATE_SCORE_TYPE_INC, (prop_action.Score * real_num)
+end
+
+function CActivityBase:action_union_power_improve(player, prop_action, real_num)
+    if real_num == nil then
+        return
+    end
+
+	local action, con_type = unpack(prop_action.Action)
+	player:set_operate_info(self.activity_id, OPERATE_PLAYER_DATA.ACTION, prop_action.ID, real_num)
+	return OPERATE_SCORE_TYPE_INC, (prop_action.Score * real_num)
 end
 
 function CActivityBase:action_gacha(player, prop_action, real_type, real_num)

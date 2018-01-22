@@ -35,15 +35,16 @@ function Entity:init(idx)
     self.idx = idx
     self.bot = Bot:createInstance(self)
     self.update_states = {}
+    self.eventPlayerLoaded = newEventHandler()
 end
 
-function Entity:start()
-    self.bot:start()
+function Entity:start(...)
+    self.bot:start(...)
 end
 
 function Entity:stop()
-    self.player = nil
     self.bot:stop()
+    self.player = nil
 end
 
 -- Player 相关方法
@@ -55,9 +56,17 @@ end
 
 local function _initEventHandler(self)
     local player = self.player
+    _addEventHandler(player, "eventConnectionClosed")
+
+    _addEventHandler(player, "eventFieldUpdated")
+    _addEventHandler(player, "eventRoleLevelUpdated")
+    _addEventHandler(player, "eventRoleNameUpdated")
     _addEventHandler(player, "eventGeniusUpdated")
     _addEventHandler(player, "eventTechUpdated")
     _addEventHandler(player, "eventBufUpdated")
+    _addEventHandler(player, "eventEffectUpdated")
+    _addEventHandler(player, "eventHurtsUpdated")
+    _addEventHandler(player, "eventCuresUpdated")
     _addEventHandler(player, "eventBuildUpdated")
     _addEventHandler(player, "eventNewBuild")
     _addEventHandler(player, "eventHeroUpdated")
@@ -82,7 +91,17 @@ local function _initEventHandler(self)
     _addEventHandler(player, "eventAllMailLoaded")
     _addEventHandler(player, "eventNewMail")
     _addEventHandler(player, "eventMailFetchResponse")
+    _addEventHandler(player, "eventEyeInfo")
+    _addEventHandler(player, "eventHeroRoadUpdated")
+    _addEventHandler(player, "eventCurHeroRoadUpdated")
+    _addEventHandler(player, "eventArmyUpdated")
+    _addEventHandler(player, "eventItemUpdated")
+    _addEventHandler(player, "eventEquipAdd")
+    _addEventHandler(player, "eventEquipRem")
     -- union
+    _addEventHandler(player, "eventUnionInfoUpdated")
+    _addEventHandler(player, "eventUnionBuildUpdated")
+    _addEventHandler(player, "eventUnionIdChanged")
     _addEventHandler(player, "eventUnionChanged")
     _addEventHandler(player, "eventBuildQueueUpdated")
     _addEventHandler(player, "eventGotUnionList")
@@ -95,6 +114,9 @@ local function _initEventHandler(self)
     _addEventHandler(player, "eventUnionTechInfo")
     _addEventHandler(player, "eventUnionDonateInfo")
     _addEventHandler(player, "eventUnionBuildlvDonate")
+    -- misc
+    _addEventHandler(player, "eventNpcInfoByPropid")
+
 end
 
 function Entity:initPlayer(player)
@@ -111,13 +133,24 @@ function Entity:initPlayer(player)
     self:addEye(player.x, player.y)
     self.rpcErrorHandlers = {}
     player.eventRpcError:add(newFunctor(self, self._onRpcError))
+    player.eventConnectionClosed:add(newFunctor(self, self._onConnectionClosed))
+
+    bot_mng.eventPlayerOnline(self)
 end
 
 function Entity:uninitPlayer()
+    local player = self.player
+    INFO("[Autobot|Entity|%d] Uninitializing player", player.pid)
+
+    player.eventConnectionClosed:del(newFunctor(self, self._onConnectionClosed))
     player.eventRpcError:del(newFunctor(self, self._onRpcError))
     AutobotTimer:delPeriodicTimer(self.sinew_update_timer)
     self:_unregisterHandler()
     self:_uninitManager()
+
+    logout(player)
+    bot_mng.eventPlayerOffline(self)
+    gHavePlayers[player.idx] = nil
 end
 
 function Entity:_initManager()
@@ -130,6 +163,7 @@ function Entity:_initManager()
     player.troop_manager = TroopManager.create(self)
 
     player.task_manager = TaskManager.create(self)
+    player.task_action_manager = TaskActionManager.create(self)
 
     player.union_help_manager = UnionHelpManager.create(self)
      -- union
@@ -146,16 +180,22 @@ function Entity:_initManager()
              Rpc:union_load(player, "mall")
          end
      end
+     player.eventUnionIdChanged:add(newFunctor(self, self._onUnionIdChanged))
 end
 
 function Entity:_uninitManager()
     local player = self.player
 
+    player.eventUnionIdChanged:del(newFunctor(self, self._onUnionIdChanged))
+
+    player.union_help_manager:uninit()
+    player.task_action_manager:uninit()
     player.task_manager:uninit()
     player.troop_manager:uninit()
     player.tech_manager:uninit()
     player.recruit_manager:uninit()
     player.build_manager:uninit()
+    player.labor_manager:uninit()
 end
 
 function Entity:_registerHandler()
@@ -172,6 +212,11 @@ function Entity:_unregisterHandler()
     self.eventBufUpdated:del(newFunctor(self, Entity._onBufUpdated))
     self.eventBuildUpdated:del(newFunctor(self, Entity._onBuildUpdated))
     self.eventNewBuild:del(newFunctor(self, Entity._onBuildUpdated))
+end
+
+function Entity:_onConnectionClosed(player)
+    INFO("[Autobot|Entity|%d] Player disconnected", self.player.pid)
+    bot_mng:delEntity(self)
 end
 
 function Entity:_updateSinew()
@@ -257,6 +302,13 @@ function Entity:_updateEffect()
         end
     end
     self._effects = ef
+    if self.eventEffectUpdated then
+        self.eventEffectUpdated(self)
+    end
+end
+
+function Entity:sync(functor)
+    sync(self.player, functor)
 end
 
 function Entity:get_num(what, ...)
@@ -283,6 +335,10 @@ function Entity:get_val(what, ...)
     else
         return get_val_by(what, ef_s, ef_u, ef_ue, ef_gs, ...)
     end
+end
+
+function Entity:get_castle()
+    return self:get_build(BUILD_CLASS.FUNCTION, BUILD_FUNCTION_MODE.CASTLE)
 end
 
 function Entity:get_castle_lv()
@@ -418,11 +474,11 @@ function Entity:_onMovEye(x, y)
         end
     end
     -- clear all entities
-    self._etys = {}
+    self.player._etys = {}
 end
 
 function Entity:addEye(x, y)
-    Rpc:addEye(self.player, x, y)
+    Rpc:addEye(self.player, gMapID, x, y)
     self:_onMovEye(x, y)
 end
 
@@ -452,6 +508,26 @@ function Entity:_onRpcError(player, rpcf, code, reason)
 end
 
 -- union
+function Entity:_onUnionIdChanged(player, uid)
+    if 0 ~= uid then
+        self.union = UnionManager:getUnion(player.uid)
+        INFO("[Autobot|Entity|%d] JoinUnion %d", player.pid, uid)
+        player.eventUnionLoaded:add(newFunctor(self, self._onUnionLoaded))
+        if nil ~= self.union then
+            Rpc:union_load(player, "build")
+            Rpc:union_load(player, "member")
+            Rpc:union_load(player, "relation")
+            Rpc:union_load(player, "tech")
+            Rpc:union_load(player, "mars")
+            Rpc:union_load(player, "buf")
+            Rpc:union_load(player, "mall")
+        end
+    else
+        self.union = nil
+    end
+    player.eventUnionChanged(player, uid, self.union)
+end
+
 function Entity:_onUnionLoaded(player, what, union)
     if nil == self.union then
         return
@@ -500,7 +576,7 @@ function Entity:getDonatableBuildlvMode()
             local have_item = true
             for k, v in pairs(log[mode].cons) do
                 local item = self:get_item(v[2])
-                if item[3] < v[3] then
+                if nil == item or item[3] < v[3] then
                     have_item = false
                     break
                 end
@@ -512,22 +588,147 @@ function Entity:getDonatableBuildlvMode()
     end
 end
 
-function Entity:fallInTroop()
-    local armys = {}
-    local count = self:get_val("CountSoldier")
-    for id, num in pairs(self.player._arm) do
-        if num < count then
-            armys[id] = num
-            count = count - num
-        else
-            armys[id] = count
-            count = 0
-            break
+function Entity:get_build_by_idx(idx)
+    return self.player._build[idx]
+end
+
+function Entity:get_build(class, mode)
+    for _, build in pairs(self.player._build) do
+        local prop = resmng.prop_build[build.propid]
+        if class == prop.Class and mode == prop.Mode then
+            return build, prop
         end
     end
-    local heroes = {}
+end
 
-    return {live_soldier = armys}
+function Entity:fallInTroop()
+    local count = self:get_val("CountSoldier")
+    local avg_count = math.floor(count / 4)
+    local rally_count = {avg_count, avg_count, avg_count, avg_count}
+    rally_count[1] = rally_count[1] + count - avg_count * 4
+
+    -- 构建部队数据
+    local army_group = {}
+    for id, num in pairs(self.player._arm) do
+        local pos = math.floor((id % 1000000) / 1000)
+        army_group[pos] = army_group[pos] or {count = 0, armys = {}, deploy = {}}
+        table.insert(army_group[pos].armys, {id, num})
+        army_group[pos].count = army_group[pos].count + num
+    end
+
+    -- 初始数据调整
+    local remain_count = 0
+    for pos = 1, 4 do
+        local group = army_group[pos]
+        if group then
+            if group.count < rally_count[pos] then
+                remain_count = remain_count + rally_count[pos] - group.count
+                rally_count[pos] = group.count
+            end
+            -- 部队按等级从高到低排序
+            table.sort(group.armys, function(a, b) return a[1] > b[1] end)
+        else
+            remain_count = remain_count + rally_count[pos]
+            rally_count[pos] = 0
+        end
+    end
+
+    -- 部队召集数量调整
+    for pos = 1, 4 do
+        if remain_count <= 0 then
+            break
+        end
+        if army_group[pos] then
+            local army_count = army_group[pos].count
+            if army_count >= rally_count[pos] + remain_count then
+                rally_count[pos] = rally_count[pos] + remain_count
+                remain_count = 0
+            elseif army_count > rally_count[pos] then
+                remain_count = remain_count - (army_count - rally_count[pos])
+                rally_count[pos] = army_count
+            end
+        end
+    end
+
+    -- 部队集结
+    local armys = {}
+    for pos, group in pairs(army_group) do
+        local left_count = rally_count[pos]
+        for _, info in ipairs(group.armys) do
+            if info[2] < left_count then
+                armys[info[1]] = info[2]
+                left_count = left_count - info[2]
+            else
+                armys[info[1]] = left_count
+                left_count = 0
+                break
+            end
+        end
+    end
+
+    -- heroes
+    local hero_group = {}
+    for k, v in pairs(self.player._hero or {}) do
+        if v.status == HERO_STATUS_TYPE.FREE or v.status == HERO_STATUS_TYPE.BUILDING then
+            local prop = resmng.prop_hero_basic[v.propid]
+            if prop then
+                for _, pos in pairs(prop.Lean or {}) do
+                    if army_group[pos] then
+                        hero_group[pos] = hero_group[pos] or {}
+                        table.insert(hero_group[pos], v)
+                    end
+                end
+            end
+        end
+    end
+    for k, v in pairs(hero_group) do
+        table.sort(v, function(a, b) return a.fight_power > b.fight_power end)
+    end
+    local rallied_hero = {}
+    local heroes = {}
+    for pos = 1, 4 do
+        if army_group[pos] then
+            for _, hero in ipairs(hero_group[pos] or {}) do
+                if not rallied_hero[hero.idx] then
+                    heroes[pos] = hero.idx
+                    rallied_hero[hero.idx] = pos
+                end
+            end
+        end
+    end
+
+    return {live_soldier = armys, heros = heroes}
+end
+
+function Entity:getSoldierCount()
+    local count = 0
+    -- cure
+    for id, num in pairs(self.player.cures) do
+        count = count + num
+    end
+    INFO("[Autobot|Soldier|%d] cure %d", self.player.pid, count)
+    -- hurt
+    for id, num in pairs(self.player.hurts) do
+        count = count + num
+    end
+    INFO("[Autobot|Soldier|%d] hurt %d", self.player.pid, count)
+    -- army
+    for id, num in pairs(self.player._arm) do
+        count = count + num
+    end
+    -- in troop
+    for id, troop in pairs(self.player._troop) do
+        for pid, army in pairs(troop.arms) do
+            if pid == self.player.pid then
+                for k, v in pairs(army) do
+    INFO("[Autobot|Soldier|%d] troop %d", self.player.pid, v)
+                    count = count + v
+                end
+            end
+        end
+    end
+
+    return count
 end
 
 function Entity:isTaskAccepted(task_id)
@@ -552,6 +753,14 @@ function Entity:get_buf_remain(bufid)
         return buf[3] - gTime
     end
     return 0
+end
+
+function Entity:get_union_rank()
+    local member = self.player.union_member
+    if not member then
+        return resmng.UNION_RANK_0
+    end
+    return member.rank
 end
 
 return Entity

@@ -23,6 +23,9 @@ module_class("hero_t",
     atk          = 0,
     def          = 0,
     hp           = 0,
+    extra_atk    = 0,    -- 完成任务增加永久属性
+    extra_def    = 0,
+    extra_hp     = 0,
     max_hp       = 0,
     fight_power  = 0,
     lv           = 1,
@@ -32,11 +35,14 @@ module_class("hero_t",
     nature       = HERO_NATURE_TYPE.STRICT,
     basic_skill  = {},
     talent_skill = 0,
+    equips       = {}, -- 英雄宝物
+    bufs        = {}, -- 英雄buff
     quality      = HERO_QUALITY_TYPE.ORDINARY,
     status       = HERO_STATUS_TYPE.FREE,
+    hero_task_status  = HERO_STATUS_TYPE.FREE,
     culture      = CULTURE_TYPE.EAST,
     build_idx    = 0,    -- 所派遣建筑的idx
-    build_last   = 0,    -- 上次所派遣建筑的idx
+    build_will   = 0,    -- 
 
     tmSn         = 0,
     tmStart      = 0,
@@ -90,6 +96,7 @@ function create_hero(idx, pid, propid)
         capturer_x = 0,    -- 捕获者
         capturer_y = 0,    -- 捕获者
         prisoner     = 0,    -- 俘虏
+        equips = {}, -- 装备
     }
 
     local skills = {}
@@ -124,7 +131,10 @@ function create_hero(idx, pid, propid)
     if player then
         Rpc:stateHero(player, hero._pro)
         player:inc_pow( hero.fight_power )
+
+        player:add_count( resmng.ACH_NUM_HERO, 1 )
     end
+
     heromng.add_hero(hero)
 
     INFO( "[HERO], create, pid=%d, heroid=%s, propid=%d", pid, _id, propid )
@@ -296,6 +306,18 @@ function get_ef(self)
             end
         end
     end
+
+    for _, buf_id in pairs(self.bufs or {}) do
+        local buf = resmng.get_conf("prop_buff", buf_id)
+        if buf then
+            for key, val in pairs(buf.Value) do
+                ef[key] = (ef[key] or 0) + val 
+            end
+        end
+    end
+
+    get_all_equip_ef(self, ef)
+
     return ef
 end
 
@@ -319,6 +341,9 @@ function get_ef_after_fight( self )
             end
         end
     end
+
+    self:get_all_equip_ef(ef)
+
     return ef
 end
 
@@ -363,9 +388,11 @@ function gain_exp(self, exp_num)
     if owner then
         local maxlv = owner.lv
         local lv = self.lv
+        local olv = lv
         local quality = self.quality
         local need = 0
         local up = false
+
         while lv <= maxlv do
             local exp_conf = resmng.get_conf("prop_hero_lv_exp", lv+1)
             if not exp_conf then break end
@@ -389,15 +416,32 @@ function gain_exp(self, exp_num)
         self.lv = lv
         self.exp = total
 
-        if up then
-            self:up_attr()
-            --任务
-            task_logic_t.process_task(owner, TASK_ACTION.HERO_LEVEL_UP)
-            task_logic_t.process_task(owner, TASK_ACTION.SPECIAL_HERO_LEVEL)
+        if olv < 30 and lv >= 30 then owner:add_count( resmng.ACH_HERO_LEVEL_30, 1 ) end
 
-            check_hero_lv_ache(owner)  -- check title ache
+        if up then
+            local old_maxhp = self.max_hp
+            self:up_attr()
+            local new_maxhp = self.max_hp
+
+            if self.status == HERO_STATUS_TYPE.BEING_CURED then
+                local tm = timer.get( self.tmSn )
+                if tm then
+                    local tohp = tm.param[3]
+                    local offset = old_maxhp - tohp
+                    tohp = new_maxhp - offset
+                    tm.param[3] = tohp
+                    timer.mark( tm )
+                end
+            end
+
+            --任务
+            --task_logic_t.process_task(owner, TASK_ACTION.HERO_LEVEL_UP)
+            --task_logic_t.process_task(owner, TASK_ACTION.SPECIAL_HERO_LEVEL)
+
         end
         task_logic_t.process_task(owner, TASK_ACTION.HERO_EXP, exp_num)
+
+
         return true
     end
 end
@@ -562,23 +606,23 @@ function can_star_up(self)
     return true
 end
 
-function check_hero_lv_ache(player)
-    player:try_add_tit_point(resmng.ACH_HERO_LEVEL_1)
-    player:try_add_tit_point(resmng.ACH_HERO_LEVEL_2)
-    player:try_add_tit_point(resmng.ACH_HERO_LEVEL_3)
-    player:try_add_tit_point(resmng.ACH_HERO_LEVEL_4)
-    player:try_add_tit_point(resmng.ACH_HERO_LEVEL_5)
-end
-
-function check_hero_star_ache(player)
-    player:try_add_tit_point(resmng.ACH_HERO_STAR_1)
-    player:try_add_tit_point(resmng.ACH_HERO_STAR_2)
-    player:try_add_tit_point(resmng.ACH_HERO_STAR_3)
-    player:try_add_tit_point(resmng.ACH_HERO_STAR_4)
-    player:try_add_tit_point(resmng.ACH_HERO_STAR_5)
-    player:try_add_tit_point(resmng.ACH_HERO_STAR_6)
-end
-
+--function check_hero_lv_ache(player)
+--    player:try_add_tit_point(resmng.ACH_HERO_LEVEL_1)
+--    player:try_add_tit_point(resmng.ACH_HERO_LEVEL_2)
+--    player:try_add_tit_point(resmng.ACH_HERO_LEVEL_3)
+--    player:try_add_tit_point(resmng.ACH_HERO_LEVEL_4)
+--    player:try_add_tit_point(resmng.ACH_HERO_LEVEL_5)
+--end
+--
+--function check_hero_star_ache(player)
+--    player:try_add_tit_point(resmng.ACH_HERO_STAR_1)
+--    player:try_add_tit_point(resmng.ACH_HERO_STAR_2)
+--    player:try_add_tit_point(resmng.ACH_HERO_STAR_3)
+--    player:try_add_tit_point(resmng.ACH_HERO_STAR_4)
+--    player:try_add_tit_point(resmng.ACH_HERO_STAR_5)
+--    player:try_add_tit_point(resmng.ACH_HERO_STAR_6)
+--end
+--
 
 --------------------------------------------------------------------------------
 -- Function : 英雄升星
@@ -618,6 +662,9 @@ function star_up(self)
         return
     end
 
+    local star_status = star_up_conf.StarStatus
+    if star_status[1] == 3 and star_status[2] == 0 then player:add_count( resmng.ACH_HERO_STAR_3, 1 ) end
+
     -- 升星，修改属性
     self.star = self.star + 1
     self:up_attr()
@@ -625,10 +672,10 @@ function star_up(self)
     INFO( "[HERO], star_up, pid=%d, heroid=%s, propid=%s, star=%d", self.pid, self._id, self.propid, self.star )
 
     --任务
-    task_logic_t.process_task(player, TASK_ACTION.HAS_HERO_NUM)
-    task_logic_t.process_task(player, TASK_ACTION.SPECIAL_HERO_STAR)
+    --task_logic_t.process_task(player, TASK_ACTION.HAS_HERO_NUM)
+    --task_logic_t.process_task(player, TASK_ACTION.SPECIAL_HERO_STAR)
     
-    check_hero_star_ache(player)  -- check title ache
+    --check_hero_star_ache(player)  -- check title ache
 
     -- 大升星
     local old_talent_skill = self.talent_skill
@@ -667,24 +714,166 @@ function up_attr(self)
         return
     end
 
+    local htype = self._type
+
     local basic_delta = basic_conf.GrowDelta
-    local quality_rate = quality_conf.GrowRate and quality_conf.GrowRate[self._type]
-    local star_up_rate = star_up_conf.GrowRate and star_up_conf.GrowRate[self._type]
-    if not basic_delta or not quality_rate or not star_up_rate then
+    local quality_rate = quality_conf.GrowRate and quality_conf.GrowRate[htype]
+    local star_up_rate = star_up_conf.GrowRate and star_up_conf.GrowRate[htype]
+    local star_up_abs = star_up_conf.GrowAbsolute and star_up_conf.GrowAbsolute[htype]
+
+    if not basic_delta or not quality_rate or not star_up_rate or not star_up_abs then
         ERROR("up_attr: get delta conf failed. propid = %d, quality = %d, star = %d.", self.propid or -1, self.quality or -1, self.star or -1)
         return
     end
 
-    self.atk = math.ceil((basic_conf.Atk + basic_delta[1] * (self.lv - 1)) * quality_rate[1] * star_up_rate[1])
-    self.def = math.ceil((basic_conf.Def + basic_delta[2] * (self.lv - 1)) * quality_rate[2] * star_up_rate[2])
+    local ef= get_ef(self)
+    local atk = get_num_by("AtkHero_A", ef) 
+    local equip_atk = get_num_by("HeroEquipAtk_A", ef)
+    --local equip_atk = get_hero_equip_attr(self, "HeroEquipAtk", "a*r")
+    local def = get_num_by("DefHero_A", ef)
+    local equip_def = get_num_by("HeroEquipDef_A", ef)
+    --local equip_def = get_hero_equip_attr(self, "HeroEquipDef", "a*r")
+    local hp = get_num_by("HpHero_A", ef)
+    local equip_hp = get_num_by("HeroEquipHp_A", ef)
+    --local equip_hp = get_hero_equip_attr(self, "HeroEquipHp", "a*r")
+    local extra_atk = self.extra_atk or 0
+    local extra_def = self.extra_def or 0
+    local extra_hp = self.extra_hp or 0
+
+
+    self.atk = math.ceil((basic_conf.Atk + basic_delta[1] * (self.lv - 1) + star_up_abs[1]) * quality_rate[1] * star_up_rate[1]) + atk + equip_atk + extra_atk
+    self.def = math.ceil((basic_conf.Def + basic_delta[2] * (self.lv - 1) + star_up_abs[2]) * quality_rate[2] * star_up_rate[2]) + def + equip_def + extra_def
     local old_max_hp = self.max_hp
-    self.max_hp = math.ceil((basic_conf.HP + basic_delta[3] * (self.lv - 1)) * quality_rate[3] * star_up_rate[3])
+    self.max_hp = math.ceil((basic_conf.HP + basic_delta[3] * (self.lv - 1) + star_up_abs[3]) * quality_rate[3] * star_up_rate[3]) + hp + equip_hp + extra_hp
 
     if self.hp > 0 then self.hp = self.max_hp - old_max_hp + self.hp end
 
     mark_recalc( self )
 end
 
+function add_attr(self, mode, val)
+    if mode == "Atk" or mode == "atk" then
+        self.extra_atk = self.extra_atk + val
+    elseif mode == "Def" or mode == "def" then
+        self.extra_def = self.extra_def + val
+    elseif mode == "Hp" or mode == "HP" then
+        self.extra_hp = self.extra_hp + val
+    end
+    self:up_attr()
+end
+
+function get_hero_equip_attr(self, what, mode)
+    local ply = getPlayer(self.pid)
+    if not ply then
+        return 0
+    end
+    local num = 0
+    for _, id in pairs(self.equips or {}) do
+        local equip = ply:get_hero_equip(id)
+        if equip then
+            num = num + get_equip_attr(equip, what, mode)
+        end
+    end
+    return num
+end
+
+function get_equip_attr(equip, what, mode)
+    local ef = get_equip_ef(equip)
+    local b, r, a = get_nums_by(what, ef)
+    if mode == "a*r" then
+        return math.floor(a * (1 + r * 0.0001))
+    elseif mode == "b*r+a" then
+        return math.floor(b * (1 + r * 0.0001) + a)
+    elseif mode == "b" then
+        return math.floor(b)
+    elseif mode == "r" then
+        return r * 0.0001
+    elseif mode == "a" then
+        return math.floor(a)
+    else
+        return math.floor(b * (1 + r * 0.0001) + a)
+    end
+end
+
+function get_all_equip_ef(self, ef)
+    local tb = ef or {}
+    local ply = getPlayer(self.pid)
+    if ply  then
+        for _, id in pairs(self,equips or {}) do
+            local equip = ply:get_hero_equip(id)
+            if equip then
+                get_equip_ef(equip, tb)
+            end
+        end
+    end
+    return tb
+end
+
+function get_equip_ef(equip, ef)
+    local tb = ef or {}
+    local prop = resmng.prop_hero_equip[equip.propid]
+    if prop then
+        for _, v in pairs(prop.BaseAttr or {}) do
+            local attr_conf = resmng.get_conf("prop_buff", v[2])
+            if attr_conf then
+                local num = v[3]
+                if num == 0 then
+                    num = 1
+                end
+                for i = 1, num, 1 do
+                    for k, v in pairs(attr_conf.Value) do
+                        tb[k] =(tb[k] or 0) + v
+                    end
+                end
+            end
+        end
+        local ef_list = {"Effect", "OwnerEffect", "GroupEffect"}
+        for _, v in pairs(ef_list) do
+            if equip[v] == nil or equip[v] == true then
+                -- prop.Effect = {10001003, 10001004}
+                if v == "GroupEffect" then
+                    for _, e in pairs(prop[v] or {}) do
+                        local attr_conf = resmng.get_conf("prop_buff", e[2])
+                        if attr_conf then
+                            local num = e[3]
+                            if num == 0 then
+                                num = 1
+                            end
+                            for i = 1, num, 1 do
+                                for k, v in pairs(attr_conf.Value) do
+                                    tb[k] =(tb[k] or 0) + v
+                                end
+                            end
+                        end
+                    end
+                else
+                    for _, skill_id in pairs(prop[v] or {}) do
+                        local conf = resmng.get_conf("prop_skill", skill_id)
+                        if conf then
+                            for _, e in pairs(conf.Effect) do
+                                if e[1] == "AddBuf" then
+                                    local buf = resmng.get_conf( "prop_buff", e[2] )
+                                    local num = e[3]
+                                    if num == 0 then
+                                        num = 1
+                                    end
+                                    for i = 1, num, 1 do
+                                        if buf then
+                                            for k, v in pairs(buf.Value) do 
+                                                tb[ k ] = (tb[ k ] or 0) + v
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return tb
+end
 
 --------------------------------------------------------------------------------
 -- Function : 技能变化
@@ -715,20 +904,20 @@ function change_basic_skill(self, skill_idx, skill_id, exp)
             -- open the slot, will not change pow
         else
             mark_recalc( self )
-            role:try_add_tit_point(resmng.ACH_HERO_SKILL_1)
-            role:try_add_tit_point(resmng.ACH_HERO_SKILL_2)
-            role:try_add_tit_point(resmng.ACH_HERO_SKILL_3)
-            role:try_add_tit_point(resmng.ACH_HERO_SKILL_4)
-            role:try_add_tit_point(resmng.ACH_HERO_SKILL_5)
-            role:try_add_tit_point(resmng.ACH_HERO_SKILL_6)
+            --role:try_add_tit_point(resmng.ACH_HERO_SKILL_1)
+            --role:try_add_tit_point(resmng.ACH_HERO_SKILL_2)
+            --role:try_add_tit_point(resmng.ACH_HERO_SKILL_3)
+            --role:try_add_tit_point(resmng.ACH_HERO_SKILL_4)
+            --role:try_add_tit_point(resmng.ACH_HERO_SKILL_5)
+            --role:try_add_tit_point(resmng.ACH_HERO_SKILL_6)
         end
 
         if oid == 0 and skill_id ~= 0 then
-            task_logic_t.process_task(role, TASK_ACTION.LEARN_HERO_SKILL)
+            --task_logic_t.process_task(role, TASK_ACTION.LEARN_HERO_SKILL)
         end
 
         if oid and oid ~= 0 and skill_id ~= 0 and skill_id > oid then
-            task_logic_t.process_task(role, TASK_ACTION.SUPREME_HERO_LEVEL )
+            --task_logic_t.process_task(role, TASK_ACTION.SUPREME_HERO_LEVEL )
             task_logic_t.process_task(role, TASK_ACTION.PROMOTE_HERO_LEVEL, skill_id - oid)
         end
 
@@ -850,3 +1039,211 @@ function is_valid(self)
 end
 
 
+--------------------------------------------------------------------------------
+-- Function : is_valid_name
+-- Argument : string
+-- Return   : true / false
+-- Others   : NULL
+--------------------------------------------------------------------------------
+function is_valid_name(name)
+    if not name or type(name) ~= "string" then
+        return false
+    end
+
+    -- TODO: 长度限制
+
+    -- TODO: 非法字符
+
+    return true
+end
+
+function try_use_equip(self, idx, equip_id)
+    if not equip_id then
+        return false
+    end
+
+    local ply = getPlayer(self.pid)
+    if not ply then
+        return
+    end
+
+    local equip = ply:get_hero_equip(equip_id)
+    if not equip then
+        return false
+    end
+
+    local prop_equip = resmng.get_conf("prop_hero_equip", equip.propid)
+    if not prop_equip then
+        return false
+    end
+
+    if idx ~= prop_equip.Pos then
+        return false
+    end
+
+    if self.equips[idx] then
+    --    return false
+    end
+
+    local equips = self.equips or {}
+    equips[idx] = equip_id
+    self.equips = equips
+
+    equip.hero_id = self.idx
+    equip.pos = idx
+    equip.OwnerEffect = check_cond_owner(self, prop_equip)
+    for _, id in pairs(self.equips or {}) do
+        local eq = ply:get_hero_equip(id)
+        if eq then
+            local conf = resmng.prop_hero_equip[eq.propid]
+            if conf then
+                eq.GroupEffect = check_cond_group(self, conf) 
+                if eq.propid ~= equip.propid then
+                    ply:set_hero_equip(id, eq)
+                end
+            end
+        end
+    end
+    self.equips = self.equips
+    ply:set_hero_equip(equip_id, equip)
+    self:up_attr()
+    return true
+end
+
+function check_cond_owner(self, prop)
+    if not prop.CondOwner then
+        return false
+    end
+    return prop.CondOwner == self.propid
+end
+
+function check_cond_group(self, prop)
+    local ply = getPlayer(self.pid)
+    if not ply then
+        return false
+    end
+    if not prop.CondGroup then
+        return false
+    end
+
+    for _, v in pairs(prop.CondGroup or {}) do
+        if v ~= prop.Class then
+            local tag = false
+            for _, equip_id in pairs(self.equips or {}) do
+                local equip = ply:get_hero_equip(equip_id)
+                if equip then
+                    local prop_equip = resmng.get_conf("prop_hero_equip", equip.propid)
+                    if prop_equip.Class == v then
+                        tag = true
+                    end
+                end
+            end
+            if tag == false then
+                return false
+            end
+        end
+    end
+
+    return true
+end
+
+function try_rem_equip(self, idx)
+    local equip_id = self.equips[idx]
+    if not equip_id then
+        return false
+    end
+    local ply = getPlayer(self.pid)
+    if not ply then
+        return false
+    end
+    local equip = ply:get_hero_equip(equip_id)
+    if not equip then
+        return false
+    end
+    equip.hero_id = 0
+    equip.pos = 0
+    equip.OwnerEffect = nil
+    equip.GroupEffect = nil
+    ply:set_hero_equip(equip_id, equip)
+    self.equips[idx] = nil
+    for _, id in pairs(self.equips or {}) do
+        local eq = ply:get_hero_equip(id)
+        if eq then
+            local conf = resmng.prop_hero_equip[eq.propid]
+            if conf then
+                eq.GroupEffect = check_cond_group(self, conf) 
+                if eq.propid ~= equip.propid then
+                    ply:set_hero_equip(id, eq)
+                end
+            end
+        end
+    end
+    self.equips = self.equips
+    self:up_attr()
+    return true
+end
+
+function add_buf(self, buf_id)
+    local node = resmng.get_conf("prop_buff", buf_id) 
+    if node then
+        local dels = {}
+        local bufs = self.bufs
+        if node.Mutex == 1 then  -- 互斥
+            local group = node.Group
+            for k, v in ipairs(bufs) do
+                local b = resmng.get_conf("prop_buff", v[1])
+                if b and b.Group == group then
+                    table.insert(dels, v)
+                end
+            end
+
+        elseif node.Mutex == 2 then -- 高级替换低级
+            local group = node.Group
+            local lv = node.Lv
+            for k, v in ipairs(bufs) do
+                local b = resmng.get_conf("prop_buff", v[1])
+                if b and b.Group == group then
+                    if b.Lv > lv then return end
+                    table.insert(dels, v)
+                end
+            end
+        elseif node.Mutex == 3 then -- 相同的就叠加时间
+            local group = node.Group
+            local lv = node.Lv
+            for k, v in ipairs(bufs) do
+                local b = resmng.get_conf("prop_buff", v[1])
+                if b and b.Group == group then
+                    if b.ID == buf_id then
+                        INFO( "add_buf, pid=%d, hero=%d, bufid=%d, count=%d", self.pid, self._id, buf_id, count )
+                        self.bufs = bufs
+                        return
+                    end
+                end
+            end
+        end
+
+        if #dels > 0 then
+            for _, v in pairs( dels ) do
+                self:rem_buf( v[1], v[3] )
+            end
+        end
+        local buf = {buf_id}
+        table.insert(bufs, buf)
+        self.bufs = bufs
+        return buf
+    end
+end
+
+function rem_buf(self, buf_id)
+    local bufs = self.bufs
+    for k, v in pairs(bufs or {}) do
+        --v = {bufid, tmStart, tmOver}
+        if v[1] == buf_id then
+            table.remove(bufs, k)
+            local node = resmng.prop_buff[ buf_id ]
+            self.bufs = bufs
+            INFO( "rem_buf, pid=%d, hero=%d, bufid=%d", self.pid, self.id, buf_id)
+            return
+        end
+    end
+end

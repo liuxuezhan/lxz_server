@@ -1,29 +1,26 @@
---lxz
---军团建筑科技捐献
+--军团
+--膜拜战神
 local mod = {}
 
 function mod.action(_idx)
 
-    require("frame/debugger")
-    local name = tostring(math.random(100,999))
-    lxz(name)
-    local p = get_account2(name)
-    chat(p, "@set_val=gold=100000000")
-    Rpc:union_quit(p)
-    Rpc:union_create(p, "robot"..name, name, 40, 1000)
-    wait_for_ack(p, "union_on_create")
-    
-    local num, def = 5000, {}
-    for i = 1, num do
-        def[i] = get_account2(name..i)
-        Rpc:union_quit( def[i] )
-        Rpc:union_apply( def[i],p.uid)
-        chat(def[i], "@set_val=gold=100000000")
+    local a = union_create(nil,1)
+    for i = 1, 5000 do
+        local p = get_account(i)
+        lxz(p.pid)
+        loadData(p)
+        Rpc:union_quit( p )
+        Rpc:union_apply( p,a[1].uid)
+        chat(p, "@set_val=gold=100000000")
+        chat(p, "@buildtop")
+        chat(p, "@jump=6")
+        chat(p, "@jumpback=5")
+        sync( p )
 
-        Rpc:union_god_add(def[i],3)        --膜拜战神
-        Rpc:union_quit( def[i] )
-        sync( def[i] )
-        logout( def[i] )
+        Rpc:union_god_add(p,3)        --膜拜战神
+        Rpc:union_quit( p )
+        sync( p )
+        logout( p )
     end
 
     return "ok"

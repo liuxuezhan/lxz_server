@@ -47,6 +47,7 @@ end
 
 -- one item = {idx, id, num, extra ...}
 function inc_item(p, id, num, reason,cost)
+    if num <= 0 then return false end
     num = math.floor( num )
     local its = p:get_item()
     local hit = false
@@ -78,11 +79,12 @@ function inc_item(p, id, num, reason,cost)
     INFO("[ITEM] inc, pid = %d, idx = %d, item_id = %d, num = %d, total = %d, reason = %d.", p.pid, idx, id, num, total, reason or 0)
 
     --任务
-    task_logic_t.process_task(p, TASK_ACTION.GET_ITEM, id, num)
+    --task_logic_t.process_task(p, TASK_ACTION.GET_ITEM, id, num)
     task_logic_t.process_task(p, TASK_ACTION.GET_TASK_ITEM, id, num)
 
     p:pre_tlog("ItemFlow",0,0,id,num,its[idx][3],reason,0,2,0)
-    p:tlog_ten("ItemFlow",p:get_castle_lv(),0,0,id,num,its[idx][3],reason,0,cost or 0,0,0,p.ip or "0.0.0.0")
+    --p:tlog_ten("ItemFlow",p:get_castle_lv(),0,0,id,num,its[idx][3],reason,0,cost or 0,1,0,p.ip or "0.0.0.0")
+    --p:tlog_ten2("ItemFlow",0,0,id,num,its[idx][3],reason,0,cost or 0,1,0,p.ip or "0.0.0.0")
     reason = reason or VALUE_CHANGE_REASON.DEFAULT
     if reason == VALUE_CHANGE_REASON.DEFAULT then
         ERROR("inc_item: pid = %d, don't use the default reason.", p.pid)
@@ -145,7 +147,8 @@ function dec_item(p, idx, num, reason)
         task_logic_t.process_task(p, TASK_ACTION.USE_ITEM, propid, num)
         task_logic_t.process_task(p, TASK_ACTION.GET_TASK_ITEM, propid, -num)
         p:pre_tlog("ItemFlow",0,0,propid,num,item[3],reason,0,2,1)
-        p:tlog_ten("ItemFlow",p:get_castle_lv(),0,0,propid,num,item[3],reason,0,0,0,1,p.ip or "0.0.0.0" )
+        --p:tlog_ten("ItemFlow",p:get_castle_lv(),0,0,propid,num,item[3],reason,0,0,1,1,p.ip or "0.0.0.0" )
+        --p:tlog_ten2("ItemFlow",0,0,propid,num,item[3],reason,0,0,1,1,p.ip or "0.0.0.0" )
         return true
     else
         WARN("[ITEM] dec_item: pid = %d, idx = %d, item_id = %d, num = %d > have = %d", p.pid, idx, item[2], num, item and item[3] or -1)

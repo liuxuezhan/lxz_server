@@ -7,7 +7,7 @@ function ChoreReap:init(player)
     self.periodic_id = AutobotTimer:addPeriodicTimer(newFunctor(self, ChoreReap._doReap), REAP_INTERVAL)
 end
 
-function ChoreReap:unint()
+function ChoreReap:uninit()
     AutobotTimer:delPeriodicTimer(self.periodic_id)
 end
 

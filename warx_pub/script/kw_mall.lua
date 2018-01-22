@@ -349,7 +349,7 @@ function can_buy(ply, index)
         if good.state == 1 then
             return false
         end
-        if ply.officer ~= KING then
+        if ply:get_officer() ~= KING then
             return false
         end
         return true

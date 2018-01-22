@@ -12,158 +12,191 @@ module("player_t")
 --  }
 -- }
 
-function get_operate_info(self, activity_id, type)
-    if self.operate_activity[activity_id] == nil then
-        return nil
-    end
-    local info = self.operate_activity[activity_id]
-    if info[type] == nil then
-        return nil
-    end
-    return info[type]
-end
-
-function set_operate_version(self, activity_id, version)
-    if self.operate_activity[activity_id] == nil then
-        self.operate_activity[activity_id] = {}
-    end
-    self.operate_activity[activity_id][OPERATE_PLAYER_DATA.VERSION] = version
-end
-
-function set_operate_first_flag(self, activity_id)
-    if self.operate_activity[activity_id] == nil then
-        self.operate_activity[activity_id] = {}
-    end
-    self.operate_activity[activity_id][OPERATE_PLAYER_DATA.FIRST_FLAG] = true
-    self.operate_activity = self.operate_activity
-end
-
-function get_operate_first_flag(self, activity_id)
-    if self.operate_activity[activity_id] == nil then
-        return nil
-    end
-    if self.operate_activity[activity_id][OPERATE_PLAYER_DATA.FIRST_FLAG] == nil then
-        return nil
-    end
-    return true
-end
-
-function set_operate_info(self, activity_id, type, key, value)
-    if self.operate_activity[activity_id] == nil then
-        self.operate_activity[activity_id] = {}
-    end
-    local info = self.operate_activity[activity_id]
-    if info[type] == nil then
-        info[type] = {}
-    end
-
-    local data = info[type]
-    if data[key] == nil then
-        data[key] = 0
-    end
-    data[key] = data[key] + value
-
-    --活动计数标记赋值
-    if info[OPERATE_PLAYER_DATA.VERSION] == nil then
-        local activity = operate_activity.get_activity_by_id(activity_id)
-        if activity ~= nil then
-            info[OPERATE_PLAYER_DATA.VERSION] = activity.version
+function change_operate_activity()--转档
+    for _, p in pairs( gPlys or {}) do
+        if p._pro.operate_activity then
+            local as = {}
+            for k, v in pairs(p.operate_activity ) do
+                if type(k) == "number" then
+                    v._id = p.pid .. "_" .. k
+                    v.pid = p.pid
+                    v.activity_id = k
+                    as[ k ] = v
+                    gPendingInsert.operate_activity[v._id] = v 
+                end
+            end
+            p._pro.operate_activity = nil
+            rawset( p, "_operate_activity", as )
+            WARN( "update %d operate_activity", p.pid )
         end
     end
 
-    self.operate_activity = self.operate_activity
+    local db = dbmng:getOne()
+    if db then
+        db.player:update( {}, { ["$unset"]={ ["operate_activity"]='', } }, false, true )
+    else
+        ERROR( "change_operate_activity, can not get db" )
+    end
 end
 
-function update_operate_info(self, activity_id, type, key, value)
-    if self.operate_activity[activity_id] == nil then
-        self.operate_activity[activity_id] = {}
+function do_load_operate_activity( self )
+    if not self._operate_activity then
+        local bs = {}
+        local db = self:getDb()
+        local info = db.operate_activity:find({pid=self.pid})
+        while info:hasNext() do
+            local b = info:next()
+            bs[ b.activity_id ] = b
+        end
+        if not self._operate_activity then rawset(self, "_operate_activity", bs) end
     end
-    local info = self.operate_activity[activity_id]
-    if info[type] == nil then
-        info[type] = {}
-    end
+end
 
-    local data = info[type]
-    data[key] = value
+function get_operate_activity( self, id )
+    if not self._operate_activity then do_load_operate_activity( self ) end
+    if id then
+        local node = self._operate_activity[ id ]
+        if not node then
+            node =  {_id=self.pid.."_"..id,pid=self.pid,activity_id=id,}
+            self._operate_activity[ id ] = node
+        end
+        return node
+    else
+        return self._operate_activity
+    end
+end
+
+function get_operate_info(p, activity_id, class)
+    local d = get_operate_activity(p,activity_id)
+    return d[class]
+end
+
+function set_operate_version(p, activity_id, version)
+    local d = get_operate_activity(p,activity_id)
+    d[OPERATE_PLAYER_DATA.VERSION] = version
+    gPendingSave.operate_activity[d._id][OPERATE_PLAYER_DATA.VERSION]  = version 
+    if p then Rpc:operate_activity_update_data(p, { d } ) end
+end
+
+function set_operate_first_flag(p, activity_id)
+    local d = get_operate_activity(p,activity_id)
+    d[OPERATE_PLAYER_DATA.FIRST_FLAG] = true
+    gPendingSave.operate_activity[d._id][OPERATE_PLAYER_DATA.FIRST_FLAG]  = true 
+    if p then Rpc:operate_activity_update_data(p, { d } ) end
+end
+
+function get_operate_first_flag(p, activity_id)
+    local d = get_operate_activity(p,activity_id)
+    if d[OPERATE_PLAYER_DATA.FIRST_FLAG] then return true end
+end
+
+function set_operate_info(p, activity_id, class, key, value)
+    local d = get_operate_activity(p,activity_id)
+    d[class] =  d[class] or {} 
+    d[class][key] = (d[class][key] or 0 ) + value
 
     --活动计数标记赋值
-    if info[OPERATE_PLAYER_DATA.VERSION] == nil then
+    if d[OPERATE_PLAYER_DATA.VERSION] == nil then
         local activity = operate_activity.get_activity_by_id(activity_id)
         if activity ~= nil then
-            info[OPERATE_PLAYER_DATA.VERSION] = activity.version
+            d[OPERATE_PLAYER_DATA.VERSION] = activity.version
+            gPendingSave.operate_activity[d._id][OPERATE_PLAYER_DATA.VERSION] = activity.version 
         end
     end
+    gPendingSave.operate_activity[d._id][class]  = d[class] 
+    if p then Rpc:operate_activity_update_data(p, { d } ) end
+end
 
-    self.operate_activity = self.operate_activity
+function update_operate_info(p, activity_id, class, key, value)
+    local d = get_operate_activity(p,activity_id)
+    d[class] =  d[class] or {} 
+    d[class][key] = value
+
+    --活动计数标记赋值
+    if d[OPERATE_PLAYER_DATA.VERSION] == nil then
+        local activity = operate_activity.get_activity_by_id(activity_id)
+        if activity ~= nil then
+            d[OPERATE_PLAYER_DATA.VERSION] = activity.version
+            gPendingSave.operate_activity[d._id][OPERATE_PLAYER_DATA.VERSION] = activity.version 
+        end
+    end
+    p._operate_activity[activity_id] = d
+    gPendingSave.operate_activity[d._id][class]  = d[class] 
+    if p then Rpc:operate_activity_update_data(p, { d } ) end
 end
 
 --rpc
-function operate_activity_list(self)
-    self:operate_check_all_version()
-    operate_activity.packet_activity_list(self)
+function operate_activity_list(p)
+    get_operate_activity(p)
+    p:operate_check_all_version()
+    operate_activity.packet_activity_list(p)
 end
 
-function operate_exchange(self, activity_id, exchange_id)
-    operate_activity.exchage(self, activity_id, exchange_id)
+function operate_exchange(p, activity_id, exchange_id)
+    operate_activity.exchage(p, activity_id, exchange_id)
 end
 
-function operate_single_get(self, activity_id)
-    operate_activity.single_get(self, activity_id)
+function operate_single_get(p, activity_id)
+    operate_activity.single_get(p, activity_id)
 end
 
-function operate_task_get(self, activity_id, task_id)
-    operate_activity.task_get(self, activity_id, task_id)
+function operate_task_get(p, activity_id, task_id)
+    operate_activity.task_get(p, activity_id, task_id)
 end
 
-function operate_on_day_pass(self)
-    local clear_list = {}
-    for id, info in pairs(self.operate_activity or {}) do
-        local activity = operate_activity.get_activity_by_id(id)
-        if activity == nil or activity.is_end == 1 then
-            table.insert(clear_list, id)
-        elseif nil ~= info[OPERATE_PLAYER_DATA.VERSION] then
-            local prop = resmng.get_conf("prop_operate_activity", id)
-            if prop.CirculationNum then
-                self.operate_activity[id] = {}
-                self.operate_activity[id][OPERATE_PLAYER_DATA.VERSION] = activity.version
+function operate_on_day_pass(p)
+    local upds = {}
+    for id, d in pairs(p._operate_activity or {}) do
+        if type(id) == "number" then
+            local activity = operate_activity.get_activity_by_id(id)
+            if activity == nil or activity.is_end == 1 then
+                table.insert( upds, { activity_id=id, delete=true} )
+                p._operate_activity[id] = nil
+                gPendingDelete.operate_activity[d._id] = 1  
+            elseif nil ~= d[OPERATE_PLAYER_DATA.VERSION] then
+                local prop = resmng.get_conf("prop_operate_activity", id)
+                if prop.CirculationNum then
+                    local t = {_id=p.pid.."_"..id,pid=p.pid,activity_id=id,[OPERATE_PLAYER_DATA.VERSION] = activity.version,}
+                    p._operate_activity[id] = t 
+                    gPendingInsert.operate_activity[t._id] = t  
+                    table.insert( upds, t )
+                end
             end
         end
     end
-
-    for k, v in pairs(clear_list) do
-        self.operate_activity[v] = nil
-    end
-    self.operate_activity = self.operate_activity
+    if p then Rpc:operate_activity_update_data(p, upds ) end
 end
 
-function operate_check_all_version(self)
-    for id, info in pairs(self.operate_activity or {}) do
-        local activity = operate_activity.get_activity_by_id(id)
-        if activity ~= nil then
-            if info[OPERATE_PLAYER_DATA.VERSION] ~= nil then
-                if activity.version ~= info[OPERATE_PLAYER_DATA.VERSION] then
-                    self.operate_activity[id] = {}
-                    self.operate_activity[id][OPERATE_PLAYER_DATA.VERSION] = activity.version
+function operate_check_all_version(p)
+    local oas = get_operate_activity( p )
+    for id, d in pairs(oas or {}) do
+        if type(id) == "number" then
+            local activity = operate_activity.get_activity_by_id(id)
+            if activity ~= nil then
+                if d[OPERATE_PLAYER_DATA.VERSION] ~= nil then
+                    if activity.version ~= d[OPERATE_PLAYER_DATA.VERSION] then
+                        local t = {_id=p.pid.."_"..id,pid=p.pid,activity_id=id,[OPERATE_PLAYER_DATA.VERSION] = activity.version,}
+                        oas[ id ] = t
+                        gPendingInsert.operate_activity[t._id] = t  
+                        Rpc:operate_activity_update_data( p, { t } )
+                    end
                 end
             end
         end
     end
 end
 
-function operate_check_version(self, activity)
-    if activity == nil then
-        return
-    end
+function operate_check_version(p, activity)
+    if activity == nil then return end
     local id = activity.activity_id
-    local info = self.operate_activity[id]
-    if info == nil then
-        return
-    end
+    local d = get_operate_activity(p,id)
     
-    if info[OPERATE_PLAYER_DATA.VERSION] ~= nil then
-        if activity.version ~= info[OPERATE_PLAYER_DATA.VERSION] then
-            self.operate_activity[id] = {}
-            self.operate_activity[id][OPERATE_PLAYER_DATA.VERSION] = activity.version
+    if d[OPERATE_PLAYER_DATA.VERSION] ~= nil then
+        if activity.version ~= d[OPERATE_PLAYER_DATA.VERSION] then
+            local t = {_id=p.pid.."_"..id,pid=p.pid,activity_id=id,[OPERATE_PLAYER_DATA.VERSION] = activity.version,}
+            p._operate_activity[id] = t 
+            gPendingInsert.operate_activity[t._id] = t  
+            Rpc:operate_activity_update_data( p, { t } )
         end
     end
 end

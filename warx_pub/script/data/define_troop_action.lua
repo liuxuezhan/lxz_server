@@ -53,3 +53,4 @@ TaskAtkPly = 45
 Dig = 46
 SiegeDig = 47
 Exchange = 48
+HeroTask = 49

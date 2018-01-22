@@ -28,13 +28,36 @@ local zset = require "frame/zset"
 
 start_time = start_time or gTime  --本期活动开始世界
 end_time = end_time or gTime  --本期活动开始世界
-
 actTimer = actTimer or 0
 actState = actState or 0
 cityPool = cityPool or {}
 citys = citys or {}
 seq_citys = seq_citys or {}
 map_lts = map_lts -- 不要加 {}
+
+function send_rank_award_tm()
+    if actState == 1 then
+        return end_time
+    end
+    if actState == 0 or actState == 2 then
+        local st_tm, end_tm = get_next_active_tm()
+        return end_tm
+    end
+end
+
+function get_next_active_tm()
+    local prepare_time =  1800
+    if actState == 1 then
+        local prop_off =  resmng.get_conf("prop_lt_stage", 0) 
+        local prop_on = resmng.get_conf("prop_lt_stage", 1)
+        return end_time + prop_off.Spantime + prepare_time, end_time + prop_on.Spantime + prop_off.Spantime
+    else
+        local prop = resmng.get_conf("prop_lt_stage", 1)
+        if prop then
+            return end_time, end_time + prop.Spantime
+        end
+    end
+end
 
 function reset_map_lt_info()
     map_lts = nil
@@ -200,26 +223,30 @@ function try_start_lt()
     local id = actState
     local prop = resmng.prop_lt_stage[id]
     if prop then
-        local prepare_time =  1800
-        if not  player_t.debug_tag then
+        local prepare_time =  0
+       -- if not  player_t.debug_tag then
             if actState == LT_STATE.LOCK then
-                if ( gTime + prepare_time - get_sys_status("start") or 0) >= prop.Spantime  then
-                    timer.new("start_lt", prepare_time)
-                    lt_ntf(resmng.LT_OPEN)
+                if ( gTime + prepare_time - act_mng.start_act_tm) >= prop.Spantime - 30 then
+                    timer.new("start_lt", prepare_time + 1)
+                   -- lt_ntf(resmng.LT_OPEN)
                 end
+                start_time = act_mng.start_act_tm
+                end_time = start_time + prop.Spantime + prepare_time
+                gPendingSave.status["lostTemple"].start_time = start_time
+                gPendingSave.status["lostTemple"].end_time = end_time
             end
 
             if actState == LT_STATE.DOWN then
-                if ( gTime + prepare_time - end_time) >= prop.Spantime  then
-                    timer.new("start_lt", prepare_time)
-                    lt_ntf(resmng.LT_OPEN)
+                if ( gTime + prepare_time - end_time) >= prop.Spantime - 30 then
+                    timer.new("start_lt", prepare_time + 1)
+                  --  lt_ntf(resmng.LT_OPEN)
                 end
             end
-        else
-            prepare_time = 10
-            timer.new("start_lt", prepare_time)
-            lt_ntf(resmng.LT_OPEN)
-        end
+       -- else
+         --   prepare_time = 10
+           -- timer.new("start_lt", prepare_time)
+           -- lt_ntf(resmng.LT_OPEN)
+       -- end
     end
 end
 
@@ -258,7 +285,7 @@ end
 
 function start_lt()
     lt_ntf(resmng.LT_START)
-    start_time = gTime
+    start_time = get_zero_tm(gTime)
     gPendingSave.status["lostTemple"].start_time  = start_time
     actState = LT_STATE.ACTIVE
     gPendingSave.status["lostTemple"].actState  = actState
@@ -507,7 +534,7 @@ function after_fight(ackTroop, defenseTroop)
     if check_atk_win(defenseTroop) then
         npc_city.change_city_uid(city, ackTroop.owner_uid)
         --city.pid = ackTroop.owner_pid
-        city.my_troop_id = nil
+        city.my_troop_id = 0
         local union = unionmng.get_union(city.uid)
         if union then
             city.uname = union.name
@@ -726,7 +753,9 @@ function set_timer(state, self)
     
         self.timers= timerId
     else
-        local timerId = timer.new("lost_temple", time, state)
+        local deadline = start_time + time
+        local left_tm = deadline - gTime
+        local timerId = timer.new("lost_temple", left_tm, state)
         actTimer = timerId
         gPendingSave.status["lostTemple"].timer = timerId
     end

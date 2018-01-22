@@ -13,8 +13,4 @@ prop_mall_group_relic = {
 	[MALL_GROU_SHELF_4] = { ID = MALL_GROU_SHELF_4, Group = 34,},
 	[MALL_GROU_SHELF_5] = { ID = MALL_GROU_SHELF_5, Group = 35,},
 	[MALL_GROU_SHELF_6] = { ID = MALL_GROU_SHELF_6, Group = 36,},
-	[MALL_GROU_SHELF_7] = { ID = MALL_GROU_SHELF_7, Group = 37,},
-	[MALL_GROU_SHELF_8] = { ID = MALL_GROU_SHELF_8, Group = 38,},
-	[MALL_GROU_SHELF_9] = { ID = MALL_GROU_SHELF_9, Group = 39,},
-	[MALL_GROU_SHELF_10] = { ID = MALL_GROU_SHELF_10, Group = 40,},
 }

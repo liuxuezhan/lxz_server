@@ -21,7 +21,8 @@ module_class("npc_city",
     getAwardMember = {},
     randomAward = {},
     --size = 0,
-    kw_buff = {}
+    kw_buff = {},
+    royal = ROYAL_STATE.NO_ROYAL,
     --atk_troops= {},    --攻击该城市的部队
     --leave_troops = {},  --从该城市出发的部队
 })
@@ -33,6 +34,13 @@ have = have or {}
 map_pack = map_pack -- 不要加{}
 do_mc_citys = do_mc_citys -- 不要加{}
 npc_logs = npc_logs or {} -- 攻城掠地记录
+start_tm = start_tm or 0  --本期活动开始世界
+end_tm = end_tm or 0  --本期活动开始世界
+actTimer = actTimer or 0
+actState = actState or 0
+active_day = active_day or 0
+season = season or 0
+rank_end_tm = rank_end_tm or 0
 
 function reset_map_pack()
     map_pack = nil
@@ -41,6 +49,18 @@ end
 
 function reset_do_mc_citys()
     do_mc_citys = nil
+end
+
+function kaifu_tw()
+    start_tm = 0
+    end_tm = 0
+    timer.del(actTimer)
+    actTimer = 0
+    rank_end_tm = 0
+    npc_logs = {}
+    season = 0
+    actState = 0
+    gPendingDelete.status["npc_city"] = 0
 end
 
 function init()
@@ -155,6 +175,15 @@ function load_tw_state()
         db.status:insert(info)
     end
     npc_logs = info.npc_logs or {}
+
+    if info.actState then
+        actState = info.actState
+        start_tm = info.start_tm
+        end_tm = info.end_tm
+        actTimer = info.actTimer
+        season = info.season or 0
+        rank_end_tm = info.rank_end_tm
+    end
 end
 
 function get_npc_eid_by_propid(propid)
@@ -181,6 +210,11 @@ function update_act_tag()
 end
 
 function update_union_score(key, level, rank_id)
+    local union = unionmng.get_union(key)
+    if check_union_cross(union) then
+        return
+    end
+
     rank_id = rank_id or 13
     local unionId = tostring(key)
     local score  = level -- to do
@@ -201,6 +235,9 @@ function update_ply_score(key, level)
 
     local ply = getPlayer(key)
     if ply then
+        if check_ply_cross(ply) then
+            return
+        end
         local u = ply:get_union()
         if u then
             u:add_score_in_u(key, ACT_TYPE.NPC, score)
@@ -246,7 +283,7 @@ function reset_npc(self)
     change_city_uid(self, 0)
     --self.pid = 0
     troop_mng.delete_troop(self.my_troop_id)
-    self.my_troop_id = nil
+    self.my_troop_id = 0
     format_union(self)
     etypipe.add(self)
 end
@@ -267,6 +304,30 @@ function init_npc_city(prop, eid)
     return npcCity
 end
 
+function clear_npcs_by_uid(uid)
+    for k, v in pairs(citys or {}) do
+        local city = get_ety(k)
+        if city.uid == uid then
+            city:clear_npc()
+        end
+    end
+end
+
+function clear_npc(self)  -- union destory
+    local tr = troop_mng.get_troop(self.my_troop_id)
+    if tr then
+        if tr.owner_uid == self.uid then
+            tr:back()
+        end
+    end
+    self.my_troop_id = 0
+    self:drop_city(self.uid) -- post to cross center
+    change_city_uid(self, 0)
+    init_npc_state(self)
+    format_union(self)
+    etypipe.add(self)
+end
+
 function init_npc_state(npcCity)
     local state, startTime, endTime = get_npc_state()
     change_city_state(npcCity, state)
@@ -275,38 +336,42 @@ function init_npc_state(npcCity)
 end
 
 function get_npc_state()
-    local now = os.date("*t", gTime)
-    local startHour = resmng.prop_tw_stage[TW_STATE.DECLARE].Start.hour
-    local endHour = resmng.prop_tw_stage[TW_STATE.DECLARE].End.hour
-    local startMin = resmng.prop_tw_stage[TW_STATE.DECLARE].Start.min
-    local endMin = resmng.prop_tw_stage[TW_STATE.DECLARE].End.min
-    local startTime = 0
-    local endTime = 0
-    local state = 1
-    local temp = { year=now.year, month=now.month, day=now.day, hour=0, min=0, sec=0 }
-    if now.hour >= startHour and now.hour < endHour then
-        state = TW_STATE.DECLARE
-        temp.hour = startHour
-        temp.min = startMin
-        startTime = os.time(temp)
-        temp.hour = endHour
-        endTime = os.time(temp) 
-    elseif now.hour >= endHour then 
-        state = TW_STATE.PACE
-        temp.hour = endHour
-        temp.min = endMin
-        startTime = os.time(temp)
-        temp.hour = startHour
-        endTime = os.time(temp) + 24 * 3600
-    elseif now.hour < startHour then
-        state = TW_STATE.PACE
-        startTime = gTime
-        temp.hour = startHour
-        temp.min = startMin
-        endTime = os.time(temp)
-    end
-    return state, startTime, endTime
+    return actState, start_tm, end_tm
 end
+
+--function get_npc_state()
+--    local now = os.date("*t", gTime)
+--    local startHour = resmng.prop_tw_stage[TW_STATE.DECLARE].Start.hour
+--    local endHour = resmng.prop_tw_stage[TW_STATE.DECLARE].End.hour
+--    local startMin = resmng.prop_tw_stage[TW_STATE.DECLARE].Start.min
+--    local endMin = resmng.prop_tw_stage[TW_STATE.DECLARE].End.min
+--    local startTime = 0
+--    local endTime = 0
+--    local state = 1
+--    local temp = { year=now.year, month=now.month, day=now.day, hour=0, min=0, sec=0 }
+--    if now.hour >= startHour and now.hour < endHour then
+--        state = TW_STATE.DECLARE
+--        temp.hour = startHour
+--        temp.min = startMin
+--        startTime = os.time(temp)
+--        temp.hour = endHour
+--        endTime = os.time(temp) 
+--    elseif now.hour >= endHour then 
+--        state = TW_STATE.PACE
+--        temp.hour = endHour
+--        temp.min = endMin
+--        startTime = os.time(temp)
+--        temp.hour = startHour
+--        endTime = os.time(temp) + 24 * 3600
+--    elseif now.hour < startHour then
+--        state = TW_STATE.PACE
+--        startTime = gTime
+--        temp.hour = startHour
+--        temp.min = startMin
+--        endTime = os.time(temp)
+--    end
+--    return state, startTime, endTime
+--end
 
 function declare_state(npcCity)
     local state, startTime, endTime = get_npc_state()
@@ -326,8 +391,13 @@ end
 function reset_npc_troop(npc)
     if npc.uid == 0 then
         if npc.my_troop_id then
-            troop_mng.delete_troop(npc.my_troop_id)
-            npc.my_troop_id = nil
+            local tr = troop_mng.get_troop(npc.my_troop_id) 
+            if tr then
+                if tr.owner_pid == 0 then
+                    troop_mng.delete_troop(npc.my_troop_id)
+                    npc.my_troop_id = 0
+                end
+            end
         end
     end
 end
@@ -353,17 +423,10 @@ function fight_state(npcCity)
         king_city.common_ntf(resmng.TW_FIGHT, {pro.Name})
     end
 
-    for k, v in pairs(npcCity.declareUnions or {}) do
-        local union = unionmng.get_union(v)
-        if union then
-            local _members = union:get_members()
-            for k, ply in pairs(_members or {}) do
-                player_t.send_system_notice(ply, resmng.MAIL_10057, {pro.Name},{pro.Name})
-                offline_ntf.post(resmng.OFFLINE_NOTIFY_FIGHT, ply, pro.NameOffline)
-            end
-            union:reset_npc_info_pack()
-        end
-    end
+    local pack = {}
+    pack.mode = DISPLY_MODE.NPC
+    pack.state = TW_STATE.FIGHT
+    pack.npc_id = npcCity.propid
 
     local def_union = unionmng.get_union(npcCity.uid)
     if def_union then
@@ -371,6 +434,37 @@ function fight_state(npcCity)
         for k, ply in pairs(_members or {}) do
             player_t.send_system_notice(ply, resmng.MAIL_10057, {pro.Name},{pro.Name})
             offline_ntf.post(resmng.OFFLINE_NOTIFY_BE_FIGHT, ply, pro.NameOffline)
+        end
+    end
+
+    if def_union then
+        pack.def_info = {u_name = def_union.name, u_alias = def_union.alias, u_flag = def_union.flag}
+        for k, v in pairs(npcCity.declareUnions or {}) do
+            local union = unionmng.get_union(v)
+            if union then
+                pack.atk_info = {u_name = union.name, u_alias = union.alias, u_flag = union.flag}
+                pack.atk_num = get_table_valid_count(npcCity.declareUnions or {})
+                break
+            end
+        end
+        local def_members = def_union:get_members()
+        for k, v in pairs(def_members or {}) do
+            v:add_to_do("display_ntf", pack)
+        end
+    end
+
+    for k, v in pairs(npcCity.declareUnions or {}) do
+        local union = unionmng.get_union(v)
+        if union then
+            pack.atk_info = {u_name = union.name, u_alias = union.alias, u_flag = union.flag}
+            pack.atk_num = get_table_valid_count(npcCity.declareUnions or {})
+            local _members = union:get_members()
+            for k, ply in pairs(_members or {}) do
+                player_t.send_system_notice(ply, resmng.MAIL_10057, {pro.Name},{pro.Name})
+                offline_ntf.post(resmng.OFFLINE_NOTIFY_FIGHT, ply, pro.NameOffline)
+                ply:add_to_do("display_ntf", pack)
+            end
+            union:reset_npc_info_pack()
         end
     end
 
@@ -443,7 +537,72 @@ function def_success(npc)
     end
 end
 
-function start_tw()
+function try_start_tw()
+    local id = actState
+    local prop = resmng.prop_tw_open[id]
+           -- LOG("ffffffffffffffffffffffffkkkkkkkkkkkkkkkkkkkkkkk tw1 %s %s %s", act_mng.start_act_tm, gTime, actState)
+    if  actState == 0 then
+        season = 0
+        if gTime < act_mng.start_act_tm then
+            actState = TW_STATE.PACE
+            start_tm = get_zero_tm(gTime)
+            end_tm = act_mng.start_act_tm + prop.Span
+            rank_end_tm = act_mng.start_act_tm + prop.Awardtm
+        else
+            local tm = act_mng.start_act_tm + prop.Span - gTime
+           -- LOG("ffffffffffffffffffffffffkkkkkkkkkkkkkkkkkkkkkkk tw %s, %s ", act_mng.start_act_tm, tm)
+            if tm < 0 then
+                start_tw(act_mng.start_act_tm + prop.Span)
+            else
+                actState = TW_STATE.PACE
+                start_tm = act_mng.start_act_tm
+                end_tm = start_tm + prop.Span
+                actTimer = timer.new("tw_stage", tm, TW_STATE.DECLARE, end_tm)
+            end
+            rank_end_tm = act_mng.start_act_tm + prop.Awardtm
+        end
+        for k, v in pairs(citys) do
+            local city = get_ety(v)
+            if city then
+                city:init_npc_state()
+            end
+        end
+    else
+        if actState == TW_STATE.PACE then
+            if get_zero_tm(gTime + 10) - start_tm >= prop.Wait then
+                local tm = get_zero_tm(gTime) + prop.CountDown - gTime
+                if tm < 0 then
+                     start_tw(get_zero_tm(gTime) + prop.CountDown)
+                else
+                    actTimer = timer.new("tw_stage", tm, TW_STATE.DECLARE, get_zero_tm(gTime) + prop.CountDown)
+                end
+            end
+        end
+    end
+    gPendingSave.status["npc_city"].actTimer  = actTimer
+    gPendingSave.status["npc_city"].actState = actState
+    gPendingSave.status["npc_city"].start_tm  = start_tm
+    gPendingSave.status["npc_city"].end_tm  = end_tm
+    gPendingSave.status["npc_city"].rank_end_tm = rank_end_tm 
+    gPendingSave.status["npc_city"].season = season
+end
+
+function start_tw(tm)
+    start_tm = tm or gTime
+    actState = TW_STATE.DECLARE
+    gPendingSave.status["npc_city"].actState = actState
+    gPendingSave.status["npc_city"].start_tm = start_tm
+    local stage_prop = resmng.prop_tw_open[actState]
+    if stage_prop then
+        end_tm = start_tm + stage_prop.CountDown
+        gPendingSave.status["npc_city"].end_tm  = end_tm
+    end
+    local left_tm = end_tm - gTime
+    actTimer = timer.new("tw_stage", left_tm, TW_STATE.PACE)
+    gPendingSave.status["npc_city"].actTimer  = actTimer
+    season = season + 1
+    gPendingSave.status["npc_city"].season = season
+
     local prop = resmng.get_conf("prop_act_notify", resmng.TW_START)
     if prop then
          if prop.Notify then
@@ -467,7 +626,7 @@ function clear_union()
     for k, v in pairs(citys or {}) do
         local npcCity = gEtys[ k ]
         if npcCity then
-            npcCity.declareUnions = nil
+            npcCity.declareUnions = {}
         end
     end
 end
@@ -482,6 +641,19 @@ function fight_tw()
 end
 
 function end_tw()
+    actState = TW_STATE.PACE
+    gPendingSave.status["npc_city"].actState = actState
+    start_tm = end_tm
+    gPendingSave.status["npc_city"].start_tm  = start_tm
+    local stage_prop = resmng.prop_tw_open[actState]
+    if stage_prop then
+        end_tm = start_tm + stage_prop.Span
+        gPendingSave.status["npc_city"].end_tm  = end_tm
+    end
+    timer.del(actTimer)
+    actTimer = 0
+    gPendingSave.status["npc_city"].actTimer  = actTimer
+
     local prop = resmng.get_conf("prop_act_notify", resmng.TW_END)
     if prop then
          if prop.Notify then
@@ -507,6 +679,12 @@ function end_tw()
     add_cross_score()
 
     king_city.try_unlock_kw()
+
+    if season % 2 == 0 then
+        crontab.send_tw_award()
+        rank_end_tm = start_tm + stage_prop.Awardtm
+        gPendingSave.status["npc_city"].rank_end_tm = rank_end_tm 
+    end
 end
 
 function add_cross_score()
@@ -522,7 +700,7 @@ function clear_declare_state()
     local unions = unionmng.get_all()
     if unions then
         for k, union in pairs(unions or {}) do
-            union.declare_wars = nil
+            union.declare_wars = {}
             union.declare_tm = 0
         end
     end
@@ -531,15 +709,17 @@ end
 function send_end_tw_award()
     local us = unionmng.get_all()
     for k, v in pairs(us or {}) do
-        if not check_union_cross(v) then
-            local award = each_union_award(v)
-            if get_table_valid_count(award or {}) >= 1 then
+        local award = each_union_award(v)
+        if get_table_valid_count(award or {}) >= 1 then
+            if not check_union_cross(v) then
                 local _members = v:get_members()
                 for pid, ply in pairs(_members or {}) do
                     if check_ply_can_award(ply) then
                         ply:send_system_notice(10012, {}, {}, award)
                     end
                 end
+            else
+                Rpc:callAgent(v.map_id, "send_end_tw_award", v.uid, award)
             end
         end
     end
@@ -661,7 +841,7 @@ end
 
 
 function clear_award(npcCity)
-    npcCity.randomAward = nil
+    npcCity.randomAward = {}
     npcCity.getAwardMember = {}
 end
 
@@ -787,13 +967,32 @@ function declare_notify(atk_eid, npc_eid)
             offline_ntf.post(resmng.OFFLINE_NOTIFY_BE_DECLARE, ply, npc_conf.NameOffline, unions)
         end
     end
+
+    local pack = {}
+    pack.mode = DISPLY_MODE.NPC
+    pack.state = TW_STATE.DECLARE
+    pack.npc_id = npc.propid
+    pack.atk_info = {u_name = union.name, u_alias = union.alias, u_flag = union.flag}
+    pack.atk_num = get_table_valid_count(npc.declareUnions or {})
+    if def_union then
+        pack.def_info = {u_name = def_union.name, u_alias = def_union.alias, u_flag = def_union.flag}
+        local def_members = def_union:get_members()
+        for k, v in pairs(def_members or {}) do
+            v:add_to_do("display_ntf", pack)
+        end
+    end
+    local _members = union:get_members()
+    for k, v in pairs(_members or {}) do
+        v:add_to_do("display_ntf", pack)
+    end
+
 end
 
 function can_union_declare(atkEid, npcEid)
     local ply = get_ety(atkEid)
     local union = ply:union()
     if union then
-        return union_t.can_declare_war(union, npcEid)
+        return union:can_declare_war(npcEid)
     end
 end
 
@@ -865,7 +1064,7 @@ function do_unio_declare(atkEid, npcEid)
     local ply = get_ety(atkEid)
     local union = ply:union()
     if union then
-        union_t.do_declare_tw(union, npcEid)
+        union:do_declare_tw(npcEid)
     end
 end
 
@@ -882,7 +1081,7 @@ end
 
 function get_my_troop(self)
     local tr = false
-    if self.my_troop_id then
+    if self.my_troop_id and self.my_troop_id ~= 0 then
         tr = troop_mng.get_troop(self.my_troop_id)
         if tr then return tr end
     end
@@ -1188,6 +1387,7 @@ function deal_npc_new_defender(newdefender, npcCity, ackTroop)
         local _members = maxUnion:get_members()
         local pack = {}
         pack.mode = DISPLY_MODE.NPC
+        pack.state= TW_STATE.PACE
         pack.npc_id = npcCity.propid
         if npcCity.dmg then
             pack.max_dmg_pid = find_max_dmg_ply(npcCity, maxHurtUnion)
@@ -1244,7 +1444,7 @@ function deal_npc_new_defender(newdefender, npcCity, ackTroop)
         end
     end
 
-    npcCity.my_troop_id = nil
+    npcCity.my_troop_id = 0
     npcCity.dmg = {}
     reset_declare(npcCity.eid, npcCity.declareUnions)
     npcCity.declareUnions = {}
@@ -1345,7 +1545,7 @@ function test_npc()
     local npc = {}
     for k, v in pairs(gEtys or {}) do
         if is_npc_city(k) then
-            print(ply.eid, v.eid)
+            --print(ply.eid, v.eid)
             declare_war(ply.eid, v.eid)
             npc = v
             break
@@ -1632,26 +1832,52 @@ function send_score_award()
     end
 end
 
-function drop_city(self, uid)
-    local u = unionmng.get_union(uid)
-    if check_union_cross(union) then
-        post_change(self.propid, union.map_id, -1)
-    end
-
-    if player_t.debug_tag then
-        post_change(self.propid, gMapID, -1)
+function get_royalty_by_class_lv(class, lv)
+    for id, prop in pairs(resmng.prop_cross_royalty) do
+        if prop.Class == class and prop.Lv == lv then
+            return prop.ID, prop
+        end
     end
 end
 
-function occu_city(self, uid)
-    local union = unionmng.get_union(uid)
-    if check_union_cross(union) then
-        post_change(self.propid, union.map_id, 1)
+function change_royal_state(self, uid, state)
+    -- 无皇族成员
+    if self.royal == ROYAL_STATE.NO_ROYAL then
+        return
+    end
+    -- 皇族成员级别
+    local prop = resmng.prop_world_unit[self.propid]
+    if not prop then
+        return
+    end
+    local royalty_id = get_royalty_by_class_lv(prop.Class, prop.Lv)
+    if not royalty_id then
+        return
+    end
+    -- 是跨服军团吗？
+    local u = unionmng.get_union(uid)
+    if not u or not check_union_cross(u) then
+        return
     end
 
-    if player_t.debug_tag then
-        post_change(self.propid, gMapID, 1)
+    self.royal = state
+    etypipe.add(self)
+
+    local tag = 0
+    if state == ROYAL_STATE.ROYAL_FREE then
+        tag = -1
+    elseif state == ROYAL_STATE.ROYAL_JAIL then
+        tag = 1
     end
+    post_change(royalty_id, u.map_id, tag)
+end
+
+function drop_city(self, uid)
+    change_royal_state(self, uid, ROYAL_STATE.ROYAL_FREE)
+end
+
+function occu_city(self, uid)
+    change_royal_state(self, uid, ROYAL_STATE.ROYAL_JAIL)
 end
 
 function post_change(propid, map_id, tag)
@@ -1857,6 +2083,11 @@ function change_city_uid(self, uid)
             if old_union then
                 old_union:reset_npc_info_pack()
             end
+        elseif is_king_city(self) then
+            if self.royal ~= ROYAL_STATE.NO_ROYAL then
+                change_royal_state(self, self.uid, ROYAL_STATE.ROYAL_FREE)
+                change_royal_state(self, uid, ROYAL_STATE.ROYAL_JAIL)
+            end
         end
     end
 
@@ -1872,6 +2103,7 @@ end
 
 function change_city_state(self, state)
     INFO("[ACT] change city state last = %d, new = %d", self.state, state)
+    --if self._id == 1748995 then pause() end
     self.state = state
     reset_map_pack()
     local union = unionmng.get_union(self.uid)
@@ -1946,4 +2178,65 @@ function npc_log(action, pack)
     gPendingSave.status["npc_city"].npc_logs = npc_logs
 end
 
+function update_royal_data()
+    local all_cities = {}
+    for k, v in pairs(citys or {}) do
+        local city = get_ety(v)
+        if city then
+            local prop = resmng.prop_world_unit[city.propid]
+            if prop then
+                local royalty_id = get_royalty_by_class_lv(prop.Class, prop.Lv)
+                if royalty_id then
+                    all_cities[royalty_id] = all_cities[royalty_id] or {}
+                    table.insert(all_cities[royalty_id], city)
+                end
+            end
+        end
+    end
+    for royalty_id, cities in pairs(all_cities) do
+        local prop = resmng.prop_cross_royalty[royalty_id]
+        if prop then
+            for i = 1, prop.Num do
+                local city_count = #cities
+                if city_count <= 0 then
+                    WARN("[CrossWar] There is no enough city to catch royal data in royal rank %d", royalty_id)
+                    break
+                end
+                local index = math.random(city_count)
+                local city = cities[index]
+                table.remove(cities, index)
+                city.royal = ROYAL_STATE.ROYAL_FREE
+                etypipe.add(city)
+
+                INFO("[CrossWar] City %d has royal member %d", city.propid, royalty_id)
+            end
+            for _, city in pairs(cities) do
+                if city.royal ~= ROYAL_STATE.NO_ROYAL then
+                    city.royal = ROYAL_STATE.NO_ROYAL
+                    etypipe.add(city)
+                end
+            end
+        end
+    end
+end
+
+function clear_royal_data()
+    for k, v in pairs(citys or {}) do
+        local city = get_ety(v)
+        if city and city.royal ~= ROYAL_STATE.NO_ROYAL then
+            city.royal = ROYAL_STATE.NO_ROYAL
+            etypipe.add(city)
+        end
+    end
+end
+
+function dump_royal_city()
+    for k, v in pairs(citys or {}) do
+        local city = get_ety(v)
+        if city and city.royal ~= ROYAL_STATE.NO_ROYAL then
+            local prop = resmng.prop_world_unit[city.propid]
+            print(city.propid, city.royal, prop.Class, prop.Lv)
+        end
+    end
+end
 

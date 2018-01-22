@@ -221,12 +221,12 @@ function attach_wrap_(env, base)
     end
 
     env.deliver_ = function(...)
-        local t = setmetatable({_pro = copyTab(env._example) or {}}, env._meta)
-        t._init = true
-        env.init(t)
-        if env.ctor then env.ctor(t, ...) end
-        t._init = nil
-        return t
+        local o = setmetatable({_pro = copyTab(env._example) or {}}, env._meta)
+        o._init = true
+        o:init()
+        if o.ctor then o:ctor(...) end
+        o._init = nil
+        return o
     end
 
     env.wrap = function(t)

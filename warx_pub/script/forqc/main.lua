@@ -23,6 +23,7 @@ function coro_mark_create( co, name )
     end
     node.tick = gTime
     node.name = name
+    node.nest = 0
 end
 
 
@@ -137,6 +138,7 @@ function loadMod()
     require( "forqc/names" )
     require( "forqc/make_name" )
 
+    do_load("frame/event_handler")
 end
 
 
@@ -153,6 +155,8 @@ end
 
 function do_threadAction()
     local co = coroutine.running()
+    local co_info = gCoroMark[ co ]
+
     while true do
         while #gActions > 0 do
             local node = table.remove(gActions, 1)
@@ -161,19 +165,17 @@ function do_threadAction()
             else
                 node[1]()
             end
+            --lxz("完成")
         end
-        if gCoroBad[ co ] then
-            gCoroBad[ co ] = nil
-            LOG("Coro, threadAction, i should go away, %s", co)
-            print("Coro, threadAction, i should go away", co)
-            return
-        end
+
+        if co_info.nest > 100 then return WARN( "[COROUTINE], threadAction, nest=%d, out", co_info.nest ) end
         putCoroPool("action")
     end
 end
 
 function do_threadTimer()
     local co = coroutine.running()
+    local co_info = gCoroMark[ co ]
 
     local sn, tag
     while true do
@@ -188,14 +190,8 @@ function do_threadTimer()
             end
         end
         timer.callback(sn, tag)
-
-        if gCoroBad[ co ] then
-            gCoroBad[ co ] = nil
-            LOG("Coro, threadTimer, i should go away, %s", co)
-            print("Coro, threadTimer, i should go away", co)
-            return
-        end
-    end
+        if co_info.nest > 100 then return WARN( "[COROUTINE], threadAction, nest=%d, out", co_info.nest ) end
+   end
 end
 
 function onConnectComp( self )
@@ -208,8 +204,12 @@ function onConnectComp( self )
         
         local info = {}
         info.server_id = config.Map
-        info.cival = ( idx % 4 ) 
-        if info.cival == 0 then info.cival = 4 end
+
+        if not info.cival then
+            info.cival = ( idx % 4 ) 
+            if info.cival == 0 then info.cival = 4 end
+        end
+
         info.pid = 0
         info.token_expire = gTime + 36000
         info.extra = ""
@@ -220,6 +220,7 @@ function onConnectComp( self )
 
         info.signature = c_md5( APP_KEY .. tostring( info.token_expire ) .. info.extra .. tostring( info.time ) .. info.token .. info.open_id )
         info.version = 10000000
+        info.info = { vGameAppid="NULL" }
 
         Rpc:firstPacket( self, config.Map, info )
 
@@ -232,13 +233,14 @@ function onConnectComp( self )
         info.pid = 0
         info.time = gTime
         info.open_id = self.open_id
-        info.token = "" 
+        info.token = self.token or "" 
         info.token_expire = gTime + 24 * 3600
         info.extra = ""
         info.did = self.did
         info.signature = c_md5( APP_KEY .. tostring( info.token_expire ) .. info.extra .. tostring( info.time ) .. info.token .. info.open_id )
-        info.version = 10000000
+        info.version = self.version or 10000000
         self.pid = 0
+        info.info = { vGameAppid="NULL" }
         Rpc:firstPacket( self, info.server_id, info )
 
     elseif self.action == "ip_rule" then
@@ -268,9 +270,12 @@ function onConnectFail( n )
 end
 
 function onConnectClose( n )
-
+    if n.eventConnectionClosed then
+        n.eventConnectionClosed(n)
+    end
 end
 
+--[[
 function do_threadPK()
     local co = coroutine.running()
     
@@ -337,6 +342,67 @@ function do_threadPK()
         end
     end
 end
+]]
+
+function do_threadPK()
+    local co = coroutine.running()
+
+    while true do
+        local sid, mode, data, fname, pid = c_parse_op()
+        if not sid then 
+            putCoroPool( "pk" )
+        else
+            if mode == 0 then
+                local f = OnRpc[ fname ]
+                if f then
+                    local n = gConns[ sid ]
+                    if n then
+                        f( n, unpack( data ) )
+                        local pend = gCoroWaitForAck[ sid ]
+                        if pend then
+                            local hit = false
+                            for k, v in pairs( pend ) do
+                                if v[1] == fname then
+                                    hit = k
+                                end
+                            end
+                            if hit then
+                                local one = pend[ hit ][ 2 ]
+                                pend[ hit ] = nil
+                                if tabNum( pend ) == 0 then gCoroWaitForAck[ sid ] = nil end
+                                coroutine.resume( one ) 
+                            end
+                        end
+                    end
+                end
+
+            elseif mode == 1 then
+                local pktype = fname
+                local sid = data
+                local n = gConns[ sid ]
+                if n then
+                    if pktype  == gNetPt.NET_MSG_CONN_COMP then
+                        onConnectComp( n )
+
+                    elseif pktype  == gNetPt.NET_MSG_CONN_FAIL then
+                        onConnectFail( n )
+
+                    elseif pktype == gNetPt.NET_MSG_CLOSE then
+                        onConnectClose( n )
+
+                    end
+                end
+
+            elseif mode == 2 then
+
+            else
+
+            end
+        end
+    end
+end
+
+
 
 function threadAction()
     if _ENV then
@@ -407,6 +473,7 @@ function main_loop(sec, msec, fpk, ftimer, froi, signal)
             dofile( "forqc/task_queue.lua" )
         end
         gInit = nil
+        c_set_init( 0 )
     end
 
     --if gInit == "StateBeginInit" then
@@ -467,6 +534,8 @@ function main_loop(sec, msec, fpk, ftimer, froi, signal)
         table.remove(gCoroWait,1)
         coroutine.resume(t[1])
     end
+
+    --gFrameListener()
 end
 
 
@@ -492,12 +561,13 @@ function init(sec, msec)
     gAccs = {}
     gAccounts = {}
 
-    gEids = {}
+    --gEids = {}
     gEtys = {}
 
     gInit = "StateBeginInit"
     loadMod()
 
+    gFrameListener = newEventHandler()
     LOG("start: gTime = %d, gMsec = %d", gTime, gMsec)
 
     --Rpc:init("client")
@@ -619,5 +689,24 @@ function make_login( device_id )
     end
     return info.open_id, info.token, info.signature, info.time
 end
+
+function wait(nframe)
+    nframe = nframe or 1
+    if nframe < 1 then nframe = 1 end
+    nframe = nframe + gFrame
+
+    local co = coroutine.running()
+    for k, v in ipairs(gCoroWait) do
+        if nframe <= v[2] then
+            table.insert(gCoroWait, k, {co, nframe})
+            coroutine.yield("wait")
+            return
+        end
+    end
+    table.insert(gCoroWait, {co, nframe})
+    coroutine.yield("wait")
+end
+
+
 
 

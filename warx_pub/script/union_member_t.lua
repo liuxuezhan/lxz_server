@@ -32,7 +32,7 @@ function load(pid)
             end
             data.buildlv = buildlv
         else
-            print("load_union_member, not found player", data._id)
+            INFO("load_union_member, not found player", data._id)
         end
     end
 end

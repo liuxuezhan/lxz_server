@@ -13,7 +13,8 @@ function ChoreUnionBuildlvDonate:init(player)
 end
 
 function ChoreUnionBuildlvDonate:uninit()
-    player.eventUnionChanged:del(newFunctor(self, self._onUnionChanged))
+    self.player.eventUnionChanged:del(newFunctor(self, self._onUnionChanged))
+    self:_stop()
 end
 
 function ChoreUnionBuildlvDonate:_onUnionChanged(player, uid)

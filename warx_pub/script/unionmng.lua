@@ -22,13 +22,24 @@ function rm_union(u)
     _us[u.uid] = nil
 end
 
-function get_all()
+function rm_union2(u)
+    u:destory()
+    _us2[u.uid] = nil
+end
+
+function get_all(flag)
+    flag = flag or 0
     local us = {}
-    for k, u in pairs(_us) do
-        us[k] = u
+    if 0 == get_bit(flag, 1) then
+        for k, u in pairs(_us) do
+            us[k] = u
+        end
     end
-    for k, u in pairs(_us2) do
-        us[k] = u
+    if 0 == get_bit(flag, 2) then
+        for k, u in pairs(_us2) do
+            us[k] = u
+        end
     end
     return us
 end
+

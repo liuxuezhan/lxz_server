@@ -6,61 +6,24 @@ local t1 = {}
 
 function t1.action( _idx )
     
-    local lvtable = {1,6,8,10,12,14,16,18,20,22,23,24,25,26,27,28,29,30}
+    --local lvtable = {1,6,8,10,12,14,16,18,20,22,23,24,25,26,27,28,29,30}
     
+    local index = 1
+    local lv = 30
 
-    for i=1,18 do
-        local p1 = get_one(true, 3)
+    for i=61,100 do
+        local p1 = get_account(index * 1000 + i)
         if not p1 then return end
         loadData( p1 )
 
-        chat( p1, "@addres=6=100000" )
-        chat( p1, "@lvbuild=0=0="..tostring(lvtable[i]))
-        move_to(p1, 1140, 470, 20)
-        Rpc:change_name(p1,"E-"..tostring(i))
+        chat( p1, "@addres=6=10000" )
+        --chat( p1, "@lvbuild=0=0="..lv)
+        move_to(p1, 121, 942, 35)
+        
         sync( p1 )
         logout( p1 )
     end
  
-    for i=1,18 do
-        local p2 = get_one(true, 3)
-        if not p2 then return end
-        loadData( p2 )
-
-        chat( p2, "@addres=6=100000" )
-        chat( p2, "@lvbuild=0=0="..tostring(lvtable[i]))
-        move_to(p2, 560, 1150, 20)
-        Rpc:change_name(p2,"N-"..tostring(i))
-        sync( p2 )
-        logout( p2 )
-    end
-
-    for i=1,18 do
-        local p3 = get_one(true, 3)
-        if not p3 then return end
-        loadData( p3 )
-
-        chat( p3, "@addres=6=100000" )
-        chat( p3, "@lvbuild=0=0="..tostring(lvtable[i]))
-        move_to(p3, 600, 150, 20)
-        Rpc:change_name(p3,"S-"..tostring(i))
-        sync( p3 )
-        logout( p3 )
-    end
---[[
-    for i=1,18 do
-        local p4 = get_one(true, 4)
-        if not p4 then return end
-        loadData( p4 )
-
-        chat( p4, "@addres=6=100000" )
-        chat( p4, "@lvbuild=0=0="..tostring(lvtable[i]))
-        move_to(p4, 115, 85, 15)
-        Rpc:change_name(p4,"SL-"..tostring(i))
-        sync( p4 )
-        logout( p4 )
-    end
-]]
 
 end
 

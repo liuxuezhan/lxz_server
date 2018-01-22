@@ -1,5 +1,4 @@
 
-gCoroBad = {}
 function doLoadMod(name, mod)
     mod = mod or name
     if name == "debugger" then
@@ -15,8 +14,9 @@ end
 
 function do_load(mod)
     package.loaded[ mod ] = nil
-    require( mod )
+    local m = require( mod )
     INFO("load module %s", mod)
+    return m
 end
 
 
@@ -58,7 +58,7 @@ function INFO(fmt, ...)
 end
 
 function WARN(fmt, ...)
-    local s = string.format("[WARN]"..fmt, ...)
+    local s = string.format("[WARN] "..fmt, ...)
     lwarn(s)
 end
 
@@ -87,6 +87,14 @@ function STACK(err)
     end
     lwarn( string.format( "[LuaError] catch,  %s", string.gsub( stacks, "\n\t?", "#012" ) ) )
 
+    if perfmon and perfmon.on_exception then
+        perfmon.on_exception()
+    end
+end
+
+function SILENCE_STACK(err)
+    local stacks = debug.traceback( err, 2 )
+    gSilenceErrorMsg = stacks
     if perfmon and perfmon.on_exception then
         perfmon.on_exception()
     end

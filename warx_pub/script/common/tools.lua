@@ -30,7 +30,7 @@ end
 ---按照给定的长度对传入的字符串做字节长度检测，返回布尔值：可用与否
 function is_inputlen_avaliable(a_str,a_cfg_len)
     if not a_str then return false end
-    if not a_cfg_len then return true end
+    if not a_cfg_len then return true end    
     return string.len(a_str) >= a_cfg_len[1] and string.len(a_str) <= a_cfg_len[2] 
 end
 
@@ -142,8 +142,6 @@ local function replace_ts(s,i,e,r)
     return t
 end
 
-
-
 function string.format_ts(s,...)
     if s==nil then
         return s
@@ -194,7 +192,7 @@ function string.format_ts(s,...)
         elseif mtype == "y" then  ---格式化国旗         
             local lancfg = resmng.get_conf("prop_language_cfg",replace_table[index])
             if lancfg then
-                s = replace_ts(s,i,e,"$"..lancfg.Icon.."$")
+                s = replace_ts(s,i,e,"≙"..lancfg.Icon.."≙")
             end
         else 
             break
@@ -311,6 +309,58 @@ function table.loop_find(tab,...)
         end
         return _value
     end
+end
+
+function table.max(key, ...)
+    local tab_temp = {...}
+    if #tab_temp <= 0 then return end
+    local max = tab_temp[1]
+    for i = 1,#tab_temp do
+        local tab = tab_temp[i]
+        if tab[key] then
+            if not max[key] or max[key] < tab[key] then
+                max = tab            
+            end
+        end
+    end
+    return max
+end
+
+function table.min(key, ...)
+   local tab_temp = {...}
+    if #tab_temp <= 0 then return end
+    local min = tab_temp[1]
+    for i = 1,#tab_temp do
+        local tab = tab_temp[i]
+        if tab[key] then
+            if not min[key] or min[key] > tab[key] then
+                min = tab            
+            end
+        end
+    end
+    return min 
+end
+
+function table.find_in_table(tab,findfunc)
+    local tab_res = {}
+    if not tab or not next(tab) then return tab_res end
+    for k,v in pairs(tab) do
+        if findfunc(v) then
+            table.insert(tab_res,v)
+        end
+    end
+    return tab_res
+end
+
+function table.find(findfunc, ...)
+    local tab_temp = {...}    
+    local tab_res = {}
+    for i = 1,#tab_temp do
+        if findfunc(tab_temp[i]) then
+            table.insert(tab_res,tab_temp[i])
+        end
+    end
+    return tab_res
 end
 
 --[[
@@ -517,14 +567,14 @@ end
 
 
 etypipe = {}
-etypipe[EidType.Player] =       {"propid", "eid", "x", "y", "uid", "pid", "photo", "name", "uname", "officer", "nprison", "state","uflag"}
+etypipe[EidType.Player] =       {"propid", "eid", "x", "y", "uid", "pid", "photo", "name", "uname", "officer", "nprison", "state","uflag", "last_hit", "emap"}
 etypipe[EidType.Res]    =       {"propid", "eid", "x", "y", "uid", "pid", "val", "extra"}
 etypipe[EidType.Refugee]    =   {"propid", "eid", "x", "y", "uid", "pid", "val", "extra"}
-etypipe[EidType.Troop]  =       {"propid", "eid", "culture","action", "owner_eid", "owner_pid", "owner_uid", "target_eid", "target_pid", "target_uid", "tmStart", "tmOver", "soldier_num","be_atk_list", "flag", "mcid", "heros", "target_propid", "fid", "is_mass", "name", "alias", "propid", "target_name", "target_alias", "target_propid", "state"}
+etypipe[EidType.Troop]  =       {"propid", "eid", "culture","action", "owner_eid", "owner_pid", "owner_uid", "target_eid", "target_pid", "target_uid", "tmStart", "tmOver", "soldier_num","be_atk_list", "flag", "mcid", "heros", "target_propid", "fid", "is_mass", "name", "alias", "propid", "target_name", "target_alias", "target_propid", "state", "emap"}
 etypipe[EidType.Monster]=       {"propid", "eid", "x", "y", "hp", "level","born"}
 etypipe[EidType.UnionBuild] =   {"propid", "eid", "x", "y", "uid","alias", "uflag", "sn","idx","hp","state","name","val","culture","holding","speed_b","speed_f","tmStart_b","tmStart_f","speed_g","tmStart_g" }
-etypipe[EidType.NpcCity]=       {"propid", "eid", "x", "y", "state", "startTime","endTime", "unions", "randomAward", "declareUnions", "getAwardMember"}
-etypipe[EidType.KingCity]=      {"propid", "eid", "x", "y", "state", "status","startTime", "endTime", "occuTime","uid", "uname", "uflag", "ualias"}
+etypipe[EidType.NpcCity]=       {"propid", "eid", "x", "y", "state", "startTime","endTime", "unions", "randomAward", "declareUnions", "getAwardMember", "royal"}
+etypipe[EidType.KingCity]=      {"propid", "eid", "x", "y", "state", "status","startTime", "endTime", "occuTime","uid", "uname", "uflag", "ualias", "royal"}
 etypipe[EidType.MonsterCity]=   {"propid", "eid", "x", "y", "state", "class", "startTime", "endTime", "uid", "be_atked_list", "can_atk_uid", "grade"}
 etypipe[EidType.Camp]    =      {"propid", "eid", "x", "y", "pid", "uid", "name", "uname", "uflag"}
 etypipe[EidType.LostTemple]=    {"propid", "eid", "x", "y", "state", "startTime", "endTime", "uid", "uname", "born", "uflag", "ualias"}
@@ -602,12 +652,13 @@ function etypipe.add(data)
 
         if not data.size or data.size == 0 then
             ERROR( "etypipe.add, no size, propid=%s", data.propid or "unknown" )
+            WARN( "STACK, %s", debug.traceback() )
             local conf = resmng.get_conf( "prop_world_unit", data.propid )
             if conf then
                 data.size = conf.Size 
             end
         end
-        if not data.size or data.size == 0 then data.size = 1 end
+        if not data.size or data.size == 0 then data.size = 2 end
 
         c_add_ety(data.propid, data.eid, data.x, data.y, data.size, 0, etypipe.pack(node, data))
     end
@@ -672,8 +723,8 @@ function calc_crosspoint(sx, sy, dx, dy, rect)
     --y = kx + b
     local k = (sy - dy) / (sx - dx)
     local b = sy - k * sx
-    function get_linear_y(x) return k * x + b end
-    function get_linear_x(y) return (y - b) / k end
+    local function get_linear_y(x) return k * x + b end
+    local function get_linear_x(y) return (y - b) / k end
 
 
     --[[ 
@@ -919,6 +970,7 @@ function get_ety_pos(ety)
     local conf = resmng.get_conf("prop_world_unit", ety.propid)
     if not conf.Size then
         WARN("ety.propid = %d, no size", ety.propid)
+        WARN( "STACK, %s", debug.traceback() )
         return 
     end
     if conf then
@@ -1108,6 +1160,7 @@ function analysis_award(tab, culture, close_open)
             local prop_tab = resmng.prop_itemById(unit.id)
             if prop_tab ~= nil and prop_tab.Open == 1 then                
                 local temp = {}
+                temp.id = unit.id
                 temp.icon = prop_tab.Icon
                 temp.grade = prop_tab.Color or 1
                 temp.name = prop_tab.Name
@@ -1583,6 +1636,14 @@ function shuffle(t)
     end
 end
 
+function shuffle_by_range(t, start, end_idx)
+    if not t then return end
+    for i= start, end_idx, 1 do
+        local j = math.random(i, end_idx)
+        t[i],t[j] = t[j],t[i]
+    end
+end
+
 --分红包算法
 function split(m,n)
     --构造m-1个可用的分割标记位
@@ -1614,6 +1675,7 @@ function split(m,n)
     end
     return out
 end
+
 
 function tm_zone() --时区差   --全部使用 utc 0点
     --local now = os.time()
@@ -1724,4 +1786,149 @@ function check_name_avalible(str)
     return true
 end
 
+function get_zero_tm(tm)
+    local tm_t = os.date("*t", tm)
+    local temp = { year=tm_t.year, month=tm_t.month, day=tm_t.day, hour=0, min=0, sec=0 } 
+    return os.time(temp)
+end
+
+function resmng_update(diff_file)
+    local mod
+    local prop = {}
+    for line in io.lines(diff_file) do 
+        local new  = string.match(line,"([%w_]*).lua$" ) --获取模块名
+        if new == "prop_language" then new = "propLanguage" end
+        mod = new or mod
+
+        if string.find(mod,"prop") then
+            local a,b,c  = string.match(line,"^([+-])%s*(%b[])%s*=%s*(%b{})" ) 
+            if a == "-" then
+                b = string.sub(b, 2, -2)
+                print(mod,a,b,c)
+                table.insert(prop ,{mod,b,nil})
+            elseif a == "+" then
+                b = string.sub(b, 2, -2)
+                c = loadstring("return "..c)()
+                print(mod,a,b,c)
+                table.insert(prop ,{mod,b,c})
+            end
+        elseif string.find(mod,"define") then
+            local m = string.gsub(mod,"define","prop")
+            local a,b,c  = string.match(line,"^([+-])([%w_]*) = (%d+)" ) 
+            print(m,a,b,c)
+            if a == "-" then
+                local t,id = resmng[m] ,resmng[b]
+              if t and id then t[id]= nil end
+                resmng[b]= nil
+            elseif a == "+" then
+                resmng[b]=c
+            end
+        end
+
+    end
+
+    for _,v in ipairs(prop) do
+        local t,id = resmng[v[1]], resmng[v[2]] 
+        if id and  t then t[id] = v[3] end
+    end
+end
+
+local ref_mng = {}
+ref_mng.__index = ref_mng
+
+function createRef(...)
+    local instance = setmetatable({}, ref_mng)
+    instance:init(...)
+    return instance
+end
+
+function ref_mng:init(max_ref, cur_ref)
+    self.max_ref = max_ref
+    self.cur_ref = cur_ref or 0
+    self.min_ref = self.cur_ref
+    self.freed_refs = {[0] = 0}
+end
+
+function ref_mng:ref()
+    local r = self.freed_refs[0]
+    if 0 ~= r then
+        self.freed_refs[0] = self.freed_refs[r]
+        self.freed_refs[r] = nil
+    else
+        if self.cur_ref >= self.max_ref then
+            return
+        end
+        r = self.cur_ref + 1
+        self.cur_ref = r
+    end
+    return r
+end
+
+function ref_mng:unref(r)
+    if self.min_ref >= r or r > self.cur_ref or self.freed_refs[r] then
+        return
+    end
+    self.freed_refs[r] = self.freed_refs[0]
+    self.freed_refs[0] = r
+end
+
+function ref_mng:print()
+    WARN("dumping ref_mng(%s) %d|%d", self, self.cur_ref, self.max_ref)
+    for k, v in pairs(self.freed_refs) do
+        WARN("\t%d -> %d", k, v)
+    end
+    WARN("dumping ref_mng(%s) is done", self)
+end
+
+function ref_mng_test()
+    local ins = createRef(20, 5)
+    local ins2 = createRef(5, 0)
+    local function do_ref()
+        WARN("ref %s", ins:ref())
+    end
+    local function do_unref(r)
+        ins:unref(r)
+        WARN("unref %d", r)
+    end
+    local function do_ref2()
+        WARN("ref2 %s", ins2:ref())
+    end
+    local function do_unref2(r)
+        ins2:unref(r)
+        WARN("unref2 %d", r)
+    end
+    do_ref()
+    do_ref()
+    do_ref()
+    do_ref()
+    do_ref()
+    do_ref2()
+    do_ref2()
+    do_ref()
+    do_ref()
+    do_ref()
+    do_unref(12)
+    do_unref(7)
+    do_unref(7)
+    do_unref(3)
+    do_unref(5)
+    do_unref(10)
+    do_unref(11)
+    do_unref2(1)
+    do_ref2()
+    do_ref2()
+    do_ref2()
+    ins:print()
+    do_ref()
+    do_ref()
+    do_unref(9)
+    ins:print()
+    do_ref()
+    do_ref()
+    do_ref()
+    do_unref(8)
+    do_ref()
+    ins:print()
+    do_ref()
+end
 

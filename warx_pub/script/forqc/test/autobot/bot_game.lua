@@ -13,20 +13,6 @@ local function _createBuildQueue(self, queue_index)
     return line
 end
 
---[[
-local function _createTroopWorkline(self)
-    local troop_manager = self.host.player.troop_manager
-    local line = Workline:createInstance(troop_manager)
-    --line.__debug = true
-    line:addState("Idle", TroopIdle, true)
-    line:addState("TakeAction", TroopTakeAction)
-    line:addState("Wait", TroopWait)
-    line:addState("Rest", TroopRest)
-    self:_addWorkline(line)
-    return line
-end
-]]
-
 local function _createRecruitWorkline(self, mode)
     local recruit_manager = self.host.player.recruit_manager
     local line = Workline:createInstance(recruit_manager)
@@ -34,6 +20,7 @@ local function _createRecruitWorkline(self, mode)
     line:addState("Idle", RecruitIdle, true)
     line:addState("TakeAction", RecruitTakeAction)
     line:addState("Working", RecruitWorking)
+    line:addState("Rest", RecruitRest)
     self:_addWorkline(line)
     return line
 end
@@ -99,8 +86,7 @@ function BotGame:onEnter()
     INFO("[Autobot|InGame|%d]Player enter game.", player.pid)
 
     -- 心跳处理
-    local id, node = timer.new_ignore("BotGame_HeartBeat", HeartInterval, self)
-    node.cycle = HeartInterval
+    self.heart_beat_timer = AutobotTimer:addPeriodicTimer(function() Rpc:ping(player) end, HeartInterval)
 
     -- 建筑修建工作线
     _createBuildQueue(self, 1)
@@ -124,16 +110,26 @@ function BotGame:onEnter()
     -- 特殊工作线
 
     -- 杂项事情工作线
-    _createChoreWorkline(self)
+    if not config.Autobot.DisableWorkline.Chore then
+        _createChoreWorkline(self)
+    end
 
     -- 军团工作线
 
     -- Scavengers
-    _createTechScavenger(self)
-    _createTaskScavenger(self)
-    _createMonsterScavenger(self)
+    if not config.Autobot.DisableWorkline.TechScavenger then
+        _createTechScavenger(self)
+    end
+    if not config.Autobot.DisableWorkline.TaskScavenger then
+        _createTaskScavenger(self)
+    end
+    if not config.Autobot.DisableWorkline.MonsterScavenger then
+        _createMonsterScavenger(self)
+    end
 
     _startAllWorkline(self)
+
+    player.eventPlayerLoaded(player)
 end
 
 function BotGame:onUpdate()
@@ -141,6 +137,11 @@ function BotGame:onUpdate()
 end
 
 function BotGame:onExit()
+    AutobotTimer:delPeriodicTimer(self.heart_beat_timer)
+    self.heart_beat_timer = nil
+
+    self:_clearScavengers()
+    self:_clearWorklines()
     self.host:uninitPlayer()
 end
 
@@ -152,10 +153,14 @@ function BotGame:_addScavenger(scavenger)
     table.insert(self.worklines, scavenger)
 end
 
-timer._funs["BotGame_HeartBeat"] = function(sn, self)
-    --INFO("[Autobot|HeartBeat|%d]Heartbeat", self.host.player.pid)
-    Rpc:ping(self.host.player)
-    return 1
+function BotGame:_clearWorklines()
+    for k, v in ipairs(self.worklines) do
+        v:stop()
+    end
+    self.worklines = {}
+end
+
+function BotGame:_clearScavengers()
 end
 
 return makeState(BotGame)

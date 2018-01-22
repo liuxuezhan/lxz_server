@@ -1167,8 +1167,13 @@ function calc_hp( self, troop )
     if self.hp <= lost then
         lost = self.hp
         self.hp = 0
+        return 0
+    elseif  self.grade == BOSS_TYPE.NORMAL then
+        self.hp = 100
+        return self.hp - lost 
     else
         self.hp = self.hp - lost
+        return self.hp
     end
 end
 

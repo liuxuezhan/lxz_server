@@ -8,7 +8,7 @@ function back( p )
     while next(p._troop or {} ) do
         for k, v in pairs( p._troop or {} ) do 
             troop_acc(p,v._id)  
-            lxz()
+            --lxz()
             --wait_for_ack( p, "upd_arm" )
         end
         Rpc:loadData( p, "troop" )
@@ -31,7 +31,7 @@ function set_build( p, propid, x, y, range )
             local ty = y + math.random( 1, 2 * range ) - range
             if tx >= 0 and tx < 1280 then
                 if ty >= 0 and ty < 1280 then
-                    --                    lxz( tx, ty )
+                    lxz( tx, ty )
                     Rpc:union_build_setup(p,0,propid,tx,ty,"test")
                     sync( p )
                 end
@@ -42,6 +42,7 @@ function set_build( p, propid, x, y, range )
 end
 
 function build( p, obj,f )
+    if obj.state == BUILD_STATE.WAIT then return end
     chat( p, "@initarm" )
     sync( p )
     local arms = {}
@@ -54,13 +55,17 @@ function build( p, obj,f )
             if v.target == obj.eid then 
                 if  v.action < 200 then 
                     troop_acc(p,v._id) 
-                    wait_for_ack( p, "stateTroop" )
+                    --wait_for_ack( p, "stateTroop" )
                     if f then 
-                        chat( p, "@undebug" ) 
-                    else
-                        wait_for_ack( p, "union_broadcast" )
+                        obj = _us[p.uid].build[obj.idx]
+                        if obj.state == BUILD_STATE.WAIT then
+                            chat( p, "@undebug" ) 
+                            return
+                        end
+                    else 
+                        wait_for_ack( p, "union_broadcast" ) 
+                        return 
                     end
-                    return 
                 end
             end
         end
@@ -223,7 +228,7 @@ end
 
 
 local gActionIdx = 0
-function start_action(mod, idx)
+function start_action(mod)
     gActionIdx = gActionIdx + 1
     local t1 = require( mod )
     local tips = t1.action( gActionIdx )
@@ -251,21 +256,20 @@ function wait_for_time( secs )
     coroutine.yield( "wait_for_time" )
 end
 
-function sync( p, not_wait )
+function sync( p, functor )
     local sn = getSn( "sync" )
     Rpc:sync( p, sn )
 
-    while not not_wait do
+    while not functor do
         if p.sn and p.sn >= sn then return end
         wait_for_ack( p, "sync" )
     end
+
+    p._sync_func = p._sync_func or {}
+    p._sync_func[sn] = functor
 end
 
-function get_one( is_new, culture )
-    return get_account()
-end
-
-function get_account( idx )
+function get_account( idx, cival )
     local node = false
     if idx then
         node = gHavePlayers[ idx ]
@@ -286,6 +290,8 @@ function get_account( idx )
 
     if not node then
         node = { account = c_md5( tostring( idx ) ), idx = idx, pid=0 }
+        if cival then node.cival = cival end
+
         gHavePlayers[ idx ] = node
     end
 
@@ -404,11 +410,12 @@ end
 
 
 function loadData( p )
-    Rpc:get_device_grade( p, "All Series (ASUS)", "NVIDIA GeForce GT 610", 3192, 4 )
+    --Rpc:get_device_grade( p, "All Series (ASUS)", "NVIDIA GeForce GT 610", 3192, 4 )
     Rpc:getTime( p, gTime )
     Rpc:loadData( p, "pro" )
     Rpc:loadData( p, "build" )
     Rpc:union_load( p, "info" )
+    Rpc:union_load( p, "build" )
     Rpc:loadData( p, "ef_eid" )
     Rpc:loadData( p, "item" )
     Rpc:loadData( p, "hero" )
@@ -423,8 +430,9 @@ function loadData( p )
     Rpc:loadData( p, "sys_option" )
     Rpc:act_info_req( p )
     Rpc:push_ntf_list_req( p, {} )
+    Rpc:loadData( p, "tech" )
     Rpc:loadData( p, "done" )
-    Rpc:chat_account_info_req( p )
+    --Rpc:chat_account_info_req( p )
     Rpc:up_jpush_info_req( p, {} )
     Rpc:get_server_tag_req( p )
     Rpc:ache_info_req( p )
@@ -434,9 +442,11 @@ function loadData( p )
     --Rpc:union_mission_log( p, 0, 0 )
     Rpc:get_can_buy_list_req( p )
     sync( p )
-    Rpc:addEye( p, p.x, p.y )
+    Rpc:addEye( p, gMapID, p.x, p.y )
+    sync( p )
 
-    --sync( p )
+    Rpc:accept_hero_road_chapter(p, 1)
+    Rpc:set_client_parm(p, "guidedclass","1|2|3|4|5|6|7|9|10|12|13|14|15|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31|32|33|34|35|36|37|38|40|43|44|45|46|47|48|49|50|51|52|53|55|56|57|66|67|68|101|102|103|104|105")  
 end
 
 function chat( p, str )
@@ -515,17 +525,17 @@ function create_item( p, itemid, itemnum )
     local item = get_item( p, itemid )
     if item and item[3] > 0 then
         local need = itemnum - item[3]
-        chat( p, string.format("@additem=%d=%d", itemid, need) )
+        chat( p, "@adddaoju="..itemid.."="..need )
         sync( p )
         return get_item( p, itemid )
     else
-        chat( p, string.format("@additem=%d=%d", itemid, itemnum ))
+        chat( p, "@adddaoju="..itemid.."="..itemnum )
         sync( p )
         return get_item( p, itemid )
     end
 end
 
-function get_born_hero(player)
+function get_born_heroid(player)
     local heroid = 201
     if 2 == player.culture then
         heroid = 205
@@ -534,29 +544,21 @@ function get_born_hero(player)
     elseif 4 == player.culture then
         heroid = 206
     end
-    return get_hero(player, heroid)
+    return heroid
+end
+
+function get_born_hero(player)
+    return get_hero(player, get_born_heroid(player))
 end
 
 function get_hero( p, id )
     for k, v in pairs( p._hero or {} ) do
         if (not id) or (v.propid == id) then return v end
     end
+    id = id or 201
 
-    local conf = resmng.get_conf( "prop_hero_basic", id )
-    if not conf then return end
-
-    if not conf.PieceID or not conf.CallPrice then return end
-
-    local itemid = conf.PieceID
-    local itemnum = conf.CallPrice
-
-    --chat( p, "@clearitem" )
-    --chat( p, string.format("@additem=%d=%d", itemid, itemnum ) )
-
-    local item = get_item( p, itemid )
-    if not item then return end
-    if item[3] ~= itemnum then return end
-
+    local c = resmng.get_conf( "prop_hero_basic", id )
+    chat( p, "@adddaoju="..c.PieceID.."="..c.CallPrice )
     Rpc:call_hero_by_piece( p, id )
     sync( p )
 
@@ -567,7 +569,6 @@ end
 
 function hero_star_up( p, h, star )
     local hero_basic_conf = resmng.get_conf( "prop_hero_basic", h.propid )
-    local star_up_conf    = resmng.get_conf("prop_hero_star_up", h.star + 1)
 
     local itemid = hero_basic_conf.PieceID 
     local itemnum = 0
@@ -578,16 +579,12 @@ function hero_star_up( p, h, star )
     end
     itemnum = itemnum + 500
 
-    --chat( p, "@clearitem" )
-    --chat( p, string.format("@additem=%d=%d", itemid, itemnum ) )
-
+    chat( p, "@adddaoju="..itemid.."="..itemnum )
     for i = 2, star, 1 do
         Rpc:hero_star_up( p, h.idx )
     end
     sync( p )
 
-    local item = get_item( p, itemid )
-    if item[3] == 1 then return "ok" end
 end
 
 function hero_lv_up(p, h, lv)
@@ -618,9 +615,10 @@ function item_idx(p, item_id)
 end
 
 
-function use_hero_skill_item( p, hero, itemid, itemnum, skill_idx )
-    --local item = create_item( p, itemid, itemnum )
-    Rpc:use_hero_skill_item( p, hero.idx, skill_idx, item[1], itemnum )
+function use_hero_skill_item( p, hero, itemid, itemnum, sn )
+    sn = sn or 1 
+    local item = create_item( p, itemid, itemnum )
+    Rpc:use_hero_skill_item( p, hero.idx, sn, item[1], itemnum )
     sync( p )
 end
 
@@ -741,8 +739,13 @@ function doCondCheck(p, class, mode, lv, ...)
         if t then
             for _, v in pairs(p.genius) do
                 local n = resmng.prop_genius[ v ]
-                if n and n.Class == t.Class and n.Mode == t.Mode and n.Lv >= t.Lv then return true end
+                if n and n.Class == t.Class and n.Mode == t.Mode then
+                    if n.Lv >= t.Lv then return true end
+                    genius(p,t.ID,n.Lv+1)
+                    return
+                end
             end
+            genius(p,mode,1)
         end
     elseif class == resmng.CLASS_TECH then
         local t = resmng.prop_tech[ mode ]
@@ -763,12 +766,9 @@ function doCondCheck(p, class, mode, lv, ...)
     return false, class, mode, lv
 end
 
-function tech(p, id,lv,quick)
-    lxz()
-    quick = quick or 1
-    --print("tech",id,lv)
+function tech(p, id,lv,add,quick)
     local c = resmng.prop_tech[id]
-    for _, v in pairs(p._tech) do
+    for _, v in pairs(p._tech or {} ) do
         local n = resmng.prop_tech[ v ]
         if n and n.Class == c.Class and n.Mode == c.Mode then 
             if n.Lv >= lv then return true end
@@ -777,20 +777,118 @@ function tech(p, id,lv,quick)
             for i=n.Lv+1,lv do
                 c = resmng.prop_tech[id+i]
                 if not  condCheck(p,c.Cond) then return end
-                Rpc:learn_tech(p,1001,c.ID,quick)
+                tech_do(p,c.ID,add,quick)
             end
             return true
         end
     end
 
+    lv = lv or c.Lv + 1
     for i=1,lv do
         id = c.Class*1000*1000 + c.Mode*1000 
         c = resmng.prop_tech[id+i]
         if not condCheck(p,c.Cond) then return end
-        Rpc:learn_tech(p,1001,c.ID,quick)
+        tech_do(p,c.ID,add,quick)
     end
     return true  
 end
+
+
+function tech_do(p, id,add,quick)
+    local v = resmng.prop_tech[id] 
+    local buff = {}
+    for k, v in pairs( add or v.Effect ) do 
+        Rpc:get_buff( p, k )
+        wait_for_ack( p, "get_buff" )
+        buff[k]=p.buff[k]
+    end
+
+    quick = quick or 1
+    Rpc:learn_tech(p,1001,id,quick)
+    Rpc:loadData( p, "tech" )
+    sync(p)
+    for what, _ in pairs( buff ) do 
+        Rpc:get_buff( p, what )
+        wait_for_ack( p, "get_buff" )
+        if not add[what] then 
+            if  v.Lv > 1 then
+                add[what] = v.Effect[what] - resmng.prop_tech[v.ID-1].Effect[what]
+            else
+                add[what] = v.Effect[what] 
+            end
+        end
+        if buff[what] + add[what]  == p.buff[what] then 
+            os.execute("echo tech,"..id..",ok >> /tmp/check.csv")
+        else
+            lxz(what) 
+            os.execute("echo tech,"..id..",fail,"..what.." >> /tmp/check.csv")
+        end
+    end
+end
+
+function genius(p, id,lv,add)
+    local c = resmng.prop_genius[id]
+    for _, v in pairs(p.genius or {} ) do
+        local n = resmng.prop_genius[ v ]
+        if n and n.Class == c.Class and n.Mode == c.Mode then 
+            if n.Lv >= lv then return true end
+
+            id = c.Class*1000*1000 + c.Mode*1000 
+            for i=n.Lv+1,lv do
+                c = resmng.prop_genius[id+i]
+                if not  condCheck(p,c.Cond) then return end
+                genius_do(p,c,add)
+            end
+            return true
+        end
+    end
+
+    lv = lv or c.Lv + 1
+    for i=1,c.Lv do
+        id = c.Class*1000*1000 + c.Mode*1000 
+        c = resmng.prop_genius[id+i]
+        if not condCheck(p,c.Cond) then return end
+        genius_do(p,c,add)
+    end
+    return true  
+end
+
+function genius_do(p, v, add )
+    lxz(v.ID)
+    local buff = {}
+
+    for k, v in pairs( add or v.Effect ) do 
+        Rpc:get_buff( p, k )
+        wait_for_ack( p, "get_buff" )
+        buff[k]=p.buff[k]
+    end
+
+    Rpc:do_genius(p,v.ID)
+    Rpc:loadData( p, "pro" )
+    sync(p)
+    if not next(buff) then return end
+    for what, _ in pairs( buff ) do 
+        Rpc:get_buff( p, what )
+        wait_for_ack( p, "get_buff" )
+        if not add then 
+            if  v.Lv > 1 then
+                local del = 0 
+                if resmng.prop_genius[v.ID-1].Effect then del = resmng.prop_genius[v.ID-1].Effect[what] or 0 end
+                add[what] = v.Effect[what] - del 
+            else
+                add[what] = v.Effect[what] 
+            end
+        end
+        if buff[what] + add[what]  == p.buff[what] then 
+            os.execute("echo genius,"..v.ID..",ok >> /tmp/check.csv")
+        else
+            lxz(what) 
+            os.execute("echo genius,"..v.ID..",fail,"..what.." >> /tmp/check.csv")
+        end
+    end
+end
+
+
 
 function build_up( p, propid, quick )
     local t = resmng.prop_build[ propid ]
@@ -1217,7 +1315,9 @@ function atk_npc(p, city_lv)
 end
 
 function spy_ply(p)
-    local s_p = get_one(true)
+    -- local s_p = get_one(true)
+    local name = tostring(math.random(100,999))
+    local s_p = get_account(name)
     loadData(s_p)
     chat( s_p, "@lvbuild=0=0=30" )
 
@@ -1257,7 +1357,8 @@ function spy_ply(p)
 end
 
 function atk_ply(p)
-    local s_p = get_one(true)
+    local name = tostring(math.random(100,999))
+    local s_p = get_account(name)
     loadData(s_p)
     chat( s_p, "@lvbuild=0=0=30" )
     chat( s_p, "@addres=1=999999999" )
@@ -1315,7 +1416,9 @@ end
 function join_union(ply, num, level)
     level = level or 10
     for i = 1, num, 1 do
-        local p = get_one(true)
+        --local p = get_one(true)
+        local name = tostring(math.random(100,999))
+        local p = get_account(name)
         loadData(p)
         local cmd = "@lvbuild=0=0=" .. tostring(level)
         chat( p, cmd )
@@ -1414,7 +1517,7 @@ function union_tech(p,id)
     Rpc:union_load(p,"union_donate")
     sync(p)
     local donate = p.donate
-    local union_donate = p.union_donate
+    local old = p.union_donate
     if (donate.tmOver or 0)  < get_tm(p) then donate.tmOver = get_tm(p) end
 
     for  i =3,1,-1 do
@@ -1422,7 +1525,6 @@ function union_tech(p,id)
             sn = i
             Rpc:union_donate(p, id, i)
             sync(p)
-            return 0 
         end
     end
 
@@ -1464,7 +1566,8 @@ function union_tech(p,id)
         gold = p.gold
     end
 
-    if  union_donate  + reward[1] * 1.4 ~= p.union_donate then 
+    lxz(old)
+    if  old  + reward[1] * 1.4 ~= p.union_donate then 
         lxz()
         return -1 
     end
@@ -1506,7 +1609,7 @@ end
 function mission_set(p,c)
     Rpc:union_mission_get(p)
     sync(p)
-    lxz(p.utask)
+    --lxz(p.utask)
     local num = 0
     for k, v in pairs( p.utask.cur ) do
         if v.state ==  TASK_STATUS.TASK_STATUS_CAN_ACCEPT then
@@ -1566,38 +1669,66 @@ function mission_do(p,b)
 end
 
 function union_create(name,num)
+    num = num or 10
+    name = math.random(100,999)
     local ps = {}
-    local p = get_account2(name)
-    if p.uid == 0 then
-        chat( p, "@set_val=gold=100000000" )
-        Rpc:union_create(p,"robot"..name,name,40,1000)
-        wait_for_ack( p, "union_on_create" )
+    local a = get_account(name)
+    loadData( a )
+    lxz(a.pid)
+    local u = _us[a.uid] 
+    if u and u.leader ~= a.name then
+        chat( a, "@set_val=gold=100000000" )
+        --chat( a, "@buildtop" )
+        chat( a, "@addbuf=1=-1" )
+        Rpc:union_quit(a)
+        Rpc:union_create(a,"robot"..name,tostring(name),40,1000)
+        wait_for_ack( a, "union_on_create" )
     end
-    mission_set(p) 
-    table.insert(ps,p)
+    mission_set(a) 
+    table.insert(ps,a)
+    lxz(_us[a.uid].name) 
 
-    local u = _us[p.uid] 
-    if not next(u.build or {} ) then 
-        local id = 10021001
-        local obj = set_build(p, id, p.x, p.y ) 
-        build(p,obj,1)
-
-        local id = 10007001
-        local obj2 = set_build(p, id, obj.x, obj.y, 14 ) 
-        build(p,obj2,1)
-    end
-
-    for i = 2,num do
-        p = get_account2(name..i)
-        if p.uid ~= ps[1].uid then
-            Rpc:union_quit(p)
-            Rpc:union_apply( p,ps[1].uid)
-            chat( p, "@set_val=gold=100000000" )
-            chat( p, "@ef_add=SpeedGather_R=90000000" )
-            sync( p)
+    if num > 1 then
+        for i = 2,num do
+            local p = get_account()
+            loadData( p )
+            if p.uid ~= a.uid then
+                Rpc:union_quit(p)
+                Rpc:union_apply( p,ps[1].uid)
+                chat( p, "@set_val=gold=100000000" )
+                chat( p, "@buildtop" )
+                chat( p, "@addbuf=1=-1" )
+                chat( p, "@ef_add=SpeedGather_R=90000000" )
+                sync( p)
+            end
+            table.insert(ps,p)
         end
-        table.insert(ps,p)
     end
+
+    if num < 10 then return ps end 
+
+    -- local id = 10021001
+    -- local obj = set_build(a, id, a.x, a.y ) 
+    -- sync(a)
+    -- build(a,obj,1)
+    -- sync(a)
+
+    -- id = 10007001
+    -- local obj2 = set_build(a, id, obj.x, obj.y, 14 ) 
+    -- sync(a)
+    -- build(a,obj2,1)
+
+
+    -- -- id = 10031001
+    -- -- obj2 = set_build(a, id, obj.x+50, obj.y+50, 14 ) 
+    -- -- sync(a)
+    -- -- build(a,obj2,1)
+
+    -- id = 10004001
+    -- lxz()
+    -- obj2 = set_build(a, id, obj.x, obj.y, 14 ) 
+    -- sync(a)
+    -- build(a,obj2,1)
 
 
     return ps 
@@ -1605,7 +1736,6 @@ end
 
 function buildlv(p)
 
-    chat(p, "@set_val=gold=100000000")
     chat(p, "@adddaoju=7001001=100")
     chat(p, "@adddaoju=7001002=100")
     chat(p, "@adddaoju=7001003=100")
@@ -1622,108 +1752,42 @@ function buildlv(p)
     chat(p, "@adddaoju=7004002=100")
     chat(p, "@adddaoju=7004003=100")
 
-    Rpc:union_load( p,"build" )
-    sync(p)
+    for id = 1,3 do
+        if not ubuildlv_check(p,id) then return end
+    end
 
-    local id = 1
-    local item = p.buildlv.log[id].cons
+    return true
+end
 
+function ubuildlv_check(p,id)
+    lxz(p.pid,p.buildlv)
+    if (p.buildlv.buildlv[id].id % 1000) == 10 then lxz("满级") return  end
+    local v = p.buildlv.log[id]
+    if not can_date(v.tm,gTime) then lxz("已捐") return  true end
+    local item = v.cons
     local c = resmng.get_conf("prop_union_buildlv",p.buildlv.buildlv[id].id + 1 )
     if c then 
-        local num = c.BonusID[1][2][2][3]    
-        for _,v in pairs(p._item ) do
-            if v[2] == item[2] then item[3] =  v[3] - item[3] end
-            if v[2] == c.BonusID[1][2][2][2] then  num = v[3] + num  end  
-        end
-        local silver = p.silver + c.BonusID[1][2][1][3] 
+        local cc = resmng.get_conf("prop_union_buildlv",p.buildlv.buildlv[id].id  )
+        local old = AddBonus_on(p, cc.BonusID)
+        --lxz(p.silver,old)
         local exp = p.buildlv.buildlv[id].exp + c.DonateExp
 
         Rpc:union_buildlv_donate(p,id)
         Rpc:union_load( p,"build" )
         sync(p)
 
-        for _,v in pairs(p._item ) do
-            if v[2] == item[2] then 
-                if item[3] ~=  v[3]  then lxz() return "fail"  end
-            end
-            if v[2] == c.BonusID[1][2][2][2]  then 
-                if num ~= v[3] then lxz(v,num) return "fail"  end
-            end  
-        end
-        if silver ~= p.silver then lxz() return "fail" end  
+        if not AddBonus_off(p,old) then lxz() return end
+
         if exp < c.UpExp then
-            if  exp ~= p.buildlv.buildlv[id].exp then lxz(p.buildlv.buildlv[id],exp) return "fail" end
+            if  exp ~= p.buildlv.buildlv[id].exp then lxz(p.buildlv.buildlv[id],exp) return end
         else
-            if  exp - c.UpExp  ~= p.buildlv.buildlv[id].exp then lxz() return "fail" end
-            if  c.ID  ~= p.buildlv.buildlv[id].id then lxz() return "fail" end
+            if  exp - c.UpExp  ~= p.buildlv.buildlv[id].exp then lxz() return end
+            if  c.ID  ~= p.buildlv.buildlv[id].id then lxz() return end
         end
     end
-
-    id = 2
-    item = p.buildlv.log[id].cons
-    c = resmng.get_conf("prop_union_buildlv",p.buildlv.buildlv[id].id + 1 )
-    if c then
-        num = c.BonusID[1][2][2][3]    
-        for _,v in pairs(p._item ) do
-            if v[2] == item[2] then item[3] =  v[3] - item[3] end
-            if v[2] == c.BonusID[1][2][2][2] then  num = v[3] + num end  
-        end
-        local silver = p.silver + c.BonusID[1][2][1][3] 
-        local exp = p.buildlv.buildlv[id].exp + c.DonateExp
-        Rpc:union_buildlv_donate(p,id)
-        Rpc:union_load( p,"build" )
-        sync(p)
-
-        for _,v in pairs(p._item ) do
-            if v[2] == item[2] then 
-                if item[3] ~=  v[3]  then lxz() return "fail"  end
-            end
-            if v[2] == c.BonusID[1][2][2][2]  then 
-                if num ~= v[3] then lxz(v,c) return "fail"  end
-            end  
-        end
-        if silver ~= p.silver then lxz() return "fail" end  
-        if exp < c.UpExp then
-            if  exp ~= p.buildlv.buildlv[id].exp then lxz(p.buildlv.buildlv[id],exp) return "fail" end
-        else
-            if  exp - c.UpExp  ~= p.buildlv.buildlv[id].exp then lxz() return "fail" end
-            if  c.ID  ~= p.buildlv.buildlv[id].id then lxz() return "fail" end
-        end
-    end
-
-    id = 3
-    item = p.buildlv.log[id].cons
-    c = resmng.get_conf("prop_union_buildlv",p.buildlv.buildlv[id].id + 1 )
-    if c then
-        num = c.BonusID[1][2][2][3]    
-        for _,v in pairs(p._item ) do
-            if v[2] == item[2] then item[3] =  v[3] - item[3] end
-            if v[2] == c.BonusID[1][2][2][2] then  num = v[3] + num  end  
-        end
-        local silver = p.silver + c.BonusID[1][2][1][3] 
-        local exp = p.buildlv.buildlv[id].exp + c.DonateExp
-        Rpc:union_buildlv_donate(p,id)
-        Rpc:union_load( p,"build" )
-        sync(p)
-
-        for _,v in pairs(p._item ) do
-            if v[2] == item[2] then 
-                if item[3] ~=  v[3]  then lxz() return "fail"  end
-            end
-            if v[2] == c.BonusID[1][2][2][2]  then 
-                if num ~= v[3] then lxz(v,c) return "fail"  end
-            end  
-        end
-        if silver ~= p.silver then lxz() return "fail" end  
-        if exp < c.UpExp then
-            if  exp ~= p.buildlv.buildlv[id].exp then lxz(p.buildlv.buildlv[id],exp) return "fail" end
-        else
-            if  exp - c.UpExp  ~= p.buildlv.buildlv[id].exp then lxz() return "fail" end
-            if  c.ID  ~= p.buildlv.buildlv[id].id then lxz() return "fail" end
-        end
-    end
-
+    return true
 end
+
 
 function get_val(player, what, ...)
     --local ef_u,ef_ue = player:get_union_ef()
@@ -1754,6 +1818,216 @@ end
 function get_troop(player, troop_id)
     return player._troop[troop_id]
 end
+
+function AddBonus_on(p,Param,t)
+    local old = {}
+    if  t == "AddBuf" then
+        local cc = resmng.buff[Param[1]]
+        for k, v in pairs( cc.Value ) do 
+            Rpc:get_buff( p, k )
+            wait_for_ack( p, "get_buff" )
+            old[k]=p.buff[k] + v
+        end
+    else
+        for _, v in pairs( Param[1][2] or c.Param[1][2] ) do 
+            if v[1] =="item" then
+                old.item = old.item or {}
+                for _, obj in pairs(p._item or {} ) do
+                    if v[2]==obj[2] then
+                        old.item[v[2]]= old.item[v[2]] or 0  + obj[3] 
+                    end
+                end
+                old.item[v[2]]= (old.item[v[2]] or 0 ) + v[3] 
+            elseif v[1] == "res" then
+                old.res = res_on(p,v,old.res)
+            elseif v[1] == "respicked" then
+            elseif v[1] == "soldier" then
+            elseif v[1] == "hero_exp" then
+            elseif v[1] == "hero_buff" then
+            elseif v[1] == "hero" then
+            elseif v[1] == "equip" then
+            end
+        end
+    end
+    return old
+end
+
+function AddBonus_off(p,old,t)
+    if  t == "AddBuf" then
+        for what, v in pairs( old ) do 
+            Rpc:get_buff( p, what )
+            wait_for_ack( p, "get_buff" )
+            if v  ~= p.buff[what] then return end
+        end
+    else
+        for name, o in pairs( old ) do 
+            if name =="item" then
+                Rpc:loadData( p, "item" )
+                sync(p)
+                for k, v in pairs(o or {} ) do
+                    for idx, vv in pairs(p._item) do
+                        if vv[2] ==  k then
+                            --                 if c.ID == 7021001  then pause() end
+                            if v ~= vv[3] then lxz(k) return end 
+                        end
+                    end
+                end
+
+            elseif name =="res" then
+                if not res_off(p,o) then return end
+            elseif name =="personalhonor" then
+            elseif name =="gold" then
+            elseif name =="silver" then
+            elseif name =="unithonor" then
+            elseif name =="personalhonor" then
+            elseif name =="personalhonor" then
+            elseif name =="personalhonor" then
+            end
+        end
+    end
+    return true
+end
+
+
+function res_on(p,v,res)
+    res = res or {}
+    local id = v[2]
+    local num = v[3]
+    if id <= resmng.DEF_RES_ENERGY  then
+        res[id] = (p.res[id][1] or 0) + num 
+    elseif id == resmng.DEF_RES_MARSEXP then
+        res[id] = res[id] or {}  
+        while p.uid == 0  do 
+            local name = tostring(math.random(100,999))
+            Rpc:union_create(p, "robot"..name, name, 40, 1000)
+            wait_for_ack(p, "union_on_create")
+        end
+        Rpc:union_load(p,"mars")
+        sync(p)
+        local god = p.mars.mars 
+        local c = resmng.prop_union_god[god.propid + 1] 
+        res[id].propid =  god.propid 
+        res[id].exp =  god.exp + num 
+        if res[id].exp >= c.Exp  then
+            res[id].propid =  res[id].propid + 1
+            res[id].exp = res[id].exp - c.Exp
+        end
+    elseif id == resmng.DEF_RES_PERSONALHONOR then
+        res[id] = res[id] or {}  
+        while p.uid == 0  do 
+            local name = tostring(math.random(100,999))
+            Rpc:union_create(p, "robot"..name, name, 40, 1000)
+            wait_for_ack(p, "union_on_create")
+        end
+        Rpc:union_load(p,"donate")
+        Rpc:union_load(p,"union_donate")
+        sync(p)
+        res[id].donate = (p.donate.donate or 0)  + num 
+        res[id].union_donate = (p.union_donate or 0) + num*1.4
+    elseif id == resmng.DEF_RES_LORDEXP then
+        res[id] = res[id] or {exp=p.exp,lv=p.lv}  
+        while(true) do
+            local limit_exp = resmng.prop_level[p.lv + 1].Exp
+            local need_exp = limit_exp - p.exp
+            if num >= need_exp then
+                res[id].lv = res[id].lv + 1
+                res[id].exp = 0
+                num = num - need_exp
+            else
+                res[id].exp = res[id].exp + num
+                break
+            end
+        end
+
+    elseif id == resmng.DEF_RES_VIPEXP then
+        res[id] = res[id] or {exp = p.vip_exp + num, lv = p.vip_lv}
+        for k, v in ipairs( resmng.prop_vip ) do
+            if k >= p.vip_lv then
+                if res[id].exp >= v.Exp then res[id].lv = k
+                else break end
+            end
+        end
+
+    elseif id == resmng.DEF_RES_LORDSINEW then
+        res.sinew =  p.sinew
+    else
+        local conf = resmng.get_conf("prop_resource", id)
+        if conf then
+            local key = conf.CodeKey
+            res[id] = (p[ key ] or 0 ) + num 
+        end
+    end
+    return res
+end
+
+function res_off(p,o)
+    for id, v in pairs(o or {} ) do
+        if id <= resmng.DEF_RES_ENERGY  then
+            Rpc:loadData( p, "pro" )
+            sync(p)
+            if id == 1 then
+                if math.abs(v-p.res[id][1])>200  then lxz(p.res) return end    
+            else
+                if v ~= p.res[id][1]  then lxz(id) return end    
+            end
+        elseif id == resmng.DEF_RES_MARSEXP then
+            Rpc:union_load(p,"mars")
+            sync(p)
+            local god = p.mars.mars 
+            if v.exp ~= god.exp or v.propid ~= god.propid  then lxz(v) return end    
+        elseif id == resmng.DEF_RES_PERSONALHONOR then
+            Rpc:union_load(p,"donate")
+            Rpc:union_load(p,"union_donate")
+            sync(p)
+            if math.abs(v.donate) ~= p.donate.donate 
+                or math.abs(v.union_donate) ~= p.union_donate  then lxz(v) return end    
+            elseif id == resmng.DEF_RES_LORDEXP then
+                Rpc:loadData( p, "pro" )
+                sync(p)
+                if v.exp ~= p.exp or v.lv ~= p.lv  then lxz(v) return end    
+            elseif id == resmng.DEF_RES_VIPEXP then
+                Rpc:loadData( p, "pro" )
+                sync(p)
+                if v.exp ~= p.vip_exp or v.lv ~= p.vip_lv  then lxz(v) return end    
+            elseif id == resmng.DEF_RES_LORDSINEW then
+                Rpc:loadData( p, "pro" )
+                sync(p)
+                if v ~= p.sinew  then lxz(v) return end    
+            elseif id == resmng.DEF_RES_TC_GOLD then
+                Rpc:loadData( p, "pro" )
+                sync(p)
+                if v ~= p.manor_gold  then lxz(v) return end    
+            elseif id == resmng.DEF_RES_GOLD then
+                Rpc:loadData( p, "pro" )
+                sync(p)
+                if v ~= p.gold  then lxz(v) return end    
+            elseif id == resmng.DEF_RES_SILVER then
+                Rpc:loadData( p, "pro" )
+                sync(p)
+                if v ~= p.silver  then lxz(v) return end    
+            elseif id == resmng.DEF_RES_KING_GOLD then
+                Rpc:loadData( p, "pro" )
+                sync(p)
+                if v ~= p.kw_gold  then lxz(v) return end    
+            elseif id == resmng.DEF_RES_AT_GOLD then
+                Rpc:loadData( p, "pro" )
+                sync(p)
+                if v ~= p.relic_gold  then lxz(v) return end    
+            elseif id == resmng.DEF_RES_SNAMAN_STONE then
+                Rpc:loadData( p, "pro" )
+                sync(p)
+                if v ~= p.snaman_stone  then lxz(v) return end    
+            elseif id == resmng.DEF_RES_CRS_GOLD then
+                Rpc:loadData( p, "pro" )
+                sync(p)
+                if v ~= p.cross_gold  then lxz(v) return end    
+            else
+                lxz(id) 
+                return     
+            end
+        end
+        return true
+    end
 
 
 

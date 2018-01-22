@@ -15,7 +15,7 @@ function wrap( data )
 end
 
 function load_data(data)
-    setmetatable(data, __troop_mt)
+    return setmetatable(data, __troop_mt)
 end
 
 function add_link( self )
@@ -326,14 +326,15 @@ function home(self)
         owner:add_bonus("mutex_award", self.goods, self.goods_reason)
     end
 
-    --offline ntf
-    local base_action = self:get_base_action()
-    --if base_action == TroopAction.Gather or  base_action == TroopAction.LostTemple then
-        offline_ntf.post(resmng.OFFLINE_NOTIFY_RETURN, owner)
-    --end
-
     local arm = self.arms and self.arms[ pid ]
     if not arm then return end
+
+    owner:add_soldiers( arm.live_soldier )
+    if arm.amend then
+        if arm.amend.relive then
+            owner:add_soldiers( arm.amend.relive )
+        end
+    end
 
     for _, hid in pairs(arm.heros or {}) do
         if hid ~= 0 then
@@ -354,13 +355,13 @@ function home(self)
         end
     end
 
-    owner:add_soldiers( arm.live_soldier )
-    if arm.amend then
-        if arm.amend.relive then
-            owner:add_soldiers( arm.amend.relive )
-        end
-    end
     owner:clear_one()
+
+    --offline ntf
+    local base_action = self:get_base_action()
+    --if base_action == TroopAction.Gather or  base_action == TroopAction.LostTemple then
+        offline_ntf.post(resmng.OFFLINE_NOTIFY_RETURN, owner)
+    --end
 end
 
 --merge A to B
@@ -774,10 +775,14 @@ function start_march(self, default_speed)
             if id ~= 0 then
                 if type( id ) == "number" then
                     local h = resmng.prop_hero[ id ]
-                    if h then heros[ mode ] = h.id end
+                    if h then 
+                        heros[ mode ] = h.id 
+                    end
                 else
                     local h = heromng.get_hero_by_uniq_id( id )
-                    if h then heros[  mode ] = h.propid end
+                    if h then 
+                        heros[  mode ] = h.propid 
+                    end
                 end
             end
         end
@@ -802,7 +807,9 @@ function start_march(self, default_speed)
 
     local target = get_ety(self.target_eid)
     if target then
-        self.target_propid = target.propid
+        if  self.target_propid == 0 then
+            self.target_propid = target.propid
+        end
         if is_ply( target ) then
             self.target_name = target.name
             local u = target:get_union()
@@ -1009,7 +1016,7 @@ end
 
 
 function get_info(self)
-    local info = { _id = self._id, eid = self.eid, tmStart = self.tmStart, tmOver = self.tmOver, action = self.action, dx=self.dx, dy=self.dy, sx=self.sx, sy=self.sy, target=self.target_eid, is_mass=self.is_mass}
+    local info = { _id = self._id, eid = self.eid, owner_pid = self.owner_pid, tmStart = self.tmStart, tmOver = self.tmOver, action = self.action, dx=self.dx, dy=self.dy, sx=self.sx, sy=self.sy, target=self.target_eid, is_mass=self.is_mass}
     local arms = {}
     local heros = {}
     for pid, arm in pairs( self.arms or {} ) do
@@ -1029,7 +1036,7 @@ function get_info(self)
                 if v ~= 0 then
                     local h = heromng.get_hero_by_uniq_id( v )
                     if h then
-                        hs[ k ] = { h.propid, h.lv, h.star }
+                        hs[ k ] = { h.propid, h.lv, h.star, h.hp * 100 / h.max_hp }
                     end
                 end
             end
@@ -1316,7 +1323,32 @@ function get_gather_power(self, mode)
     return speed_gather, count_gather, speed_base / div
 end
 
+function get_refugee_power(self)
+    local player = getPlayer(self.owner_pid)
+    if not player then
+        return
+    end
 
+    local lv = c_get_zone_lv(math.floor(self.dx / 16), math.floor(self.dy / 16))
+    if lv > 5 then lv = 5 end
+    if lv < 1 then lv = 1 end
+    local speed = SPEED_REFUGEE[lv]
+    if check_ply_cross(player) then
+        speed = speed * CROSS_REFUGEE_MUL
+    end
+
+    local count_gather = 0
+    for _, arm in pairs(self.arms) do
+        for id, num in pairs(arm.live_soldier) do
+            local conf = resmng.prop_arm[id]
+            if conf then
+                count_gather = count_gather + conf.Weight * num
+            end
+        end
+    end
+
+    return speed, count_gather / REFUGEE_WEIGHT
+end
 
 function add_goods(self, goods, reason)
     self.goods = goods
@@ -1845,6 +1877,8 @@ function gather_stop(troop)
         world_event.process_world_event(WORLD_EVENT_ACTION.GATHER_NUM, mode, count)
         --周限时活动
         weekly_activity.process_weekly_activity(owner, WEEKLY_ACTIVITY_ACTION.GATHER, mode, count)
+        --每日活动
+        daily_activity.process_daily_activity(owner, DAILY_ACTIVITY_ACTION.GATHER, mode, count)
         --瞭望塔
         watch_tower.building_def_clear(dp, troop)
     end

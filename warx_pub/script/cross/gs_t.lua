@@ -7,10 +7,12 @@ module_class("gs_t",
     power = 0,
     name = "",
     king_name = "",
+    king_culture = 0,
     king_u_name = "",
+    king_language = -1,
     group = 0,
     last_group = 0,
-    left_npc = {1, 4, 8, 12, 16},
+    left_npc = {},
     occu_npc = {},
 }
 )

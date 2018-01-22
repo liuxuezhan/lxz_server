@@ -15,6 +15,8 @@ function ChoreMail:init(player)
 end
 
 function ChoreMail:uninit()
+    local player = self.player
+
     self:_stop()
     player.eventAllMailLoaded:del(newFunctor(self, self._onAllMailLoaded))
     player.eventMailLoad:del(newFunctor(self, self._onMailLoad))

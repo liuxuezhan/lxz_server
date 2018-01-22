@@ -1,56 +1,67 @@
 --军团礼物模块
 module(..., package.seeall)
 _tm = 24*60*60
-function load(pid)--启动加载
+_tm2 = 24*60*60
+function load_db(pid)
     local db = dbmng:getOne()
-    local info 
-    if pid then
-        info = db.union_item:find({_id=pid})
-    else
-        info = db.union_item:find({})
-    end
+    local info = db.union_item:find({pid=pid})
     while info:hasNext() do
-        local data = info:next()
-        local p = getPlayer(data._id)
+        local d = info:next()
+        local p = getPlayer(d.pid)
         if p then
-            p.u_item = copyTab(data) 
-            p.u_item.item = {}  
-            for _, v in pairs(data.item or {}) do
-                if ( p.u_item.cur_idx or 0 ) <  v.idx  then p.u_item.cur_idx = v.idx end
-                p.u_item.item[v.idx] = v
-            end
+            p.union_item_idx = p.union_item_idx or 0 
+            p.union_item = p.union_item or {}  
+            p.union_item[d.idx] = d
+            if p.union_item_idx <  d.idx  then p.union_item_idx = d.idx end
         end
     end
 end
 
 
 function add(p,propid,src,d_propid,pid)--加入军团礼物
+    if check_ply_cross(p) then
+        remote_cast(p.emap, "add", {"union_item", p.pid, propid, src, d_propid, pid})
+        return
+    end
 
     INFO( "[UNION]pid=%d,uid=%d, src=%d add union_item", p.pid,p.uid, src )
     if src >= UNION_ITEM.MAX then return end 
 
-    if not p.u_item then
-        p.u_item = {_id=p.pid,cur_idx=0,item={} }
-        gPendingSave.union_item[p.pid] = p.u_item 
-    elseif type(p.u_item) ~= "table" then 
-        INFO( "[UNION]pid=%d,uid=%d,u_item is not table", p.pid,p.uid )
+    if not p.union_item then  load_db(p.pid) end
+    p.union_item= p.union_item or {}  
+    p.union_item_idx  =  (p.union_item_idx or 0)  + 1 
+    local d = { _id=p.pid.."_"..p.union_item_idx,
+                pid=p.pid,
+                idx=p.union_item_idx,
+                propid=propid,
+                tm=gTime,
+                src=src,
+                d_propid=d_propid,
+                s_pid =pid }
+    p.union_item[d.idx] =  d  
+    gPendingSave.union_item[d._id] = d 
+    for k, d in pairs(p.union_item ) do
+        if gTime > d.tm+_tm+_tm2 then
+            gPendingDelete.union_item[d._id] = 1 
+            p.union_item[k] =  nil  
+        end
     end
-    local d = p.u_item 
-    d.cur_idx = (d.cur_idx or 0)  + 1
-    local t = {idx=d.cur_idx ,propid=propid,tm=gTime,src=src,d_propid=d_propid,pid=pid }
-    local item = d.item or {}
-    item[t.idx] = t
-    d.item = item
-    gPendingSave.union_item[p.pid].item = d.item 
 end
 
-function show(ply)--获取军团礼物列表
+function show(p)--获取军团礼物列表
+    if check_ply_cross(p) then
+        local ret, val = remote_func(p.emap, "show", {"union_item", p.pid})
+        if E_OK ~= ret then
+            return
+        end
+        return val
+    end
 
-    if not ply.u_item then ply.u_item = {_id=ply.pid,cur_idx=0,item={} } end
     local l = {}
-    for _, v in pairs(ply.u_item.item or {}) do
+    if not p.union_item then load_db(p.pid) end
+    for _, v in pairs(p.union_item or {}) do
         local s = {idx=v.idx, propid=v.propid,src=v.src ,tmOver = (v.tm + _tm )}
-        local p = getPlayer(v.pid)
+        local p = getPlayer(v.s_pid)
         if p  then s.name = p.name end
         s.d_propid = v.d_propid
         table.insert(l,s )
@@ -58,13 +69,20 @@ function show(ply)--获取军团礼物列表
     return l 
 end
 
-function get(ply,idx)--领取或清除军团礼物
-    local v  = ply.u_item.item[idx] 
-    if v then
-        if gTime < v.tm + _tm then
-            ply:add_bonus(v.propid[1], v.propid[2],VALUE_CHANGE_REASON.UNION_ITEM)
+function get(p,idx)--领取或清除军团礼物
+    if check_ply_cross(p) then
+        remote_cast(p.emap, "get", {"union_item", p.pid, idx})
+        return
+    end
+    if not p.union_item then load_db(p.pid) end
+    p.union_item= p.union_item or {}  
+    local d  = p.union_item[idx] 
+    if d then
+        if gTime < d.tm + _tm then
+            p:local_execute("add_bonus", d.propid[1], d.propid[2], VALUE_CHANGE_REASON.UNION_ITEM)
         end
-        ply.u_item.item[idx]= nil 
-        gPendingSave.union_item[ply.pid] = ply.u_item 
+        gPendingDelete.union_item[d._id] = 1 
+        p.union_item[idx] =  nil  
+        INFO( "[UNION]pid=%d,uid=%d,union_item is draw", p.pid,p.uid )
     end
 end

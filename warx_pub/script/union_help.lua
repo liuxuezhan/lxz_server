@@ -139,7 +139,7 @@ function set_one( p, node, u )
     if action.what == "cure" then
         w:do_cure_acc( action.tm )
     elseif action.what == "hero_task" then
-        w:help_acc_hero_task(action.task_id)
+        w:help_acc_hero_task(action.task_id, action.tm)
     else
         node.build:acceleration( action.tm )
     end

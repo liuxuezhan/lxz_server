@@ -11,8 +11,12 @@ function t1.action(_idx)
         {25000, 15000, 40000},
     }
 
-    local p = get_one(true)
+    --local p = get_one(true)
+    --loadData(p)
+    local name = tostring(math.random(100,999))
+    local p = get_account(name)
     loadData(p)
+    name = name + 1
 
   --  chat(p, "@all")
     chat( p, "@lvbuild=0=0=30" )
@@ -39,7 +43,7 @@ function t1.action(_idx)
     local city_lv = math.random(4)
 
 
-    Rpc:get_city_for_robot_req(p, ACT_NAME.NPC_CITY, city_lv)
+    Rpc:get_city_for_robot_req(p, ACT_NAME.NPC_CITY, {lv = city_lv})
     wait_for_ack(p, "get_city_for_robot_ack")
     sync(p)
     local eid = p.npc_eid
@@ -151,8 +155,11 @@ function t1.action(_idx)
         return "fight error"
     end
 
-    local p1 = get_one(true)
+    --local p1 = get_one(true)
+    --loadData(p1)
+    local p1 = get_account(name)
     loadData(p1)
+    name = name + 1
 
     chat( p1, "@set_val=gold=1000000" )
     chat( p1, "@buildtop" )

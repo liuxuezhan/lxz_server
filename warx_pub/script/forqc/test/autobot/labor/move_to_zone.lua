@@ -18,13 +18,10 @@ function MoveToZone:onStop()
     self:_stop()
     self.player.eventNewEntity:del(newFunctor(self, self._onNewEntity))
     self.player.eventDelEntity:del(newFunctor(self, self._onDelEntity))
-    INFO("[Autobot|Migrate|%d] onStop.", self.player.pid)
     self.player.troop_manager:activeTroop()
-    INFO("[Autobot|Migrate|%d] onStop 2.", self.player.pid)
 end
 
 function MoveToZone:_finish()
-    INFO("[Autobot|Migrate|%d] finish labor %d.", self.player.pid, self.id)
     self.player.labor_manager:deleteLabor(self)
 end
 
@@ -101,22 +98,24 @@ end
 
 local WaitTroop = makeState({})
 function WaitTroop:onEnter()
-    if not self.host.player.troop_manager:hasBusyTroop() then
+    if not self.host.player.troop_manager:hasTroopQueueWorking() then
         self:translate("MoveEye")
         return
     end
     INFO("[Autobot|Migrate|%d] There is some troop, wait.", self.host.player.pid)
-    self.host.player.troop_manager.eventBusyTroopFinished:add(newFunctor(self, self._onTroopFinished))
+    self.host.player.troop_manager.eventTroopQueueActivating:add(newFunctor(self, self._onTroopQueueActivate))
 end
 
 function WaitTroop:onExit()
-    self.host.player.troop_manager.eventBusyTroopFinished:del(newFunctor(self, self._onTroopFinished))
+    self.host.player.troop_manager.eventTroopQueueActivating:del(newFunctor(self, self._onTroopQueueActivate))
 end
 
-function WaitTroop:_onTroopFinished()
-    if not self.host.player.troop_manager:hasBusyTroop() then
+function WaitTroop:_onTroopQueueActivate()
+    if not self.host.player.troop_manager:hasTroopQueueWorking() then
         INFO("[Autobot|Migrate|%d] All troop has returned.", self.host.player.pid)
         self:translate("MoveEye")
+    else
+        INFO("[Autobot|Migrate|%d] Some troop is still out there.", self.host.player.pid)
     end
 end
 
@@ -165,12 +164,9 @@ function Migrate:onExit()
 end
 
 function Migrate:_doMigrate(x, y)
-    sync(self.host.player, true)
+    self.host.player:sync(function() end)
     Rpc:migrate(self.host.player, x, y)
-    action(function()
-        sync(self.host.player)
-        self:_onMigrate()
-    end)
+    self.host.player:sync(function() self:_onMigrate() end)
     self.host.player:addRpcErrorHandler("migrate", newFunctor(self, self._onError))
 end
 

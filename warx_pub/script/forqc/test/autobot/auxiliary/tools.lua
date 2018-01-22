@@ -65,3 +65,21 @@ function cross_zones(start_x, start_y, end_x, end_y)
     return coroutine.wrap(_zones)
 end
 
+local task_prop_map = {
+    [TASK_TYPE.TASK_TYPE_TRUNK] = resmng.prop_task_detail,
+    [TASK_TYPE.TASK_TYPE_BRANCH] = resmng.prop_task_detail,
+    [TASK_TYPE.TASK_TYPE_DAILY] = resmng.prop_task_daily,
+    [TASK_TYPE.TASK_TYPE_TARGET] = resmng.prop_task_detail,
+    [TASK_TYPE.TASK_TYPE_HEROROAD] = resmng.prop_task_detail,
+}
+
+function getTaskProp(task)
+    return task_prop_map[task.task_type][task.task_id]
+end
+
+function is_sys_name(name)
+    local len = string.len(name)
+    local pat = string.match(name, "K%d+a%d+")
+    return (pat and string.len(pat) == len)
+end
+

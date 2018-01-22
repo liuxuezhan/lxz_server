@@ -183,6 +183,8 @@ function create(uid,idx, propid, x, y,name)
 end
 
 function remove(e)
+    if not e then return end
+
     local u = unionmng.get_union(e.uid)
     if not u then return end
 
@@ -374,10 +376,8 @@ function can_troop(action, p, eid, res)--行军队列发出前判断
         if not is_union_superres(dp.propid) then return false end
         for _, id in pairs(p.busy_troop_ids or {} ) do
             local t = troop_mng.get_troop(id)
-            local e = get_ety(t.target_eid)
             if not t then return false end
-            if not e then return false end
-            if is_union_superres(e.propid) and t:get_base_action() == action then return false end
+            if is_union_superres(t.target_propid) and t:get_base_action() == action then return false end
         end
         return true
     
@@ -484,7 +484,6 @@ function buf_open(e)--奇迹生成
                     if tmp and tmp.sn < e.sn then
 
                     else
-                        print( "buf_open, pid, eid", ply.pid, e.eid )
                         ply.ef_eid = e.eid
                         task_logic_t.process_task(ply, TASK_ACTION.UNION_CASTLE_EFFECT)
                     end
@@ -839,7 +838,6 @@ function recalc_build( obj )
     obj.speed_b = speed_b
     obj.speed_f = speed_f
 
-    print( "union_build", hp )
 
     if hp == 0 then
         remove( obj )

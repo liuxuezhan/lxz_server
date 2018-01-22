@@ -33,4 +33,10 @@ prop_rank = {
 	[RANK_25] = { ID = RANK_25, Name = LG_RANK_NAME_165100024, Class = 3, ListA = LG_RANK_LISTA_165200024, ListB = LG_RANK_LISTB_165300024, Num = 150, Limit = 1000, IsPerson = 1, Keys = {"kill"}, Skeys = {-1},},
 	[RANK_26] = { ID = RANK_26, Name = LG_RANK_NAME_165100025, Class = 3, ListA = LG_RANK_LISTA_165200025, ListB = LG_RANK_LISTB_165300025, Num = 150, Limit = 9999999, IsPerson = 0, Keys = {"union_kill"}, Skeys = {-1},},
 	[RANK_27] = { ID = RANK_27, Name = LG_RANK_NAME_165100026, Class = 3, ListA = LG_RANK_LISTA_165200026, ListB = LG_RANK_LISTB_165300026, Num = 150, Limit = 100, IsPerson = 1, Keys = {"kill"}, Skeys = {-1},},
+	[RANK_28] = { ID = RANK_28, Name = LG_NIL, Class = 3, ListA = LG_NIL, ListB = LG_NIL, Num = 150, Limit = 150, IsPerson = 1, Keys = {"score","time"}, Skeys = {-1,1},},
+	[RANK_29] = { ID = RANK_29, Name = LG_NIL, Class = 3, ListA = LG_NIL, ListB = LG_NIL, Num = 150, Limit = 150, IsPerson = 1, Keys = {"score","time"}, Skeys = {-1,1},},
+	[RANK_30] = { ID = RANK_30, Name = LG_NIL, Class = 3, ListA = LG_NIL, ListB = LG_NIL, Num = 150, Limit = 150, IsPerson = 1, Keys = {"score","time"}, Skeys = {-1,1},},
+	[RANK_31] = { ID = RANK_31, Name = LG_NIL, Class = 3, ListA = LG_NIL, ListB = LG_NIL, Num = 150, Limit = 150, IsPerson = 1, Keys = {"score","time"}, Skeys = {-1,1},},
+	[RANK_32] = { ID = RANK_32, Name = LG_NIL, Class = 3, ListA = LG_NIL, ListB = LG_NIL, Num = 150, Limit = 150, IsPerson = 1, Keys = {"score","time"}, Skeys = {-1,1},},
+	[RANK_33] = { ID = RANK_33, Name = LG_NIL, Class = 3, ListA = LG_NIL, ListB = LG_NIL, Num = 150, Limit = 150, IsPerson = 1, Keys = {"score","time"}, Skeys = {-1,1},},
 }

@@ -1,21 +1,30 @@
 local SiegeMonster = {}
 
 local SIEGE_RANGE = config.Autobot.SiegeMonsterRange or 2
-local MONSTER_COUNT = config.Autobot.SiegeMonsterMinCount or 5
+local MONSTER_COUNT = config.Autobot.SiegeMonsterMinCount or 3
 local SEARCH_INTERVAL = config.Autobot.SiegeMonsterSearchInterval or 3
 
 local ZONE_WIDTH = 16
 
-function SiegeMonster:init(player, type, min_level, max_level)
+SiegeMonster.Goal = {
+    Attempted   = 1,            -- 尝试过就行，未找到怪物也无所谓
+    Battled     = 2,            -- 进行一次有效攻击
+    Annihilate  = 3,            -- 歼灭目标
+}
+
+function SiegeMonster:init(player, type, min_level, max_level, goal)
     self.player = player
     self.type = type
     self.targets = {}
     self.min_level = min_level
     self.max_level = max_level or min_level
+    self.goal = goal or SiegeMonster.Goal.Attempted
     if self.min_level > self.max_level then
         self.max_level = min_level
     end
+end
 
+function SiegeMonster:start()
     self:_start()
 end
 
@@ -136,6 +145,12 @@ function HuntDown:_searchEntities()
     self.search_end = true
     if self.host:_getTargetCount() > 0 then
         self:translate("Siege")
+        return
+    end
+    if self.host.goal == SiegeMonster.Goal.Attempted then
+        self.host:accomplish(false)
+    else
+        self.host:_restart()
     end
 end
 
@@ -169,22 +184,43 @@ function Siege:onEnter()
         self:translate("NoSinew")
         return
     end
-    INFO("[Autobot|SiegeMonster|%d] siege monster %d", self.host.player.pid, target)
-    Rpc:siege(self.host.player, target, self.host.player:fallInTroop())
     self.target = target
     self.host.player.eventTroopUpdated:add(self.up_troop_func)
+    self:_attackTarget()
 end
 
 function Siege:onExit()
+    self:_clear()
+
     self.host.player.eventTroopUpdated:del(self.up_troop_func)
+    self.target = nil
+end
+
+function Siege:_clear()
     self.host.player.eventTroopDeleted:del(self.rm_troop_func)
     self.host.player.eventFightInfo:del(self.fight_func)
 
-    self.target = nil
     self.troop_id = nil
     self.troop_eid = nil
     self.queried = nil
     self.win = nil
+end
+
+function Siege:_checkTroop()
+    if nil == self.troop_id then
+        if self.host.goal == SiegeMonster.Goal.Attempted then
+            self.host:accomplish(false)
+        else
+            INFO("[Autobot|SiegeMonster|%d] siege failed, hunt other monster", self.host.player.pid)
+            self:translate("HuntDown")
+        end
+    end
+end
+
+function Siege:_attackTarget()
+    INFO("[Autobot|SiegeMonster|%d] siege monster %d", self.host.player.pid, self.target)
+    Rpc:siege(self.host.player, self.target, self.host.player:fallInTroop())
+    self.host.player:sync(function() self:_checkTroop() end)
 end
 
 function Siege:_onTroopUpdated(player, troop_id, troop)
@@ -206,8 +242,10 @@ function Siege:_onTroopUpdated(player, troop_id, troop)
     elseif dir == 3 then
         -- back, get battle info
         if not self.queried then
-            self.queried = true
-            Rpc:query_fight_info(self.host.player, self.troop_eid)
+            if self.troop_eid then
+                self.queried = true
+                Rpc:query_fight_info(self.host.player, self.troop_eid)
+            end
         end
     end
 end
@@ -218,12 +256,23 @@ function Siege:_onTroopDeleted(player, troop_id)
     end
     if nil == self.win then
         -- 没攻击到
-        INFO("[Autobot|SiegeMonster|%d] siege failed, hunt other monster", self.host.player.pid)
-        self:translate("HuntDown")
+        if self.host.goal == SiegeMonster.Goal.Attempted then
+            self.host:accomplish(false)
+        else
+            INFO("[Autobot|SiegeMonster|%d] no battle happen, hunt other monster", self.host.player.pid)
+            self:translate("HuntDown")
+        end
         return
     end
-    INFO("[Autobot|SiegeMonster|%d] siege accomplish %s", self.host.player.pid, self.win)
-    self.host:accomplish(true)
+    if self.host.goal == SiegeMonster.Goal.Annihilate and not self.win then
+        INFO("[Autobot|SiegeMonster|%d] not annihilate target, hunt again | %d|%s.", self.host.player.pid, self.host.goal, self.win)
+        self:_clear()
+        self:_attackTarget()
+        --self:translate("HuntDown")
+    else
+        INFO("[Autobot|SiegeMonster|%d] siege accomplish %s", self.host.player.pid, self.win)
+        self.host:accomplish(true)
+    end
 end
 
 function Siege:_onFightInfo(player, info)
@@ -241,9 +290,20 @@ end
 local NoSinew = makeState({})
 function NoSinew:onEnter()
     INFO("[Autobot|SiegeMonster|%d] out of sinew", self.host.player.pid)
+    self.host.player.eventSinewUpdated:add(newFunctor(self, self._onSinewUpdated))
 end
 
 function NoSinew:onExit()
+    self.host.player.eventSinewUpdated:del(newFunctor(self, self._onSinewUpdated))
+end
+
+function NoSinew:_onSinewUpdated()
+    local player = self.host.player
+    if player.sinew < 5 then
+        return
+    end
+    INFO("[Autobot|SiegeMonster|%d] Player sinew has recovered to %d", player.pid, math.floor(player.sinew))
+    self:translate("HuntDown")
 end
 
 function SiegeMonster:_start()
@@ -263,5 +323,5 @@ function SiegeMonster:_stop()
     end
 end
 
-return SiegeAction.makeClass(SiegeMonster, TroopAction.SiegeMonster)
+return SiegeAction.makeClass("SiegeMonster", SiegeMonster, TroopAction.SiegeMonster)
 

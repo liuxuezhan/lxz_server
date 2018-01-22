@@ -9,6 +9,11 @@ local NumberType={
 	byte=true,
 }
 
+-- this function is in engine
+--function lset_rpc( id, name, args )
+--    --todo
+--end
+--
 local function isTypeOf(i,s,v)
 	-- such as string type
 	if s=="string" then 
@@ -136,6 +141,7 @@ local function parseProtocol( rpc, what )
         local rf = parseFunction(v)
         rf.id = hashString(k)
         rf.name = k
+        --lset_rpc( rf.id, k, rf.args )
         if rpcS[ rf.id ] or rf.id < 100 then
             WARN("function dup, name=%s", k)
             os.exit(-1)
@@ -164,12 +170,20 @@ local function parseProtocol( rpc, what )
         rpc.remoteF = rpcS
         rpc.localF = rpcC
     end
+
+    for k, v in pairs( rpc.localF ) do
+        lset_rpc( v.id, v.name, v.args )
+    end
+
     rpc.mode = what
 end
 
 local function parseRpcType()
     for k, v in pairs(RpcType._struct) do
-        RpcType._struct[k] = parseFunction(v).args
+        --RpcType._struct[k] = parseFunction(v).args 
+        local args = parseFunction( v ).args
+        RpcType._struct[k] = args 
+        lset_rpc( hashStr( k ), k, args )
     end
 end
 
@@ -178,7 +192,9 @@ local function init( rpc, what )
     parseRpcType()
     if what == "server" then
         Rpc.localF[ 6 ] = Rpc.localF[ hashStr("onBreak") ]
+        lset_rpc( 6, "onBreak", Rpc.localF[ hashStr("onBreak") ].args )
     end
+
     print("parse done")
 end
 
@@ -315,6 +331,10 @@ local function sendToSock( rpc, sockid, name,  ... )
 end
 
 local function callRpc( rpc, name, plA, ... )
+    if plA.pid and not plA.gid then
+        return nil
+    end
+
     local rf = rpc.remoteF[name]
    	if not rf then
 		error(string.format("can't find remote function named %s",name))
@@ -331,10 +351,6 @@ local function callRpc( rpc, name, plA, ... )
     local log_num = 1
     if rpc.mode == "server"  then
         if plA.pid then
-            if not plA.gid then 
-                --WARN("callRpc, name=%s, pid=%d, no gid", name, plA.pid)
-                return 
-            end
             if plA.pid < 0 then
                 -- want broad cast to online ply
                 pushHead(_G.GateSid, 0, 22) --NET_BROADCAST_2STATE
@@ -369,7 +385,7 @@ local function callRpc( rpc, name, plA, ... )
 
     pushOver()
 
-    LOG("RpcS, pid=%d, pid_num=%d, func=%s", log_pid, log_num, name)
+    LOG("RpcS, pid=%d, pid_num=%d, func=%s, frame=%d", log_pid, log_num, name, gFrame)
 end
 
 local function broadcastToState(rpc, state, name, ...)

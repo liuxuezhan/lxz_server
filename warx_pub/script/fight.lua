@@ -943,6 +943,7 @@ function hero_capture(At, Dt)
                 if h.hp <= 0 then table.insert(hsDeadD, h) else table.insert(hsLiveD, h) end 
                 local ef = h:get_ef_after_fight()
                 if ef then counter = counter + (ef.CounterCaptive or 0) end
+               -- counter = counter + h:get_hero_equip_attr("CounterCaptive", "r")
             end
         end
     end
@@ -961,6 +962,7 @@ function hero_capture(At, Dt)
                 if h.hp <= 0 then table.insert(hsDeadA, h) else table.insert(hsLiveA, h) end 
                 local ef = h:get_ef_after_fight()
                 if ef then captive = captive + (ef.Captive or 0) end
+                --captive = captive + h:get_hero_equip_attr("Captive", "r")
             end
         end
     end

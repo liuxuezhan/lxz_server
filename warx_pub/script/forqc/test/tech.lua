@@ -1,38 +1,31 @@
---lxz
---科技升级
+--科技
+--支持所有技能的升级效果检查,配置中需要注意同类的Buf按照升级前后的差值计算检查
 
 local mod = {}
 
 function mod.action( _idx )
-    local p = get_account()
+    require("frame/debugger") 
+    local p = get_account(123)
+    loadData(p)
     chat( p, "@set_val=gold=100000000" )
     chat( p, "@buildtop" )
     chat( p, "@addbuf=1=-1" )
-    chat( p, "@addres=1=10000000" )
+    chat( p, "@addres=1=1234567890" )
+    chat( p, "@addres=2=1234567890" )
+    chat( p, "@addres=3=1234567890" )
+    chat( p, "@addres=4=1234567890" )
+    chat( p, "@addres=5=1234567890" )
+    chat( p, "@addres=6=1234567890" )
+    chat( p, "@addres=7=1234567890" )
     sync( p )
 
-    local build = get_build( p, 0, 10 )
-    for _, id in pairs( tech_sort ) do 
-        local v = resmng.prop_tech[id] 
-        local buff = {}
-        for k, v in pairs( v.Effect ) do 
-            Rpc:get_buff( p, k )
-            wait_for_ack( p, "get_buff" )
-            buff[k]=p.buff[k]
-        end
---        lxz(p.account,build.idx,v.ID)
-        Rpc:learn_tech(p,build.idx,v.ID,1)
-        wait_for_ack( p, "statePro" )
-        for what, _ in pairs( buff ) do 
-            Rpc:get_buff( p, what )
-            wait_for_ack( p, "get_buff" )
-            local add = 0
-            if  v.Lv > 1 then
-                add = v.Effect[what] - resmng.prop_tech[v.ID-1].Effect[what]
-            else
-                add = v.Effect[what] 
-            end
-            if buff[what] + add  ~= p.buff[what] then return "fail" end
+    lxz(p.pid)
+    for _, v in pairs( tech_sort ) do 
+        lxz(v)
+        local c = resmng.prop_tech[v[1]] 
+        while true do
+            if tech(p, c.ID,c.Lv,v[2]) then break 
+            else sync(p) end
         end
     end
 
@@ -40,7 +33,7 @@ function mod.action( _idx )
 end
 
 tech_sort = {
-    1001001,
+    {1001001,{SpeedRes2_R=200}},
     1001002,
     1001003,
     1001004,

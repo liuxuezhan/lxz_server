@@ -1,10 +1,12 @@
 local JoinUnion_Accomplish = {}
 
 function JoinUnion_Accomplish:onEnter(memeber)
-    AutobotTimer:addTimer(newFunctor(self, self._finishJob), 1)
+    self.timer_id = AutobotTimer:addTimer(newFunctor(self, self._finishJob), 1)
 end
 
 function JoinUnion_Accomplish:onExit()
+    AutobotTimer:delTimer(self.timer_id)
+    self.timer_id = nil
 end
 
 function JoinUnion_Accomplish:_finishJob(member)

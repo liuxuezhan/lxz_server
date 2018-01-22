@@ -90,20 +90,27 @@ function setDayStart()
     local now = os.date("*t", gTime)
     local flag = false
 
-    local hour = 5
+    local hour = 0
     for k, v in pairs(resmng.prop_cron) do
         if v.action == "setDayStart" then
             hour =  tonumber(v.hour)
+            break
         end
     end
-    if now.hour < hour then flag = true end
-
     now.hour = hour
     now.min = 0
     now.sec = 0
     local tick = os.time(now)
-    if flag then tick = tick - 24 * 3600 end
+
+    if tick > gTime then tick = tick - 24 * 3600 end
+
     _G.gDayStart = tick
+
+    now = os.date( "*t", tick )
+    _G.gDayCur = tonumber( string.format( "%4d%02d%02d", now.year, now.month, now.day ) )
+
+    now = os.date( "*t", tick - 24 * 3600 )
+    _G.gDayPre = tonumber( string.format( "%4d%02d%02d", now.year, now.month, now.day ) )
 end
 
 

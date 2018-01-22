@@ -154,7 +154,7 @@ ntf_action[resmng.OFFLINE_NOTIFY_ATTACK] = function(action, ply, atk_ply, union)
     local audience = {
             ["fcm_id"] = ply.fcm_id
     }
-        fcm(audience, msg)
+        fcm(audience, msg, action)
     end
 
 end
@@ -186,7 +186,7 @@ ntf_action[resmng.OFFLINE_NOTIFY_SCOUT] = function(action, ply, atk_ply, union)
         local audience = {
             ["fcm_id"] = ply.fcm_id
         }
-        fcm(audience, msg)
+        fcm(audience, msg, action)
     end
 
 end
@@ -218,7 +218,7 @@ ntf_action[resmng.OFFLINE_NOTIFY_MASS] = function(action, ply, atk_ply, union)
         local audience = {
             ["fcm_id"] = ply.fcm_id
         }
-        fcm(audience, msg)
+        fcm(audience, msg, action)
     end
 
 end
@@ -243,7 +243,7 @@ ntf_action[resmng.OFFLINE_NOTIFY_RETURN] = function(action, ply)
         local audience = {
             ["fcm_id"] = ply.fcm_id
         }
-        fcm(audience, msg)
+        fcm(audience, msg, action)
     end
 
 end
@@ -268,7 +268,7 @@ ntf_action[resmng.OFFLINE_NOTIFY_RECRUIT] = function(action, ply)
         local audience = {
             ["fcm_id"] = ply.fcm_id
         }
-        fcm(audience, msg)
+        fcm(audience, msg, action)
     end
 
 end
@@ -293,7 +293,7 @@ ntf_action[resmng.OFFLINE_NOTIFY_PROTECT] = function(action, ply)
         local audience = {
             ["fcm_id"] = ply.fcm_id
         }
-        fcm(audience, msg)
+        fcm(audience, msg, action)
     end
 
 end
@@ -367,7 +367,7 @@ ntf_action[resmng.OFFLINE_NOTIFY_RESEARCH] = function(action, ply, tech_id)
         local audience = {
             ["fcm_id"] = ply.fcm_id
         }
-        fcm(audience, msg)
+        fcm(audience, msg, action)
     end
 
 end
@@ -409,7 +409,7 @@ ntf_action[resmng.OFFLINE_NOTIFY_BUILD] = function(action, ply, build_id)
         local audience = {
             ["fcm_id"] = ply.fcm_id
         }
-        fcm(audience, msg)
+        fcm(audience, msg, action)
     end
 
 end
@@ -444,7 +444,7 @@ ntf_action[resmng.OFFLINE_NOTIFY_DECLARE] = function(action, ply, npc_name)
         local audience = {
             ["fcm_id"] = ply.fcm_id
         }
-        fcm(audience, msg)
+        fcm(audience, msg, action)
     end
 
 end
@@ -479,7 +479,7 @@ ntf_action[resmng.OFFLINE_NOTIFY_BE_DECLARE] = function(action, ply, npc_name, u
         local audience = {
             ["fcm_id"] = ply.fcm_id
         }
-        fcm(audience, msg)
+        fcm(audience, msg, action)
     end
 
 end
@@ -514,7 +514,7 @@ ntf_action[resmng.OFFLINE_NOTIFY_FIGHT] = function(action, ply, npc_name)
         local audience = {
             ["fcm_id"] = ply.fcm_id
         }
-        fcm(audience, msg)
+        fcm(audience, msg, action)
     end
 
 end
@@ -549,7 +549,7 @@ ntf_action[resmng.OFFLINE_NOTIFY_BE_FIGHT] = function(action, ply, npc_name)
         local audience = {
             ["fcm_id"] = ply.fcm_id
         }
-        fcm(audience, msg)
+        fcm(audience, msg, action)
     end
 
 end
@@ -612,7 +612,7 @@ ntf_action[resmng.OFFLINE_NOTIFY_REBEL] = function(action, ply)
         local audience = {
             ["fcm_id"] = ply.fcm_id
         }
-        fcm(audience, msg)
+        fcm(audience, msg, action)
     end
 
 end
@@ -733,7 +733,7 @@ function ntf_by_all_language(audience, ntf_id, param)
         end
 
         local tag_and = target.tag_and or {}
-        table.insert(tag_and, tag)
+        table.insert(tag_and, config.Game..tag)   --- tag add prefix
         target.tag_and= tag_and
 
 
@@ -741,7 +741,7 @@ function ntf_by_all_language(audience, ntf_id, param)
             push_offline_ntf(target, msg)
         elseif config.OfflineNtf == 2 then
             target.condition = gen_cond_str(tag_and)
-            fcm(target, msg)
+            fcm(target, msg, action)
         end
     end
 end
@@ -751,15 +751,20 @@ function get_server_tag()
     return tag
 end
 
-function fcm(target, msg)
+function fcm(target, msg, action)
     INFO("fcm %s, %s", target.registration_id, msg)
     to_tool( 0, { 
         type = "common", 
         mode = "fcm", 
         url = "https://fcm.googleapis.com/fcm/send",
         method = "post", 
-        --header = "key=AAAATbs2Ld8:APA91bGsqPHCQIqujlf04Nua5wNmF_LMzoc66ZS86OYofG0i8b8Wy2wEe7LHUkvaRlyuChEzjNkxobqMh2BjWgpTlKjvHawoZGl_KPIpq67n6J4_8me6JZ6oQvjN9cENAd5qnzEsVB4j ",  
-        header = "key=AAAARL0rHjA:APA91bHCLVQsAwpYLOWgiGLwJ44nHYMgDO_gq91xVBWw1-RDfqiw-EoOIpXG3aUzCsNItyb8ofTQBpkYO3DgOKjNMmck0pFwkVaz_Lx2Uurq1xoLK2DvugXTnPAykUGoREut6HNC7ImO",  
+
+        --------------tapenjoy---------
+        --header = "key=AAAATbs2Ld8:APA91bGsqPHCQIqujlf04Nua5wNmF_LMzoc66ZS86OYofG0i8b8Wy2wEe7LHUkvaRlyuChEzjNkxobqMh2BjWgpTlKjvHawoZGl_KPIpq67n6J4_8me6JZ6oQvjN9cENAd5qnzEsVB4j ",
+        ------------------tecent--------------
+        --header = "key=AAAARL0rHjA:APA91bHCLVQsAwpYLOWgiGLwJ44nHYMgDO_gq91xVBWw1-RDfqiw-EoOIpXG3aUzCsNItyb8ofTQBpkYO3DgOKjNMmck0pFwkVaz_Lx2Uurq1xoLK2DvugXTnPAykUGoREut6HNC7ImO",  -- google tecent
+        ------------------37wan---------------
+        header = "key=AAAAOdt0oww:APA91bEsCcyAcset5-lOyymxBUAhLWygNRokxtc4tyLxMiJ4pFRCniWXTyoPhBJL-oSJyruT_LYDBSIbS-80N8K_hRhXfmDF1Kif0ZWlbpdM8SONLA1YBjEwpyrg55uJOM3smRMW7oFI",
         registration_ids = target.registration_ids,
         to = target.fcm_id,
         condition = target.condition,
@@ -767,6 +772,7 @@ function fcm(target, msg)
         notification = {
             sound = "default",
             body = msg,
+            tag = tostring(action),
         },
     } )
 end

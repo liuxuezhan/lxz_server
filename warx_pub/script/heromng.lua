@@ -28,6 +28,12 @@ function add_hero(hero)
     _heros[ hero._id ] = hero
 end
 
+function clear_hero_task_status()
+    for _, hero in pairs(_heros or {}) do
+        hero.hero_task_status = HERO_STATUS_TYPE.FREE
+    end
+end
+
 
 --------------------------------------------------------------------------------
 -- Function : 销毁hero
@@ -35,7 +41,7 @@ end
 -- Return   : succ - true; fail - false
 -- Others   : NULL
 --------------------------------------------------------------------------------
-function destroy_hero(hero_id)
+function destroy_hero(hero_id, no_player_check)
     if not hero_id then
         ERROR("destroy_hero: no hero_id.")
         return false
@@ -52,12 +58,12 @@ function destroy_hero(hero_id)
 
     -- 解除领主的引用，消除数值影响
     local player = getPlayer(hero.pid)
-    if not player then
+    if player then
+        player._hero[ hero.idx ] = nil
+    elseif not no_player_check then
         ERROR("destroy_hero: getPlayer failed. pid = %d", hero.pid or -1)
         return false
     end
-
-    player._hero[ hero.idx ] = nil
 
     -- 解除heromng的引用
     _heros[ hero._id ] = nil
@@ -215,6 +221,30 @@ function get_fight_attr(hero_id)
             end
         end
 
+        local ply = getPlayer(hero.pid)  --- add hero equip skill
+        if ply then
+            for _, equip_id in pairs(hero.equips or {}) do
+                local equip = ply:get_hero_equip(equip_id)
+                if equip then
+                    local equip_conf = resmng.get_conf("prop_hero_equip", equip.propid)
+                    if equip_conf then
+                        local ef_list = {"Effect", "OwnerEffect"}
+                        for _, v in pairs(ef_list) do
+                            if equip[v] == nil or equip[v] == true then
+                                --equip_conf.Effect = {10001011}
+                                for _, skill_id in pairs(equip_conf[v] or {}) do
+                                    local conf = resmng.get_conf("prop_skill", skill_id)
+                                    if conf and conf.Type == SKILL_TYPE.FIGHT_BASIC then
+                                        table.insert(ret.skills, skill_id)
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
         return ret
     end
 end
@@ -265,7 +295,8 @@ function capture(src_hero_id, des_hero_id)
 
         local build = ply:get_build(des_hero.build_idx)
         if build then
-            ply:dispatch_hero(des_hero.build_idx, 0)
+            player_t.put_off_hero( ply, des_hero.idx )
+            --ply:dispatch_hero(des_hero.build_idx, 0)
         end
 
         local winner = getPlayer(src_hero.pid)

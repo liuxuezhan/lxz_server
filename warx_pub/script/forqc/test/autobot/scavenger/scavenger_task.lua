@@ -1,5 +1,5 @@
 local ScavengerTask = {}
-local executing_interval = 2
+local executing_interval = 3
 local task_action = {}
 
 function ScavengerTask:onInit()
@@ -30,33 +30,20 @@ function ScavengerTask:delExecutor(executor)
     end
 end
 
-local _prop_map = {
-    [TASK_TYPE.TASK_TYPE_TRUNK] = resmng.prop_task_detail,
-    [TASK_TYPE.TASK_TYPE_BRANCH] = resmng.prop_task_detail,
-    [TASK_TYPE.TASK_TYPE_DAILY] = resmng.prop_task_daily,
-    [TASK_TYPE.TASK_TYPE_TARGET] = resmng.prop_task_detail,
-    [TASK_TYPE.TASK_TYPE_HEROROAD] = resmng.prop_task_detail,
-}
-
 local TASK_PRIORITY = {
     [TASK_TYPE.TASK_TYPE_TRUNK] = 10000,
     [TASK_TYPE.TASK_TYPE_BRANCH] = 8000,
     [TASK_TYPE.TASK_TYPE_DAILY] = 4000,
     [TASK_TYPE.TASK_TYPE_TARGET] = 500,
-    [TASK_TYPE.TASK_TYPE_HEROROAD] = 6000,
+    [TASK_TYPE.TASK_TYPE_HEROROAD] = 12000,
 }
-
-local function _getTaskProp(task)
-    return _prop_map[task.task_type][task.task_id]
-end
 
 local function _getTaskPriority(task)
     return TASK_PRIORITY[task.task_type]
 end
 
 local function _handleTask(self, task)
-    local task_id = task.task_id
-    _executeTask(self, task, unpack(_prop_map[task.task_type][task_id].FinishCondition))
+    _executeTask(self, task, unpack(getTaskProp(task).FinishCondition))
 end
 
 function ScavengerTask:onUpdate()
@@ -81,8 +68,11 @@ function ScavengerTask:_processTask()
         _handleTask(self, task)
     elseif task.task_status == TASK_STATUS.TASK_STATUS_CAN_FINISH then
         INFO("[Autobot|ScavengerTask|%d]Finish task %d", player.pid, task.task_id)
-        Rpc:finish_task(player, task.task_id)
-    --elseif new_data.task_status == TASK_STATUS.TASK_STATUS_UPDATE then
+        if task.task_type == TASK_TYPE.TASK_TYPE_HEROROAD then
+            Rpc:get_hero_road_task_award(player, player.hero_road_cur_chapter, task.task_id)
+        else
+            Rpc:finish_task(player, task.task_id)
+        end
     end
 end
 
@@ -109,7 +99,7 @@ end
 -- 攻击特殊怪物
 task_action[TASK_ACTION.ATTACK_SPECIAL_MONSTER] = function(self, task, monster_id)
     local action = {}
-    action.name = "AttackSpecialMonster"
+    action.name = "SiegeTaskNpc"
     action.params = {task.task_id, monster_id}
     self.host.player.troop_manager:requestTroop(action, _getTaskPriority(task))
 end
@@ -123,15 +113,15 @@ end
 
 task_action[TASK_ACTION.ATTACK_SPECIAL_PLY] = function(self, task, monster_id)
     local action = {}
-    action.name = "AttackSpecialPlayer"
+    action.name = "SiegeTaskPlayer"
     action.params = {task.task_id, monster_id}
     self.host.player.troop_manager:requestTroop(action, _getTaskPriority(task)) 
 end
 
 task_action[TASK_ACTION.ATTACK_LEVEL_MONSTER] = function(self, task, con_type, con_level, con_num)
     local action = {}
-    action.name = "AttackLevelMonster"
-    action.params = {con_type, con_level}
+    action.name = "SiegeMonster"
+    action.params = {con_type, con_level, con_level, SiegeMonster.Goal.Battled}
     self.host.player.troop_manager:requestTroop(action, _getTaskPriority(task))
 end
 
@@ -143,8 +133,9 @@ task_action[TASK_ACTION.RECRUIT_SOLDIER] = function(self, task, con_type, con_le
     if con_type == 0 then
         con_type = 1
     end
-    --self.host.player.recruit_manager:addRecruitJob(con_type, con_level, con_num, 10000, 1 == con_acc)
-    self.host.player.recruit_manager:addRecruitJob(con_type, con_level, con_num, _getTaskPriority(task), true)
+    local max_train = self.host.player:get_val("CountTrain")
+    local num = con_num > max_train and max_train or con_num
+    self.host.player.recruit_manager:addRecruitJob(con_type, con_level, num, _getTaskPriority(task), 1 == con_acc and ACC_TYPE.GOLD or ACC_TYPE.ITEM)
 end
 
 -- 城建
@@ -199,7 +190,7 @@ end
 -- 抽卡
 task_action[TASK_ACTION.GACHA_MUB] = function(self, task, con_num)
     self.host.player.gacha_num = self.host.player.gacha_num or 0
-    local prop = _getTaskProp(task)
+    local prop = getTaskProp(task)
     if not prop then
         return
     end
@@ -226,8 +217,12 @@ task_action[TASK_ACTION.VISIT_HERO] = function(self, task)
     Rpc:task_visit(self.host.player, task.task_id, 0, self.host.player.x + 10, self.host.player.y + 10, {live_soldier = armys})
 end
 
+task_action[TASK_ACTION.VISIT_NPC] = function(self, task, con_id, con_num)
+    self.host.player.labor_manager:createLabor("VisitNpc", nil, self.host.player, task.task_id, con_id)
+end
+
 task_action[TASK_ACTION.HERO_LEVEL_UP] = function(self, task, level)
-    local prop = _getTaskProp(task)
+    local prop = getTaskProp(task)
     if nil == prop then
         return
     end
@@ -253,42 +248,7 @@ task_action[TASK_ACTION.GET_TASK_ITEM] = function(self, task, con_id, con_num)
 end
 
 task_action[TASK_ACTION.LEARN_HERO_SKILL] = function(self, task, con_pos)
-    local hero = get_born_hero(self.host.player)
-    --for k, v in pairs(self.host.player._hero or {}) do
-    --    hero = v
-    --    break
-    --end
-    if nil == hero then
-        return
-    end
-    local player = self.host.player
-    --[[
-    for k, v in pairs(player._item or{}) do
-        local prop = resmng.prop_item[ v[2] ]
-        if ITEM_CLASS.SKILL == prop.Class then
-            INFO("[Autobot|TaskAction|LearnHeroSkill|%d]\t\titem %d", self.host.player.pid, v[2])
-        end
-    end
-    --]]
-    local item_list =
-    {
-        5001101,
-        5001102,
-        5001103,
-        5001104,
-        5001105,
-        5001106,
-    }
-    for i = 1, con_pos do
-        --hero_star_up(player, hero, i)
-        --use_hero_skill_item(player, hero, item_list[i], 1, i)
-        local item = get_item(player, item_list[i])
-        if item then
-            Rpc:use_hero_skill_item(player, hero.idx, i, item[1], 1)
-        else
-            INFO("[Autobot|TaskAction|LearnHeroSkill|%d] no item  %d", player.pid, item_list[i])
-        end
-    end
+    self.host.player.labor_manager:createLabor("LearnHeroSkill", nil, self.host.player, 0, con_pos)
 end
 
 local function _getHeroBigStarProp(big_star)
@@ -321,43 +281,7 @@ local function _upgradeHeroStar(player, hero, star)
 end
 
 task_action[TASK_ACTION.HAS_HERO_NUM] = function(self, task, con_quality, con_star, con_num)
-    local real_num = 0
-    local quality_num = 0
-    local heroes = {}
-    for k, v in pairs(self.host.player._hero or {}) do
-        local star_prop = resmng.prop_hero_star_up[v.star]
-        if con_quality <= v.quality then
-            -- 只有品质满足才需要升星级
-            quality_num = quality_num + 1
-            if con_star <= star_prop.StarStatus[1] then
-                real_num = real_num + 1
-            else
-                heroes[k] = v
-            end
-        end
-    end
-    if real_num >= con_num then
-        return
-    end
-    if quality_num < con_num then
-        -- TODO: 品质英雄数量不足，需要启动获取英雄流程
-        INFO("[Autobot|TaskAction|HasHeroNum|%d] lack of quality hero %d|%d.", con_quality, con_num - quality_num)
-        return
-    end
-    local remain_count = con_num - real_num
-    for k, v in pairs(heroes) do
-        if _upgradeHeroStar(self.host.player, v, con_star) then
-            INFO("[Autobot|TaskAction|HasHeroNum|%d] star up hero %d from %d to %d.",
-            self.host.player.pid,
-            v.propid,
-            v.star,
-            _getHeroBigStarProp(con_star))
-            remain_count = remain_count - 1
-        end
-        if 0 == remain_count then
-            break
-        end
-    end
+    self.host.player.labor_manager:createLabor("CallQualityHero", nil, self.host.player, con_quality, con_star, con_num)
 end
 
 task_action[TASK_ACTION.MOVE_TO_ZONE] = function(self, task, con_lv)
@@ -370,6 +294,31 @@ end
 
 task_action[TASK_ACTION.SPECIAL_HERO_LEVEL] = function(self, task, con_id, con_lv)
     self.host.player.labor_manager:createLabor("LevelupHero", nil, self.host.player, con_id, con_lv)
+end
+
+task_action[TASK_ACTION.SPECIAL_HERO_STAR] = function(self, task, con_id, con_star)
+    self.host.player.labor_manager:createLabor("RankupHero", nil, self.host.player, con_id, con_star)
+end
+
+task_action[TASK_ACTION.SUPREME_HERO_LEVEL] = function(self, task, con_level)
+    local predestine_hero
+    local max_level = 0
+    local skill_index = 0
+    for idx, hero in pairs(self.host.player._hero) do
+        for index, skill in pairs(hero.basic_skill) do
+            local prop = resmng.prop_skill[skill[1]]
+            if nil ~= prop and prop.Lv > max_level then
+                max_level = prop.Lv
+                predestine_hero = hero
+                skill_index = index
+            end
+        end
+    end
+    if nil == predestine_hero then
+        predestine_hero = get_born_hero(self.host.player)
+        skill_index = 1
+    end
+    self.host.player.labor_manager:createLabor("LevelUpHeroSkill", nil, self.host.player, predestine_hero, skill_index, con_level)
 end
 
 task_action[TASK_ACTION.UNION_TECH_DONATE] = function(self, task, con_num, con_acc)
@@ -398,7 +347,7 @@ task_action[TASK_ACTION.MARKET_BUY_NUM] = function(self, task, con_type, con_num
             local id
             local buy_count = math.huge
             local combo = 0
-            for k, v in pairs(market.extra) do
+            for k, v in pairs(market.extra[3]) do
                 if _isBuyableRes(v[1], castle_lv) then
                     if v[3] < buy_count then
                         id = v[1]
@@ -416,6 +365,9 @@ task_action[TASK_ACTION.MARKET_BUY_NUM] = function(self, task, con_type, con_num
             Rpc:buy_res(self.host.player, id)
         end
     end
+end
+
+task_action[TASK_ACTION.CURE] = function(self, task, con_type, con_num)
 end
 
 return makeState(ScavengerTask)

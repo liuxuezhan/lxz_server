@@ -4,8 +4,9 @@ Server = {
     agent_test_struct = "int id, array struct UnionMember mems, string name",
     agent_test = "pack info, pack info1",
 
+    query_json = "bstring name",   --web client 是呀
     firstPacket = "int server_id, pack info",
-    firstPacket2 = "int sockid, int server_id, pack info",
+    firstPacket2 = "int sockid, int server_id, pack info, string ip",
     get_characters = "",
 
     --firstPacket2 = "int sockid, int source_map, string account, string pasw",
@@ -16,9 +17,12 @@ Server = {
     create_character = "pack info",
     change_name = "string name",
     change_language = "int language",
+    change_nation = "int nation",
+    is_show_nation = "int nation",
     sync = "int sn",
 
     get_lv_6_gift = "",
+    get_lv_3_gift = "",
 
     union_help_add = "int tmSn",--请求军团帮助
     union_help_get = "",--获取军团帮助
@@ -96,6 +100,7 @@ Server = {
 
     -----------------------------------------------------------
     siege = "int dest_eid, pack arm",   --单独攻击
+    siege_by_pos = "int dest_eid, int x, int y, pack arm",   --单独攻击
     union_mass_create = "int dest_eid, int wait_time, pack arm",   --创建集结
     union_mass_join = "int dest_eid, int dest_troop_id, pack arm",        --参与集结
     massgo = "int tid", -- 集结出发
@@ -130,6 +135,8 @@ Server = {
 
     migrate = "int x, int y",
     migrate_random = "",
+    cross_migrate = "int map_id, int x, int y",
+    cross_migrate_back = "int x, int y",
 
     --------------------------------------------------------------------------------
     -- build begin
@@ -153,7 +160,7 @@ Server = {
     --------------------------------------------------------------------------------
 
     --geniusDo = "int id",
-    do_genius = "int id",
+    do_genius = "int id1, int id2",
     reset_genius = "int mode", 
 
     launch_talent_skill = "int geniusID",
@@ -177,28 +184,40 @@ Server = {
     test_mail_all = "int class, string title, string content, pack its",
 
     -- roi
-    addEye = "int x,int y",
     remEye = "",
+    addEye = "int map, int x,int y",
     movEye = "int map, int x, int y",
-    agent_move_eye = "int pid, int x, int y",
-    agent_remove_eye = "int pid",
+    agent_mov_eye = "int pid, int x, int y",
+    agent_add_eye = "int pid, int x, int y",
+    agent_rem_eye = "int pid",
+
     ack_tool = "int sn, pack info",
     gm_cmd = "string callback_pid, string gm_type, pack content",
     -- ply change gs
     ply_change_server = "int map, int x, int y",
-    change_server = "int map, int x, int y, pack data, pack timers, pack union_pro, pack troop, pack mails",
+    change_server = "int map, int x, int y, pack data",
     change_server_ack = "int map, int pid, int param",
     -- cross gs
-    agent_migrate = "int map, int x, int y, pack data, pack timers, pack union_pro, pack troop, pack mails",
+    agent_migrate = "int map, int x, int y, pack data, pack union_pro",
     agent_migrate_ack = "int map, int pid, int param",
-    agent_migrate_back = "int map, int x, int y, pack data, pack timers, pack union_pro, pack troop, pack todos, pack mails",
+    agent_migrate_back = "int map, int x, int y, pack data, pack union_pro",
     agent_migrate_back_ack = "int map, int pid, int param",
     agent_syn_call = "int id, string func, pack arg",
     agent_syn_call_ack = "int id, pack ret",
     agent_login = "int pid, pack info",
     cross_act_ntf = "int ntf_id, pack param1, pack param2",
     cross_npc_info_req = "int pid",  -- gs to cross mng
+    cross_npc_info_ack = "pack info",  -- cross mng  to game
+    cross_rank_info = "int mode, int version",                                  -- client to game
+    cross_rank_info_req = "int pid, int uid, int gs_id, int mode, int version", -- game to cross
+    cross_rank_info_ack = "int pid, pack info",                                 -- cross to game
+    cross_claim_score_award = "int phase",                                      -- client to game
     cross_act_st_cast = "pack info",
+    cross_group_info = "pack info",
+    cross_release_hero = "int capture_pid, int pid, string hero_id, int hero_idx",
+    cross_release_hero_ack = "int ret, int pid, string hero_id",
+    cross_kill_hero = "int pid, int hero_id",
+    cross_royalty_reward = "pack items",
     --cross act
     upload_gs_info = "pack info",
     --upload_union_info = "pack info",
@@ -207,8 +226,15 @@ Server = {
     refugee_end = "", -- refugee act end
     post_cross_score = "pack info",
     cross_act_st_req = "",
-    upload_act_score = "int action, int val, pack info",
+    cross_act_group_req = "",
+    upload_act_score = "int action, int gs_id, int val, pack info",
+    upload_refugee_score = "int gs_id, int pid, int score",
     send_cross_award = "int mode, int reward_mode, int id, pack award , pack param",
+    send_end_tw_award = "int uid, pack award",
+    cross_refugee_info_req = "",
+    cross_refugee_rank_info = "int version",
+    cross_refugee_rank_info_req = "int pid, int gs_id, int version",
+    cross_refugee_rank_info_ack = "int pid, pack info",
 
     -- allience
     -- tech = {info={{idx,id,exp,tmOver},{...}},mark={idx,idx}}
@@ -230,6 +256,7 @@ Server = {
     union_quit = "",                    --主动退出联盟
     union_destory = "",
     union_enlist_set = "int check,string text,int lv,int pow",   --设置招募规则
+    union_first_item = "",         --提示首次加入军团奖励
     union_list = "string name",         --获取军团列表
     union_list2 = "",         --推荐军团列表
     union_apply = "int uid",            --申请加入
@@ -318,6 +345,11 @@ Server = {
 
     -- 派遣
     dispatch_hero = "int build_idx, int hero_idx",
+
+    put_on_hero = "int hero_idx, int build_idx",
+    put_on_hero_all = "pack pos", -- { [ hero_idx ] = [ build_idx ], [ hero_idx ]=[ build_idx ] }
+    put_off_hero = "int hero_idx",
+
 
     -- 分解英雄
     destroy_hero = "int hero_idx",
@@ -410,8 +442,8 @@ Server = {
     npc_log_req = "",
     abandon_npc = "int eid", -- 弃城
     abd_npc_cond_req = "int eid", -- 弃城条件
-    post_npc_change = "int npc_propid, int occu_gs_id, int tag", --post npc change to cross mng center
-    get_city_for_robot_req = "int mode, int lv", -- robot get a npc eid
+    post_npc_change = "int royal_id, int occu_gs_id, int tag", --post npc change to cross mng center
+    get_city_for_robot_req = "int mode, pack cond", -- robot get a npc eid
     ---- king city 
     officers_info_req = "",  --任命官员大厅
     king_info_req = "", -- king info
@@ -420,7 +452,7 @@ Server = {
     acc_tower_recover_req = "int eid",
     honour_wall_req = "", --国王荣誉墙,
     mark_king_req = "int score", --给国王评价
-    kw_mall_buy_req = "int mode, int index",-- 购买王城商城物品
+    kw_mall_buy_req = "int mode, int index, int num",-- 购买王城商城物品
     kw_want_buy_req = "int index",-- 投票王城商城物品
     kw_mall_info_req = "int mode", -- 王城商城信息G
     refresh_mall_req = "int mode", -- 刷新商城
@@ -476,6 +508,7 @@ Server = {
 
     load_rank = "int idx, int version",
     load_my_rank_score = "int idx",
+    load_my_rank_pos = "int idx",
 
     set_client_parm = "string key, string data",
     set_show_equip = "int flag",
@@ -487,6 +520,8 @@ Server = {
     title_info_req = "",--称号
     use_title_req = "int idx" ,
     rem_title_req = "int idx" ,
+    -- first_blood
+    first_blood_info_req = "",
 
     p2p = "int to_pid, pack info",
 
@@ -504,7 +539,9 @@ Server = {
     world_chat_task = "",
     packet_target_task = "",
     qiri_get_award = "",
-    get_yueka_award = "",
+    get_yueka_award = "int groupid",--领取
+    get_yueka = "",
+    buy_yueka = "int id", --临时接口
 
     get_world_event_award = "int event_id",
     get_world_event_process = "",
@@ -513,9 +550,8 @@ Server = {
     query_troop_coming = "",
     query_log_support_arm = "",
 
-    --on_pay = "int propduct_id",
+    on_pay = "int propduct_id,int class",--付费测试接口
 
-    buy_yueka = "", --临时接口
     pack_weekly_activity_info = "",   --限时活动信息
     boss_gather = "int eid_boss, int eid_res",
 
@@ -537,6 +573,7 @@ Server = {
     operate_single_get = "int activity_id",
     operate_activity_list = "",
     operate_task_get = "int activity_id, int task_id",
+    union_power_req = "",
 
     ---- jpush ntf
     push_ntf_list_req = "pack info",   -- 开通通知的列表
@@ -557,20 +594,49 @@ Server = {
     get_hero_road_task_award = "int chapter_id, int task_id",
     get_hero_road_chapter_award = "int chapter_id",
     server_map_king_info = "",
+    change_world_name_by_king_req = "string name",
 
     get_device_grade = "string device, string gpu, int frenquency, int core",
 
     --hero_task
     get_hero_task_list_req = "",
     refresh_hero_task_list_req = "",
-    accept_hero_task_req = "int id",
-    add_hero_task_help_req = "int id",
+    accept_hero_task_req = "string id",
+    add_hero_task_help_req = "string id",
+    acc_hero_task_req = "string id",
+    get_hero_task_award_req = "string id",
+    add_task_hero = "string task_id, pack task_heros",
+    get_hero_task_info_req = "string id",
+    do_hero_task_event_req = "string id",
+    hero_task_siege = "int dest_eid, pack arm, string task_id",
+    event1_task_answer_req = "string task_id, int is_win",
+    helper_confirm_hero_req = "string task_id",
+    set_fight_order = "string task_id, int idx, int num",
+    abandon_hero_task_req = "string id",
+
+    --------------hero_equip
+    get_hero_equip_req = "",
+    hero_equip_lv_up_req = "int equip_id, int item_idx, int num",
+    hero_equip_star_up_req = "int equip_id",
+    hero_equip_decompose_req = "int equip_id",
+    use_equip_req = "int hero_idx, int equip_idx, int equip_id",
+    rem_equip_req = "int hero_idx, int equip_idx",
+    ------- face book award
+    login_fb_req= "",
+    get_fb_award_req = "",
+
 
     --
     certify ="int code",
 
     set_auto_mass = "pack info",
     get_auto_mass = "",
+
+    query_robber = "int pid",
+
+    city_event = "int id, int yes",
+
+    fight_action = "pack arm, int bossid", 
 
 }
 
@@ -590,6 +656,7 @@ Client = {
     first_packet_ack = "int error_code", -- 登录验证信息
     login_in_queue_init = "pack info", -- 登录队列满
     login_in_queue_update = "pack info", -- 登录队列更新
+    query_json_ack ="string ack",
 
     get_characters = "pack infos",
 
@@ -655,9 +722,15 @@ Client = {
     agent_migrate_ack = "int map, int pid, int param",
     agent_syn_call = "int map, int id, string func, pack arg",
     agent_syn_call_ack = "int id, pack ret",
-    cross_npc_info_ack = "pack info",  -- cross mng  to client
+    cross_auto_migrate_back_info = "pack info",
+    cross_npc_info_ack = "pack info",          -- game to client
+    cross_rank_info = "int mode, int version, int my_rank, pack rank_list, pack extra",         -- game to client
+    cross_claim_score_award = "int ret",
+    cross_refugee_rank_info = "int version, int my_rank, pack rank_list, pack extra",
     --cross act
     cross_act_st_ack = "pack info",
+    cross_act_group_ack = "pack info",
+    cross_refugee_info_ack = "int overtime, pack info",
 
     -- state change
     stateBuild = "pack build",
@@ -690,6 +763,7 @@ Client = {
     union_add_member = "pack info",           --broadcast
 
     union_destory = "",                      --- 军团解散
+    union_first_item = "pack info",         --提示首次加入军团奖励
     union_list = "string key, array struct UnionInfo infos",                ---读取军团列表
     union_list2 = "pack info",                --推荐军团列表
     union_task_add = "pack info",     --获取军团悬赏任务列表
@@ -797,6 +871,7 @@ Client = {
     --month_award_process_resp = "int month_day, int can_get",
     --month_award_get_award_resp = "int res",
     --month_award_com_resp = "int res",
+    get_yueka = "pack info",
 
     --------------------------------------------------------
     --瞭望塔
@@ -872,7 +947,7 @@ Client = {
     get_gacha_box_resp = "int result",
 
     -- chat admin
-    chat_account_info_ack = "int jid, int pwd", -- 请求玩家聊天账户信息
+    chat_account_info_ack = "int jid, int pwd, string chat_url", -- 请求玩家聊天账户信息
     create_chat_account = "string pid, string host, string psw ",
     create_room = "string uid, string host, string admin",
     c_create_room = "", --客户端创建聊天室
@@ -884,6 +959,7 @@ Client = {
 
     testCross = "int a1, string a2",
     qry_tool = "int sn, pack info",
+    qry_toolv2 = "int toolpid, int sn, pack info",
 
     report_load = "int mode, pack infos",
     report_notify = "int mode, pack info",
@@ -894,15 +970,18 @@ Client = {
     --load_report_resp = "int mode, pack info",
     --notify_report = "int mode, pack info",
     syn_back_code_resp = "int syn",
-    load_rank = "int idx, int version, int pos, pack info",
+    load_rank = "int idx, int version, int pos, pack info, pack extra",
     rank_pos = "int idx, int pos",
     load_my_rank_score = "int idx",
+    load_my_rank_pos= "int pos",
     -- achievement
     ache_info_ack = "pack info",
     set_ache = "int key, int val",
     set_count = "int key, int val",
     -- title
     title_info_ack = "pack info",
+    -- first blood
+    first_blood_info_ack = "pack info",
     display_ntf = "pack info",
     p2p = "int from_pid, pack info",
 
@@ -950,11 +1029,14 @@ Client = {
     get_mail_share_resp = "pack info",
 
     hero_info = "int pid, int propid, pack info",
-    operate_activity_list_resp = "pack info",
+    operate_activity_list_resp = "pack list, pack data",
+    operate_activity_update_data = "pack update_list ",
+
+    union_power_ack = "int",
 
     ---- jpush ntf
     push_ntf_list_ack = "pack info",   -- 开通通知的列表
-    get_server_tag_ack = "string tag",
+    get_server_tag_ack = "string tag, string prefix",
     echo = "int time",
 
     dbg_show = "pack info",
@@ -963,7 +1045,7 @@ Client = {
     set_first_blood = "int id, int tm",
     set_sys_option = "pack info",
 
-    ping = "",
+    ping = "int map",
 
     pop_up = "int what, pack info",
 
@@ -977,6 +1059,10 @@ Client = {
     get_hero_task_list_ack = "pack info",
     update_hero_task_ack = "pack info",
     update_hero_task_info = "pack info",
+    --hero_equip
+    get_hero_equip_ack = "pack info",
+    update_hero_equip_ack = "pack info",
+
 
     broadcast_world_event_proccess = "pack info",
     broadcast_operate_end = "int activity_id",
@@ -986,6 +1072,10 @@ Client = {
     get_auto_mass = "pack info",
 
     mass_join = "pack info", -- { propid, alias, name, pid }
+
+    query_robber = "pack info", -- { propid, eid, x, y }
+
+    fight_action = "int bossid, int win, pack report", 
 
 }
 

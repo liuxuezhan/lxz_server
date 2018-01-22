@@ -10,7 +10,9 @@ function SiegeTaskPlayer:init(player, task_id, monster_id)
     self.fight_func = newFunctor(self, self._onFightInfo)
     self.x = player.x + math.random(5, 10)
     self.y = player.y + math.random(5, 10)
+end
 
+function SiegeTaskPlayer:start()
     self:_initiateSiege()
 end
 
@@ -99,4 +101,4 @@ function SiegeTaskPlayer:_onFightInfo(player, info)
     self.win = 1 == win
 end
 
-return SiegeAction.makeClass(SiegeTaskPlayer, TroopAction.TaskAtkPly)
+return SiegeAction.makeClass("SiegeTaskPlayer", SiegeTaskPlayer, TroopAction.TaskAtkPly)

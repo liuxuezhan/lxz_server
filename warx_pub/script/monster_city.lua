@@ -34,6 +34,93 @@ module_class(
 }
 )
 
+start_time = start_time or 0  --本期活动开始世界
+end_time = end_time or 0  --本期活动开始世界
+active_day = active_day or 0
+
+function kaifu_mc()
+    start_time = 0
+    end_time = 0
+    active_day = 0
+    gPendingDelete.status["mc"] = 0
+end
+
+function try_active_mc()
+    local prop = resmng.prop_mc_open[active_day]
+    if end_time == 0 then
+        start_time = act_mng.start_act_tm
+        end_time = start_time + prop.Span
+    elseif end_time <= (gTime + 30) then
+        active_day = prop.NextStage
+        local stage_prop = resmng.prop_mc_open[active_day]
+        start_time = get_zero_tm(gTime + 30)
+        end_time = start_time + stage_prop.Span
+        if active_day == 1 then
+            rank_mng.clear(7)
+            rank_mng.clear(8)
+        end
+        if active_day == 2 then
+            crontab.send_mc_award()
+        end
+    end
+    gPendingSave.status["mc"].start_time  = start_time
+    gPendingSave.status["mc"].end_time  = end_time
+    gPendingSave.status["mc"].active_day  = active_day
+end
+
+function send_rank_award_tm()
+    if active_day == 1 then
+        return end_time
+    end
+
+    if active_day == 0 or active_day == 2 then
+        local st_tm, end_tm = get_next_active_tm()
+        return end_tm
+    end
+end
+
+function load_mc_state()
+    local db = dbmng:getOne()
+    local info = db.status:findOne({_id = "mc"})
+    if not info then
+        info = {_id = "mc"}
+        db.status:insert(info)
+    end
+    if info.active_day then
+        active_day = info.active_day
+        start_time = info.start_time
+        end_time = info.end_time
+    end
+end
+
+function get_next_active_tm()
+    if active_day == 1 then
+        local prop_off =  resmng.get_conf("prop_mc_open", 2) 
+        local prop_on = resmng.get_conf("prop_mc_open", 1)
+        return end_time + prop_off.Span , end_time + prop_on.Span + prop_off.Span
+    else
+        local prop = resmng.get_conf("prop_mc_open", 1)
+        if prop then
+            return end_time, end_time + prop.Span
+        end
+    end
+end
+
+function get_active_tm()
+    if active_day == 1 then
+        return start_time , end_time
+    else
+        local prop = resmng.get_conf("prop_mc_open", 1)
+        if prop then
+            return end_time, end_time + prop.Span
+        end
+    end
+end
+
+function get_mc_state()
+    return active_day, start_time, end_time 
+end
+
 function update_mc_ntf()
     local citys = player_t.get_do_mc_npc_info()
     if citys then
@@ -773,7 +860,7 @@ function after_fight(atkTroop, defenseTroop)
 
        if is_ply(defenseTroop.owner_eid) then
            defenseTroop:back()
-           npcCity.my_troop_id = nil
+           npcCity.my_troop_id = 0
        end
 
        rem_ety(mc.eid)
@@ -1117,7 +1204,7 @@ function send_score_award()
                 end
             end
         end
-        union.mc_ply_rank = {}
+       -- union.mc_ply_rank = {}
     end
 
 end

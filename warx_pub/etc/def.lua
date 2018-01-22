@@ -8,15 +8,16 @@ g_host = "192.168.100.12"
 _list={
 
     db_server1 ={ 
-        db1={ host="192.168.67.135",port = 27017, },
-        db2={ host="192.168.101.223",port = 27017, },
-        -- db1={ host="127.0.0.1",port = 27017, },
+        db1={ host="192.168.100.12",port = 27017, },
+        -- db1={ host="192.168.67.135",port = 27017, },
+        -- db2={ host="192.168.101.223",port = 27017, },
+        -- -- db1={ host="127.0.0.1",port = 27017, },
         -- db={  host = "127.0.0.1", port = 27017,username="admin",password="admin" },
     },
 
 }
 
-g_warx_t = {   port = 8011, maxclient=3000, room ="room1", db_name = "db_server1" } 
+g_warx_t = {   port = 8666, maxclient=3000, room ="room1", db_name = "db_server1" } 
 
 getfenv = getfenv or function(f)
     f = (type(f) == 'function' and f or debug.getinfo(f + 1, 'f').func)
@@ -73,7 +74,8 @@ function c_mov_eye(pid,x,y)
     end
 end
 
-function c_add_eye(x, y, lv, pid, gid)
+function c_add_eye(pid,x, y)
+    print(pid,x,y)
     c_pid[pid] = {x=x,y=y}
     local zx = math.floor( x / 16 ) 
     local zy = math.floor( y / 16 )

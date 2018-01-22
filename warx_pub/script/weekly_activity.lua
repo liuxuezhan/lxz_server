@@ -311,21 +311,21 @@ function send_score_award(ply, index, aid)
 	if ply_info[1] >= prop_tab.Cond1 and ply_info[2] < 1 then
 		ply_info[2] = 1
 		ply.weekly_activity_info = ply.weekly_activity_info
-		ply:send_system_notice(prop_tab.Mail, {}, {g_weekly_activity_data.current_index}, prop_tab.Award1)
+		ply:send_system_notice(prop_tab.Mail, {}, {g_weekly_activity_data.current_index, ply_info[1]}, prop_tab.Award1)
 		WARN("weekly activity send score award1, pid=%d", ply.pid)
 	end
 	--第二档
 	if ply_info[1] >= prop_tab.Cond2 and ply_info[2] < 2 then
 		ply_info[2] = 2
 		ply.weekly_activity_info = ply.weekly_activity_info
-		ply:send_system_notice(prop_tab.Mail, {}, {g_weekly_activity_data.current_index}, prop_tab.Award2)
+		ply:send_system_notice(prop_tab.Mail, {}, {g_weekly_activity_data.current_index, ply_info[1]}, prop_tab.Award2)
 		WARN("weekly activity send score award2, pid=%d", ply.pid)
 	end
 	--第三档
 	if ply_info[1] >= prop_tab.Cond3 and ply_info[2] < 3 then
 		ply_info[2] = 3
 		ply.weekly_activity_info = ply.weekly_activity_info
-		ply:send_system_notice(prop_tab.Mail, {}, {g_weekly_activity_data.current_index}, prop_tab.Award3)
+		ply:send_system_notice(prop_tab.Mail, {}, {g_weekly_activity_data.current_index, ply_info[1]}, prop_tab.Award3)
 		WARN("weekly activity send score award3, pid=%d", ply.pid)
 	end
 end

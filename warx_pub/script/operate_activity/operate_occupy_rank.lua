@@ -44,8 +44,9 @@ function OccupyRankActivity:end_activity()
 				local union = unionmng.get_union(uid)
 				if union ~= nil then
 					local members = union:get_all_members()
-					for _, ply in pairs(members or {}) do
-						ply:send_system_notice(prop_award.Mail, {}, {temp_rank}, prop_award.Bonus[2])
+					for _, p in pairs(members or {}) do
+                        p:send_system_notice(prop_award.Mail, {}, {temp_rank}, prop_award.Bonus[2])
+                        --p:tlog_ten2("ActivityFlow",p.vip_lv,self.activity_id,i)
 					end
 				end
 				temp_rank = temp_rank + 1

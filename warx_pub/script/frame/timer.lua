@@ -22,20 +22,20 @@ function mark(node)
     end
 end
 
+function get_id()
+    while true do
+        local sn = getSn("timer")
+        if not get(sn) then return sn end
+    end
+end
+
 function new(what, sec, ...)
     --if what == "tlog" then pause() end
     if _funs[ what ] then
         if sec < 0 then sec = 0 end
         sec = math.ceil( sec )
-        local id = false
-        while true do
-            local sn = getSn("timer")
-            if not timer.get(sn) then
-                id = sn
-                break
-            end
-        end
-
+       
+        local id = get_id()
         local node = {_id=id, tag=0, start=gTime, over=gTime+sec, what=what, param={...}}
         _sns[ id ] = node
         newTimer(node)
@@ -43,6 +43,18 @@ function new(what, sec, ...)
         return id, node
     end
 end
+
+function reopen_timer( node )
+    if get( node._id ) then node._id = get_id() end
+    _sns[ node._id ] = node
+    mark( node )
+    if node.over <= gTime then
+        callback( node._id, node.tag )
+    else
+        newTimer( node )
+    end
+end
+
 
 function is_valid( sn, ... )
     local node = get( sn )
@@ -230,13 +242,6 @@ function cron_base_func()
 
     crontab.loop()
     c_mem_info()
-
-    -- 协程退出时(不管是正常还是异常）都应该删除自己可能在gCoroBad中的引用
-    for k, v in pairs(gCoroBad) do
-        if coroutine.status(k) == "dead" then
-            gCoroBad[k] = nil
-        end
-    end
 end
 
 function get_recently()

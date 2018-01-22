@@ -35,7 +35,7 @@ function mark(data)
     if not u_hero_tasks[data._id] then
         u_hero_tasks[data._id] = data
     end
-    gPendingSave.union_task[data._id] = data
+    gPendingSave.union_hero_task[data._id] = data
 end
 
 function del(data)
@@ -46,7 +46,7 @@ function del(data)
     end
     union.hero_task[data._id] = nil
     u_hero_tasks[data._id] = nil
-    gPendingSave.union_task[data._id] = nil
+    gPendingSave.union_hero_task[data._id] = nil
 end
 
 function get(uid, _id)

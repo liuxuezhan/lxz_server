@@ -29,7 +29,9 @@ function add(p,mode)--膜拜
     local u = unionmng.get_union(p:get_uid())
     if not u  then return end
 
-    local c = resmng.get_conf("prop_union_god",u.god.propid )
+    local god = u:get_god()
+    if not god then return end
+    local c = resmng.get_conf("prop_union_god", god.propid)
     if not c  then return end
 
     if not p:do_dec_res(c.Cons[mode][1], c.Cons[mode][2], VALUE_CHANGE_REASON.UNION_GOD) then return end
@@ -48,6 +50,11 @@ function add_exp(p,num)--战神经验
     if not u  then return end
     if u:is_new()  then return end
 
+    if u.map_id then
+        remote_cast(u.map_id, "remote_god_add_exp", {"union", p:get_uid(), p.pid, num})
+        return
+    end
+
     local c = resmng.get_conf("prop_union_god",u.god.propid + 1 )
     if not c  then return end
 
@@ -64,7 +71,9 @@ function get(p)--获取升级礼包
     local u = unionmng.get_union(p:get_uid())
     if not u  then return end
 
-    local c = resmng.get_conf("prop_union_god",u.god.propid )
+    local god = u:get_god()
+    if not god then return end
+    local c = resmng.get_conf("prop_union_god", god.propid)
     if not c  then return end
 
     if p._union.god_log.lv >=  c.Lv then return end

@@ -64,6 +64,7 @@ function check_pending()
             db.player:update({_id=pid}, {["$set"]=chgs}, true)
             --dumpTab(chgs, "update player")
             local p = getPlayer(pid)
+            lxz(chgs)
             if p and p.notify then p:notify(chgs) end
             chgs._n_ = cur
             hit =true

@@ -69,6 +69,26 @@ RpcType.string = {
     end
 }
 
+RpcType.bstring = {
+    _write=function( packet, v )
+        packet:WriteBString(v)
+    end,
+    _read=function( packet )
+        return packet:ReadBString()
+    end
+}
+
+
+RpcType.blob = {
+    _write=function( packet, v )
+        packet:WriteBString(v)
+    end,
+    _read=function( packet )
+        return packet:ReadBString()
+    end
+}
+
+
 RpcType.pack = {
     _write=function( packet, v )
         --packet:WritePack(MsgPack.pack(v))

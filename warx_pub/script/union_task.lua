@@ -151,8 +151,13 @@ function get_one(uid,id)
         local d = _d[id]
         d.tmOver = d.tmStart + tm_cd 
         local p = getPlayer(d.pid)
-        d.p_name = p.name 
-        d.p_photo = p.photo 
+        if p then
+            d.p_name = p.name 
+            d.p_photo = p.photo 
+        else
+            d.p_name = ""
+            d.p_photo = 0
+        end
         if d.hero_id ~= "" then
             local h = heromng.get_hero_by_uniq_id(d.hero_id)
             if h then d.h_propid = h.propid end
@@ -174,17 +179,21 @@ function del(id)
     local c = _d[id]
     if c then
         local o = getPlayer(c.pid)
-        if c.res_num ==0 then        
-            local pids ="" 
-            local t ={} 
-            for _,v in pairs(c.log ) do t[v.name] = v.name end
+        if o then
+            if c.res_num ==0 then        
+                local pids ="" 
+                local t ={} 
+                for _,v in pairs(c.log ) do t[v.name] = v.name end
 
-            for _,v in pairs( t ) do
-                if pids == "" then pids = v
-                else pids = pids..","..v end
+                for _,v in pairs( t ) do
+                    if pids == "" then pids = v
+                    else pids = pids..","..v end
+                end
+                o:send_system_notice( 10016, {}, {pids} )
+            else
+                o:send_system_notice( 10018, {}, {}, {{"res",c.res,c.res_num,10000}})
             end
-            o:send_system_notice( 10016, {}, {pids} )
-        else o:send_system_notice( 10018, {}, {}, {{"res",c.res,c.res_num,10000}}) end
+        end
         dbmng:getOne().union_task:delete({_id = id})
         local u = unionmng.get_union(c.uid)
         if u then u.u_task[id] = nil end
@@ -224,7 +233,7 @@ function ok(p,obj,sub) --完成悬赏任务
                 local c = resmng.get_conf("prop_resource",_d[id].res) 
                 if c and c.Name then
                     p:send_system_notice(10017, {},
-                        {o.name,nformat(old),c.Name,nformat(old-r),c.Name,nformat(r),c.Name}, 
+                        {o and o.name or "",nformat(old),c.Name,nformat(old-r),c.Name,nformat(r),c.Name}, 
                         {{"res",_d[id].res,r,10000}})
                 end
                 if num + 1 == _d[id].num  then del(id)

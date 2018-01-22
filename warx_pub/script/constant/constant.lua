@@ -8,12 +8,12 @@ RES_RATE = { 1, 1, 5, 20 }
 --清理玩家
 PLY_CLEAR = 
 {
-    7,
-    7,
-    7,
-    7,
-    7,
-    7,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
     0,
     0,
     0,
@@ -25,9 +25,18 @@ PLY_CLEAR =
     0,
 }
 
+DIALOG_CULTURE = { 2, 40, 82, 122}--首次进入城建界面调用的dialog的序号（分文明，东南西北）
+DIALOG_CULTURE_MAP = { 201, 203, 205, 207}--文明选择后的势力图对话（分文明，东南西北）
+DIALOG_HERO_GACHA = {13,52,93,136}--第一次抽卡完成后，武将的对话配置。
+DIALOG_GACHA_MONSTER_TASK = {130061044,130062044,130063044,130064044}--第一次抽卡完成后，打怪的任务id。
+
+DAILY_ACTIVITY_CASTLE = {15,19,23,26,28,30}  --每日限时活动城堡等级分档
+DAILY_ACTIVITY_RANK = {1,2,3,6,10,20,50} --每日限时活动排行榜分档
+DAILY_ACTIVITY_RANK_ID = {28,29,30,31,32,33,34} --每日限时活动排行榜在rank表中的id
+
 RANGE_LV = { 3380, 1104, 816, 528, 240, 16 }
 BUY_SILVER_COST = 150  -- 购买银币比率恒定150:1
-CLEAR_CD_COST =         ---清除cd时间与消耗金币关系的通用配置，需要按照时间顺序由小到大排序配置
+CLEAR_CD_COST =        --清除cd时间与消耗金币关系的通用配置，需要按照时间顺序由小到大排序配置
 {
     {300, 15},
     {3300, 135},
@@ -96,7 +105,18 @@ SPEED_GATHER = {
     60480,
 }
 
-
+-- 难民营采集速度
+SPEED_REFUGEE = {
+    40320,
+    45360,
+    50400,
+    55440,
+    60480,
+}
+CROSS_REFUGEE_MUL = 1.2
+REFUGEE_WEIGHT = 5
+SETTLE_REFUGEE_GIFT = 1001001
+ENSLAVE_REFUGEE_GIFT = 1001002
 
 MassTime = {
     Level1 = 300,
@@ -236,19 +256,21 @@ BAG_SORT_CLASS = {[15] = 1, [13] = 2, [3] = 3, [10] = 4, [1] = 5, [2] = 6, [6] =
 ---游戏中输入字符长度限制
 CHA_LIMIT = 
 {
-    Union_Notice        = {1,180},              --军团公告
+    Union_Notice        = {1,150},              --军团公告
     Union_Words_Topic   = {1,30},               --军团留言-主题
     Union_Words_Content = {1,600},              --军团留言-正文
     Union_Title_Grant   = {0,18},               --授予头衔
     Union_Set_RankName  = {1,18},               --修改阶级称谓
     Union_Name          = {6,12},               --创建军团名称
     Union_Alias         = {3,3},                --创建军团简称
-    Union_Recruit       = {1,180},              --招募设置-输入
+    Union_Recruit       = {1,150},              --招募设置-输入
+	Mail_LordName       = {1,18},               --邮件-收件人
     Mail_Content        = {1,600},              --军团邮件-正文
     Union_Name_Fac      = {1,18},               --军团设施命名
     Lord_Name           = {1,18},               --角色名输入
     Mark_Favorite       = {1,18},               --收藏夹备注
     Chat_Content        = {1,240},              --聊天框输入
+	Server_Name			= {1,18},				--服务器名输入
 }
 
 FORBID_SIGNS = 
@@ -313,27 +335,30 @@ WORLD_EVENT_STAGE_NAME =
 GACHA_EXCHANGE_1 = {101,201}
 GACHA_EXCHANGE_2 = {102,202}
 
---主界面按钮排布
+--主界面按钮排布,1-放在更多按钮入口里，2-放在更多按钮入口里且在新开放以后需要在外面显示一次，
+--3-放在福利按钮入口里，4-放在福利按钮入口里且在新开放以后需要在外面显示一次
 MAINUI_TOP_BTN_LAYER = 
 {
-    ["btn_be_stronger"] = 2,
+    ["btn_crossbattle"] = 1,
+    ["btn_be_stronger"] = 1,
     ["btn_goldgift"] = 1,
     ["btn_operate"] = 1,
     ["btn_world_event"] = 2,
     ["DailyTask"] = 1,
     ["btn_shop_ac"] = 1,
     ["acitity_btn"] = 1,
-    ["btn_more_btns"] = 1,
     ["btn_lordrank"] = 2,
     ["btn_goldnotice"] = 2,
     ["btn_lord_achieve"] = 2,
     ["btn_tansuo"] = 2,
     ["btn_automass"] = 2,
-    ["btn_more_btns (6)"] = 2,
-    ["btn_more_btns (7)"] = 2,
-    ["btn_more_btns (8)"] = 2,
-    ["btn_more_btns (9)"] = 2,
-    ["btn_more_btns (10)"] = 2,
+    ["btn_fb_like"] = 2,
+    ["btn_questionnaire"] = 2,
+    ["btn_heroxiulian"] = 2,
+    ["btn_shouchong"] = 2,
+    ["check_in"] = 2,
+    ["btn_qiri"] = 2,
+    ["btn_yueka"] = 2,
 }
 
 SHOW_UNION_POWER = 
@@ -373,3 +398,6 @@ mapmonster_lvconfig =
     {6,9,12,15,18,21,25},
     {12,15,18,21,25,29}
 }
+
+--修改服务器名字金币消耗
+Server_ChangeName_GoldCost = 2000

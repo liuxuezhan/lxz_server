@@ -14,6 +14,8 @@ function ActivityBox:init(player)
 end
 
 function ActivityBox:uninit()
+    local player = self.player
+
     self:_stop()
     player.eventActivityUpdated:del(newFunctor(self, self._onActivityUpdated))
     player.eventActivityBoxUpdated:del(newFunctor(self, self._onActivityBoxUpdated))

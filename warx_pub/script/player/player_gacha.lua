@@ -136,6 +136,8 @@ function do_gacha(self, type)
 
 	    --周限时活动
 	    weekly_activity.process_weekly_activity(self, WEEKLY_ACTIVITY_ACTION.GACHA, task_type, task_num)
+        --每日限时活动
+	    daily_activity.process_daily_activity(self, DAILY_ACTIVITY_ACTION.GACHA, task_type, task_num)
 	    --运营活动
 	    operate_activity.process_operate_activity(self, OPERATE_ACTIVITY_ACTION.GACHA, task_type, task_num)
 	end
@@ -274,102 +276,106 @@ function do_yinbi_ten(self, msg_send)
     self.gacha_gift = self.gacha_gift + prop_yinbi.ComboGachaPoint
 end
 
-function do_jinbi_one(self, msg_send)
+function do_jinbi_one(p, msg_send)
 	local prop_jinbi = resmng.prop_gacha_gacha[PROP_JINBI_ID]
 	if prop_jinbi == nil then
 		msg_send.result = 1
 		return
 	end
-	local gold_item = self:get_item_num(ITEM_JINGYIN_ID)
-	if self.gacha_jinbi_free_num < prop_jinbi.Free and gTime >= self.gacha_jinbi_cd then
-		self.gacha_jinbi_free_num = self.gacha_jinbi_free_num + 1
-		if self.gacha_jinbi_free_num >= prop_jinbi.Free then
-			self.gacha_jinbi_cd = get_next_day_stamp(gTime)
+	local gold_item = p:get_item_num(ITEM_JINGYIN_ID)
+	if p.gacha_jinbi_free_num < prop_jinbi.Free and gTime >= p.gacha_jinbi_cd then
+		p.gacha_jinbi_free_num = p.gacha_jinbi_free_num + 1
+		if p.gacha_jinbi_free_num >= prop_jinbi.Free then
+			p.gacha_jinbi_cd = get_next_day_stamp(gTime)
 		else
-			self.gacha_jinbi_cd = gTime + prop_jinbi.FreeCD[self.gacha_jinbi_free_num]
+			p.gacha_jinbi_cd = gTime + prop_jinbi.FreeCD[p.gacha_jinbi_free_num]
 		end
 	elseif gold_item > 0 then
 		local con = {{resmng.CLASS_ITEM, ITEM_JINGYIN_ID, 1}}
-	    self:consume(con, 1, VALUE_CHANGE_REASON.REASON_GACHA_DEC_ITEM)
+	    p:consume(con, 1, VALUE_CHANGE_REASON.REASON_GACHA_DEC_ITEM)
 	else
-		if self.gold < prop_jinbi.Price then
+		if p.gold < prop_jinbi.Price then
             msg_send.result = 3
             msg_send.gold = prop_jinbi.Price
             return
         end
         local con = {{resmng.CLASS_RES, resmng.DEF_RES_GOLD, prop_jinbi.Price}}
-        self:consume(con, 1, VALUE_CHANGE_REASON.REASON_GACHA_JINBI_ONE)
-        self.gacha_jinbi_num = self.gacha_jinbi_num + 1
+        p:consume(con, 1, VALUE_CHANGE_REASON.REASON_GACHA_JINBI_ONE)
+        p.gacha_jinbi_num = p.gacha_jinbi_num + 1
+        --p:tlog_ten2("LotteryFlow",p.vip_lv,GACHA_TYPE.JINBI_ONE,prop_jinbi.Price)
     end
 
     local group = prop_jinbi.Group
-    if self.gacha_jinbi_index > #group then
-    	self.gacha_jinbi_index = 1
+    if p.gacha_jinbi_index > #group then
+    	p.gacha_jinbi_index = 1
     end
     local group_id = 0
-    if self.gacha_jinbi_first == true then
-    	group_id = 1  --金币首抽固定组1
-    	self.gacha_jinbi_first = false
+    if p.gacha_jinbi_first == true then
+    	--group_id = 1  --金币首抽固定组1
+        group_id = 300 + math.floor( p.propid / 1000 ) 
+    	p.gacha_jinbi_first = false
+
     else
-	    group_id = group[self.gacha_jinbi_index]
-	    self.gacha_jinbi_index = self.gacha_jinbi_index + 1
+	    group_id = group[p.gacha_jinbi_index]
+	    p.gacha_jinbi_index = p.gacha_jinbi_index + 1
 	end
 
-    local bonus_policy, bonus, focus = self:random_gacha(group_id)
+    local bonus_policy, bonus, focus = p:random_gacha(group_id)
     local is_chip = false 
-    if bonus[1][1] == "hero" and self:get_hero_by_propid(bonus[1][2]) then
+    if bonus[1][1] == "hero" and p:get_hero_by_propid(bonus[1][2]) then
         is_chip = true
     end
-    local res = self:add_bonus_not_notify(bonus_policy, bonus, VALUE_CHANGE_REASON.REASON_GACHA_AWARD_JINBI_ONE)
-    --local res = self:add_bonus(bonus_policy, bonus, VALUE_CHANGE_REASON.REASON_GACHA_AWARD_JINBI_ONE)
+    local res = p:add_bonus_not_notify(bonus_policy, bonus, VALUE_CHANGE_REASON.REASON_GACHA_AWARD_JINBI_ONE)
+    --local res = p:add_bonus(bonus_policy, bonus, VALUE_CHANGE_REASON.REASON_GACHA_AWARD_JINBI_ONE)
     if res == true then
     	table.insert(msg_send.award, {bonus[1], focus, is_chip})
     	gacha_limit_t.set_gacha_world_limit(bonus)
     end
 
-    self.gacha_gift = self.gacha_gift + prop_jinbi.GachaPoint
+    p.gacha_gift = p.gacha_gift + prop_jinbi.GachaPoint
 end
 
-function do_jinbi_ten(self, msg_send)
+function do_jinbi_ten(p, msg_send)
 	local prop_jinbi = resmng.prop_gacha_gacha[PROP_JINBI_ID]
 	if prop_jinbi == nil then
 		msg_send.result = 1
 		return
 	end
 
-	if self.gold < prop_jinbi.ComboPrice then
+	if p.gold < prop_jinbi.ComboPrice then
         msg_send.result = 3
         msg_send.gold = prop_jinbi.ComboPrice
         return
     end
     local con = {{resmng.CLASS_RES, resmng.DEF_RES_GOLD, prop_jinbi.ComboPrice}}
-    self:consume(con, 1, VALUE_CHANGE_REASON.REASON_GACHA_JINBI_TEN)
-    self.gacha_jinbi_num = self.gacha_jinbi_num + 10
+    p:consume(con, 1, VALUE_CHANGE_REASON.REASON_GACHA_JINBI_TEN)
+    p.gacha_jinbi_num = p.gacha_jinbi_num + 10
 
     local group = prop_jinbi.Group
     for i = 1, 10, 1 do
-	    if self.gacha_jinbi_index > #group then
-	    	self.gacha_jinbi_index = 1
+	    if p.gacha_jinbi_index > #group then
+	    	p.gacha_jinbi_index = 1
 	    end
-	    local group_id = group[self.gacha_jinbi_index]
+	    local group_id = group[p.gacha_jinbi_index]
 	    if group_id == GACHA_EXCHANGE_1[1] then
 	    	group_id = GACHA_EXCHANGE_1[2]
 	    end
-	    self.gacha_jinbi_index = self.gacha_jinbi_index + 1
+	    p.gacha_jinbi_index = p.gacha_jinbi_index + 1
 
-	    local bonus_policy, bonus, focus = self:random_gacha(group_id)
+	    local bonus_policy, bonus, focus = p:random_gacha(group_id)
         local is_chip = false 
-        if bonus[1][1] == "hero" and self:get_hero_by_propid(bonus[1][2]) then
+        if bonus[1][1] == "hero" and p:get_hero_by_propid(bonus[1][2]) then
             is_chip = true
         end
-	    local res = self:add_bonus_not_notify(bonus_policy, bonus, VALUE_CHANGE_REASON.REASON_GACHA_AWARD_JINBI_TEN)
+	    local res = p:add_bonus_not_notify(bonus_policy, bonus, VALUE_CHANGE_REASON.REASON_GACHA_AWARD_JINBI_TEN)
 	    if res == true then
 		    table.insert(msg_send.award, {bonus[1], focus, is_chip})
 		    gacha_limit_t.set_gacha_world_limit(bonus)
 		end
     end
 
-    self.gacha_gift = self.gacha_gift + prop_jinbi.ComboGachaPoint
+    p.gacha_gift = p.gacha_gift + prop_jinbi.ComboGachaPoint
+    --p:tlog_ten2("LotteryFlow",p.vip_lv,GACHA_TYPE.JINBI_TEN,prop_jinbi.ComboPrice)
 end
 
 function do_hunxia_one(self, msg_send)

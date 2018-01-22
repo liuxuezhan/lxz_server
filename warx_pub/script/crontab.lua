@@ -66,17 +66,13 @@ function on_day_pass()
 
 
         --玩家跨天
-        local day_over = _G.gDayStart - 1
         local now = gTime
         local onlines = gOnlines
         for pid, node in pairs( onlines ) do
             local p = getPlayer( pid ) 
-            if p then
+            if p and p.map == gMapID then
                 if get_diff_days(gTime, p.cross_time) > 0 then
                     p:on_day_pass()
-                    if now - day_over < 60 then
-                        player_t.mark_online_time( pid, day_over )
-                    end
                 end
             end
         end
@@ -85,6 +81,7 @@ function on_day_pass()
         gacha_limit_t.gacha_limit_on_day_pass()
         --周限时活动
         weekly_activity.on_day_pass()
+        daily_activity.on_day_pass()
 
         _G.gSysStatus.pass_day_tick = gTime
         set_sys_status("pass_day_tick", gTime)
@@ -93,6 +90,10 @@ end
 
 function try_start_kw()
     king_city.try_unlock_kw()
+end
+
+function try_open_act()
+    act_mng.try_open_act()
 end
 
 function send_boss_award()
@@ -108,8 +109,8 @@ end
 
 function send_mc_award()
     monster_city.send_score_award()
-    rank_mng.clear(7)
-    rank_mng.clear(8)
+ --   rank_mng.clear(7)
+ --   rank_mng.clear(8)
 end
 
 function send_lt_award()
@@ -125,6 +126,10 @@ function cross_act_start()
 end
 
 function upload_gs_info()
+    if gCenterID == gMapID then
+        return
+    end
+
     local pack = {}
     pack.pid = gMapID
     pack.power = cal_gs_power()
@@ -137,8 +142,20 @@ function upload_gs_info()
             local king_ply = getPlayer(now_king[2])
             if king_ply then
                 pack.king_name = king_ply.name
+                pack.king_culture = king_ply.culture
+                local union = unionmng.get_union(king_ply:get_uid())
+                if union then
+                    pack.king_u_name = union.name
+                    pack.king_language = union.language
+                else
+                    pack.king_u_name = ""
+                    pack.king_language = -1
+                end
             else
                 pack.king_name = now_king[6]
+                pack.king_culture = now_king[12]
+                pack.king_u_name = now_king[9]
+                pack.king_language = now_king[11]
             end
         end
     end

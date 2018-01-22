@@ -13,14 +13,18 @@ function init_world_event()
 			unit.cur_num = 0
 			unit.is_finish = 0
 			unit.unlock = 0 --用来发公告的标记,没有逻辑的作用
+            unit.add_score = 0
 			unit.timer = -1
 
 			if WorldEventData.unlock_score >= v.UnlockScore then
 				unit.unlock = 1
 			end
 
-			local cur_time = gTime - get_sys_status("start")
-			local left_time = v.TmOpenServer - cur_time
+			local open_time = get_sys_status("start") + v.TmOpenServer
+			open_time = open_time - math.floor(open_time % 86400)
+			local left_time = open_time - gTime
+			--local cur_time = gTime - get_sys_status("start")
+			--local left_time = v.TmOpenServer - cur_time
 			if left_time > 0 then
 				unit.timer = timer.new("world_event", left_time, v.ID)
 			else
@@ -131,7 +135,7 @@ function check_score()
 		for k, v in pairs(resmng.prop_world_events or {}) do
 			local event = WorldEventData.events[v.ID]
 			if event ~= nil then
-				if event.unlock == 1 and event.is_finish == 1 and event.add_score == nil then
+				if event.unlock == 1 and event.is_finish == 1 and event.add_score == 0 then
 				    WorldEventData.unlock_score = WorldEventData.unlock_score + v.FinishScore
 					gPendingSave.status["world_event_score"].score = WorldEventData.unlock_score
 					event.add_score = 1

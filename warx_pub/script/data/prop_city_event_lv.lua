@@ -1,0 +1,38 @@
+--
+-- $Id$
+--
+
+module( "resmng" )
+svnnum("$Id$")
+
+prop_city_event_lv = {
+
+	[CITY_EVENT_LV_3] = { ID = CITY_EVENT_LV_3, CdTime = 3000,},
+	[CITY_EVENT_LV_4] = { ID = CITY_EVENT_LV_4, CdTime = 3000,},
+	[CITY_EVENT_LV_5] = { ID = CITY_EVENT_LV_5, CdTime = 3000,},
+	[CITY_EVENT_LV_6] = { ID = CITY_EVENT_LV_6, CdTime = 3000,},
+	[CITY_EVENT_LV_7] = { ID = CITY_EVENT_LV_7, CdTime = 5400,},
+	[CITY_EVENT_LV_8] = { ID = CITY_EVENT_LV_8, CdTime = 5400,},
+	[CITY_EVENT_LV_9] = { ID = CITY_EVENT_LV_9, CdTime = 5400,},
+	[CITY_EVENT_LV_10] = { ID = CITY_EVENT_LV_10, CdTime = 5400,},
+	[CITY_EVENT_LV_11] = { ID = CITY_EVENT_LV_11, CdTime = 5400,},
+	[CITY_EVENT_LV_12] = { ID = CITY_EVENT_LV_12, CdTime = 5400,},
+	[CITY_EVENT_LV_13] = { ID = CITY_EVENT_LV_13, CdTime = 5400,},
+	[CITY_EVENT_LV_14] = { ID = CITY_EVENT_LV_14, CdTime = 5400,},
+	[CITY_EVENT_LV_15] = { ID = CITY_EVENT_LV_15, CdTime = 5400,},
+	[CITY_EVENT_LV_16] = { ID = CITY_EVENT_LV_16, CdTime = 10800,},
+	[CITY_EVENT_LV_17] = { ID = CITY_EVENT_LV_17, CdTime = 10800,},
+	[CITY_EVENT_LV_18] = { ID = CITY_EVENT_LV_18, CdTime = 10800,},
+	[CITY_EVENT_LV_19] = { ID = CITY_EVENT_LV_19, CdTime = 10800,},
+	[CITY_EVENT_LV_20] = { ID = CITY_EVENT_LV_20, CdTime = 10800,},
+	[CITY_EVENT_LV_21] = { ID = CITY_EVENT_LV_21, CdTime = 10800,},
+	[CITY_EVENT_LV_22] = { ID = CITY_EVENT_LV_22, CdTime = 10800,},
+	[CITY_EVENT_LV_23] = { ID = CITY_EVENT_LV_23, CdTime = 10800,},
+	[CITY_EVENT_LV_24] = { ID = CITY_EVENT_LV_24, CdTime = 10800,},
+	[CITY_EVENT_LV_25] = { ID = CITY_EVENT_LV_25, CdTime = 10800,},
+	[CITY_EVENT_LV_26] = { ID = CITY_EVENT_LV_26, CdTime = 10800,},
+	[CITY_EVENT_LV_27] = { ID = CITY_EVENT_LV_27, CdTime = 10800,},
+	[CITY_EVENT_LV_28] = { ID = CITY_EVENT_LV_28, CdTime = 10800,},
+	[CITY_EVENT_LV_29] = { ID = CITY_EVENT_LV_29, CdTime = 10800,},
+	[CITY_EVENT_LV_30] = { ID = CITY_EVENT_LV_30, CdTime = 10800,},
+}

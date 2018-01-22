@@ -27,6 +27,7 @@ watchtower_attacked[1] = function(msg, src)
     msg.owner_castle = src.owner_castle or nil
     msg.owner_union_name = src.owner_union_name
     msg.action = src.action
+    msg.is_mass = src.is_mass
     msg.load = src.load or nil
     msg.target = copyTab(src.target)
 end
@@ -103,6 +104,8 @@ function get_watchtower_info(troop, dest_load, player)
     ack_info.owner_pos = {}
     ack_info.owner_pos[1] = troop.sx
     ack_info.owner_pos[2] = troop.sy
+    ack_info.is_mass = troop.is_mass or 0
+
     local owner_union = unionmng.get_union(troop.owner_uid)
     if owner_union ~= nil then
         ack_info.owner_union_sn = owner_union.new_union_sn
@@ -469,7 +472,7 @@ function building_recalc(build)
     end
     for id, action in pairs(build.troop_comings or {}) do
         local troop = troop_mng.get_troop(id)
-        if troop then
+        if troop and troop.owner_pid ~= hold_troop.owner_pid then
             if troop.owner_uid ~= hold_troop.owner_uid or (troop.owner_uid == 0 and hold_troop.owner_uid == 0 ) then
                 for k, v in pairs(hold_troop.arms or {}) do
                     if k ~= 0 then
@@ -491,13 +494,16 @@ function building_hold_full(build, troop)
     end
     for id, action in pairs(build.troop_comings or {}) do
         local coming = troop_mng.get_troop(id)
-        if coming.owner_uid ~= troop.owner_uid then
+        if coming and coming.owner_uid ~= troop.owner_uid then
             Rpc:rm_compensation_info(ply, coming._id)
         end
     end
 end
 
 function building_def_clear(build, troop)
+    if not troop then
+        return
+    end
     for id, action in pairs(build.troop_comings or {}) do
         local coming = troop_mng.get_troop(id)
         for k, v in pairs(troop.arms or {}) do

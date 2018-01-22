@@ -12,6 +12,8 @@ local function _getPlayer(idx)
 end
 
 function BotLogin:onEnter()
+    self.start_time = gMsec / 1000
+    INFO("[Autobot|Login]Player %s start login.", self.host.idx)
     TaskMng:createTask(_getPlayer, newFunctor(self, BotLogin.onLoadPlayer), self.host.idx)
 end
 
@@ -22,7 +24,8 @@ end
 --end
 
 function BotLogin:onLoadPlayer(player)
-    INFO("[Autobot|Login|%d]Player loaded from server", player.pid)
+    self.load_time = gMsec / 1000 - self.start_time
+    INFO("[Autobot|Login|%d]Player %s spend %f seconds to load.", player.pid, self.host.idx, self.load_time)
     self.host:initPlayer(player)
     self.fsm:translate("Game")
 end

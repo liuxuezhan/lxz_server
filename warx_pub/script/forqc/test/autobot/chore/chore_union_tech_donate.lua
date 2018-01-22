@@ -9,12 +9,13 @@ function ChoreUnionTechDonate:init(player)
     player.eventUnionChanged:add(newFunctor(self, self._onUnionChanged))
 
     if nil ~= player.union then
-        self:_start()
+        --self:_start()
     end
 end
 
 function ChoreUnionTechDonate:uninit()
-    player.eventUnionChanged:del(newFunctor(self, self._onUnionChanged))
+    self.player.eventUnionChanged:del(newFunctor(self, self._onUnionChanged))
+    self:_stop()
 end
 
 function ChoreUnionTechDonate:_onUnionChanged(player, uid)

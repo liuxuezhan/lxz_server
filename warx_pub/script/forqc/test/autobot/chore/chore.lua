@@ -4,7 +4,7 @@ local INSTANT_CHORES =
 {
     "_doSignIn",            -- 签到
     "_claimWeekAward",      -- 七日登录
-    "_claimMonthlyCard",    -- 月卡领取
+    --"_claimMonthlyCard",    -- 月卡领取
 }
 local INSTANT_INTERVAL = config.Autobot.ChoreInstantInterval or 2
 

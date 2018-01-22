@@ -1,21 +1,20 @@
---lxz
+--军团
 --军团建筑采集
 
 local mod = {}
 
 function mod.action( _idx )
-    require("frame/debugger") 
 
-    local a = union_create("555",5)
+    local a = union_create("sss")
 
-    for _, v in pairs( _us[p.uid].build or {}  ) do
-        while v.val > 0 do
-            for _,p in pairs(a) do
-                v = _us[p.uid].build[v.idx]
-                lxz(v.val)
-                gather(p,v)
-                wait_for_ack( p, "stateTroop" )
-            end
+    local obj = set_build(a[1], 10007001, 0, 0, 14 ) 
+    lxz(obj.val)
+    while obj.val > 0 do
+        for _,p in pairs(a) do
+            v = _us[p.uid].build[obj.idx]
+            lxz(v.val)
+            gather(p,v)
+            wait_for_ack( p, "stateTroop" )
         end
     end
 

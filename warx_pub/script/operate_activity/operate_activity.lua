@@ -83,8 +83,9 @@ function reinit_operate_activity()
         if info then break end
     end
 
-    for _, ply in pairs(gPlys or {}) do
-    	ply.operate_activity = {}
+    local info = db:runCommand("drop", "operate_activity")
+    for _, p in pairs(gPlys or {}) do
+        p._operate_activity = {}
     end
 
 	init_operate_activity()
@@ -140,12 +141,12 @@ function single_get(player, activity_id)
 	end
 end
 
-function packet_activity_list(player)
+function packet_activity_list(p)
 	local msg = {}
 	for k, v in pairs(OpActivityData or {}) do
 		local prop_tab = resmng.get_conf("prop_operate_activity", v.activity_id)
 		if prop_tab.Open == 1 and v.is_end == 0 then
-			v:first_start(player)
+			v:first_start(p)
 			local unit = {}
 			unit.id = v.activity_id
 			unit.start_time = v.start_time
@@ -153,7 +154,13 @@ function packet_activity_list(player)
 			table.insert(msg, unit)
 		end
 	end
-	Rpc:operate_activity_list_resp(player, msg);
+    if not p._operate_activity then 
+        local t = p:load_operate_activity() or {}
+        if not p._operate_activity then rawset(p, "_operate_activity", t) end
+    end
+
+    local datas = p:get_operate_activity()
+    Rpc:operate_activity_list_resp(p, msg, datas)
 end
 
 function task_get(player, activity_id, task_id)

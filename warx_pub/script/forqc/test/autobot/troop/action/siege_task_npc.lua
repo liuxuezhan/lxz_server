@@ -10,7 +10,9 @@ function SiegeTaskNpc:init(player, task_id, monster_id)
     self.fight_func = newFunctor(self, self._onFightInfo)
     self.x = player.x + math.random(5, 10)
     self.y = player.y + math.random(5, 10)
+end
 
+function SiegeTaskNpc:start()
     self:_initiateSiege()
 end
 
@@ -63,8 +65,10 @@ function SiegeTaskNpc:_onTroopUpdated(player, troop_id, troop)
     elseif dir == 3 then
         -- back, get battle info
         if not self.queried then
-            self.queried = true
-            Rpc:query_fight_info(self.player, self.troop_eid)
+            if self.troop_eid then
+                self.queried = true
+                Rpc:query_fight_info(self.player, self.troop_eid)
+            end
         end
     end
 end
@@ -97,7 +101,8 @@ function SiegeTaskNpc:_onFightInfo(player, info)
     local count = #info
     local win = info[count].win
     self.win = 1 == win
+    INFO("[Autobot|SiegeTaskNpc|%d] siege npc result: %s", self.player.pid, self.win)
 end
 
-return SiegeAction.makeClass(SiegeTaskNpc, TroopAction.SiegeTaskNpc)
+return SiegeAction.makeClass("SiegeTaskNpc", SiegeTaskNpc, TroopAction.SiegeTaskNpc)
 

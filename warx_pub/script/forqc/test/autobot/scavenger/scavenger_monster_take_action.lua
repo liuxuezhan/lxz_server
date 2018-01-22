@@ -22,7 +22,7 @@ function ScavengerMonsterTakeAction:_initiateRequest()
     local min_level = level < 3 and 1 or math.floor((level - 2) / 3) * 3 + 1
     local max_level = level
     local action = {}
-    action.name = "AttackLevelMonster"
+    action.name = "SiegeMonster"
     action.params = {1, min_level, max_level}
     INFO("[Autobot|ScavengerMonster|%d] initiate a siege monster(%d|%d) action.", self.host.player.pid, min_level, max_level)
     self.host:requestTroop(action, 500, newFunctor(self, self._onAccomplished))

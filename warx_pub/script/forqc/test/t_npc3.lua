@@ -12,8 +12,13 @@ function t1.action(_idx)
     }
     local city_lv = 4
 
-    local a1 = get_one(true)   -- 创建账号A1 5级创建军团
+    local name = 899
+    local a1 = get_account(name)
     loadData(a1)
+    name = name + 1
+
+    --local a1 = get_one(true)   -- 创建账号A1 5级创建军团
+    --loadData(a1)
     chat( a1, "@resetcity=2" )
     print("create ply a1 ", a1.pid)
     chat( a1, "@starttw" ) 
@@ -27,8 +32,11 @@ function t1.action(_idx)
     sync(a1)
     join_union(a1, 8, 10)
 
-    local a2 = get_one(true)   -- 创建账号A1 5级创建军团
+    --local a2 = get_one(true)   -- 创建账号A1 5级创建军团
+    --loadData(a2)
+    local a2 = get_account(name)
     loadData(a2)
+    name = name + 1
     chat( a2, "@resetcity=2" )
     print("create ply a2 ", a2.pid)
     chat( a2, "@lvbuild=0=0=10" )
@@ -38,7 +46,7 @@ function t1.action(_idx)
     Rpc:union_apply(a2, a1.uid)
     sync(a2)
 
-    Rpc:get_city_for_robot_req(a1, ACT_NAME.NPC_CITY, city_lv)
+    Rpc:get_city_for_robot_req(a1, ACT_NAME.NPC_CITY,  {lv = city_lv})
     wait_for_ack(a1, "get_city_for_robot_ack")
     sync(a1)
     local eid = a1.npc_eid

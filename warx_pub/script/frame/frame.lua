@@ -1,31 +1,27 @@
-
-if not gCoroMark then
-    gCoroMark = {}
-    setmetatable( gCoroMark, { __mode="k" } )
-end
-
 function coro_mark_create( co, name )
-    local node = gCoroMark[ co ]
-    if not node then
-        node = {}
-        gCoroMark[ co ] = node
-        node.action = "create"
-    end
-    node.tick = gTime
-    node.name = name
+    -- local node = gCoroMark[ co ]
+    -- if not node then
+    --     node = {}
+    --     gCoroMark[ co ] = node
+    --     node.action = "create"
+    -- end
+    -- node.tick = gTime
+    -- node.name = name
+    -- node.nest = 0
 end
 
 
 function coro_mark( co, action )
-    local node = gCoroMark[ co ]
-    if not node then
-        node = {}
-        gCoroMark[ co ] = node
-        node.name = "unknown"
-        node.action = "unknown"
-    end
-    node.tick = gTime
-    node.action = action
+    -- local node = gCoroMark[ co ]
+    -- if not node then
+    --     node = {}
+    --     gCoroMark[ co ] = node
+    --     node.name = "unknown"
+    --     node.action = "unknown"
+    --     WARN( "[COROUTINE], %s, %s, coro_mark", co, action )
+    -- end
+    -- node.tick = gTime
+    -- node.action = action
 end
 
 
@@ -272,7 +268,7 @@ function do_threadPK()
                                 perfmon.start("thread_pk", 1)
                                 local perf_key = string.format("RpcR-%s", v[1])
                                 perfmon.start(perf_key, pid)
-                                LOG("RpcR, pid=%d, func=%s", pid, v[1])
+                                LOG("RpcR, pid=%d, func=%s, frame=%d", pid, v[1], gFrame)
                                 local p = getPlayer(pid)
                                 if p then player_t[ v[1] ](p, unpack(v[2]) ) end
                                 gActionCur[ pid ] = nil
@@ -334,7 +330,7 @@ function do_threadPK()
                             LOG("%d, RpcR, pid=%d, func=%s, new queue", gFrame, pid, fname)
                             gActionQue[ pid ] = { {fname, args} }
                         else
-                            LOG("RpcR, pid=%d, func=%s", pid, fname)
+                            LOG("RpcR, pid=%d, func=%s, frame=%d", pid, v[1], gFrame)
                             local perf_key = string.format("RpcR-%s", fname)
                             perfmon.start(perf_key, pid)
 
@@ -361,13 +357,128 @@ function do_threadPK()
             end
             perfmon.stop("thread_pk", 2)
         end
+        if gCoroBad[ co ] then gCoroBad[ co ] = nil return end
+    end
+end
 
-        if gCoroBad[ co ] then
-            gCoroBad[ co ] = nil
-            return
+function do_handle_network( pktype, sid )
+    local p = gConns[ sid ]
+    if p then
+        if pktype ==  gNetPt.NET_MSG_CLOSE then
+            LOG("handle_network, sid=%d, pktype=NET_MSG_CLOSE", sid)
+            --gConns[ sid ] = nil
+            p:onClose()
+
+        elseif pktype == gNetPt.NET_MSG_CONN_COMP then
+            p:onConnectOk()
+
+        elseif pktype == gNetPt.NET_MSG_CONN_FAIL then
+            LOG("handle_network, sid=%d, pktype=NET_MSG_CONN_FAIL", sid)
+            --gConns[ sid ] = nil
+            p:onConnectFail()
+        end
+    end
+
+end
+
+
+function do_threadPK2()
+    local co = coroutine.running()
+    local func_access = mark_access
+    local co_info = gCoroMark[ co ]
+
+    while true do
+        local gateid, mode, data, fname, pid = c_parse_op()
+        if not mode then 
+            local nframe = gFrame
+            local as = nil
+            while true do
+                pid, as = next( gActionQue, pid )
+                if not pid then break end
+
+                local tmMark = gActionCur[ pid ]
+                if not tmMark or gTime - tmMark > 2 then
+                    if #as == 0 then
+                        gActionQue[ pid ] = nil
+                    else
+                        local p = getPlayer( pid )
+                        if p then
+                            while #as > 0 do
+                                local v = table.remove(as, 1)
+                                gActionCur[ pid ] = gTime
+                                LOG("RpcR, pid=%d, func=%s, from_queue, frame=%d", pid, v[1], gFrame)
+                                player_t[ v[1] ]( p, unpack( v[2] or {} ) )
+                                gActionCur[ pid ] = nil
+
+                                if co_info.nest > 100 then return end
+                                if gNest > 20 then return end
+                            end
+                        end
+                        if gFrame ~= nframe then pid = nil end
+                    end
+                end
+            end
+            putCoroPool( "pk" )
+
+        else
+            if mode == 0 then
+                if pid >= 10000 then
+                    local p = getPlayer( pid )
+                    if p then
+                        if gActionCur[ pid ] then
+                            local queues = gActionQue[ pid ]
+                            if not queues then
+                                queues = {}
+                                gActionQue[pid] = queues
+                            end
+                            table.insert( queues, { fname, data } )
+                            LOG("RpcR, pid=%d, func=%s, in_queue", pid, fname )
+
+                        else
+                            LOG("RpcR, pid=%d, func=%s, frame=%d", pid, fname, gFrame )
+                            rawset( p, "gid", gateid )
+                            rawset( p, "tick", gTime )
+                            if func_access then func_access( pid ) end
+
+                            gActionCur[ pid ] = gTime
+                            player_t[ fname ]( p, unpack( data ) )
+                            gActionCur[ pid ] = nil
+                        end
+                    else
+                        if Protocol.CrossQuery[ fname ] then
+                            LOG("RpcR, pid=%d, func=%s, frame=%d", pid, fname, gFrame )
+                            player_t[ fname ]( {pid=pid, uid=0, gid=_G.GateSid}, unpack( data ) )
+                        end
+                    end
+
+                elseif pid > 0 then
+                    LOG("RpcR, pid=%d, func=%s, frame=%d", pid, fname, gFrame )
+                    agent_t[ fname ]( {pid=pid}, unpack( data ) )
+
+                elseif pid == 0 then
+                    LOG("RpcR, pid=%d, func=%s, frame=%d", pid, fname, gFrame )
+                    player_t[ fname ](_G.gAgent, unpack( data ) )
+
+                end
+
+            elseif mode == 2 then
+                gNest = gNest + 1
+                LOG("RpcR, pid=%d, func=%s, frame=%d", 0, "mongo_data", gFrame )
+                mongo.do_recv_data( data )
+                gNest = gNest - 1
+
+            elseif mode == 1 then
+                LOG("RpcR, pid=%d, func=%s, frame=%d", 0, "network", gFrame )
+                do_handle_network( fname, data )
+
+            end
+
+            if co_info.nest > 100 then return end
+            if gNest > 20 then return end
         end
     end
 end
+
 
 function remote_func(map_id, func, param)
     local id = getSn("qryCross")
@@ -464,11 +575,8 @@ function frame_init()
     gInit = "InitFrameDone"
     begJob()
 
-    if config.TlogSwitch then
-        c_tlog_start( "../etc/tlog.xml" )
-    end
-
-
+    if config.TlogSwitch then c_tlog_start( "../etc/tlog.xml" ) end
+    if config.Place then c_tlog_start2(1, "../etc/tlog1.xml" ) end
 end
 
 function clean_replay()
@@ -546,9 +654,12 @@ function main_loop(sec, msec, fpk, ftimer, froi, signal)
 
         elseif signal == SignalDefine.SIGUSR1 then
             if reload then reload() end
+            WARN( "[ EXTRA ], reload, --------------------------- " )
+
 
         elseif signal == SignalDefine.SIGUSR2 then
             dofile( "extra.lua" )
+            WARN( "[ EXTRA ], dofile --------------------------- " )
 
         else
             WARN( "SIGNAL, %d", signal )
@@ -748,6 +859,21 @@ function main_loop(sec, msec, fpk, ftimer, froi, signal)
         check_pending()
         global_save()
         check_tool_ack()
+
+        if gSyncFunction then gSyncFunction() end
+    end
+
+    local coro_ids = {}
+    for k, v in pairs(gCoroPend["syncall"] or {}) do
+        local tick = gCoroMark[v].tick
+        if gTime - tick > 20 then
+            table.insert(coro_ids, k)
+        end
+    end
+    for k, v in pairs(coro_ids) do
+        WARN("[syncall] coroutine %d is timeout", v)
+        local co = getCoroPend("syncall", v)
+        coroutine.resume(co, E_TIMEOUT)
     end
 end
 
@@ -782,6 +908,8 @@ function set_sys_status(_type, tms)
 end
 
 function ack_tool(pid, sn, data)
+
+    local req = gPendingToolAck[sn]
     if sn then
         --print("receive tool ack ", sn)
         gPendingToolAck[sn] = nil
@@ -795,6 +923,10 @@ function ack_tool(pid, sn, data)
             player_t[data.api](data)
         end
     end
+
+    if req and deal_tool_ack then  -- warx 接口
+        deal_tool_ack(req.info, pid, sn, data)
+    end
 end
 
 function to_tool( sn, info )
@@ -804,15 +936,41 @@ function to_tool( sn, info )
     val._t_ = gTime
     val.info = info
     gPendingToolAck[sn] = val
-    Rpc:qry_tool( gAgent, sn ,info )
+    if _G.gAgent then Rpc:qry_tool(_G.gAgent, sn ,info ) end
     return sn
     --]]
 end
 
+function to_toolv2( sn, info, tools_id )
+    --[[
+    if sn == 0 then sn = getSn("to_tool")  end
+    local val = {}
+    val._t_ = gTime
+    val.info = info
+    gPendingToolAck[sn] = val
+    if _G.gAgent then Rpc:qry_toolv2(_G.gAgent, tools_id or 6001, sn ,info ) end
+    return sn
+    --]]
+end
+
+
 function check_tool_ack()
     gPendingToolAck = gPendingToolAck or {}
+    local chat_list = {}
+    for k, v in pairs(gPendingToolAck) do
+        if gTime - v._t_ >= 5 and v.info.url == "http://cm3.api.37.com.cn/Content/_checkContent" then
+            chat_list[k] = v
+        end
+    end
+
+    for k, v in pairs(chat_list or {}) do
+        gPendingToolAck[k] = nil
+        send_chat(k)
+        WARN("chat third check time out")
+    end
+
     local dels = {}
-    for k, v in pairs(gPendingToolAck or {} ) do
+    for k, v in pairs(gPendingToolAck) do
         if gTime - v._t_ >= 100 then
             dels[k] = v
         end
@@ -832,6 +990,7 @@ function check_tool_ack()
 end
 
 function resend_to_tool(sn, params)
+    local url = params.url
     LOG("Resend to tool sn= %d ", sn)
     to_tool(sn, params)
 end
@@ -851,7 +1010,8 @@ function global_save()
         return
     end
 
-    local db = dbmng:tryOne(1)
+    --local db = dbmng:tryOne(1)
+    local db = dbmng:getOne()
     if not db then
         WARN( "no db" )
         return
@@ -876,6 +1036,9 @@ function global_save()
                     end
                     local oid = chgs._id
                     chgs._id = id
+                    local t = {}
+                    for k, v in pairs(chgs) do t[tostring(k)]=v end
+                    chgs = t
                     db[ tab ]:update({_id=id}, {["$set"] = chgs }, true)
                     chgs._id = oid
                 else
@@ -1213,15 +1376,16 @@ function init(sec, msec)
     gEids = {}
     gEtys = {}
 
-    setmetatable( gEids, { __mode="v" } )
-    setmetatable( gEtys,
-        { __newindex=function( tab, eid, obj)
-                rawset(tab, eid, obj)
-                local idx = math.floor( eid / 4096 )
-                gEids[ idx ] = obj
-            end
-        }
-    )
+    --gEids = {}
+    --setmetatable( gEids, { __mode="v" } )
+    --setmetatable( gEtys,
+    --    { __newindex=function( tab, eid, obj)
+    --            rawset(tab, eid, obj)
+    --            local idx = math.floor( eid / 4096 )
+    --            gEids[ idx ] = obj
+    --        end
+    --    }
+    --)
 
     loadMod()
 
@@ -1231,6 +1395,7 @@ function init(sec, msec)
         gPendingInsert = {}
     else
         require( "frame/pending_save" )
+        -- here will overwrite globa_save
     end
 
     init_pending()
@@ -1293,9 +1458,11 @@ function putCoroPool(what)
     local co = coroutine.running()
     coro_mark( co, "pool" )
     local pool = gCoroPool[ what ]
-    if #pool < 10 then table.insert(gCoroPool[ what ], co) end
+
+    if #pool < 10 then table.insert(pool, co) end
     coroutine.yield("ok")
 end
+
 
 function getCoroPend(what, id)
     local co = gCoroPend[ what ][ id ]
@@ -1591,4 +1758,4 @@ end
 --    _co_resume( ... )
 --end
 --
---
+

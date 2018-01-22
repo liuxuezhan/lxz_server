@@ -10,11 +10,16 @@ function t1.action(_idx)
     }
     local city_lv = 4
 
-    local a1 = get_one(true)   -- 军团1 创建军团并宣战
+    local name = 899
+    local a1 = get_account(name)
     loadData(a1)
+    name = name + 1
+
+    --local a1 = get_one(true)   -- 军团1 创建军团并宣战
+    --loadData(a1)
     chat( a1, "@resetcity=2" )
     chat( a1, "@starttw" ) 
-    Rpc:get_city_for_robot_req(a1, ACT_NAME.NPC_CITY, city_lv)
+    Rpc:get_city_for_robot_req(a1, ACT_NAME.NPC_CITY, {lv = city_lv})
     wait_for_ack(a1, "get_city_for_robot_ack")
     sync(a1)
     local eid = a1.npc_eid
@@ -48,8 +53,12 @@ function t1.action(_idx)
 end
 
 function new_declare_war(eid)
-    local a1 = get_one(true)   -- 军团1 创建军团并宣战
+    --local a1 = get_one(true)   -- 军团1 创建军团并宣战
+    --loadData(a1)
+    local name = 799
+    local a1 = get_account(name)
     loadData(a1)
+    name = name + 1
     chat( a1, "@resetcity=2" )
     print("create ply  ", a1.pid)
     chat( a1, "@lvbuild=0=0=10" )

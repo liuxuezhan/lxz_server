@@ -1,80 +1,17 @@
 module("player_t")
 
-function init_task(self)
-    --当前正在做的任务
-    self._cur_task_list = nil
-    --已完成的任务id
-    self._finish_task_list = nil
-    --任务类型的映射
-    self._action_map = nil
-    --需要保存的任务ID数组
-    self._need_save_id = {}
 
-    --每日任务记录的数据
+function init_task(self)
     self.activity = 0
     self.activity_box = {}
     self.daily_refresh_num = 1
     self.daily_refresh_time = gTime + 14400     --4*3600  4个小时
 
-    --for k, v in pairs(resmng.prop_task_init) do
-    --    local prop_tab = resmng.prop_task_detail[v.TaskID]
-    --    if prop_tab == nil then
-    --        ERROR("accept task fail in table prop_task_init!! the task isn't exist: %d", v.TaskID)
-    --        return
-    --    end
-    --    self:add_task_data(prop_tab)
-    --end
-    --self:do_save_task()
-
-    local cur_task_list = {}
-    local action_map = {}
-    local prop_task_init = resmng.prop_task_init 
-    local pid = self.pid
-    for k, v in pairs( prop_task_init ) do
-        local hit = false
-        local task_info = resmng.get_conf( "prop_task_detail", v.TaskID )
-        if task_info then
-            local taskid = v.TaskID
-            local unit = {}
-            unit._id = string.format( "%d_%d", pid, taskid )
-            unit.pid = pid
-            unit.task_id = taskid
-            unit.task_status = TASK_STATUS.TASK_STATUS_ACCEPTED
-            unit.task_type = task_info.TaskType
-            unit.task_current_num = 0
-            unit.task_daily_num = 0
-            local func
-            if unit.task_type == TASK_TYPE.TASK_TYPE_DAILY then
-                func = resmng.prop_task_daily[taskid].FinishCondition[1]
-            else
-                func = resmng.prop_task_detail[taskid].FinishCondition[1]
-            end
-
-            if func then
-                local action = g_task_func_relation[ func ]
-                if action then
-                    cur_task_list[ taskid ] = unit
-                    local node = action_map[ action ]
-                    if not node then
-                        node = {}
-                        action_map[ action ] = node
-                    end
-                    unit.task_action = action
-                    node[ taskid ] = unit
-                    gPendingInsert.task[ unit._id ] = unit
-                    hit = true
-                end
-            end
-        end
-        if not hit then
-            WARN( "prop_task_init, id = %d, invalid", k )
-        end
-    end
-    self._cur_task_list = cur_task_list
+    self._need_save_id = {}
+    self._cur_task_list = {}
     self._finish_task_list = {}
-    self._action_map = action_map
+    self._action_map = {}
 end
-
 
 
 function clear_task(self)
@@ -104,7 +41,7 @@ function load_task_from_db(self)
         local list = finish_info:next()
         for k, v in pairs(list or {}) do
             if k ~= "_id" then
-                tmp_finish_task_list[k] = 1
+                tmp_finish_task_list[k] = v
             end
         end
     end
@@ -156,6 +93,70 @@ function load_task_from_db(self)
     end
 
     LOG(self.pid.."taskstatics:load task:"..(c_msec()-st))
+end
+
+function load_task_from_data(self, task_list, finished_task)
+    if nil ~= self._cur_task_list then
+        ERROR("_cur_task_list existed when load task from data")
+        return
+    end
+
+    local pid = self.pid
+    -- 已经完成的任务
+    gPendingInsert.finished_task[pid] = finished_task
+    -- 正在进行的任务
+    local tmp_cur_task_list = {}
+    local tmp_action_map = {}
+    for k, v in pairs(task_list or {}) do
+        -- 存储
+        local fields = copyTab(v)
+        fields.pid = pid
+        local _id = pid.."_"..v.task_id
+        gPendingInsert.task[_id] = fields
+        -- 运行时数据
+        tmp_cur_task_list[k] = v
+        if v.task_status == TASK_STATUS.TASK_STATUS_ACCEPTED then
+            local action = v.task_action
+            if nil == action then
+                ERROR("This task action is nil, task_id: %d, pid: %d", v.task_id, pid)
+            else
+                if nil == tmp_action_map[action] then
+                    tmp_action_map[action] = {}
+                end
+                tmp_action_map[action][v.task_id] = v
+            end
+        end
+        -- 容错
+        if v.task_type == TASK_TYPE.TASK_TYPE_TRUNK or
+            v.task_type == TASK_TYPE.TASK_TYPE_BRANCH or
+            v.task_type == TASK_TYPE.TASK_TYPE_HEROROAD then
+            if v.task_status == TASK_STATUS.TASK_STATUS_FINISHED then
+                tmp_cur_task_list[v.task_id] = nil
+                gPendingDelete.task[_id] = 0
+                finished_task[v.task_id] = 1
+            end
+        end
+    end
+
+    self._cur_task_list = tmp_cur_task_list
+    self._finish_task_list = finished_task
+    self._action_map = tmp_action_map
+end
+
+function reset_action_map( self )
+    local action_map = {}
+    for k, v in pairs( self._cur_task_list ) do
+        local action = v.task_action
+        if action then
+            local node = action_map[ action ]
+            if not node then
+                node = {}
+                action_map[ action ] = node
+            end
+            node[ v.task_id ] = v
+        end
+    end
+    self._action_map = action_map
 end
 
 function get_cur_task_list(self)
@@ -218,28 +219,30 @@ function set_task_by_action(self, task)
 end
 
 --delete db
-function do_delete_task(self, task_id)
+function do_delete_task(self, task)
+    local task_id = task.task_id
     local cur_list = self:get_cur_task_list()
-    if cur_list[task_id] == nil then
-        return
-    end
-    local task_action = cur_list[task_id].task_action
+    if cur_list[task_id] == nil then return end
+
+    local task_action = task.task_action
     cur_list[task_id] = nil
 
     local action_list = self:get_task_by_action(task_action)
-    if action_list ~= nil then
-        action_list[task_id] = nil
-    end
+    if action_list ~= nil then action_list[task_id] = nil end
 
     local _id = self.pid.."_"..task_id
     gPendingDelete.task[_id] = 0
 end
 
-function do_finish_task(self, task_id)
-    self._finish_task_list[task_id] = 1
-    gPendingSave.finished_task[self.pid] = self._finish_task_list
-    INFO( "[TASK], pid=%d, finish_task=%s", self.pid, task_id)
+
+function do_finish_task(self, task)
+    local dura = gTime - ( task.task_tick or 0 )
+    local id = task.task_id
+    self._finish_task_list[id] = dura
+    gPendingSave.finished_task[ self.pid ][ id ] = dura
 end
+
+
 
 function add_save_task_id(self, task_id)
     self._need_save_id = self._need_save_id or {} 
@@ -258,22 +261,23 @@ function add_task_data(self, task_info)
 
     unit.task_current_num = 0
     unit.task_daily_num = 0
+    unit.task_tick = gTime
 
     local func = nil
     if unit.task_type == TASK_TYPE.TASK_TYPE_DAILY then
-        func = unpack(resmng.prop_task_daily[unit.task_id].FinishCondition)
+        func = resmng.prop_task_daily[unit.task_id].FinishCondition[1]
         
     elseif unit.task_type == TASK_TYPE.TASK_TYPE_TRUNK then
-        func = unpack(resmng.prop_task_detail[unit.task_id].FinishCondition)
+        func = resmng.prop_task_detail[unit.task_id].FinishCondition[1]
 
     elseif unit.task_type == TASK_TYPE.TASK_TYPE_BRANCH then
-        func = unpack(resmng.prop_task_detail[unit.task_id].FinishCondition)
+        func = resmng.prop_task_detail[unit.task_id].FinishCondition[1]
 
     elseif unit.task_type == TASK_TYPE.TASK_TYPE_TARGET then
-        func = unpack(resmng.prop_task_detail[unit.task_id].FinishCondition)
+        func = resmng.prop_task_detail[unit.task_id].FinishCondition[1]
 
     elseif unit.task_type == TASK_TYPE.TASK_TYPE_HEROROAD then
-        func = unpack(resmng.prop_task_detail[unit.task_id].FinishCondition)
+        func = resmng.prop_task_detail[unit.task_id].FinishCondition[1]
 
     end
     unit.task_action = g_task_func_relation[func]
@@ -283,7 +287,8 @@ function add_task_data(self, task_info)
     self:set_task_by_action(unit)
 
     self:add_save_task_id(unit.task_id)
-    INFO( "[TASK], pid=%d, add_task=%s", self.pid, unit.task_id)
+    INFO( "[TASK], add, pid,%d, task,%s, action,%s", self.pid, unit.task_id, func)
+
     return true
 end
 
@@ -302,19 +307,19 @@ function do_save_task(self)
             gPendingInsert.task[save._id] = save
 
             table.insert(list, data)
-        end
 
-        if data.task_status == TASK_STATUS.TASK_STATUS_FINISHED then
-            if data.task_type == TASK_TYPE.TASK_TYPE_TRUNK or 
-                data.task_type == TASK_TYPE.TASK_TYPE_BRANCH or 
-                data.task_type == TASK_TYPE.TASK_TYPE_HEROROAD then
+            if data.task_status == TASK_STATUS.TASK_STATUS_FINISHED then
+                if data.task_type == TASK_TYPE.TASK_TYPE_TRUNK or 
+                    data.task_type == TASK_TYPE.TASK_TYPE_BRANCH or 
+                    data.task_type == TASK_TYPE.TASK_TYPE_HEROROAD then
 
-                self:do_delete_task(data.task_id)
-                self:do_finish_task(data.task_id)
-            else
-                local action_list = self:get_task_by_action(data.task_action)
-                if action_list ~= nil then
-                    action_list[data.task_id] = nil
+                    self:do_delete_task(data)
+                    self:do_finish_task(data)
+                else
+                    local action_list = self:get_task_by_action(data.task_action)
+                    if action_list ~= nil then
+                        action_list[data.task_id] = nil
+                    end
                 end
             end
         end
@@ -323,41 +328,57 @@ function do_save_task(self)
     self:notify_task_change(list)
 end
 
-function can_finish_task(self, task_id)
-    local info = self:get_task_by_id(task_id)
-    if info == nil or info.task_status ~= TASK_STATUS.TASK_STATUS_CAN_FINISH then
-        return false
-    end
-    local prop_task = resmng.prop_task_detail[task_id]
-    if prop_task == nil then
-        return false
-    end
-    return true
+function check_finish(self, task_id, cond, ...)
+    local task_data = self:get_task_by_id(task_id)
+    if task_data == nil then return end
+
+    task_logic_t.distribute_operation(self, task_data, cond, ...)
 end
 
-function finish_task(self, task_id)
-    local info = self:get_task_by_id(task_id)
-    if info == nil or info.task_status ~= TASK_STATUS.TASK_STATUS_CAN_FINISH then
-        return false
+function can_finish_task( self, task_id )
+    local task = self:get_task_by_id(task_id)
+    if not task then return false end
+
+    if task.task_status == TASK_STATUS_CAN_FINISH then 
+        return true 
+
+    else
+        local tconf = resmng.get_conf( "prop_task_detail", task_id )
+        if tconf then
+            --self:check_finish( task_id, unpack( tconf.FinishCondition ) )
+            self:check_finish( task_id, tconf.FinishCondition )
+            return task.task_status == TASK_STATUS.TASK_STATUS_CAN_FINISH
+        end
     end
-    local prop_task = resmng.prop_task_detail[task_id]
-    if prop_task == nil then
-        return false
+end
+
+function finish_task(p, task_id)
+    local info = p:get_task_by_id(task_id)
+    if not info then return end
+
+    if info.task_status ~= TASK_STATUS.TASK_STATUS_CAN_FINISH then
+	    if not p:can_finish_task(task_id) then return end
     end
 
+    local prop_task = resmng.prop_task_detail[task_id]
+    if prop_task == nil then return false end
+
     info.task_status = TASK_STATUS.TASK_STATUS_FINISHED
-    self:add_save_task_id(task_id)
-    self:do_save_task()
+    p:add_save_task_id(task_id)
+    p:do_save_task()
+
+    INFO( "[TASK], finish, pid,%d, task,%d, action,%s, dura,%d ", p.pid, task_id, prop_task.FinishCondition[1], gTime - p.tm_create )
 
     --加奖励
     local bonus_policy = prop_task.BonusPolicy
     local bonus = prop_task.Bonus
-    self:add_bonus(bonus_policy, bonus, VALUE_CHANGE_REASON.REASON_TASK)
+    p:add_bonus(bonus_policy, bonus, VALUE_CHANGE_REASON.REASON_TASK)
 
     --开启建筑
-    --self:open_build_by_task(task_id)
+    --p:open_build_by_task(task_id)
 
-    self:pre_tlog("QuestComplete", task_id)
+    p:pre_tlog("QuestComplete", task_id)
+    p:upload_37task(task_id)
 
     return true
 end
@@ -382,20 +403,20 @@ function can_take_task(self, task_id)
     end
 
     --判断前置条件
-    local type, lv = unpack(prop_tab.PreCondition)
-    local castle_level = self:get_castle_lv()
-    if castle_level < lv then
-        return false
+    local con_type, lv = unpack(prop_tab.PreCondition)
+    if con_type == TASK_COND_TYPE.PLAYER_LV then
+    elseif con_type == TASK_COND_TYPE.CASTLE_LV then
+        local castle_level = self:get_castle_lv()
+        if castle_level < lv then
+            return false
+        end
+    elseif con_type == TASK_COND_TYPE.UNION_LV then
+    elseif con_type == TASK_COND_TYPE.CHAPTER_LV then
+        if not self:is_chapter_finished(lv) then
+            return false
+        end
     end
     return true
-end
-
-function check_finish(self, task_id, func, ...)
-    local task_data = self:get_task_by_id(task_id)
-    if task_data == nil then
-        return
-    end
-    task_logic_t.distribute_operation(self, task_data, func, ...)
 end
 
 function accept_task(self, task_id_array)
@@ -403,9 +424,18 @@ function accept_task(self, task_id_array)
         local can_take = self:can_take_task(v)
         if can_take == true then
             local accept_task_data = resmng.prop_task_detail[v]
+
             self:add_task_data(accept_task_data)
-            self:check_finish(accept_task_data.ID, unpack(accept_task_data.FinishCondition))
-            INFO( "[TASK], pid=%d, accept_task=%s", self.pid, accept_task_data.ID)
+
+            local action = accept_task_data.FinishCondition[ 1 ] 
+            action = g_task_func_relation[ action ]
+
+            if not task_logic_t.gTaskProcessByClient[ action ] then
+                self:check_finish(accept_task_data.ID, accept_task_data.FinishCondition)
+            end
+        else
+            INFO( "[TASK], accept, pid,%d, task,%d, fail", self.pid, v )
+
         end
     end
     self:do_save_task()
@@ -421,6 +451,7 @@ function packet_all_task_id(self)
     for k, v in pairs(cur_list or {}) do
         local unit = {}
         unit.task_id = v.task_id
+        unit.task_action = v.task_action
         unit.task_type = v.task_type
         unit.task_status = v.task_status
         unit.current_num = v.task_current_num
@@ -453,6 +484,7 @@ function notify_task_change(self, task_list)
         unit.task_id = v.task_id
         unit.task_type = v.task_type
         unit.task_status = v.task_status
+        unit.task_action = v.task_action
         unit.current_num = v.task_current_num
         unit.hp = v.hp
         unit.eid = v.monster_eid
@@ -508,8 +540,7 @@ function take_daily_task(self)
     for k, v in pairs(list) do
         local prop_daily = resmng.prop_task_daily[v]
         self:add_task_data(prop_daily)
-        self:check_finish(prop_daily.ID, unpack(prop_daily.FinishCondition))
-        INFO( "[TASK], pid=%d, take_daily_task=%s", self.pid, prop_daily.ID)
+        self:check_finish(prop_daily.ID, prop_daily.FinishCondition)
     end
     self:do_save_task()
     LOG("taskstatics:task_daily_task:"..(c_msec()-st))
@@ -522,7 +553,7 @@ function on_day_pass_daily_task(self)
     local cur_list = self:get_cur_task_list()
     for k, v in pairs(cur_list) do
         if v.task_type == TASK_TYPE.TASK_TYPE_DAILY then
-            table.insert(list, v.task_id)
+            table.insert( list, v )
         end
     end
     for k, v in pairs(list) do
@@ -560,6 +591,7 @@ function refresh_daily_task(self)
             local unit = {}
             unit.group_id = resmng.prop_task_daily[v.task_id].GroupID
             unit.task_id = v.task_id
+            unit.task_action = v.task_action
             table.insert(unfinish, unit)
         end
     end
@@ -581,13 +613,13 @@ function refresh_daily_task(self)
 
     local castle_level = self:get_castle_lv()
     for k, v in pairs(unfinish) do
-        self:do_delete_task(v.task_id)
+        self:do_delete_task(v)
 
         local task_id = daily_task_filter.select_task_by_group_id(castle_level, v.group_id)
         if task_id ~= nil then
             local prop_daily = resmng.prop_task_daily[task_id]
             self:add_task_data(prop_daily)
-            self:check_finish(prop_daily.ID, unpack(prop_daily.FinishCondition))
+            self:check_finish(prop_daily.ID, prop_daily.FinishCondition)
             INFO( "[TASK], pid=%d, refresh_daily_task=%s", self.pid, prop_daily.ID)
         else
             ERROR("refresh_daily_task error,task id is not exist,group id:%d", v.group_id)
@@ -662,7 +694,6 @@ function inc_activity(self, value)
     self.activity = self.activity + value
     union_mission.ok(self, UNION_MISSION_CLASS.ACTIVE, value)
     kw_mall.add_kw_point(value)
-    task_logic_t.process_task(self, TASK_ACTION.FINISH_DAILY_TASK)
     INFO( "[TASK], pid=%d, add_point=%s", self.pid, value)
 end
 
@@ -718,27 +749,6 @@ function daily_task_done(self, task_id)
 end
 
 
---完成任务开启建筑
-function open_build_by_task(self, task_id)
-    for k, v in pairs(resmng.prop_citybuildview) do
-        if v.OpenCond ~= nil then
-            if task_id == v.OpenCond[2] then
-                local build_id = v.PropId
-                local bs = self:get_build()
-                local conf = resmng.get_conf("prop_build", build_id)
-                local build_idx = self:calc_build_idx(conf.Class, conf.Mode, 1)
-                if bs[ build_idx ] == nil then
-                    local build = build_t.create(build_idx, self.pid, build_id, 0, 0, BUILD_STATE.CREATE)
-                    bs[ build_idx ] = build
-                    build.tmSn = 0
-                    self:doTimerBuild( 0, build_idx )
-                end
-            end
-        end
-    end
-end
-
-
 ----------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------
@@ -777,28 +787,6 @@ function get_target_all_award(self, index)
     self.task_target_all_award_index = self.task_target_all_award_index
     INFO( "[TASK], pid=%d, get_target_task=%s", self.pid, index)
 end
-
-
----------------------------------------------------------
---修复任务操作
-function fix_task(self)  
-    --重置目标任务
-    local prop_task_init = resmng.prop_task_init 
-    local pid = self.pid 
-    local cur_list = self:get_cur_task_list()
-    for _, prop in pairs( prop_task_init ) do
-        local task_info = resmng.get_conf( "prop_task_detail", prop.TaskID )
-        if task_info and task_info.TaskType == 5 then
-            self:add_task_data(task_info)
-        end 
-    end
-    self:do_save_task()
-    --重置日常任务
-    self:take_daily_task()
-end
-
-
-
 
 
 --GM 测试指令

@@ -7,12 +7,19 @@ svnnum("$Id$")
 
 prop_buy_group = {
 
-	[BUY_GROUP_1] = { ID = BUY_GROUP_1, Cond = nil, FrontReq = 0, StartTime = {}, GiftList = {12,13,16,19,21,25,28,35,45,48,64}, Group = 1, Lasts = 86400, NextListID = {2},},
-	[BUY_GROUP_2] = { ID = BUY_GROUP_2, Cond = nil, FrontReq = 1, StartTime = {}, GiftList = {12,13,19,21,25,27,29,34,40,41}, Group = 1, Lasts = 86400, NextListID = {3},},
-	[BUY_GROUP_3] = { ID = BUY_GROUP_3, Cond = nil, FrontReq = 1, StartTime = {}, GiftList = {12,16,19,21,21,27,29,34,40,41}, Group = 1, Lasts = 86400, NextListID = {4},},
-	[BUY_GROUP_4] = { ID = BUY_GROUP_4, Cond = nil, FrontReq = 1, StartTime = {}, GiftList = {12,15,16,17,19,21,27,29,35,41}, Group = 1, Lasts = 86400, NextListID = {5},},
-	[BUY_GROUP_5] = { ID = BUY_GROUP_5, Cond = nil, FrontReq = 1, StartTime = {}, GiftList = {12,16,17,18,19,21,41,43,47,58,63}, Group = 1, Lasts = 86400, NextListID = {6},},
-	[BUY_GROUP_6] = { ID = BUY_GROUP_6, Cond = nil, FrontReq = 1, StartTime = {}, GiftList = {12,13,16,17,18,19,21,25,38,43,47,58,64}, Group = 1, Lasts = 86400, NextListID = {7},},
-	[BUY_GROUP_7] = { ID = BUY_GROUP_7, Cond = nil, FrontReq = 1, StartTime = {}, GiftList = {12,13,16,19,21,25,28,43,45,47,64}, Group = 1, Lasts = 86400, NextListID = {1},},
-	[BUY_GROUP_8] = { ID = BUY_GROUP_8, Cond = nil, FrontReq = 0, StartTime = {}, GiftList = {52}, Group = 5, Lasts = nil, NextListID = {},},
+	[1] = { ID = 1, Cond = nil, FrontReq = 0, StartTime = {}, GiftList = {26,20,38,44,14,32,13,12,58}, Group = 1, Lasts = 86400, NextListID = {2},},
+	[2] = { ID = 2, Cond = nil, FrontReq = 1, StartTime = {}, GiftList = {26,20,38,44,14,32,13,12}, Group = 1, Lasts = 86400, NextListID = {3},},
+	[3] = { ID = 3, Cond = nil, FrontReq = 1, StartTime = {}, GiftList = {26,20,38,44,14,32,12}, Group = 1, Lasts = 86400, NextListID = {4},},
+	[4] = { ID = 4, Cond = nil, FrontReq = 1, StartTime = {}, GiftList = {26,20,38,44,14,32,12}, Group = 1, Lasts = 86400, NextListID = {5},},
+	[5] = { ID = 5, Cond = nil, FrontReq = 1, StartTime = {}, GiftList = {26,20,38,44,14,32,58}, Group = 1, Lasts = 86400, NextListID = {6},},
+	[6] = { ID = 6, Cond = nil, FrontReq = 1, StartTime = {}, GiftList = {26,20,38,44,14,32,13,12,61}, Group = 1, Lasts = 86400, NextListID = {7},},
+	[7] = { ID = 7, Cond = nil, FrontReq = 1, StartTime = {}, GiftList = {26,20,38,44,14,32,13,12,61}, Group = 1, Lasts = 86400, NextListID = {1},},
+	[8] = { ID = 8, Cond = nil, FrontReq = 0, StartTime = {}, GiftList = {52,69,70,71}, Group = 5, Lasts = nil, NextListID = {},},
+	[9] = { ID = 9, Cond = nil, FrontReq = 0, StartTime = {2017,12,30}, GiftList = {81}, Group = 2, Lasts = 86400, NextListID = {},},
+	[10] = { ID = 10, Cond = nil, FrontReq = 0, StartTime = {2017,12,31}, GiftList = {81}, Group = 2, Lasts = 86400, NextListID = {},},
+	[11] = { ID = 11, Cond = nil, FrontReq = 0, StartTime = {2018,1,1}, GiftList = {81}, Group = 2, Lasts = 86400, NextListID = {},},
+	[12] = { ID = 12, Cond = nil, FrontReq = 0, StartTime = {2018,1,2}, GiftList = {81}, Group = 2, Lasts = 86400, NextListID = {},},
+	[13] = { ID = 13, Cond = nil, FrontReq = 0, StartTime = {2018,1,3}, GiftList = {81}, Group = 2, Lasts = 86400, NextListID = {},},
+	[14] = { ID = 14, Cond = nil, FrontReq = 0, StartTime = {2018,1,4}, GiftList = {81}, Group = 2, Lasts = 86400, NextListID = {},},
+	[15] = { ID = 15, Cond = nil, FrontReq = 0, StartTime = {2018,1,5}, GiftList = {81}, Group = 2, Lasts = 86400, NextListID = {},},
 }

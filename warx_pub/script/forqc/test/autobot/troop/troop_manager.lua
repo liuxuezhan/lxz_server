@@ -32,6 +32,7 @@ function TroopManager:init(player)
     self.player = player
     self.march_jobs = {}
     self.eventNewTroopJob = newEventHandler()
+    self.waiting_battle_queue = {}
 
     local troop_count = self:_getMaxTroopCount()
     self.troop_queue = {}
@@ -40,17 +41,27 @@ function TroopManager:init(player)
     end
 
     self.troops = {}
-    self.player.eventTroopUpdated:add(newFunctor(self,TroopManager._onTroopUpdated))
-    self.player.eventTroopDeleted:add(newFunctor(self,TroopManager._onTroopDeleted))
+    self.player.eventTroopUpdated:add(newFunctor(self, TroopManager._onTroopUpdated))
+    self.player.eventTroopDeleted:add(newFunctor(self, TroopManager._onTroopDeleted))
+    self.player.eventEffectUpdated:add(newFunctor(self, TroopManager._onEffectUpdated))
     self.eventBusyTroopStarted = newEventHandler()
     self.eventBusyTroopFinished = newEventHandler()
     self.eventStateChanged = newEventHandler()
+    self.eventTroopQueueActivating = newEventHandler()
     self:_initTroops()
 end
 
 function TroopManager:uninit()
     self.player.eventTroopUpdated:del(newFunctor(self,TroopManager._onTroopUpdated))
     self.player.eventTroopDeleted:del(newFunctor(self,TroopManager._onTroopDeleted))
+    self.player.eventEffectUpdated:del(newFunctor(self, TroopManager._onEffectUpdated))
+
+    for k, v in pairs(self.troop_queue) do
+        v:stop()
+    end
+    self.troop_queue = nil
+    self.march_jobs = nil
+    self.waiting_battle_queue = nil
 end
 
 function TroopManager:requestTroop(action, priority, functor)
@@ -75,6 +86,32 @@ function TroopManager:_resortJobs()
     table.sort(self.march_jobs, function(a, b)
         return a.priority > b.priority
     end)
+end
+
+function TroopManager:checkTroopAction(troop_queue)
+    if ActionGroup["Battle"][troop_queue.troop_action] then
+        if nil ~= self.current_battle_queue then
+            return false
+        end
+        self.current_battle_queue = troop_queue
+        return true
+    end
+
+    return true
+end
+
+function TroopManager:addWaitingTroopAction(functor)
+    table.insert(self.waiting_battle_queue, functor)
+end
+
+function TroopManager:clearTroopAction(troop_queue)
+    if ActionGroup["Battle"][troop_queue.troop_action] then
+        self.current_battle_queue = nil
+        local functor = table.remove(self.waiting_battle_queue, 1)
+        if functor then
+            functor()
+        end
+    end
 end
 
 function TroopManager:getTroopCount(group)
@@ -103,8 +140,18 @@ function TroopManager:checkTroopQueue(queue)
 end
 
 function TroopManager:_getMaxTroopCount()
-    --return self.player:get_val("TroopCount")
-    return 1
+    return self.player:get_val("CountTroop")
+    --return 1
+end
+
+function TroopManager:_onEffectUpdated()
+    local troop_limit = self:_getMaxTroopCount()
+    local count = #self.troop_queue
+    if count < troop_limit then
+        for i = 1, troop_limit - count do
+            self:_createTroopQueue()
+        end
+    end
 end
 
 function TroopManager:_createTroopQueue()
@@ -167,6 +214,19 @@ end
 
 function TroopManager:isActive()
     return not self.inactive
+end
+
+function TroopManager:activateTroopQueue(queue, time)
+    queue.activate_time = time
+    self.eventTroopQueueActivating(self, queue)
+end
+
+function TroopManager:hasTroopQueueWorking()
+    for k, v in pairs(self.troop_queue) do
+        if v.activate_time and v.activate_time > 0 then
+            return true
+        end
+    end
 end
 
 function TroopManager:_onTroopUpdated(player, troop_id, troop)

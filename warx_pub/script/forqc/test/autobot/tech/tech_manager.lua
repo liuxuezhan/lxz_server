@@ -29,7 +29,7 @@ function TechManager:init(player)
 end
 
 function TechManager:uninit()
-    player.eventTechUpdated:del(newFunctor(self, TechManager._onTechUpdated))
+    self.player.eventTechUpdated:del(newFunctor(self, TechManager._onTechUpdated))
     self.player.build_manager.eventJobAccepted:del(newFunctor(self , self._onNewBuildingJob))
     self.player.build_manager.eventBuildingCompleted:del(newFunctor(self , self._onBuildingCompleted))
     self.eventJobAccepted = nil
@@ -58,11 +58,23 @@ function TechManager:addStudyJob(tech_id, priority, functor)
     local job = {
         tech_id = tech_id,
         dura = prop.Dura,
+        pow = prop.Pow,
+        lv = prop.Lv,
         priority = priority,
         functor = functor,
     }
     if self.tech_priority < priority then
         self:setTechPriority(priority)
+    end
+    for k, v in pairs(prop.Cond) do
+        local class, mode = unpack(v)
+        if not Autobot.doCondCheck(self.player, class, mode) then
+            if class == resmng.CLASS_BUILD then
+                self.player.build_manager:addBuilding(mode, priority + 1, 1)
+            elseif class == resmng.CLASS_TECH then
+                self:addStudyJob(mode, priority + 1)
+            end
+        end
     end
     table.insert(self.study_jobs, job)
     self:_resortJobs()
@@ -73,9 +85,26 @@ function TechManager:getStudyJob()
     for k, v in ipairs(self.study_jobs) do
         local prop = resmng.prop_tech[v.tech_id]
         if Autobot.condCheck(self.player, prop.Cond) then
-            table.remove(self.study_jobs, k)
-            self:_updatePriority(false)
-            return v
+            local found_tech
+            for _, tech_id in pairs(self.player.tech) do
+                local tech_prop = resmng.prop_tech[tech_id]
+                if tech_prop.Class == prop.Class and tech_prop.Mode == prop.Mode then
+                    if tech_prop.Lv >= prop.Lv then
+                        table.remove(self.study_jobs, k)
+                        self:_updatePriority(false)
+                        if v.functor then
+                            v.functor(v.tech_id, v.priority)
+                        end
+                    else
+                        return tech_id + 1
+                    end
+                    found_tech = true
+                    break
+                end
+            end
+            if not found_tech then
+                return v.tech_id - math.floor(v.tech_id % 1000) + 1
+            end
         else
             -- TODO: 可以在这里检查前置条件并发起升级请求
         end
@@ -90,6 +119,12 @@ function TechManager:_resortJobs()
     table.sort(self.study_jobs, function(a, b)
         if a.priority ~= b.priority then
             return a.priority > b.priority
+        end
+        if a.lv ~= b.lv then
+            return a.lv < b.lv
+        end
+        if a.pow ~= b.pow then
+            return a.pow > b.pow
         end
         return a.dura < b.dura
     end)

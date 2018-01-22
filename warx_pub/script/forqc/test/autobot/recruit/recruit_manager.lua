@@ -59,16 +59,16 @@ function RecruitManager:getRecruitPermit(mode)
     return self.recruit_priority[mode] > self.building_priority[mode]
 end
 
-function RecruitManager:addRecruitJob(mode, level, num, priority, is_accelerate)
+function RecruitManager:addRecruitJob(mode, level, num, priority, acc_type, functor)
     assert(mode > 0 and mode <= ARMY_BUILD_COUNT, "Wrong mode in RecruitManager:addRecruitRequest")
     if priority > self.recruit_priority[mode] then
         self:setRecruitPriority(mode, priority)
     end
     level = level or -1 -- -1 means the highest level
-    is_accelerate = is_accelerate and true or false
+    acc_type = acc_type
     local found
     for k, v in ipairs(self.recruit_jobs[mode]) do
-        if v.level == level and v.accelerate == is_accelerate then
+        if v.level == level and v.acc_type == acc_type then
             if v.num < num then
                 v.num = num
             end
@@ -79,7 +79,7 @@ function RecruitManager:addRecruitJob(mode, level, num, priority, is_accelerate)
         end
     end
     if not found then
-        local request = {mode = mode, level = level, num = num, priority=priority, accelerate = is_accelerate}
+        local request = {mode = mode, level = level, num = num, priority=priority, acc_type = acc_type, functor = functor}
         table.insert(self.recruit_jobs[mode], request)
     end
     self:_resortJobs(mode)

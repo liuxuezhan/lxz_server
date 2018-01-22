@@ -7,16 +7,9 @@ function mail_read_by_class( self, class, mode, lv )
         if class ~= -1 then qinfo.class = class end
         if mode ~= -1 then qinfo.mode = mode end
         if lv ~= -1 then qinfo.lv = lv end
-        local info = db.mail:find( qinfo )
-        local ms = {}
-        while info:hasNext() do
-            local m = info:next()
-            if m then
-                m.tm_read = gTime
-                gPendingSave.mail[ m._id ].tm_read = gTime
-                INFO("[mail], read, pid=%d, id=%s", self.pid, m._id )
-            end
-        end
+
+        db.mail:update( qinfo, { [ "$set" ] = { tm_read = gTime } }, false, true )
+        local info = db:runCommand("getLastError")
         self:reply_ok("mail_read_by_class", 0)
     end
 end
@@ -119,45 +112,34 @@ function mail_fetch_by_sn(self, sns)
     if db then
         local info = db.mail:find( { to=self.pid, _id={ ["$in"] = sns }, tm_drop = 0, tm_fetch = 0 } )
         local msg = {}
+        local ids = {}
         while info:hasNext() do
             local m = info:next()
             if m then
                 if m.its ~= 0 then
-                    INFO("[mail], fetch, pid=%d, id=%s", self.pid, m._id )
+                    INFO("[mail], fetch, pid,%d, id,%s", self.pid, m._id )
                     m.tm_fetch = gTime
-                    gPendingSave.mail[ m._id ].tm_fetch = gTime
+                    -- here can not use gPending, for fetch many times in short time
+                    --gPendingSave.mail[ m._id ].tm_fetch = gTime
                     self:add_bonus("mutex_award", m.its, VALUE_CHANGE_REASON.REASON_MAIL_AWARD)
                     self:reply_ok("mail_fetch_by_sn", m.idx)
                     table.insert(msg, m._id)
+                    table.insert( ids, m._id )
                 end
             end
         end
+
+        db.mail:update( { _id={ ["$in"] = ids } }, { [ "$set" ] = { tm_fetch = gTime } }, false, true )
+        local info = db:runCommand("getLastError")
+
         Rpc:mail_fetch_resp(self, msg)
     end
 end
 
 
---function get_mail(self)
---    if not self._mail then
---        local ms = {}
---        local db = self:getDb()
---        local info = db.mail:find({to=self.pid, tm_drop=0})
---        --local info = db.mail:find({to=self.pid})
---        if info then
---            while info:hasNext() do
---                local m = info:next()
---                ms[ m._id ] = m 
---            end
---        end
---        self._mail = self._mail or ms
---    end
---    return self._mail
---end
---
-
 function mail_load( self, sn )
     local mail_sys = self.mail_sys or 0
-    if mail_sys < gSysMailSn then
+    if mail_sys < _G.gSysMailSn then
         local count = #gSysMail -- the bigger sn, be post at tail
         local news = {}
         for idx = count, 1, -1 do
@@ -171,7 +153,7 @@ function mail_load( self, sn )
             m.copy = v._id
             self:mail_new(m, true)
         end
-        self.mail_sys = gSysMailSn
+        self.mail_sys = _G.gSysMailSn
     end
 
     local db = self:getDb()
@@ -250,7 +232,7 @@ end
 
 function mail_compensate( self )
     local mail_sys = self.mail_sys or 0
-    if mail_sys < gSysMailSn then
+    if mail_sys < _G.gSysMailSn then
         local count = #gSysMail -- the bigger sn, be post at tail
         local news = {}
         for idx = count, 1, -1 do
@@ -264,15 +246,15 @@ function mail_compensate( self )
             m.copy = v._id
             self:mail_new(m, true)
         end
-        self.mail_sys = gSysMailSn
+        self.mail_sys = _G.gSysMailSn
     end
 end
-
 
 -- p:mail_new({from=from, name=name, class=class, title="hello", content="world", its={{1001,100}}})
 function mail_new(self, v, is_compensate)
     if self.map ~= gMapID then
         self:add_to_do("mail_new", v, is_compenstate)
+        return
     end
 
     v.its = v.its or 0
@@ -540,11 +522,11 @@ end
 
 -- player.mail_all({ class=class, title="hello", content="world", its={{1001,100}}})
 function mail_all(v)
-    v._id = gSysMailSn + 1
+    v._id = _G.gSysMailSn + 1
     v.idx = v._id
     v.to = 0
     v.from = 0
-    gSysMailSn = v._id
+    _G.gSysMailSn = v._id
     table.insert(gSysMail, v)
 
     gPendingInsert.mail[ v._id ] = v
@@ -739,7 +721,7 @@ function send_union_build_mail(self, mail_id, title_parm, text_parm)
     return true
 end
 
-function send_fight_fail_mail(self, mail_id, title_parm, text_parm)
+function send_fight_fail_mail(self, mail_id, title_parm, text_parm, mail_mode)
     local prop_tab = resmng.get_conf("prop_mail", mail_id)
     if prop_tab == nil then
         return false
@@ -754,7 +736,7 @@ function send_fight_fail_mail(self, mail_id, title_parm, text_parm)
     }
     content.extra = {}
 
-    self:mail_new({from=0, name="", class=MAIL_CLASS.FIGHT, mode=MAIL_FIGHT_MODE.SYS_FAIL, title="", content=content, its=nil})
+    self:mail_new({from=0, name="", class=MAIL_CLASS.FIGHT, mode=mail_mode or MAIL_FIGHT_MODE.SYS_FAIL, title="", content=content, its=nil})
     return true
 end
 

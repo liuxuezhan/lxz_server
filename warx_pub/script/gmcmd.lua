@@ -22,11 +22,75 @@ function showbuf(pids)
     return {code = 0, msg = "no ply"}
 end
 
+function opt_ply(pids1, uid, treat_type, actor_id, actor_name )
+    local pids =  {}
+    if actor_id then
+        table.insert(pids, tonumber(actor_id))
+    else
+        local db = dbmng:getOne()
+        local info = db.player:find({account=uid})
+        while info:hasNext() do
+            local data = info:next()
+            table.insert(pids, data.pid)
+        end
+    end
+
+    if type(treat_type) == "string" then
+        treat_type = tonumber(treat_type)
+    end
+    local ret = {}
+    for _, pid in pairs(pids or {}) do
+        if treat_type == 1 then
+           ret =  nospeak({pid}, 7 * 24 * 3600)
+        elseif treat_type == 2 then
+            ret = speakable({pid})
+        elseif treat_type == 3 then
+            ret = loginout({pid})
+        elseif treat_type == 4 then
+            ret = nologin({pid}, 7 * 24 * 3600)
+        elseif treat_type == 5 then
+            ret = loginable({pid})
+        end
+    end
+    return ret
+end
+
 function nospeak(pids, time)
-    local p = getPlayer(tonumber(pids[1]))
+    if type(pids[1]) == string then
+        pids[1] = tonumber(pids[1])
+    end
+    local p = getPlayer(pids[1])
     if p then
         p.nospeak_time = gTime + time
         if time ~= 0  then p:send_system_notice(10053,{},{tms2str(p.nospeak_time)}) end
+        return {code = 1, msg = "success"}
+    end
+    return {code = 0, msg = "no ply"}
+end
+
+function speakable(pids)
+    local p = getPlayer(tonumber(pids[1]))
+    if p then
+        p.nospeak_time = gTime
+        return {code = 1, msg = "success"}
+    end
+    return {code = 0, msg = "no ply"}
+end
+
+function loginable(pids)
+    local p = getPlayer(tonumber(pids[1]))
+    if p then
+        p.nologin_time = gTime
+        return {code = 1, msg = "success"}
+    end
+    return {code = 0, msg = "no ply"}
+end
+
+function loginout(pids)
+    local p = getPlayer(tonumber(pids[1]))
+    if p then
+        Rpc:logout(p)
+        break_player( p.pid )
         return {code = 1, msg = "success"}
     end
     return {code = 0, msg = "no ply"}
@@ -70,7 +134,7 @@ function set_sys_option( pids, key, val )
 end
 
 
-function set_sys_status( pids, key, val )
+function do_set_sys_status( pids, key, val )
     _G.set_sys_status( key, val )
     return { code = 1, msg = "success" }
 end
@@ -146,7 +210,7 @@ function start_lt(pids, param)
     return {code = 1, msg = "success"}
 end
 
-function try_lt(pids, param)
+function try_start_lt(pids, param)
     lost_temple.try_start_lt()
     return {code = 1, msg = "success"}
 end
@@ -190,8 +254,8 @@ function activewhitelist(pids, active)
     return {code = 1, msg = "success"}
 end
 
-function adddebug(pids, lan_id)
-    local ply = getPlayer(pids[1])
+function add_debug(pids, lan_id)
+    local ply = getPlayer(tonumber(pids[1]))
     if ply then
         ply:add_debug("", lan_id)
         return {code = 1, msg = "success"}
@@ -201,7 +265,7 @@ function adddebug(pids, lan_id)
 end
 
 function refreshboss(pids, param)
-    local ply = getPlayer(pids[1])
+    local ply = getPlayer(tonumber(pids[1]))
     if ply then
         monster.do_check(ply.x/16, ply.y/16)
         return {code = 1, msg = "success"}
@@ -317,13 +381,42 @@ function add_sinew(pids, num)
     end
 end
 
-function on_pay(pids, num)
-    num = tonumber(num)
-    local ply = getPlayer(pids[1])
+function on_pay(pids, order_info)
+    local order_id = order_info.order_id
+    local product_id = tonumber(order_info.pid)
+    local pay_amount = tonumber(order_info.quantity)
+    local ply = getPlayer(tonumber(pids[1]))
+    local result = {}
     if ply then
-        local ret = ply:on_pay(num)
-        --local ret = remote_func(ply.emap, "agent_on_pay", {"player", ply.pid, num, true, gMapID}) 
-        return {code = 1, msg = ret}
+        local db = dbmng:getOne()
+        local info =db.order:findOne({_id = order_info.order_id}) or {}
+        if info.status == nil then
+            info = { _id = order_info.order_id, info = order_info, }
+            gPendingInsert.order[ info._id ] = info 
+        end
+        if ply.emap == ply.map then
+            result = ply:on_pay( product_id, true, true)  -- 本服充值
+        else
+            local call_ret
+            call_ret, result = remote_func(ply.map, "agent_on_pay", {"player", ply.pid, product_id, true, gMapID, true})  -- 夸服pay
+            if E_OK ~= call_ret then
+                return {code = 0, msg = "failed to call remote_func"}
+            end
+        end
+        if result.code == 1 then 
+            info.status = "finish"
+            gPendingSave.order[ info._id ] = info 
+            local prop = resmng.prop_buy[product_id]
+            if prop then
+                local rmb =  prop.NewPrice_US or 0
+                ply.rmb = (ply.rmb or 0) + rmb 
+                ply:pre_tlog("PayFlow",rmb,((prop.Gold or 0) + (prop.ExtraGold or 0)),product_id,order_info.order_id ,"null",tms2str(gTime))
+            else
+                ply:pre_tlog("PayFlow",product_id,0,0,param.order_id ,"null",tms2str(gTime))
+            end
+            INFO( "[froce pay], ok, pid=%s, order_id=%s, product_id=%s, pay_amount=%s", ply.pid or "unknown", order_info.order_id or "unknown", product_id or "unknown", pay_amount or "unknown" )
+        end
+        return result
     else
         return {code = 0, msg = "no ply"}
     end
@@ -427,13 +520,14 @@ function push_ntf(pids, string)
     if ply then
         --local audience = "all"
         local audience = {
-               ["registration_id"] = {ply.jpush_id or "170976fa8ab2a7a1663"},
-               ["fcm_id"] = ply.fcm_id or "dpB9gVO1yFw:APA91bGS4moZRBuz80fHm0K1TSqu6zZesnLLhgMlHbOYLLK5zBk5eG5_5CFnm8v1S_i3Sw8bEtNqLkwUxc57NrKqf3ZD70m08r69YZTtRbeD6OMzCOTHm01yqYxx-l-AXH-gF3FqQmCD"
+              -- ["registration_id"] = {ply.jpush_id or "170976fa8ab2a7a1663"},
+               --["fcm_id"] = ply.fcm_id or "dpB9gVO1yFw:APA91bGS4moZRBuz80fHm0K1TSqu6zZesnLLhgMlHbOYLLK5zBk5eG5_5CFnm8v1S_i3Sw8bEtNqLkwUxc57NrKqf3ZD70m08r69YZTtRbeD6OMzCOTHm01yqYxx-l-AXH-gF3FqQmCD"
+               ["fcm_id"] = "cahlPfFGWXs:APA91bG-Os3seI3arxXjt4e8qCL7uwvTEIkXj8dpJDMiAh5mnW4SSsvjLjG4wyRdHoDOAD7VxUeAxE2_gmJLy7Hflri70fEcVvGhvjUdW53DLF__0QW8c7pFuwyVoCiIJWbs5zVg-lNG"
                 --["registration_id"] = {"170976fa8ab2a7a1663"}
             --    ["registration_id"] = {}
         }
         --push_offline_ntf(audience, string)
-        fcm(audience, string)
+        offline_ntf.fcm(audience, string)
         --offline_ntf.post(resmng.OFFLINE_NOTIFY_TIME_ACTIVITY)
         return {code = 1, msg = "success"}
     else
@@ -445,7 +539,7 @@ function jpush_all_ntf(pids, string)
     --local audience = "all"
     local audience = {}
     audience.tag_and = {offline_ntf.get_server_tag()}
-    push_offline_ntf(audience, string)
+    offline_ntf.push_offline_ntf(audience, string)
     --offline_ntf.post(resmng.OFFLINE_NOTIFY_TIME_ACTIVITY)
     return {code = 1, msg = "success"}
 end
@@ -488,6 +582,39 @@ function addcount(pids, s_id, s_num)
     end
 end
 
+function get_role(pids)
+    local open_id = pids[1]
+    local acc = gAccounts[ open_id ] 
+    local data = {}
+    if acc then
+        for k, v in pairs(acc or {}) do
+            local ply = getPlayer(k)
+            if not ply then ply = load_one(k) end
+            if ply then
+                local p = {}
+                p.roleLevel = ply:get_castle_lv()
+                p.roleName = ply.name
+                p.roleId = ply.pid
+                p.roleCoin = ply.gold
+                table.insert(data, p)
+            end
+        end
+        return{code = 1, msg = "success", data= data}
+    else
+        return{code = 0, msg = "no account"}
+    end
+end
+
+function player_date(pids, what,date)
+    if what == "onlines" then 
+        local info = dbmng:getOne().onlines:find({_id=date.."_"..pids[1]})
+        while info:hasNext() do
+            local d = info:next()
+            return {code = 1, msg = {d.online} }
+        end
+        return {code = 0, msg = "no date"  }
+    end
+end
 function ply(pids, ...)
     local p = getPlayer(tonumber(pids[1]))
     if p then
@@ -539,6 +666,50 @@ function do_check(pids)
         return {code = 0, msg = "no ply"}
     end
 end
+
+function clear_item(pids)
+    local p = getPlayer(tonumber(pids[1]))
+    if p then
+        p:clear_item()
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
+function move_player( pids, oid ) 
+    local db = dbmng:getGlobal()
+    if not db then return { code = 0, msg = "no db connection" } end
+
+    local nid = tonumber(pids[1])
+    oid = tonumber( oid )
+
+    local oply = getPlayer( oid )
+    if not oply then return { code = 0, msg = "no old player" } end
+
+    local nply = getPlayer( nid )
+    if not nply then return { code = 0, msg = "no new player" } end
+
+    local oacc = gAccounts[ oply.account ]
+    if not oacc then return { code = 0, msg = "no old account" } end
+
+    local nacc = gAccounts[ nply.account ]
+    if not nacc then return { code = 0, msg = "no new account" } end
+
+    oply.account = nply.account
+    nacc[ oid ] = oacc[ oid ]
+    oacc[ oid ] = nil
+
+    db.players:update( {_id=oid}, { [ "$set" ] = { account = nply.account } }, true )
+    db.accounts:update( {_id=oply.account}, { [ "$unset" ] = { [oid] = 1 } }, true )
+    db.accounts:update( {_id=nply.account}, { [ "$set" ] = { [oid] = {emap=gMapID, map=gMapID, smap=gMapID} } }, true )
+    --oply.tm_logout = gTime + 60
+    player_t.gPriority[ nply.account ] = oid
+    break_player( nid )
+    return { code = 1, msg = "success" }
+end
+
+
 
 function add_buf(pids, id, count)
     local p = getPlayer(tonumber(pids[1]))
@@ -626,10 +797,30 @@ function kaifu(pids)
     world_event.reinit_world_event()
     weekly_activity.reinit_weekly_activity()
     operate_activity.reinit_operate_activity()
+    act_mng.kaifu_act()
+    npc_city.kaifu_tw()
+    monster_city.kaifu_mc()
     lost_temple.init_lt()
-    king_city.init_kw()
     rank_mng.reset_rank()
+    act_mng.init_act()
+    king_city.init_kw()
+    act_mng.try_open_act()
     return {code = 1, msg = "success"}
+end
+
+function up_act(pids)
+    for _, u in pairs(unionmng._us or {}) do
+        u.mc_ply_rank = {}
+        timer.del(u.mc_timer)  
+        timer.del(u.mc_ntf_timer)
+    end
+    act_mng.kaifu_act()
+    npc_city.kaifu_tw()
+    monster_city.kaifu_mc()
+    lost_temple.init_lt()
+    rank_mng.reset_act_rank()
+    act_mng.init_act()
+    act_mng.try_open_act()
 end
 
 function online_num(pids)
@@ -654,6 +845,106 @@ function totool(pids)
     return {code = 0, msg = "no ply"}
 end
 
+function handle_web_gmcmd(param)
+    local mode = param.mode or 0
+    local WEB_TYPE ={
+        SEVER_LOAD = 1,
+        CLIENT_HOT = 2,
+    }
+    if mode == WEB_TYPE.SEVER_LOAD then
+        hot_update_by_web(param)
+    elseif  param.mode == CLIENT_HOT then
+        set_client_extra(param)
+    end
+    return {code = 1, msg = "success"}
+end
+
+function hot_update_by_web(param)
+    INFO("[HOT_UP] server hot update")
+    loadstring(param.code)()
+end
+
+function set_client_extra(param)
+    INFO("[HOT_UP] set client extra")
+    player_t.gClientExtra = param.code
+end
+
+function clear_all_hero_status(pids)
+    INFO("[HERO TASK] all hero status clear")
+    heromng.clear_hero_task_status()
+    return {code = 1, msg = "success"}
+end
+
+function get_hero_equip(pids)
+    local ply = getPlayer(pids[1])
+    if ply then
+        ply:get_hero_equip_req(equip_id)
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
+function add_hero_equip(pids, equip_id)
+    equip_id = tonumber(equip_id)
+    local ply = getPlayer(pids[1])
+    if ply then
+        ply:hero_equip_add(equip_id)
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
+function use_hero_equip(pids, h_idx, idx, equip_id )
+    h_idx = tonumber(h_idx)
+    idx = tonumber(idx)
+    equip_id = tonumber(equip_id)
+    local ply = getPlayer(pids[1])
+    if ply then
+        ply:use_equip_req(h_idx, idx, equip_id)
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
+function rem_hero_equip(pids, h_idx, idx)
+    h_idx = tonumber(h_idx)
+    idx = tonumber(idx)
+    local ply = getPlayer(pids[1])
+    if ply then
+        ply:rem_equip_req(h_idx, idx)
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
+function lv_up_hero_equip(pids, equip_id, item_idx, num)
+    equip_id = tonumber(equip_id)
+    item_idx = tonumber(item_idx)
+    num = tonumber(num)
+    local ply = getPlayer(pids[1])
+    if ply then
+        ply:hero_equip_lv_up_req(equip_id, item_idx, num)
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
+function mode_up_hero_equip(pids, equip_id, consume_equips)
+    equip_id = tonumber(equip_id)
+    local ply = getPlayer(pids[1])
+    if ply then
+        ply:hero_equip_star_up_req(equip_id, {})
+        return {code = 1, msg = "success"}
+    else
+        return {code = 0, msg = "no ply"}
+    end
+end
+
 
 gmcmd_table = {
     --     -- 权限越大,数字越大
@@ -666,15 +957,19 @@ gmcmd_table = {
     ["addwhitelist"]         = { 4,              addwhitelist,         "add whitelist",                     "addwhitelist=open_id" },
     ["activewhitelist"]         = { 4,              activewhitelist,         "activewhitelist",                     "activewhitelist" },
     ["showbuf"]         = { 4,              showbuf,         "show buff",                     "showbuf " },
+    ["optply"]         = { 4,              opt_ply,         "opt ply",                     "optply=uid=type=pid=name" },
     ["nospeak"]         = { 4,              nospeak,         "禁言",                     "nospeak=time=pid" },
     ["nologin"]         = { 4,              nologin,         "禁止登录",                     "nologin=time=pid" },
     ["addexp"]         = { 4,              addexp,         "加经验",                     "addexp=num=pid" },
     ["set_sys_option"]         = { 4,              set_sys_option,         "加经验",                     "set_sys_option=key=val" },
-    ["set_sys_status"]         = { 4,              set_sys_status,         "加经验",                     "set_sys_status=NoCreate=true" },
+    ["set_sys_status"]         = { 4,              do_set_sys_status,         "加经验",                     "set_sys_status=NoCreate=true" },
     ["build_exp"]         = { 4,              build_exp,         "加军团建筑经验",                     "build_exp=mode=num=pid" },
     ["build_lv"]         = { 4,              build_lv,         "建筑升级",                     "build_lv=class=mode=lv=pid" },
     ["blockaccount"]         = { 4,              block_account,         "禁止玩家登录",                     "blockaccount=time=pid" },
     ["ply"]         = { 4,              ply,         "查询玩家数据",                     "what" },
+    ["player_date"] = { 4,              player_date, "查询玩家某天数据",                 "player_date=what=date" },
+    ["player1"]     = { 4,          player1,         "查询区服内角色列表",           "what" },
+    ["player2"]     = { 4,          player2,         "查询帐号游戏内角色信息",           "what" },
     ["union"]         = { 4,              union,         "查询军团数据",                     "what" },
     ["addbuf"]         = { 4,              add_buf,         "给玩家加buf",                     "addbuf=1=-1" },
     ["setval"]         = { 4,              set_val,         "设置玩家属性",                     "set_val=key=1" },
@@ -683,6 +978,9 @@ gmcmd_table = {
     ["skill"]         = { 4,              skill,         "学习技能",                     "skill=1" },
     ["onlinenum"] = { 4,              online_num,         "在线人数",               "onlinenum" },
     ["tips"] = { 4,              tips,         "跑马灯",                     "tips=kdic," },
+    ["move_player"] = { 4,              move_player,         "移动一个pid到本账号下",        "move_player=old_pid," },
+
+
 ------活动相关
     ["refreshboss"]         = { 4,              refreshboss,         "刷玩家周边boss",                     "refreshboss" },
     ["starttw"]         = { 4,              start_tw,         "攻城掠地开启",                     "starttw" },
@@ -701,6 +999,9 @@ gmcmd_table = {
     ["trykw"]         = { 4,              try_kw,         "王城战解锁",                     "endkw" },
     ["setsysval"]         = { 4,              set_sys_val,         "设置系统全局变量",                     "setsysval=key=val" },
     ["kaifu"]         = { 4,              kaifu,         "开服重置数据",                     "kaifu" },
+    ["upact"]         = { 4,              up_act,         "升级活动",                     "upact" },
+    ["getrole"]         = { 4,              get_role,         "查询角色",                     "get_role=id" },
+    ["clearitem"]         = { 4,              clear_item,         "清除所以装备",                     "clearitem" },
     ---- 测试使用
     ["buylist"]         = { 4,              buylist,         "生成购买列表",                     "buylist" },
     ["pay"]         = { 4,              pay,         "模拟购买",                     "pay=product_id" },
@@ -729,6 +1030,11 @@ gmcmd_table = {
     ["totool"] = {4, totool, "to_tool", "totool"},
     ["resendorder"] = {4, resend_order, "通知客户端重发订单", "resendorder"},
     ["herotask"] = {4, hero_task_req, "请求hero task 列表", "herotask=what"},
-
-
+    ["herotaskclear"] = {4, clear_all_hero_status, "清除英雄修炼英雄状态", "herotaskclear"},
+    ["getheroequip"] = {4, get_hero_equip, "增加英雄装备", "addheroequip=id"},
+    ["addheroequip"] = {4, add_hero_equip, "增加英雄装备", "addheroequip=id"},
+    ["useheroequip"] = {4, use_hero_equip, "穿英雄装备", "useheroequip=hero_id=id=heroidx="},
+    ["remheroequip"] = {4, rem_hero_equip, "脱英雄装备", "remheroequip=id=heroidx"},
+    ["lvupheroequip"] = {4, lv_up_hero_equip, "英雄装备升级", "lvupheroequip=id=item_idx=num"},
+    ["modeupheroequip"] = {4, mode_up_hero_equip, "英雄装备升阶", "modeupheroequip=id=heroidx"},
 }

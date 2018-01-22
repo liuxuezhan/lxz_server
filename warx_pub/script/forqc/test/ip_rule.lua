@@ -1,7 +1,7 @@
 local t1 = {}
 
 function t1.action( idx )
-    local sid = connect( "192.168.100.12", 6001, 0, 0 )
+    local sid = connect( "192.168.100.12", 6001, 1, 0 )
     if sid then
         local node = {}
         node.action = "ip_rule"
@@ -19,8 +19,9 @@ function t1.add_white( node )
     pushHead2s( node.gid, hashStr( "firstPacket" ) )
     pushInt( hashStr( "ip_rule" ) )
     pushInt( hashStr( "ip_rule_add_white" ) )
-    --pushInt( c_inet_addr( "192.168.103.189" ) )
-    pushInt( c_inet_addr( "192.168.103.188" ) )
+    --pushInt( c_inet_addr( "192.168.103.188" ) )
+    --pushInt( 0 )
+    pushInt( c_inet_addr( "192.168.101.47" ) )
     pushOver()
 end
 
@@ -29,8 +30,8 @@ function t1.add_black( node )
     pushHead2s( node.gid, hashStr( "firstPacket" ) )
     pushInt( hashStr( "ip_rule" ) )
     pushInt( hashStr( "ip_rule_add_black" ) )
-    --pushInt( c_inet_addr( "192.168.101.40" ) )
-    pushInt( c_inet_addr( "192.168.103.189" ) )
+    --pushInt( c_inet_addr( "192.168.103.189" ) )
+    pushInt( c_inet_addr( "192.168.101.47" ) )
     pushOver()
 end
 

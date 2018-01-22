@@ -4,6 +4,8 @@ function TroopWait:onInit()
 end
 
 function TroopWait:onEnter(troop)
+    self.host:activateTroopQueue(self.fsm, gTime)
+
     self.host.eventBusyTroopStarted:add(newFunctor(self, TroopWait._onTroopStarted))
     self.host.eventBusyTroopFinished:add(newFunctor(self, TroopWait._onTroopFinished))
 
@@ -19,6 +21,7 @@ function TroopWait:onExit()
     self.host.eventBusyTroopFinished:del(newFunctor(self, TroopWait._onTroopFinished))
     self.troop_id = nil
     self.troop = nil
+    self.host:activateTroopQueue(self.fsm)
 end
 
 function TroopWait:_onTroopStarted(player, troop_id, troop)

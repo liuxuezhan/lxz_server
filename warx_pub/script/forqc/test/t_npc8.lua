@@ -12,8 +12,12 @@ function t1.action(_idx)
     }
     local city_lv = 4
 
-    local a1 = get_one(true)   -- 创建账号A1
+    local name = 899
+    local a1 = get_account2(name)
     loadData(a1)
+    name = name + 1
+    --local a1 = get_one(true)   -- 创建账号A1
+    --loadData(a1)
     chat( a1, "@resetcity=2" )
     print("create ply a1 ", a1.pid)
     chat( a1, "@lvbuild=0=0=6" )
@@ -52,8 +56,11 @@ function t1.action(_idx)
     end
     acc_troop_by_tid(a1, tid)
 
-    local a2 = get_one(true)   -- 创建账号A2
+    --local a2 = get_one(true)   -- 创建账号A2
+    --lopadData(a2)
+    local a2 = get_account2(name)
     loadData(a2)
+    name = name + 1
     print("create ply a2 ", a2.pid)
     chat( a2, "@lvbuild=0=0=6" )
     chat( a2, "@set_val=gold=100000000" )
@@ -83,8 +90,11 @@ function t1.action(_idx)
     end
     acc_troop_by_tid(a2, tid)
 
-    local a3 = get_one(true)   -- 创建账号A1 5级创建军团
+    --local a3 = get_one(true)   -- 创建账号A1 5级创建军团
+    --loadData(a3)
+    local a3 = get_account2(name)
     loadData(a3)
+    name = name + 1
     print("create ply a3 ", a3.pid)
     chat( a3, "@lvbuild=0=0=6" )
     chat( a3, "@set_val=gold=100000000" )

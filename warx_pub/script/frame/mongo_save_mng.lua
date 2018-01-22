@@ -204,6 +204,14 @@ function loop_array_to_write(save_tab, is_raw_save, is_global)
     end
 end
 
+function mongo_error_stack(err)
+    local stacks = debug.traceback(err, 2)
+    WARN(stacks)
+    if perfmon and perfmon.on_exception then
+        perfmon.on_exception()
+    end
+end
+
 function build_bson_cmd(tab, docs, is_raw, is_delete, is_global)
     local update_docs = nil
     local del_docs = nil
@@ -212,6 +220,8 @@ function build_bson_cmd(tab, docs, is_raw, is_delete, is_global)
     else
         update_docs = docs
     end
+
+    local catch_an_error = false
 
     if update_docs and #update_docs > 0 then
         local db_tab = _statistics.game_db
@@ -224,26 +234,40 @@ function build_bson_cmd(tab, docs, is_raw, is_delete, is_global)
         if #update_docs > stat_tab.max_up_doc then
             stat_tab.max_up_doc = #update_docs
         end
+
+        local call_ret, bson_cmd = xpcall(bson.encode_order, mongo_error_stack, "update", tab, "updates", update_docs, "ordered", false, "writeConcern", COMMON_WRITE_CONCERN)
+        --local bson_cmd = bson.encode_order("update", tab, "updates", update_docs, "ordered", false, "writeConcern", COMMON_WRITE_CONCERN)
+        if call_ret then
+            put_bson_cmd(gFrame-1, tab, bson_cmd, is_raw, is_global)
+        else
+            ERROR("zhoujy_error: encode_order catch an error, tab=%s", tab)
+            catch_an_error = true
+        end
+
         -- TODO: mongo document said wtimeout will active only when w great than 1. keep notice.
-        if #update_docs > 500 then
-            WARN("zhoujy_warning: monogo save update %d once, should optimize! may be use raw sql", #update_docs)
+        if #update_docs > 500 or catch_an_error then
+            if not catch_an_error then WARN("zhoujy_warning: monogo save update %d once, should optimize! may be use raw sql", #update_docs) end
             local part_docs = {}
             table.move(update_docs, 1, 20, 1, part_docs)
-            dumpTab(part_docs, "part of too large update_docs", nil, true)
+            dumpTab(part_docs, "part of update_docs", nil, true)
         end
-        local bson_cmd = bson.encode_order("update", tab, "updates", update_docs, "ordered", false, "writeConcern", COMMON_WRITE_CONCERN)
-        put_bson_cmd(gFrame-1, tab, bson_cmd, is_raw, is_global)
     end
 
     if del_docs and #del_docs > 0 then
-        if #del_docs > 500 then
-            WARN("zhoujy_warning: monogo save delete %d once, should optimize! may be use raw sql", #del_docs)
+        local call_ret, bson_cmd = xpcall(bson.encode_order, mongo_error_stack, "delete", tab, "deletes", del_docs, "ordered", false, "writeConcern", COMMON_WRITE_CONCERN)
+        if call_ret then
+            put_bson_cmd(gFrame-1, tab, bson_cmd, is_raw, is_global)
+        else
+            ERROR("zhoujy_error: encode_order catch an error, tab=%s", tab)
+            catch_an_error = true
+        end
+
+        if #del_docs > 500 or catch_an_error then
+            if not catch_an_error then WARN("zhoujy_warning: monogo save delete %d once, should optimize! may be use raw sql", #del_docs) end
             local part_docs = {}
             table.move(del_docs, 1, 20, 1, part_docs)
-            dumpTab(part_docs, "part of too large del_docs", nil, true)
+            dumpTab(part_docs, "part of del_docs", nil, true)
         end
-        local bson_cmd = bson.encode_order("delete", tab, "deletes", del_docs, "ordered", false, "writeConcern", COMMON_WRITE_CONCERN)
-        put_bson_cmd(gFrame-1, tab, bson_cmd, is_raw, is_global)
     end
 end
 
@@ -472,7 +496,7 @@ function do_threadDB()
             db_tab[tostring(co)] = gTime
             local info = db:runCommand2(param)
             -- recvReply时统一放到了gCoroBad中，保留此引用会造成co对象泄漏
-            gCoroBad[co] = nil
+            -- gCoroBad[co] = nil
             db_tab[tostring(co)] = nil
             on_send_write_ack(is_global, frame_id)
 

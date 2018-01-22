@@ -104,6 +104,10 @@ end
 
 function get(u) --查询
     --u.task = u.task or new({_id=u.uid,tm=0,})
+    if u.map_id then
+        local ret, val = remote_func(u.map_id, "remote_get", {"union_mission", u.uid})
+        return val
+    end
     u.task = u.task or tab_auto({_id=u.uid,tm=0,})
     if u:is_new() and   u.task.tm + 2*60*60 < gTime then --重置 
         u.task.tm = gTime
@@ -167,9 +171,17 @@ function get(u) --查询
     return u.task
 end
 
+function remote_get(union, map_id, id)
+    return get(union)
+end
+
 function ok(p,cond,num)
     local u = unionmng.get_union(p.uid)
     if not u then return end
+    if u.map_id then
+        remote_cast(u.map_id, "remote_union_mission_ok", {"union", p.uid, p.pid, cond, num})
+        return
+    end
     if not u.task then return end
     for k,v in pairs (u.task.cur or {} ) do
         if v.state == TASK_STATUS.TASK_STATUS_ACCEPTED then 
@@ -180,6 +192,7 @@ function ok(p,cond,num)
                     v.state = TASK_STATUS.TASK_STATUS_FINISHED 
                     v.num = c.Count
                     u:add_log(resmng.UNION_EVENT.MISSION,resmng.UNION_MODE.OK,{ propid=v.class*1000 +  u.task.lv})
+                    u:notifyall(resmng.UNION_EVENT.MISSION, resmng.UNION_MODE.OK, {propid=c.ID, num = num } )
                 else
                     v.num = v.num + num
                 end
@@ -207,19 +220,11 @@ function add(p, idx)--领取军团任务奖励
 
     local u = unionmng.get_union( p.uid )
     if not u then return end
-    if not u.task then return end
 
-    local star = 0
-    for _,v  in pairs(u.task.cur) do
-        local c = resmng.get_conf("prop_union_task",v.class*1000+u.task.lv)
-        if not c  then return end
-        if v.state ==  TASK_STATUS.TASK_STATUS_FINISHED and v.num >= c.Count then star = star + c.Stars end
+    local star, lv = get_mission_star_and_lv(u)
+    if 0 == star then
+        return
     end
-
-    if star < 1 then return
-    elseif star < 5 then star =1
-    elseif star < 10 then star =2
-    else star =3 end
 
     if can_date(p._union.tm_mission ,gTime) then p._union.cur_item = {} end
 
@@ -228,7 +233,7 @@ function add(p, idx)--领取军团任务奖励
         ack(p, "add", resmng.E_DISALLOWED) return
     end
 
-    local c = resmng.get_conf("prop_union_award",5*10000+idx*100 +u.task.lv)
+    local c = resmng.get_conf("prop_union_award",5*10000+idx*100 +lv)
     if c then
         p:add_bonus(c.Item[1], c.Item[2],VALUE_CHANGE_REASON.UNION_MISSION)
         cur_item[idx] = idx
@@ -237,6 +242,35 @@ function add(p, idx)--领取军团任务奖励
     p._union.tm_mission = gTime
     gPendingSave.union_member[p.pid].tm_mission = gTime
     gPendingSave.union_member[p.pid].cur_item = p._union.cur_item 
+end
 
+function get_mission_star_and_lv(u)
+    if u.map_id then
+        local ret, val = remote_func(u.map_id, "remote_get_mission_star_and_lv", {"union_mission", u.uid})
+        if val then
+            return val[1] or 0, val[2] or 0
+        end
+        return 0, 0
+    end
+    if not u.task then
+        return 0, 0
+    end
+
+    local star = 0
+    for _,v  in pairs(u.task.cur) do
+        local c = resmng.get_conf("prop_union_task",v.class*1000+u.task.lv)
+        if not c  then return end
+        if v.state ==  TASK_STATUS.TASK_STATUS_FINISHED and v.num >= c.Count then star = star + c.Stars end
+    end
+
+    if star < 1 then return 0, u.task.lv
+    elseif star < 5 then return 1, u.task.lv
+    elseif star < 10 then return 2, u.task.lv
+    else return 3, u.task.lv end
+end
+
+function remote_get_mission_star_and_lv(u)
+    local star, lv = get_mission_star(u)
+    return {star, lv}
 end
 

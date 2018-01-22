@@ -2,15 +2,26 @@ module("pay_mall", package.seeall)
 
 group = group or {}
 refresh_time = refresh_time or 0
-refresh_group = refresh_group or {}
 
 function get_enable_group()
-    if gTime  > refresh_time then
+    if gTime  >= refresh_time then
         --        refresh_time = gTime + 3600
         refresh_time = 0  -- 重置刷新
         gen_enable_group()
     end
     return group
+end
+
+function load_pay_mall()
+    local db = dbmng:getOne()
+    local info = db.status:findOne({_id = "pay_mall"})
+    if not info then
+        info = {_id = "pay_mall"}
+        db.status:insert(info)
+    end
+
+    group = info.group or {}
+    refresh_time = info.refresh_time or 0
 end
 
 function gen_enable_group()
@@ -20,7 +31,7 @@ function gen_enable_group()
             local time, num, is_cyclic = get_group_time(v)
             local start_time = tab_to_timestamp(v.StartTime or {})
             local left = gTime - start_time
-            if left > time then
+            if left >= time then
                 if is_cyclic then
                     local idx, end_time = get_group_idx(left % time, k)
 
@@ -29,7 +40,7 @@ function gen_enable_group()
                     end
                     group[v.Group] = {idx = idx, end_time = end_time }
                 end
-            elseif left < time and left > 0 then
+            elseif left < time and left >= 0 then
                 local idx,  end_time = get_group_idx(left, k)
 
                 if refresh_time == 0 or end_time < refresh_time then
@@ -45,6 +56,8 @@ function gen_enable_group()
             end
         end
     end
+    gPendingSave.status["pay_mall"].refresh_time = refresh_time
+    gPendingSave.status["pay_mall"].group = group
     return group
 end
 

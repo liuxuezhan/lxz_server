@@ -10,12 +10,14 @@ function load_player()
         if (not data.culture) or data.culture < 1 or data.culture > 4 then data.culture = 1 end
 
         if  data.pid and data.account then
-            local acc = gAccounts[ data.account ]
-            if not acc then
-                acc = {}
-                gAccounts[ data.account ] = acc
+            if data.emap == gMapID then
+                local acc = gAccounts[ data.account ]
+                if not acc then
+                    acc = {}
+                    gAccounts[ data.account ] = acc
+                end
+                acc[ data.pid ] = { data.map, data.smap or gMapID }
             end
-            acc[ data.pid ] = { data.map, data.smap or gMapID }
 
             if data.eid ~= 0 then 
                 local token = data.token
@@ -71,7 +73,7 @@ function load_build(pid)
                 LOG("load build %d", count)
             end
         else
-            print( string.format( "building %s have not player %s", b._id, b.pid ) )
+            LOG( "[LOAD], building %s have not player %s", b._id, b.pid ) 
         end
     end
 end
@@ -87,6 +89,7 @@ function load_troop()
     local maxSn = 0
     while info:hasNext() do
         local tr = info:next()
+        local pid = tr.owner_pid or 0
         for _, arm in pairs( tr.arms or {} ) do
             local valid = true
             for id, num in pairs( arm.live_soldier or {} ) do
@@ -105,13 +108,17 @@ function load_troop()
                 arm.live_soldier = live
             end
         end
-        local pid = tr.owner_pid or 0
+
         if not tr.arms then tr.arms = {} end
         if not tr.arms[ pid ] then tr.arms[ pid ] = { live_soldier={} } end
         if tr._id > maxSn then maxSn = tr._id end
 
-        troop_t.wrap( tr )
-        datas[ tr._id ] = tr
+        if pid >= 10000 and not getPlayer( pid ) then
+
+        else
+            troop_t.wrap( tr )
+            datas[ tr._id ] = tr
+        end
     end
     _G.gSns[ "troop" ] = maxSn + 1
     troop_mng.troop_id_map = datas
@@ -321,6 +328,7 @@ function restore_timer()
             local sn = t._id
             timer._sns[ sn ] = t
             addTimer(t._id, (t.over-tm_shutdown)*1000, t.tag or 0)
+            timer_ex.mark_only(t)
             if sn > maxSn then maxSn = sn end
         end
     end
@@ -363,6 +371,10 @@ function post_init()
     rank_mng.init()
     INFO("-- init_rank done  ---")
 
+    INFO("-- custom_rank_mng -----------")
+    custom_rank_mng.init()
+    INFO("-- custom_rank_mng done -----------")
+
     INFO("-- accpet world events ---------")
     world_event.init_world_event()
     INFO("-- accpet world events done  ---")
@@ -378,6 +390,10 @@ function post_init()
     INFO("-- init daily task filter ---------")
     daily_task_filter.init_filter()
     INFO("-- init odaily task filter done  ---")
+
+    INFO("-- init daily activity ---------")
+    daily_activity.init_daily_activity()
+    INFO("-- init daily activity done  ---")
 end
 
 function action()
@@ -388,6 +404,9 @@ function action()
         hero_t = { equip_pid_idx = { pid=1}, },
         mail = { mail_to_idx = { to=1}, },
         task = { task_pid_idx = { pid=1}, },
+        onlines = { onlines_pid_idx = { pid=1, day=1}, },
+        operate_activity = { operate_activity_pid_idx = { pid=1 } },
+        yueka = { yueka_pid_idx = { pid=1 } },
     }
     --dbmng:index_update( index_info, false )
 
@@ -403,8 +422,10 @@ function action()
 
     INFO("-- load_player -------------")
     load_player()
+    player_t.change_operate_activity()--转档
     INFO("-- load_player done --------")
     --monitoring(MONITOR_TYPE.LOADDATA, "load_player")
+    --
 
     INFO("-- load_world_event -------------")
     world_event.load_world_event()
@@ -420,6 +441,11 @@ function action()
     operate_activity.load_operate_activity()
     INFO("-- load_operate_activity done --------")
     --monitoring(MONITOR_TYPE.LOADDATA, "load_operate_activity")
+    --
+    INFO("-- load_daily_activity -------------")
+    daily_activity.load_daily_activity()
+    INFO("-- load_daily_activity done --------")
+    --monitoring(MONITOR_TYPE.LOADDATA, "load_daily_activity")
 
 
     INFO("-- load_union --------------")
@@ -447,6 +473,9 @@ function action()
     INFO("-- load_union_tech ---------")
     union_tech_t.load()
     INFO("-- load_union_tech done ----")
+    INFO("-- load_union_hero_task ---------")
+    union_hero_task.load()
+    INFO("-- load_union_hero_task done ----")
     --monitoring(MONITOR_TYPE.LOADDATA, "load_union_tech")
     --
     
@@ -468,6 +497,11 @@ function action()
     cross_act.load_data()
     INFO("-- load_cross_act -----------")
     --monitoring(MONITOR_TYPE.LOADDATA, "load_cross_act")
+    --
+    INFO("-- load_act_mng -----------")
+    act_mng.load_act_state()
+    INFO("-- load_act_mng -----------")
+    --monitoring(MONITOR_TYPE.LOADDATA, "load_act_mng")
 
     INFO("-- load_refugee -----------")
     refugee.load_from_db()
@@ -486,6 +520,7 @@ function action()
 
     INFO("-- load_monster_city -----------")
     monster_city.load_monster_city()
+    monster_city.load_mc_state()
     INFO("-- load_monster_city -----------")
     --monitoring(MONITOR_TYPE.LOADDATA, "load_monster_city")
 
@@ -582,9 +617,6 @@ function action()
     INFO("-- unoin_god done -----")
     --monitoring(MONITOR_TYPE.LOADDATA, "unoin_god")
 
-    INFO("-- unoin_item -----")
-    union_item.load()--
-    INFO("-- unoin_item done -----")
 
     --monitoring(MONITOR_TYPE.LOADDATA, "unoin_god")
     INFO("-- gacha_world_limit -----")
@@ -602,6 +634,10 @@ function action()
     load_first_kill()
     INFO("-- first kill done -----")
 
+    INFO("-- pay mall -----")
+    pay_mall.load_pay_mall()
+    INFO("-- pay mall -----")
+
     INFO("-- tribute_exchange -----")
     load_tribute_exchange()
     INFO("-- tribute_exchange done -----")
@@ -610,6 +646,12 @@ function action()
     local compensate =  restore_timer()
     INFO("-- restore_timer done ------, %s", compensate or "none")
     --monitoring(MONITOR_TYPE.LOADDATA, "restore_timer")
+
+    INFO("-- cross_mng_c -----------")
+    if gCenterID == gMapID then
+        cross_mng_c.init()
+    end
+    INFO("-- cross_mng_c done -----------")
 
     c_tick(0)
     init_effect()

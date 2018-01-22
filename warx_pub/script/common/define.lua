@@ -10,6 +10,7 @@ CHAT_HOST = "war_x.org"
 LOGIN_URL = "http://common.tapenjoy.com/index.php/LoginClass/uploaduserinfo"
 -- chat_url
 CHAT_URL = "http://192.168.103.225:5280"
+CHAT_ADDR = "http://192.168.103.225"
 
 LOGIN_ERROR =
 {
@@ -78,6 +79,8 @@ VALUE_CHANGE_REASON = {
 
     CASTLE_6_GIFT     = 41, --城堡礼物
     HERO_NATURE_RESET     = 42, --英雄性格重置
+    CASTLE_3_GIFT     = 43, --城堡礼物
+    CITY_EVENT     = 44, --城堡礼物
 
     -- [50, 79] Play
     GATHER = 50,  --采集
@@ -151,6 +154,10 @@ VALUE_CHANGE_REASON = {
     REASON_OPERATE_SINGLE           = 1028,          --单一活动类型领奖
     REASON_OPERATE_TASK             = 1029,          --运营活动任务领奖
     REASON_HERO_ROAD_CHAPTER        = 1030,          --英雄之路章节奖励
+    REASON_LV_ITEM                  = 1031,          --免费等级礼包
+    REASON_LV_ITEM_GOLD             = 1032,          --付费等级礼包
+    REASON_CROSS_PERSONAL_AWARD     = 1033,          --跨服战个人积分阶段奖励
+    REASON_LOGIN_FACE_BOOK          = 1034,          --登录facebook
 
     --扣除资源
     REASON_DEC_RES = 2000,
@@ -218,6 +225,14 @@ resmng.CLASS_CASTLE_MIN = 17     --需要城堡等级小于等于这个值
 resmng.CLASS_TASK_FINISH = 18     --需要完成这个主线任务
 resmng.CLASS_BRANTCHTASK = 19     --需要正在做这个支线任务
 resmng.CLASS_RES_PROTECT = 101	--物品类型101保护资源
+resmng.CLASS_IN_CITY_SCENE = 20 --需要在城建中
+resmng.CLASS_TRUNKTASK_ARRAY = 21  --需要正在做这个主线任务 (任务ID组: 满足其中一个即可)
+resmng.CLASS_HERO_HAS_SKILL = 22   --自己的英雄有技能
+resmng.CLASS_VIP_LEVEL = 23        --VIP等级小于等于这个值，并且处于激活状态
+resmng.CLASS_HERO_EQUIP_GRAGE = 24  --英雄装备
+resmng.CLASS_HERO_EQUIP = 25        --英雄装备
+resmng.CLASS_TASK_FINISH_ARRAY = 26 --需要完成做这个主线任务 (任务ID组: 满足其中一个即可)
+resmng.CLASS_BRANTCHTASK_FINISH = 27 --需要完成这个支线任务
 
 
 UNION_TASK =      ---军团悬赏任务类型
@@ -303,7 +318,12 @@ RANK_ACTION = {
     KING_ACT = 6,
 }
 
-RANK_MODE = {
+CUSTON_RANK_CLASS = {
+    CROSS_RANK = 1,
+    CROSS_REFUGEE = 2,
+}
+
+CUSTOM_RANK_MODE = {
     PLY = 1, 
     UNION = 2,
     GS = 3,
@@ -369,6 +389,23 @@ CROSS_STATE =
     PREPARE = 1,
     FIGHT = 2,
     PEACE = 3,
+}
+CROSS_MIGRATE_ITEM = resmng.ITEM_10006001
+
+ROYAL_STATE =
+{
+    NO_ROYAL = 0,       -- 没有皇室成员
+    ROYAL_FREE = 1,     -- 皇室成员未被跨服军团抓捕
+    ROYAL_JAIL = 2,     -- 皇室成员已被跨服军团抓捕
+}
+
+ROYAL_REWARD_MAIL = resmng.MAIL_10097
+
+PLAYER_CROSS_STATE =
+{
+    IN_LOCAL_SERVER = 1,
+    IN_CROSS_SERVER = 2,
+    IN_OTHER_SERVER = 3,
 }
 
 GM_TYPE =
@@ -639,6 +676,7 @@ TroopAction = {
     SiegeDig = 47, --攻击挖宝
     Exchange = 48, --贡品兑换
     HeroTask = 49, --英雄修炼任务
+    SiegePlayerMail = 50, --从邮件过来 单独攻击玩家城堡
 }
 
 WatchTowerAction = {
@@ -893,6 +931,7 @@ ITEM_CLASS = {
     ITEM_PIECE = 12, -- 技能书碎片
     ACTIVITY = 13, -- 活动道具
     DIG = 15,       -- 藏宝图
+    HERO_EQUIP_EXP = 16,       -- 英雄装备经验书
     OTHER = 20, -- 特殊物品
 }
 -- 道具mode
@@ -908,7 +947,8 @@ ITEM_MODE = {
     -- CLASS OTHER
     VIP_POINT = 1,
     VIP_TIME = 2,
-
+    LV_GIFTBOX = 25,
+    LV_GIFTBOX_GOLD = 26,
 }
 
 -- buff mode
@@ -970,6 +1010,7 @@ UNION_EVENT = { --  军团事件类型
     RELATION = "relation",
     WORD = "word",
     BUFF_ALL = "buff_all",
+    ABANDON_NPC= "abandon_npc",
 }
 
 UNION_EVENT_LOG = {
@@ -1113,6 +1154,7 @@ E_HP = 1019
 E_NO_BUILD = 1020
 E_NO_VIP = 1021
 E_LV = 1022
+E_CAN_NOT_DO_HERO_TASK = 1023
 
 
 -- overflow
@@ -1168,6 +1210,7 @@ HERO_STATUS_TYPE = {
     BEING_EXECUTED   = 9,    -- 处决中
     DEAD             = 10,   -- 死亡
     DESTROY          = 11,   -- 解雇
+    HERO_TASK        = 12,   -- 英雄任务
 }
 
 -- 品质
@@ -1224,6 +1267,7 @@ TASK_COND_TYPE = {
     PLAYER_LV = 1,
     CASTLE_LV = 2,
     UNION_LV = 3,
+    CHAPTER_LV = 4,
 }
 
 TASK_STATUS = {
@@ -1234,7 +1278,9 @@ TASK_STATUS = {
     TASK_STATUS_CAN_FINISH          = 4,    --可以领取
     TASK_STATUS_FINISHED            = 5,    --已完成（已领取）
     TASK_STATUS_UPDATE              = 6,    --重置
-    TASK_STATUS_DOING              = 7,    --英雄修炼专用（进行中，可加速）
+    TASK_STATUS_DOING               = 7,    --英雄修炼专用（进行中，可加速）
+    TASK_STATUS_CAN_EVENT           = 8,    --英雄修炼专用 (can detach event)
+    TASK_STATUS_HELPED              = 9,    --英雄修炼专用（进行中, 已请求帮助）
 }
 
 UNION_MISSION_CLASS = {
@@ -1507,6 +1553,9 @@ OPERATE_ACTIVITY_ACTION = {
     BLACK_MARKET                = 4,         --黑市购买
     RESOURCE_MARKET             = 5,         --资源兑换
     COLLECT_GRADE_HERO          = 6,         --收集不通品阶的英雄
+    CASTLE_UP                   = 7,         --城堡升级
+    FIGHT_POWER                 = 8,         --战力提升
+    UNION_POWER                 = 9,         --军团战力提升
 }
 
 g_operate_activity_relation = {
@@ -1516,6 +1565,9 @@ g_operate_activity_relation = {
     ["black_market"]            = OPERATE_ACTIVITY_ACTION.BLACK_MARKET,             --黑市购买
     ["resource_market"]         = OPERATE_ACTIVITY_ACTION.RESOURCE_MARKET,          --资源兑换
     ["collect_grade_hero"]      = OPERATE_ACTIVITY_ACTION.COLLECT_GRADE_HERO,       --收集不通品阶的英雄
+    ["castle_up"]               = OPERATE_ACTIVITY_ACTION.CASTLE_UP,                --城堡升级
+    ["fight_power"]             = OPERATE_ACTIVITY_ACTION.FIGHT_POWER,              --玩家战力
+    ["union_power"]             = OPERATE_ACTIVITY_ACTION.UNION_POWER,              --军团战力
 }
 
 -------------------------------------------------------------------------------------
@@ -1532,6 +1584,20 @@ WEEKLY_ACTIVITY_ACTION = {
     RES_MARKET        = 6,         --物资市场
     BLACK_MARKET      = 7,         --黑市
     KILL_ARM          = 100,         --攻击玩家击杀士兵
+}
+
+--每日限时活动
+DAILY_ACTIVITY_ACTION = {
+    ATK_MONSTER       = 1,         --攻击怪物
+    GATHER            = 2,         --采集
+    BUILD_UP          = 3,         --建筑升级
+    TECH_UP           = 4,         --科技升级
+    TRAIN_ARM         = 5,         --训练士兵
+    BLACK_MARKET      = 6,         --黑市
+    GACHA             = 7,         --抽卡
+    --POWER_UP          = 3,         --提升战斗力
+    --RES_MARKET        = 6,         --物资市场
+   -- KILL_ARM          = 100,         --攻击玩家击杀士兵
 }
 
 -------------------------------------------------------------------------------------
@@ -1580,6 +1646,7 @@ POINT_MALL = {
     MONSTER = 2,    --怪物
     RELIC = 3,      --遗迹塔
     KING = 4,       --国王
+    CROSS = 5,      -- 跨服战
 }
 
 MALL_PAY_TYPE =
@@ -1587,6 +1654,8 @@ MALL_PAY_TYPE =
     "PayManor",
     "PayMonster",
     "PayRelic",
+    "PayKing",
+    "PayCross",
 }
 
 POINT_MALL_TYPE = {
@@ -1594,6 +1663,7 @@ POINT_MALL_TYPE = {
     "monster_gold",
     "relic_gold",
     "kw_gold",
+    "cross_gold",
 }
 
 
@@ -1685,6 +1755,8 @@ PLAYER_INIT = {
     tm_create = 0,
     lv = 1,
     exp = 0,
+    cdnpc = 0,
+    gameappid = "NULL",
 
     tm_lv = 0,
     tm_lv_castle = 0,
@@ -1694,9 +1766,10 @@ PLAYER_INIT = {
     vip_login = 0,
     vip_nlogin = 0,
     vip_gift = 0,
+    fb_login = -2, --facebook 登录  -2： 一次都没有登录过  -1：已经首次登录未领奖 0：当然没有登录 1：当日已登录未领奖  2：已领奖
     build_queue = { 0 },
     photo = 1,
-    flag = 1,
+    flag = 0,
     reg_name = "unknown",
     name = "unknown",
     photo_url = "",
@@ -1747,6 +1820,7 @@ PLAYER_INIT = {
 
     kwseason = 0, -- 王城战评价的期数,
     officer = 0,-- 王城战职务,
+    cross_officer = {},     -- 跨服战职位
     vote_time = 0, -- 王城战投票购买时间,
     tm_union = 0, -- 进入军团的时间,
     join_tm = 0, --  加入军团次数,
@@ -1781,6 +1855,8 @@ PLAYER_INIT = {
     cure_rate = 0,     -- CountConsumeCure_R for cure time,
 
     language = 10000,
+    nation = 0,  -- 国家
+    show_nation = 0,  -- 国家
 
     gacha_yinbi_num = 0,  --银币抽卡次数,
     gacha_yinbi_free_num = 0,  --银币抽卡免费次数,
@@ -1796,9 +1872,10 @@ PLAYER_INIT = {
 
     chat_account = "", --聊天账号,
     chat_psw = "",    --聊天密码,
-    gacha_yinbi_first = false,  --银币首抽,
-    gacha_jinbi_first = false,  --金币首抽,
+    gacha_yinbi_first = true,  --银币首抽,
+    gacha_jinbi_first = true,  --金币首抽,
     title = 0, --称号,
+    ache_point = 0, --成就积分
     lt_time = 0, -- lt 领奖时间,
     lt_award_st = {},  --lt 领奖状态,
     ef_eid = 0,  --影响自己的奇迹,
@@ -1814,10 +1891,10 @@ PLAYER_INIT = {
 
     pay_state = {}, -- 玩家充值的相关状态
 
-    tm_yueka_cur = 0,       --月卡当前领取天数
-    tm_yueka_start = 0,     --月卡开始天数
-    tm_yueka_end = 0,       --月卡结束天数
-    yueka_level = 0,        --月卡档次
+    tm_yueka_cur = 0,       --加速月卡当前领取天数
+    tm_yueka_start = 0,     --加速月卡开始天数
+    tm_yueka_end0 = 0,      --加速月卡优惠结束天数
+    tm_yueka_end = 0,       --加速月卡结束天数
 
     world_event_get_id = {},    --已经领取奖励的世界事件的ID
     world_event_stage_award = {},   --世界事件章节奖励
@@ -1825,7 +1902,10 @@ PLAYER_INIT = {
     weekly_activitiy_num = 0,   --周限时活动计数
     weekly_activity_info = {{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0}},    --周限时活动标记 {积分,领奖标志,活动开启时主堡等级}
 
-    operate_activity = {},  --运营活动
+    daily_activity_info = {rank_lv = 1, score = 0, award_tag = 0}, --每日活动
+    daily_activitiy_num = 0,   --每日限时活动计数
+
+  --  operate_activity = {},  --运营活动
 
     siege_dig = 0,  -- 攻击挖宝次数
     --count_dig = 0,  -- 当日挖宝次数
@@ -1835,7 +1915,13 @@ PLAYER_INIT = {
     hero_road_cur_chapter = 0, --英雄之路当前进行章节
     hero_road_chapter = {}, --英雄之路章节数据
 
-    tributes = {0,0,0,0}
+    cross_gold = 0,             -- 跨服币
+    cross_season = 0,           -- 以下数据所属跨服第几季
+    cross_current_score = 0,    -- 当前跨服战获得积分
+    cross_award = {},           -- 跨服排行阶段奖励
+
+    tributes = {0,0,0,0},
+    last_hit = {} -- { gTime, pid, x, y }
 }
 
 map_city_zone = {
@@ -1920,11 +2006,13 @@ DISPLY_MODE =
 {
     VIP         = 1,                --VIP等级提升
     ACHEVEMENT  = 2,                --成就达成
-    NPC         = 3,                --占领npc城市
+    NPC         = 3,                --npc城市
     CASTLE      = 4,                --城堡升级
     FIRST_BLOOD = 5,                --叛军首杀
     NEW_EQUIP   = 6,                --新装备获得
-    WORLD_EVENT = 7,        --世界事件
+    WORLD_EVENT = 7,                --世界事件
+    HERO_CAPTURE = 8,               --抓捕英雄
+    TASK_MONSTER_KILL = 9,          --任务怪击杀
 }
 
 --英雄之路章节状态

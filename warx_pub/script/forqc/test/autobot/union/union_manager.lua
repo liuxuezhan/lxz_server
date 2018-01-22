@@ -14,7 +14,7 @@ function UnionManager:getUnion(uid)
     if nil == union_data then
         return
     end
-    union = Union:create(union_data)
+    union = Union.create(union_data)
     self.unions[uid] = union
 
     return union

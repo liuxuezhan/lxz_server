@@ -5,10 +5,12 @@ local WAIT_MAX_TIME = config.Autobot.JoinUnionWaitMaxTime or 90
 
 function JoinUnion_GetUnions:onEnter()
     local wait_time = math.random(WAIT_MIN_TIME * 1000, WAIT_MAX_TIME * 1000)
-    AutobotTimer:addMsecTimer(newFunctor(self, self._requestUnions), wait_time)
+    self.timer_id = AutobotTimer:addMsecTimer(newFunctor(self, self._requestUnions), wait_time)
 end
 
 function JoinUnion_GetUnions:onExit()
+    AutobotTimer:delTimer(self.timer_id)
+    self.timer_id = nil
     self.host.player.eventGotUnionList:del(newFunctor(self, self._onGotUnions))
 end
 
@@ -21,7 +23,7 @@ end
 function JoinUnion_GetUnions:_onGotUnions(player, key, unions)
     local available_unions = {}
     for k, v in pairs(unions) do
-        if v.membercount < v.memberlimit then
+        if v.membercount < v.memberlimit and 0 == v.enlist.check then
             table.insert(available_unions, v)
         end
     end

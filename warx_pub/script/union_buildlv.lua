@@ -52,7 +52,12 @@ function get_cons(ply,mode,flag)
 
     if can_date(ply._union.buildlv[mode].open_tm,gTime) or flag then
         ply._union.buildlv[mode].open_tm =gTime
-        if not  u.god then  return end
+        if u.map_id then
+            if not u.god then
+                u:get_god()
+            end
+        end
+        if not u.god then return end
 
         local god = resmng.get_conf("prop_union_god",u.god.propid )
         if not god then  return end
@@ -82,6 +87,10 @@ end
 function get_buildlv(uid, mode)
     local u = unionmng.get_union(uid)
     if not u then return end
+    if u.map_id then
+        local ret, data = remote_func(u.map_id, "remote_get_buildlv", {"union_buildlv", u.uid, mode})
+        return data
+    end
 
     if not u.buildlv then u.buildlv={_id=u._id,data={}} end
 
@@ -93,6 +102,10 @@ function get_buildlv(uid, mode)
     u.buildlv.data[mode] =data
     gPendingSave.union_buildlv[u.uid] = u.buildlv
     return data
+end
+
+function remote_get_buildlv(union, map_id, id, mode)
+    return get_buildlv(union.uid, mode)
 end
 
 function can(ply, mode)
@@ -135,27 +148,18 @@ function add_buildlv_donate(ply, mode)
         end
     end
 
-    if not u.buildlv.data[mode] then return false end
-    local c = resmng.get_conf("prop_union_buildlv",u.buildlv.data[mode].id+1)
-    if c then
-        u.buildlv.data[mode].exp = u.buildlv.data[mode].exp + c.DonateExp
-        if player_t.debug_tag then c.UpExp = 0 end
+    local old_id, data = add_exp(u, mode)
 
-        if u.buildlv.data[mode].exp >= c.UpExp then
-            local nc = resmng.get_conf("prop_union_buildlv",u.buildlv.data[mode].id+1)
-            u.buildlv.data[mode].exp = u.buildlv.data[mode].exp - c.UpExp
-            u.buildlv.data[mode].id = nc.ID
-            u:ef_init()
-            u:notifyall(resmng.UNION_EVENT.BUILDLV, resmng.UNION_MODE.UPDATE, u.buildlv.data[mode])
-        end
-        gPendingSave.union_buildlv[ply.uid] = u.buildlv
-    else
-        c = resmng.get_conf("prop_union_buildlv",u.buildlv.data[mode].id)
-        if not c  then return end
+    local cc = resmng.get_conf("prop_union_buildlv",old_id)
+    local c = resmng.get_conf("prop_union_buildlv",data[mode].id+1)
+    if not c then
+        c = resmng.get_conf("prop_union_buildlv",data[mode].id)
     end
 
-    for _, v in pairs(c.BonusID) do
-        ply:add_bonus(v[1], v[2], VALUE_CHANGE_REASON.UNION_BUILDLV )
+    if cc then
+        for _, v in pairs(cc.BonusID) do
+            ply:add_bonus(v[1], v[2], VALUE_CHANGE_REASON.UNION_BUILDLV )
+        end
     end
     union_member_t.add_donate_rank(ply,c.DonateExp,1,2)
 
@@ -170,10 +174,45 @@ function add_buildlv_donate(ply, mode)
     for _, v in pairs(UNION_CONSTRUCT_TYPE) do
         get_cons(ply,v)
     end
-    l.buildlv = u.buildlv.data
+    l.buildlv = data
     l.log = ply._union.buildlv
     union_mission.ok(ply,UNION_MISSION_CLASS.BUILD ,1)
     return l
+end
+
+function add_exp(u, mode)
+    if u.map_id then
+        local ret, data = remote_func(u.map_id, "remote_add_exp", {"union_buildlv", u.uid, mode})
+        if not data or not next(data) then
+            return
+        end
+        return data[1], data[2]
+    end
+    local old_id = u.buildlv.data[mode].id
+    local c = resmng.get_conf("prop_union_buildlv",u.buildlv.data[mode].id+1)
+    if c then
+        u.buildlv.data[mode].exp = u.buildlv.data[mode].exp + c.DonateExp
+        if player_t.debug_tag then c.UpExp = 0 end
+
+        if u.buildlv.data[mode].exp >= c.UpExp then
+            local nc = resmng.get_conf("prop_union_buildlv",u.buildlv.data[mode].id+1)
+            u.buildlv.data[mode].exp = u.buildlv.data[mode].exp - c.UpExp
+            u.buildlv.data[mode].id = nc.ID
+            u:ef_init()
+            u:notifyall(resmng.UNION_EVENT.BUILDLV, resmng.UNION_MODE.UPDATE, u.buildlv.data[mode])
+            u:add_log(resmng.UNION_EVENT.BUILDLV, resmng.UNION_MODE.UPDATE, u.buildlv.data[mode])
+        end
+        gPendingSave.union_buildlv[u.uid] = u.buildlv
+    else
+        c = resmng.get_conf("prop_union_buildlv",u.buildlv.data[mode].id)
+        if not c  then return end
+    end
+    return old_id, u.buildlv.data
+end
+
+function remote_add_exp(union, map_id, id, mode)
+    local old_id, data = add_exp(union, mode)
+    return {old_id, data}
 end
 
 

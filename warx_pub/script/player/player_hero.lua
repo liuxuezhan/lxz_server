@@ -33,9 +33,7 @@ function make_hero(self, propid)
             if h then
                 self._hero[ idx ] = h
                 --任务
-                task_logic_t.process_task(self, TASK_ACTION.HAS_HERO_NUM)
-                self:check_hero_num_ache()  -- check title ache
-
+                --task_logic_t.process_task(self, TASK_ACTION.HAS_HERO_NUM)
                 local prop_hero = resmng.get_conf("prop_hero_basic", propid)
                 if prop_hero.Quality >= 4 then
                     Rpc:tips({pid = -1, gid = _G.GateSid}, 2, resmng.GACHA_NOTIFY_GRADE4, {self.name, prop_hero.Name})
@@ -62,9 +60,25 @@ function hero_to_chip(self, propid)
     end
 end
 
+function do_load_hero( self )
+    local hs = {}
+    local db = self:getDb()
+    if db then
+        local info = db.hero_t:find( {pid=self.pid} )
+        if info then
+            while info:hasNext() do
+                local h = hero_t.wrap( info:next() )
+                heromng.add_hero( h )
+                hs[ h.idx ] = h
+            end
+        end
+    end
+    if not self._hero then rawset( self, "_hero", hs ) end
+end
+
 
 function get_hero(self, idx)
-    if not self._hero then self._hero = {} end
+    if not self._hero then do_load_hero( self ) end
     if idx then
         if type(idx) == "string" then idx = tonumber(idx) end
         if self._hero then return self._hero[ idx ] end
@@ -246,53 +260,85 @@ function get_hero_detail_info(self, hero_id)
 end
 
 
---------------------------------------------------------------------------------
--- Function : 派遣英雄
--- Argument : self, build_idx, hero_idx
--- Return   : NULL
--- Others   : hero_idx = 0 表示取消派遣; 
---------------------------------------------------------------------------------
-function dispatch_hero(self, build_idx, hero_idx)
-    local build = self:get_build(build_idx)
-    if not build then
-        ERROR("dispatch_hero: get_build() failed. pid = %d, build_idx = %d", self.pid, build_idx)
-        return
-    end
-
-    if hero_idx == 0 then
-        if build.hero_idx == 0 then return end
-        local hero = self:get_hero(build.hero_idx)
-        if not hero then return end
-        self:hero_offduty(hero)
-        return
-    end
-
+function put_off_hero( self, hero_idx )
     local hero = self:get_hero(hero_idx)
     if not hero then
         ERROR("dispatch_hero: get_hero() failed. pid = %d, hero_idx = %d", self.pid, hero_idx)
         return
     end
 
+    hero.build_will = 0 
+    if hero.build_idx == 0 then return end
+    hero_offduty( self, hero )
+end
+
+
+function put_on_hero( self, hero_idx, build_idx )
+    local build = self:get_build(build_idx)
+    if not build then
+        WARN("put_on_hero: get_build() failed. pid = %d, build_idx = %d", self.pid, build_idx)
+        return
+    end
+
+    local hero = self:get_hero(hero_idx)
+    if not hero then 
+        WARN("put_on_hero: get_hero() failed. pid = %d, hero_idx = %d", self.pid, hero_idx)
+        return 
+    end
+
+    if hero.build_idx == build.idx and build.hero_idx == hero.idx then return end
+
+    local bidx = build.idx
+
+    local hs = self:get_hero()
+    for _, v in pairs( hs ) do
+        if v.build_will == bidx then v.build_will = 0 end
+    end
+    hero.build_will = build.idx
+
     if hero.build_idx ~= 0 then
         self:hero_offduty( hero )
         hero.build_idx = 0
     end
 
-    if  hero.status ~= HERO_STATUS_TYPE.FREE then
-        ERROR("dispatch_hero: status failed. pid = %d, hero_idx = %d, status=%d", self.pid, hero_idx, hero.status)
-        return
-    end
-
     if build.hero_idx ~= 0 then
         local ohero = self:get_hero( build.hero_idx )
-        if ohero then self:hero_offduty( ohero ) end
+        if ohero then 
+            self:hero_offduty( ohero ) 
+            ohero.build_will = 0
+        end
         build.hero_idx = 0
     end
 
-    self:hero_onduty(hero, build)
-    LOG("dispatch_hero: build._id= %d, hero_idx = %d", self._id, hero_idx)
+    if hero.status == HERO_STATUS_TYPE.FREE then
+        self:hero_onduty(hero, build)
+        LOG("dispatch_hero: build._id= %d, hero_idx = %d", self._id, hero_idx)
+    end
 end
 
+
+function put_on_hero_all( self, pos )
+    local hs = self:get_hero()
+    for _, h in pairs( hs ) do
+        if h.build_idx ~= 0 then
+            h.build_will = 0
+            hero_offduty( self, h )
+        end
+    end
+
+    for hid, bid in pairs( pos ) do
+        local h = self:get_hero( hid )
+        if h then
+            local b = self:get_build( bid )
+            if b then
+                h.build_will = bid
+                if h.status == HERO_STATUS_TYPE.FREE then
+                    hero_onduty( self, h, b )
+                end
+            end
+        end
+    end
+end
 
 --------------------------------------------------------------------------------
 -- Function : 分解英雄，返还经验卡
@@ -444,51 +490,6 @@ function let_prison_back_home(self, hero_id)
     end
 end
 
-
-
---------------------------------------------------------------------------------
--- Function : 真正的处决英雄
--- Argument : self, hero_id, new_buff_id, buff_time
--- Return   : succ - true; fail - false
--- Others   : NULL
---------------------------------------------------------------------------------
-function real_kill_hero(self, hero_id, new_buff_id, buff_time)
-    local hero = heromng.get_hero_by_uniq_id(hero_id)
-    if not hero or hero.status ~= HERO_STATUS_TYPE.BEING_EXECUTED then
-        ERROR("real_kill_hero: pid = %d, hero_id = %s, hero.status = %d.", self.pid, hero_id or "", hero and hero.status or -1)
-        return
-    end
-
-    local altar = self:get_build_extra(BUILD_CLASS.FUNCTION, BUILD_FUNCTION_MODE.ALTAR)
-    if not altar then
-        ERROR("real_kill_hero: get altar failed. pid = %d", self.pid)
-        return
-    end
-
-    if new_buff_id then
-        -- remove old buff
-        if altar.extra.curr_buff_id then
-            self:update_kill_buff(altar.extra.curr_buff_id)
-        end
-
-        -- add new buff
-        self:update_kill_buff(new_buff_id, true, buff_time)
-
-        -- new timer to delete new buff.
-        timer.new("delete_kill_buff", buff_time, self.pid, new_buff_id)
-    end
-
-    hero.status = HERO_STATUS_TYPE.DEAD
-    -- altar.state = BUILD_STATE.WAIT
-
-    local chg = {"hero_id", "kill_start_tm", "kill_over_tm"}
-    altar:clr_extras(chg)
-
-    -- new timer destroy hero.
-    timer.new("destroy_dead_hero", RELIVE_HERO_DAYS_LIMIT * 24 * 60 * 60, self.pid, hero_id)
-end
-
-
 --------------------------------------------------------------------------------
 -- Function : 从监狱中移除指定英雄
 -- Argument : self, hero_id
@@ -510,49 +511,6 @@ function rm_prisoner(self, hero_id)
     Rpc:on_get_out_of_prison(self, hero_id)
     return true
 end
-
-
---------------------------------------------------------------------------------
--- Function : 添加或者删除 kill_buff
--- Argument : self, buff_id, is_add
--- Return   : NULL
--- Others   : NULL
---------------------------------------------------------------------------------
-function update_kill_buff(self, buff_id, is_add, buff_time)
-    -- TODO: 根据英雄战力计算buff加成
-    local buff_conf = resmng.get_conf("prop_buff", buff_id)
-    if buff_conf then
-        -- TODO: check cond ???
-        for effect_name, effect_value in pairs(buff_conf.Value) do
-            if is_add then
-                self._ef_hero[effect_name] = (self._ef_hero[effect_name] or 0) + effect_value
-            else
-                self._ef_hero[effect_name] = (self._ef_hero[effect_name] or 0) - effect_value
-            end
-        end
-        LOG("update_kill_buff: pid = %d, buff_id = %d, is_add = %s.", self.pid, buff_id, is_add and "true" or "false")
-    else
-        ERROR("update_kill_buff: get prop_buff conf failed. pid = %d, buff_id = %d,", self.pid, buff_id)
-    end
-
-    -- modify kill_buff info.
-    local altar = self:get_altar()
-    if not altar then
-        ERROR("update_kill_buff: get altar failed. pid = %d.", self.pid)
-        return
-    else
-        if is_add then
-            local chg = {
-                ["curr_buff_id"] = buff_id,
-                ["buff_over_tm"] = gTime + buff_time,
-            }
-            altar:set_extras(chg)
-        else
-            altar:clr_extras({"curr_buff_id", "buff_over_tm"})
-        end
-    end
-end
-
 
 --------------------------------------------------------------------------------
 -- Function : 校验某个英雄是否被关押在监狱中
@@ -671,13 +629,16 @@ function do_calc_hero_cure( self, hero, hp )
     local pow = hero:calc_hero_pow_body()
     local delta = ( hp - hero.hp ) / hero.max_hp
     if delta > 0 then
-        local consume_rate = self:get_num( "CountConsumeCure_R" ) or 0
-        consume_rate = 1 + consume_rate * 0.0001
+        --local consume_rate = self:get_num( "CountConsumeCure_R" ) or 0
+        local consume_rate = 1 + ( self:get_num( "CountConsumeCure_R" ) or 0 ) * 0.0001
+        --consume_rate = 1 + consume_rate * 0.0001 + hero:get_hero_equip_attr("CountConsumeCure", "r")
 
         food = math.ceil(25.5 * pow * delta * consume_rate)
         wood = math.ceil(4.5 * pow * delta * consume_rate)
         dura = pow * delta
         dura = math.ceil( dura / ( 1 + self:get_num( "SpeedCure_R" ) * 0.0001 ) )
+
+        --dura = math.ceil( dura / ( 1 + (self:get_num( "SpeedCure_R" ) * 0.0001 + hero:get_hero_equip_attr("SpeedCure", "r") ) ) )
         return dura, { [ resmng.DEF_RES_FOOD ] = food, [ resmng.DEF_RES_WOOD ] = wood }
     end
 end
@@ -764,16 +725,16 @@ function hero_cure_quick(self, hidx, tohp)
     reply_ok(self, "hero_cure_quick", 0)
 end
 
-function check_hero_num_ache(self)
-    self:try_add_tit_point(resmng.ACH_NUM_HERO)
-    self:try_add_tit_point(resmng.ACH_HERO_QUALITY_1)
-    self:try_add_tit_point(resmng.ACH_HERO_QUALITY_2)
-    self:try_add_tit_point(resmng.ACH_HERO_QUALITY_3)
-    self:try_add_tit_point(resmng.ACH_HERO_QUALITY_4)
-    self:try_add_tit_point(resmng.ACH_HERO_QUALITY_5)
-    self:try_add_tit_point(resmng.ACH_HERO_QUALITY_6)
-end
-
+--function check_hero_num_ache(self)
+--    self:try_add_tit_point(resmng.ACH_NUM_HERO)
+--    self:try_add_tit_point(resmng.ACH_HERO_QUALITY_1)
+--    self:try_add_tit_point(resmng.ACH_HERO_QUALITY_2)
+--    self:try_add_tit_point(resmng.ACH_HERO_QUALITY_3)
+--    self:try_add_tit_point(resmng.ACH_HERO_QUALITY_4)
+--    self:try_add_tit_point(resmng.ACH_HERO_QUALITY_5)
+--    self:try_add_tit_point(resmng.ACH_HERO_QUALITY_6)
+--end
+--
 
 
 function hero_cure_acc_item(self, hero_idx, item_idx, item_num)
@@ -968,7 +929,17 @@ function release_all_prisoner(self)
             local ps = copyTab( prison.extra.prisoners_info )
             for _, prisoner in pairs( ps ) do
                 self:release_prisoner(prisoner.id)
-                print( "release hero", prisoner.id )
+
+                local h = heromng.get_hero_by_uniq_id( prisoner.id )
+                if h then
+                    local B = getPlayer( h.pid )
+                    if B then
+                        local uname = ""
+                        local Bunion = unionmng.get_union( B.uid )
+                        if Bunion then uname = string.format( "(%s)", Bunion.alias) end
+                        self:send_system_notice( resmng.MAIL_10079, {}, {uname, B.name, h.name} )
+                    end
+                end
                 flag = true
             end
         end
@@ -1081,10 +1052,13 @@ end
 
 function hero_try_onduty(self, hero)
     if hero.status ~= HERO_STATUS_TYPE.FREE then return end
-    if hero.build_last == 0 then return end
+    if hero.build_will == 0 then return end
 
-    local build = self:get_build( hero.build_last )
-    if not build then return end
+    local build = self:get_build( hero.build_will )
+    if not build then 
+        hero.build_will = 0
+        return 
+    end
 
     if build.hero_idx ~= 0 then return end
     self:hero_onduty( hero, build )
@@ -1112,7 +1086,6 @@ function hero_onduty(self, hero, build)
     
     build.hero_idx = hero.idx
     hero.build_idx = build.idx
-    hero.build_last = build.idx
     hero.status = HERO_STATUS_TYPE.BUILDING
 
     --任务
@@ -1120,7 +1093,6 @@ function hero_onduty(self, hero, build)
 
     if build.state == BUILD_STATE.WORK then
         build:recalc()
-        if class == 1 then task_logic_t.process_task(self, TASK_ACTION.RES_OUTPUT) end
     end
     return true
 end
@@ -1131,6 +1103,7 @@ function hero_offduty(self, hero)
     local build = self:get_build(hero.build_idx)
 
     hero.build_idx = 0
+
     if hero.status == HERO_STATUS_TYPE.BUILDING then hero.status = HERO_STATUS_TYPE.FREE end
 
     if build then
@@ -1173,6 +1146,9 @@ end
 
 -- for rpc
 function release_prisoner(self, hero_id)
+    if check_ply_cross(self) then
+        return
+    end
     local prison = self:get_prison()
     if prison then
         local hero = prison:release(hero_id)
@@ -1185,27 +1161,96 @@ end
 
 -- internal use
 function release(self, hero)
-    hero.capturer_pid = 0
-    hero.capturer_eid = 0
-    hero.capturer_name = ""
-    hero.capturer_x = 0
-    hero.capturer_y = 0
-    hero.status   = HERO_STATUS_TYPE.MOVING
-
     local ply = getPlayer(hero.pid)
     if ply then
-        local arm = {pid=ply.pid, heros={hero._id, 0, 0, 0}}
-        local troop = troop_mng.create_troop(TroopAction.HeroBack, ply, self, arm)
-        troop:settle()
-        troop.curx, troop.cury = get_ety_pos(self)
-        troop:back()
-        hero_t.mark_recalc( hero )
+        if ply:get_cross_state() == PLAYER_CROSS_STATE.IN_OTHER_SERVER then
+            ply:remote_release_hero(hero._id, hero.idx)
+        else
+            hero.capturer_pid = 0
+            hero.capturer_eid = 0
+            hero.capturer_name = ""
+            hero.capturer_x = 0
+            hero.capturer_y = 0
+            hero.status   = HERO_STATUS_TYPE.MOVING
+
+            local arm = {pid=ply.pid, heros={hero._id, 0, 0, 0}}
+            local troop = troop_mng.create_troop(TroopAction.HeroBack, ply, self, arm)
+            troop:settle()
+            troop.curx, troop.cury = get_ety_pos(self)
+            troop:back()
+            hero_t.mark_recalc( hero )
+        end
+    else
+        self:cross_release(hero)
     end
 
     self.nprison = self:get_prison_count()
     etypipe.add( self )
 end
 
+function cross_release(self, hero)
+    local pid = hero.pid
+    local map = get_player_map(pid)
+    if nil == map then
+        WARN("[Cross] Can't get map of player %d from global db", pid)
+        return
+    end
+    Rpc:callAgent(map, "cross_release_hero", self.pid, pid, hero._id, hero.idx)
+end
+
+function do_cross_release(self, hero_id, hero_idx)
+    local hero = self:get_hero(hero_idx)
+    if nil ~= hero then
+        hero.capturer_pid = 0
+        hero.capturer_eid = 0
+        hero.capturer_name = ""
+        hero.capturer_x = 0
+        hero.capturer_y = 0
+        hero.status = HERO_STATUS_TYPE.FREE
+        self:hero_try_onduty(hero)
+    end
+end
+
+function remote_release_hero(self, hero_id, hero_idx)
+    local code, ret = remote_func(self.map, "do_remote_release_hero", {"player", self.pid, hero_id, hero_idx})
+    if E_TIMEOUT == code and not ret[1] then
+        local player = getPlayer(self.pid)
+        if nil ~= player then
+            player:add_to_do("do_cross_release", hero_id, hero_idx)
+        end
+    end
+end
+
+function do_remote_release_hero(self, hero_id, hero_idx)
+    -- TODO：检测玩家是否正在返回原服务器流程中，是则返回false
+    self:do_cross_release(hero_id, hero_idx)
+    return {true}
+end
+
+function do_cross_kill_hero(self, hero_idx)
+    local hero = self:get_hero(hero_idx)
+    if nil == hero then
+        WARN("Not found player %d hero %d of player when hero is killed in cross server", self.pid, hero_idx)
+        return
+    end
+    hero.status = HERO_STATUS_TYPE.DEAD
+end
+
+function remote_kill_hero(self, hero_idx)
+    local code, ret = remote_func(self.map, "do_remote_kill_hero", {"player", self.pid, hero_idx})
+    if E_TIMEOUT == code and not ret[1] then
+        local player = getPlayer(self.pid)
+        if nil ~= player then
+            player:add_to_do("do_cross_kill_hero", hero_idx)
+        end
+    end
+end
+
+function do_remote_kill_hero(self, hero_idx)
+    -- TODO：检测玩家是否正在返回原服务器流程中，是则返回false
+    self:do_cross_kill_hero(hero_idx)
+    return {true}
+end
 
 function get_prisoners_info(self)
     local infos = {}
@@ -1231,6 +1276,22 @@ function get_prisoners_info(self)
                 }
                 local union = ply:union()
                 if union then t.union_name = union.name end
+                return t
+            else
+                local t = {
+                    hero_id         = hero._id,
+                    propid          = hero.propid,
+                    star            = hero.star,
+                    lv              = hero.lv,
+                    fight_power     = hero.fight_power,
+                    full_pow        = hero_t.calc_hero_pow_body( hero ),
+                    player_name     = "",
+                    union_name      = "",
+                    player_id       = hero.pid,
+                    tmStart         = info.start,
+                    tmOver          = info.over,
+                    status          = hero.status
+                }
                 return t
             end
         end
@@ -1294,6 +1355,9 @@ end
 
 
 function kill_hero(self, hero_id, buff_idx)
+    if check_ply_cross(self) then
+        return
+    end
     local altar = self:get_build_extra(BUILD_CLASS.FUNCTION, BUILD_FUNCTION_MODE.ALTAR)
     if not altar or altar.state ~= BUILD_STATE.WAIT then
         ERROR("kill_hero: altar not valid. pid = %d, altar.state = %d.", self.pid, altar and altar.state or -1)

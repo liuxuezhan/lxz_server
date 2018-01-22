@@ -769,17 +769,17 @@ function init(sec, msec)
 
 
     gEtys = {}
-    gEids = {}
+    --gEids = {}
 
-    setmetatable( gEids, { __mode="v" } )
-    setmetatable( gEtys, 
-        { __newindex=function( tab, eid, obj) 
-                rawset(tab, eid, obj)
-                local idx = math.floor( eid / 4096 )
-                gEids[ idx ] = obj 
-            end
-        }
-    )
+    --setmetatable( gEids, { __mode="v" } )
+    --setmetatable( gEtys, 
+    --    { __newindex=function( tab, eid, obj) 
+    --            rawset(tab, eid, obj)
+    --            local idx = math.floor( eid / 4096 )
+    --            gEids[ idx ] = obj 
+    --        end
+    --    }
+    --)
 
     gPendingSave = {}
     gPendingDelete = {}

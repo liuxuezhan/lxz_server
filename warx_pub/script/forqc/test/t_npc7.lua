@@ -12,8 +12,12 @@ function t1.action(_idx)
     }
     local city_lv = 4
 
-    local a1 = get_one(true)   -- 创建账号A1 5级创建军团
+    --local a1 = get_one(true)   -- 创建账号A1 5级创建军团
+    --loadData(a1)
+    local name = 899
+    local a1 = get_account(name)
     loadData(a1)
+    name = name + 1
     chat( a1, "@resetcity=2" )
     chat( a1, "@starttw" ) 
     print("create ply a1 ", a1.pid)
@@ -30,7 +34,7 @@ function t1.action(_idx)
     -- 创建账号A2 10级加入军团
     join_union(a1, 10, 10)
 
-    Rpc:get_city_for_robot_req(a1, ACT_NAME.NPC_CITY, city_lv)
+    Rpc:get_city_for_robot_req(a1, ACT_NAME.NPC_CITY, {lv = city_lv})
     wait_for_ack(a1, "get_city_for_robot_ack")
     sync(a1)
     local eid = a1.npc_eid
@@ -55,8 +59,12 @@ function t1.action(_idx)
 
     acc_troop_by_tid(a1, tid)
 
-    local a2 = get_one(true)   -- 创建账号A1 5级创建军团
+    --local a2 = get_one(true)   -- 创建账号A1 5级创建军团
+    --loadData(a2)
+    --local name = 899
+    local a2 = get_account(name)
     loadData(a2)
+    name = name + 1
     print("create ply a2 ", a2.pid)
     chat( a2, "@lvbuild=0=0=10" )
     chat( a2, "@set_val=gold=100000000" )

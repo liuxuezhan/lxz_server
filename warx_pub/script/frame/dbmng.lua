@@ -135,11 +135,18 @@ function index_update(self, index_info, is_global)
                 local update_indexes = {}
                 local drop_indexes = {}
                 for index_name, index_key in pairs(indexes) do
+                    local is_uniq = index_key._unique_ or nil
+                    --dumpTab(index_key, "zhoujy_debug")
+                    index_key._unique_ = nil
                     local need_update = true
                     for i, one_db_index in ipairs(db_indexes) do
                         if one_db_index.name == index_name then
                             -- 查看key是否一致
                             need_update = not db_index_compare_key(one_db_index.key, index_key)
+                            --WARN("zhoujy_debug: db.uniq=%s, is_uniq=%s", one_db_index.unique, is_uniq)
+                            if one_db_index.unique ~= is_uniq then
+                                need_update = true
+                            end
                             if need_update then
                                 drop_indexes[#drop_indexes + 1] = one_db_index.name
                             end
@@ -151,6 +158,7 @@ function index_update(self, index_info, is_global)
                         update_indexes[#update_indexes + 1] = {
                             key=index_key,
                             name=index_name,
+                            unique=is_uniq,
                         }
                         WARN("zhoujy_warning: want to update index, tab=%s, index_name=%s", tab_name, index_name)
                         dumpTab(index_key, "index_key", nil, true)

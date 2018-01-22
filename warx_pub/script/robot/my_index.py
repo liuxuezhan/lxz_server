@@ -148,7 +148,16 @@ class stop_robot(tornado.web.RequestHandler):
 
 class log_robot(tornado.web.RequestHandler):
     def get(self):
-        cmd = 'grep %s /tmp/logs/%s_00-00_A | tail -n 100'%( options.name,datetime.datetime.now().strftime('%Y-%m-%d'))
+        cmd = 'grep %s /tmp/logs/A_%s_00-00.yxlog | tail -n 100'%( options.name,datetime.datetime.now().strftime('%Y-%m-%d'))
+        a = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+        logs = a.stdout.read()
+        a.wait()
+        for log in logs.split("\n"):
+            self.write( "%s<br/>"%log )
+
+class load_check(tornado.web.RequestHandler):
+    def get(self):
+        cmd = 'cat /tmp/check.csv'
         a = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
         logs = a.stdout.read()
         a.wait()
@@ -215,6 +224,7 @@ if __name__ == "__main__":
         (r"/update", update),
         (r"/timer", timer),
         (r"/log_robot", log_robot),
+        (r"/load_check", load_check),
         (r"/cmd", start_cmd),  
         (r"/test", test),  
         (r"/test_all", test_all),  

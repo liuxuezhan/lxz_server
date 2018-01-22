@@ -1,6 +1,9 @@
 local SiegeAction = {}
 
-function SiegeAction.makeClass(class, troop_action)
+local factories = {}
+
+function SiegeAction.makeClass(name, class, troop_action)
+    assert(nil == factories[name], string.format("exist siege action: %s", name))
     assert(nil ~= troop_action, "unspecified troop_action")
 
     local creator = {}
@@ -17,8 +20,17 @@ function SiegeAction.makeClass(class, troop_action)
     class.accomplish = function(self, ...) 
         self.eventAccomplished(...)
     end
+    factories[name] = class
 
     return setmetatable(class, creator)
+end
+
+function SiegeAction.createAction(name, ...)
+    local factory = factories[name]
+    if nil == factory then
+        return
+    end
+    return factory.create(...)
 end
 
 return SiegeAction

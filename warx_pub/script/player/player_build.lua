@@ -38,8 +38,6 @@ function get_build(self, idx)
     end
 end
 
-
-
 --------------------------------------------------------------------------------
 -- Function : 计算建筑在 ply._build 中的 idx
 -- Argument : self, build_class, build_mode, build_seq 玩家拥有的第几个该类型建筑
@@ -257,7 +255,7 @@ function construct(self, x, y, build_propid)
             LOG("[BUILD], construct, pid=%d, propid=%d, x=%d, y=%d ", self.pid, build_propid, x, y)
             return
         else
-            WARN("construct: get build_idx failed, pid = %d, node.Class = %d, node.Mode = %d.", self.pid, node.Class, node.Mode)
+            INFO("construct: get build_idx failed, pid = %d, node.Class = %d, node.Mode = %d", self.pid, node.Class, node.Mode)
         end
     end
 
@@ -340,13 +338,16 @@ function do_upgrade(self, build_idx)
                 self:inc_pow( delta )
                 --周限时活动
                 weekly_activity.process_weekly_activity(self, WEEKLY_ACTIVITY_ACTION.POWER_UP, 1, delta)
+                --每日限时活动
+                daily_activity.process_daily_activity(self, DAILY_ACTIVITY_ACTION.BUILD_UP, 1, delta)
+                daily_activity.process_daily_activity(self, DAILY_ACTIVITY_ACTION.POWER_UP, 1, delta)
             end
 
             if dst.Class == BUILD_CLASS.RESOURCE then
                 build.state = BUILD_STATE.WORK
                 build:init_speed()
                 --任务
-                task_logic_t.process_task(self, TASK_ACTION.RES_OUTPUT)
+                --task_logic_t.process_task(self, TASK_ACTION.RES_OUTPUT)
             end
 
             if dst.Class == BUILD_CLASS.FUNCTION then
@@ -357,16 +358,18 @@ function do_upgrade(self, build_idx)
                     if unit then
                         self.propid = id
                         etypipe.add(self)
+                        update_global_player_info( self )
                     end
                     self.tm_lv_castle = gTime
                     rank_mng.add_data(1, self.pid, {dst.Lv, self.tm_lv_castle})
 
-                    self:try_add_tit_point(resmng.ACH_LEVEL_CASTLE)
+                    --self:try_add_tit_point(resmng.ACH_LEVEL_CASTLE)
 
                     local pack = {}
                     pack.mode = DISPLY_MODE.CASTLE
                     pack.lv = dst.Lv
                     self:add_to_do("display_ntf", pack)
+
 
                     --开启建筑
                     --for k, v in pairs(resmng.prop_citybuildview) do
@@ -395,6 +398,7 @@ function do_upgrade(self, build_idx)
 
                     --世界事件
                     world_event.process_world_event(WORLD_EVENT_ACTION.CASTLE_LEVEL, unit.Lv)
+                    operate_activity.process_operate_activity(self, OPERATE_ACTIVITY_ACTION.CASTLE_UP, dst.Lv)
 
                 elseif dst.Mode == BUILD_FUNCTION_MODE.WALLS then
                     local hp = build:get_extra( "hp" )
@@ -409,9 +413,10 @@ function do_upgrade(self, build_idx)
 
             if build_idx == 1 then
                 self:pre_tlog("PlayerExpFlow",0,node.Lv-1,0,0)
+                self:upload_user_info()
             end
             --任务
-            task_logic_t.process_task(self, TASK_ACTION.CITY_BUILD_LEVEL_UP)
+            --task_logic_t.process_task(self, TASK_ACTION.CITY_BUILD_LEVEL_UP)
             task_logic_t.process_task(self, TASK_ACTION.CITY_BUILD_MUB, 1)
             task_logic_t.process_task(self, TASK_ACTION.PROMOTE_POWER, 1, dst.Pow)
 
@@ -419,7 +424,7 @@ function do_upgrade(self, build_idx)
         end
     end
 
-    ERROR("do_upgrade: upgrade failed. pid = %d, build_idx = %d", self.pid, build_idx)
+    WARN("do_upgrade: upgrade failed. pid = %d, build_idx = %d", self.pid, build_idx)
     return false
 end
 
@@ -514,15 +519,18 @@ function doTimerBuild(self, tsn, build_idx, build_propid, build_state, build_ext
                     self:inc_pow(node.Pow or 0)
                     --周限时活动
                     weekly_activity.process_weekly_activity(self, WEEKLY_ACTIVITY_ACTION.POWER_UP, 1, node.Pow)
+                    --每日限时活动
+                    daily_activity.process_daily_activity(self, DAILY_ACTIVITY_ACTION.BUILD_UP, 1, node.Pow)
+                    daily_activity.process_daily_activity(self, DAILY_ACTIVITY_ACTION.POWER_UP, 1, node.Pow)
                 end
                 if node.Effect then self:ef_add(node.Effect) end
                 if node.Class == BUILD_CLASS.RESOURCE then
                     build.state = BUILD_STATE.WORK
                     build:init_speed()
                     --任务
-                    task_logic_t.process_task(self, TASK_ACTION.RES_OUTPUT)
+                    --task_logic_t.process_task(self, TASK_ACTION.RES_OUTPUT)
                 end
-                task_logic_t.process_task(self, TASK_ACTION.CITY_BUILD_LEVEL_UP)
+                --task_logic_t.process_task(self, TASK_ACTION.CITY_BUILD_LEVEL_UP)
 
                 if build.propid == resmng.BUILD_BLACKMARKET_1 then self:refresh_black_marcket() end
                 if build.propid == resmng.BUILD_MANOR_1 or build.propid == resmng.BUILD_MONSTER_1 or build.propid == resmng.BUILD_RELIC_1 then self:refresh_mall() end
@@ -555,6 +563,9 @@ function doTimerBuild(self, tsn, build_idx, build_propid, build_state, build_ext
                 if conf.Pow then self:dec_pow( conf.Pow ) end
                 --周限时活动
                 weekly_activity.process_weekly_activity(self, WEEKLY_ACTIVITY_ACTION.POWER_UP, 1, -conf.Pow)
+                --每日限时活动
+                daily_activity.process_daily_activity(self, DAILY_ACTIVITY_ACTION.BUILD_UP, 1, -conf.Pow)
+                daily_activity.process_daily_activity(self, DAILY_ACTIVITY_ACTION.POWER_UP, 1, -conf.Pow)
             end
             self:clear_build_queue( build_idx )
             self._build[ build_idx ] = nil
@@ -591,17 +602,23 @@ function doTimerBuild(self, tsn, build_idx, build_propid, build_state, build_ext
                     -- "CureSpeed"
 
                 elseif conf.Mode == BUILD_FUNCTION_MODE.ALTAR then
-                    -- 祭坛
-                    --self:real_kill_hero(arg_1, arg_2, arg_3)
-                    --altar.tmSn    = timer.new("build", kill_time, self.pid, altar.idx, tmOver, buff_id, buff_time)
-                    --local tmOver, buff_id, buff_time = arg_1, arg_2, arg_3
-                    
                     local info = build.extra.kill
                     if info then
                         build:clr_extras( { "kill", "start", "count", "cache", "speed" } )
                         local hero = heromng.get_hero_by_uniq_id(info.id)
                         if hero then
-                            hero.status = HERO_STATUS_TYPE.DEAD
+                            local hero_owner = getPlayer(hero.pid)
+                            if not hero_owner then
+                                local map = get_player_map(hero.pid)
+                                if nil ~= map then
+                                    Rpc:callAgent(map, "cross_kill_hero", hero.pid, hero.idx)
+                                end
+                            elseif hero_owner:get_cross_state() == PLAYER_CROSS_STATE.IN_OTHER_SERVER then
+                                hero_owner:remote_kill_hero(hero.idx)
+                            else
+                                hero.status = HERO_STATUS_TYPE.DEAD
+                            end
+
                             self:add_count( resmng.ACH_COUNT_KILL_HERO, 1 )
 
                             local buff = build:get_extra("buff")
@@ -627,6 +644,7 @@ function doTimerBuild(self, tsn, build_idx, build_propid, build_state, build_ext
                     build:clr_extra("forge")
                     build:clr_extra("silver")
                     self:add_to_do( "display_ntf", { mode=DISPLY_MODE.NEW_EQUIP, propid=tid } )
+
                     INFO("[BUILD], doTimerBuild, forge, pid=%d, propid=%d, tid=%s", self.pid, build.propid, id)
                 end
 
@@ -652,6 +670,8 @@ function doTimerBuild(self, tsn, build_idx, build_propid, build_state, build_ext
 
                     --周限时活动
                     weekly_activity.process_weekly_activity(self, WEEKLY_ACTIVITY_ACTION.TRAIN_ARM, conf.Lv, extra.num)
+                    --每日限时活动
+                    daily_activity.process_daily_activity(self, DAILY_ACTIVITY_ACTION.TRAIN_ARM, conf.Lv, extra.num)
 
                     -- offline ntf
                     --offline_ntf.post(resmng.OFFLINE_NOTIFY_RECRUIT, self)
@@ -679,7 +699,7 @@ end
 function acc_build(self, build_idx, acc_type)
     local build = self:get_build(build_idx)
     if not build then
-        WARN("acc_build: pid = %d, build_idx = %d", self.pid, build_idx or -1)
+        INFO("acc_build: pid = %d, build_idx = %d", self.pid, build_idx or -1)
         return
     end
     --判断生产资源的建筑在生产状态不能加速
@@ -728,9 +748,11 @@ function acc_build(self, build_idx, acc_type)
     INFO("[BUILD], acc_build, pid=%d, propid=%d, acctype=%s", self.pid, build.propid, acc_type or 0)
 
     build.tmOver = gTime
-    timer.adjust( tm._id, gTime )
-
     Rpc:acc_build( self, build_idx, state, acc_type )
+
+    --timer.adjust( tm._id, gTime )
+    timer.callback( tm._id, tm.tag )
+    timer.del( tm._id )
 
     return true
 end
@@ -937,6 +959,8 @@ function equip_split(self, id)
 
     self:obtain(prop.Split, 1, VALUE_CHANGE_REASON.SPLIT)
     self:equip_rem(id, VALUE_CHANGE_REASON.SPLIT)
+
+
 end
 
 
@@ -979,7 +1003,7 @@ function train(self, idx, armid, num, quick)
         build:recalc()
 
         build.tmSn = timer.new( "build", build.tmOver-gTime, self.pid, idx )
-        reply_ok( self, "train", 0 )
+        reply_ok( self, "train", idx )
 
     elseif quick == 1 then
         local cons = {}
@@ -994,10 +1018,10 @@ function train(self, idx, armid, num, quick)
 
             Rpc:train_over( self, armid, num )
 
-            reply_ok( self, "train", 0 )
+            reply_ok( self, "train", idx )
+            --Rpc:on_build_work_completed( self, build.idx )
 
             --成就
-
             local ach_index = "ACH_TASK_RECRUIT_SOLDIER".. ( armid %  1000000 )
             self:add_count(resmng[ach_index], num)
 
@@ -1008,6 +1032,8 @@ function train(self, idx, armid, num, quick)
 
             --周限时活动
             weekly_activity.process_weekly_activity(self, WEEKLY_ACTIVITY_ACTION.TRAIN_ARM, soldier_level, num)
+            --每日限时活动
+            daily_activity.process_daily_activity(self, DAILY_ACTIVITY_ACTION.TRAIN_ARM, soldier_level, num)
         end
     end
 end
@@ -1038,6 +1064,8 @@ function draft(self, idx)
 
         --周限时活动
         weekly_activity.process_weekly_activity(self, WEEKLY_ACTIVITY_ACTION.TRAIN_ARM, conf.Lv, extra.num)
+        --每日限时活动
+        daily_activity.process_daily_activity(self, DAILY_ACTIVITY_ACTION.TRAIN_ARM, conf.Lv, extra.num)
 
     end
     --Rpc:stateBuild(self, build._pro)
@@ -1240,10 +1268,13 @@ function do_learn_tech(self, academy, tech_id)
 
     --任务
     task_logic_t.process_task(self, TASK_ACTION.STUDY_TECH_MUB, 1)
-    task_logic_t.process_task(self, TASK_ACTION.STUDY_TECH)
+    --task_logic_t.process_task(self, TASK_ACTION.STUDY_TECH)
     task_logic_t.process_task(self, TASK_ACTION.PROMOTE_POWER, 2, conf.Pow)
     --周限时活动
     weekly_activity.process_weekly_activity(self, WEEKLY_ACTIVITY_ACTION.POWER_UP, 2, delta)
+    --每日限时活动
+    daily_activity.process_daily_activity(self, DAILY_ACTIVITY_ACTION.POWER_UP, 2, delta)
+    daily_activity.process_daily_activity(self, DAILY_ACTIVITY_ACTION.TECH_UP, 1, delta)
 end
 
 
@@ -1284,24 +1315,9 @@ end
 -- Others   : NULL
 --------------------------------------------------------------------------------
 function get_castle_lv(self)
-    return math.floor( self.propid % 1000 )
-end
-
-
---------------------------------------------------------------------------------
--- Function : 取得监狱建筑
--- Argument : self
--- Return   : succ - prison; fail - nil
--- Others   : NULL
---------------------------------------------------------------------------------
-function get_prison(self)
-    local prison = self:get_build_extra(BUILD_CLASS.FUNCTION, BUILD_FUNCTION_MODE.PRISON)
-    if not prison then
-        ERROR("get_prison: failed. pid = %d.", self.pid)
-        return
+    if self.propid then
+        return math.floor( self.propid % 1000 )
     end
-
-    return prison
 end
 
 
@@ -1318,7 +1334,12 @@ function get_build_function(self, mode)
 end
 
 
-
+--------------------------------------------------------------------------------
+-- Function : 取得监狱建筑
+-- Argument : self
+-- Return   : succ - prison; fail - nil
+-- Others   : NULL
+--------------------------------------------------------------------------------
 function get_prison(self)
     return self:get_build_function(BUILD_FUNCTION_MODE.PRISON)
 end
@@ -1450,6 +1471,8 @@ function black_market_buy(self, idx)
                 task_logic_t.process_task(self, TASK_ACTION.MARKET_BUY_NUM, 1, 1)
                 --周限时活动
                 weekly_activity.process_weekly_activity(self, WEEKLY_ACTIVITY_ACTION.BLACK_MARKET, 1, conf.Point)
+                --每日限时活动
+                daily_activity.process_daily_activity(self, DAILY_ACTIVITY_ACTION.BLACK_MARKET, 1, conf.Point)
                 --运营活动
                 operate_activity.process_operate_activity(self, OPERATE_ACTIVITY_ACTION.BLACK_MARKET, 1)
             end
@@ -1468,6 +1491,9 @@ function black_market_buy(self, idx)
                     task_logic_t.process_task(self, TASK_ACTION.MARKET_BUY_NUM, 1, 1)
                     --周限时活动
                     weekly_activity.process_weekly_activity(self, WEEKLY_ACTIVITY_ACTION.BLACK_MARKET, 1, conf.Point)
+                    daily_activity.process_daily_activity(self, DAILY_ACTIVITY_ACTION.BLACK_MARKET, 1, conf.Point)
+                    --每日限时活动
+                    daily_activity.process_daily_activity(self, DAILY_ACTIVITY_ACTION.POWER_UP, 1, conf.Point)
                     --运营活动
                     operate_activity.process_operate_activity(self, OPERATE_ACTIVITY_ACTION.BLACK_MARKET, 1)
                     local rate = math.random(1, TOTAL_RATE)
@@ -1530,12 +1556,12 @@ function init_shelf(itemPool, mode)
     local propType = ""
     if mode == POINT_MALL.MONSTER then
         propType = "prop_mall_group_monster"
-    end
-    if mode == POINT_MALL.MANOR then
+    elseif mode == POINT_MALL.MANOR then
         propType = "prop_mall_group_manor"
-    end
-    if mode == POINT_MALL.RELIC then
+    elseif mode == POINT_MALL.RELIC then
         propType = "prop_mall_group_relic"
+    elseif mode == POINT_MALL.CROSS then
+        propType = "prop_mall_group_cross"
     end
     local prop = resmng[propType]
     if prop then
@@ -1610,7 +1636,7 @@ function get_mall(ply, mode)
         return
     end
     local mall = build:get_extra(POINT_MALL_TYPE[mode])
-    if not mall or need_refresh(mall) then
+    if not mall or need_refresh(mall, mode) then
         mall = mall or {}
         INFO("[ACT_MALL] mall need refresh pid = %d, mode = %d, born_tm = %d, gTime = %d", ply.pid, mode, mall.born_time or gTime, gTime)
 
@@ -1622,6 +1648,9 @@ function get_mall(ply, mode)
 end
 
 function need_refresh(mall)
+    if mode == POINT_MALL.RELIC then
+        return false
+    end
     return can_date(mall.born_time)
 end
 
@@ -1632,11 +1661,19 @@ function mall_info(self, mode)
     end
 end
 
-function mall_buy(self, mode, idx)
+function mall_buy(self, mode, idx, num)
+    num = num or 1
     local build = self:get_mall_build(mode)
     if not build then
         return
     end
+
+    local function muti_item(consume, num)
+        for k, v in pairs(consume or {}) do
+            v[3] = v[3] * num
+        end
+    end
+
     local mall = self:get_mall(mode)
     if mall then
         local shelf = mall.shelf
@@ -1647,12 +1684,17 @@ function mall_buy(self, mode, idx)
         end
         local conf = resmng.get_conf("prop_mall_item", item.itemId)
         if conf and item.state ~= 1 then
-            if self:condCheck(conf.Pay) then
-                self:consume(conf.Pay, 1, VALUE_CHANGE_REASON.PT_MALL_BUY)
-                self:add_bonus("mutex_award", conf.Buy, VALUE_CHANGE_REASON.PT_MALL_BUY,1, false)
+            local consume = copyTab(conf.Pay)
+            muti_item(consume, num)
+            if self:condCheck(consume) then
+                self:consume(conf.Pay, num, VALUE_CHANGE_REASON.PT_MALL_BUY)
+                local bonus = copyTab(conf.Buy)
+                muti_item(bonus, num)
+                self:add_bonus("mutex_award", bonus, VALUE_CHANGE_REASON.PT_MALL_BUY,1, false)
                 INFO( "[BUILD], mall_buy, pid=%d, propid=%d, mode=%s, idx=%s", self.pid, build.propid, mode, idx )
-
-                item.state = 1
+                if mode ~= POINT_MALL.RELIC then
+                    item.state = 1
+                end
                 shelf[idx] = item
             end
             build:set_extra(POINT_MALL_TYPE[mode], mall)
@@ -1701,6 +1743,9 @@ end
 
 ---rpc
 function refresh_mall_req(self, mode)
+    if mode == POINT_MALL.RELIC then
+        return
+    end
     local build = self:get_mall_build(mode)
     local mall = self:get_mall(mode)
     if not mall then return end
@@ -1737,7 +1782,7 @@ function open_field( self, index )
         INFO( "[BUILD], open_field, pid=%d, index=%d", self.pid, index )
 
         --任务
-        task_logic_t.process_task(self, TASK_ACTION.OPEN_RES_BUILD, self.field)
+        --task_logic_t.process_task(self, TASK_ACTION.OPEN_RES_BUILD, self.field)
     end
 end
 
@@ -1799,7 +1844,9 @@ function destroy_build( self, build_idx )
         build.tmStart = gTime
         build.tmOver = gTime + dura
         build.tmSn = timer.new( "build", dura, self.pid, build_idx )
-        self:dispatch_hero( build.idx, 0 )
+        --self:dispatch_hero( build.idx, 0 )
+
+        if build.hero_idx ~= 0 then put_off_hero( self, build.hero_idx ) end
 
         self:mark_build_queue( build_idx )
 

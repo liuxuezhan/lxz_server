@@ -1,0 +1,14 @@
+--
+-- $Id$
+--
+
+module( "resmng" )
+svnnum("$Id$")
+
+DAILY_ACTIVITY_1 = 1
+DAILY_ACTIVITY_2 = 2
+DAILY_ACTIVITY_3 = 3
+DAILY_ACTIVITY_4 = 4
+DAILY_ACTIVITY_5 = 5
+DAILY_ACTIVITY_7 = 6
+DAILY_ACTIVITY_8 = 7

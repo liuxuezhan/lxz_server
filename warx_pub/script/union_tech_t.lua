@@ -65,6 +65,15 @@ function add_exp(data, num)
 	gPendingSave.union_tech[data._id].exp = data.exp
 end
 
+function remote_add_exp(union, map_id, id, tech_idx, num)
+    local tech = union:get_tech(tech_idx)
+    if nil == tech then
+        return
+    end
+    add_exp(tech, num)
+    return tech
+end
+
 function is_exp_full(data)
     local conf = resmng.get_conf("prop_union_tech",data.id+1)
     if conf then
@@ -217,7 +226,14 @@ function donate(self, idx, mode)
     local c = resmng.get_conf("prop_union_tech", tech.id + 1)
     if not c then return end
     local full = math.floor(tech.exp/c.Exp)
-    add_exp(tech,reward[3])
+    if union.map_id then
+        local ret, t = remote_func(union.map_id, "remote_add_exp", {"union_tech", union.uid, tech.idx, reward[3]})
+        if t then
+            tech = t
+        end
+    else
+        add_exp(tech,reward[3])
+    end
 
     union.donate_rank = {}
     add_donate_cooldown(self,conf.TmAdd)
@@ -248,6 +264,11 @@ function upgrade(union, idx)
     return resmng.E_OK
 end
 
+function remote_upgrade(union, map_id, id, tech_idx)
+    local ret = upgrade(union, tech_idx)
+    return {ret}
+end
+
 function up_ok(u, tsn, idx)
     local tech = u:get_tech(idx)
     if not tech then return end
@@ -263,6 +284,7 @@ function up_ok(u, tsn, idx)
     u:ef_init()
     gPendingSave.union_tech[tech._id] = tech
     u:notifyall(resmng.UNION_EVENT.TECH, resmng.UNION_MODE.ADD, { idx=tech.idx,id=tech.id,exp=tech.exp,tmOver=tech.tmOver,tmStart=tech.tmStart })
+    u:add_log(resmng.UNION_EVENT.TECH, resmng.UNION_MODE.ADD, { id=tech.id})
     --世界事件
     world_event.process_world_event(WORLD_EVENT_ACTION.UNION_TECH_NUM, next_conf.ID)
 end

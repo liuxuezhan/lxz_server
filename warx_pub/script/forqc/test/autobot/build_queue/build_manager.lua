@@ -1,5 +1,7 @@
 local BuildManager = {}
 
+local REST_TIME = 3
+
 local _predefined_buildings = {
     --{2001004, 1},
     --{1001003, 3},
@@ -13,11 +15,13 @@ function BuildManager:init(player)
     self.eventJobAccepted = newEventHandler()
     self.eventBuildingCompleted = newEventHandler()
     self.eventUpgradingBuildCompleted = newEventHandler()
+    self.eventWakeUp = newEventHandler()
     self:_initBuildQueue()
     self.player.eventBuildUpdated:add(newFunctor(self, self._onBuildUpdated))
 end
 
 function BuildManager:uninit()
+    self:_uninitBuildQueue()
     self.player.eventBuildUpdated:del(newFunctor(self, self._onBuildUpdated))
 end
 
@@ -29,19 +33,19 @@ function BuildManager:addBuilding(propid, priority, num, functor)
     --end
 end
 
-local function _getConstructBuilding(self, propid)
+local function _getConstructBuilding(self, propid, priority)
     propid = propid - propid % 100 + 1
     local prop = resmng.prop_build[propid]
     if Autobot.condCheck(self.player, prop.Cond) then
         --INFO("[Autobot|BuildManager|%d]_getConstructBuilding %d cond check ok.", self.player.pid, propid)
         return nil, propid
     else
-        local pre_propid = self:_getPrereqBuilding(propid)
+        local pre_propid = self:_getPrereqBuilding(propid, priority)
         if nil ~= pre_propid then
             --INFO("[Autobot|BuildManager|%d]_getConstructBuilding %d cond check not ok, pre %d.", self.player.pid, propid, pre_propid)
             local build = self:_getMaxLvBuild(pre_propid)
             if nil == build then
-                return _getConstructBuilding(self, pre_propid)
+                return _getConstructBuilding(self, pre_propid, priority)
             else
                 return build, build.propid + 1
             end
@@ -91,7 +95,7 @@ function BuildManager:getNextBuilding()
             end
         end
         if count < v.num then
-            local build, propid = _getConstructBuilding(self, v.propid)
+            local build, propid = _getConstructBuilding(self, v.propid, v.priority)
             if nil == build or _isBuildingUpgradable(build) then
                 return build, propid
             else
@@ -107,11 +111,11 @@ function BuildManager:getNextBuilding()
                         self:_addUpgradingBuilding(b)
                     end
                 else
-                    local pre_propid = self:_getPrereqBuilding(v.propid)
+                    local pre_propid = self:_getPrereqBuilding(v.propid, v.priority)
                     if nil ~= pre_propid then
                         local build = self:_getMaxLvBuild(pre_propid)
                         if nil == build then
-                            local build, propid = _getConstructBuilding(self, pre_propid)
+                            local build, propid = _getConstructBuilding(self, pre_propid, v.priority)
                             if nil == build or _isBuildingUpgradable(build) then
                                 return build, propid
                             else
@@ -138,7 +142,7 @@ function BuildManager:getNextBuilding()
     end
 end
 
-local function _getCondBuilding(self, class, mode, lv)
+local function _getCondBuilding(self, priority, class, mode, lv)
     if class == resmng.CLASS_BUILD then
         local prop = resmng.prop_build[mode]
         if prop then
@@ -150,42 +154,39 @@ local function _getCondBuilding(self, class, mode, lv)
             if nil ~= build then
                 local build_prop = resmng.prop_build[build.propid]
                 if build_prop.Lv < l then
-                    local pre_propid = self:_getPrereqBuilding(v.propid + 1)
+                    local pre_propid = self:_getPrereqBuilding(build.propid + 1, priority)
                     if nil ~= pre_propid then
                         return pre_propid
                     else
-                        return v.propid + 1
+                        return build.propid + 1
                     end
                 end
             else
                 return prop.ID - math.floor(prop.ID % 1000) + 1
             end
-
-            --[[
-            for _, v in pairs(self.player._build or{}) do
-                local build_prop = resmng.prop_build[v.propid]
-                if build_prop and build_prop.Class == c and build_prop.Mode == m then
-                    if build_prop.Lv < l then
-                        local pre_propid = self:_getPrereqBuilding(v.propid + 1)
-                        if nil ~= pre_propid then
-                            return pre_propid
-                        else
-                            return v.propid + 1
-                        end
-                    end
-                end
+        end
+    elseif class == resmng.CLASS_TECH then
+        local cond_prop = resmng.prop_tech[mode]
+        local meet_condition
+        for k, v in pairs(self.player.tech) do
+            local prop = resmng.prop_tech[v]
+            if cond_prop.Class == prop.Class and cond_prop.Mode == prop.Mode then
+                meet_condition = cond_prop.Lv <= prop.Lv
+                break
             end
-            ]]
+        end
+        if not meet_condition then
+            self.player.tech_manager:addStudyJob(mode, priority + 1, function(tech_id) self.eventWakeUp() end)
         end
     end
 end
 
-local function _getLogicalBuilding(self, operator, ...)
+local function _getLogicalBuilding(self, priority, operator, ...)
     if "OR" == operator then
         for k, v in pairs({...}) do
             local class, mode, lv = unpack(v)
             if class == resmng.CLASS_BUILD then
-                local pre_propid = _getCondBuilding(self, class, mode, lv)
+                local pre_propid = _getCondBuilding(self, priority, class, mode, lv)
                 if nil ~= pre_propid then
                     return pre_propid
                 end
@@ -195,17 +196,17 @@ local function _getLogicalBuilding(self, operator, ...)
     end
 end
 
-function BuildManager:_getPrereqBuilding(propid)
+function BuildManager:_getPrereqBuilding(propid, priority)
     local prop = resmng.prop_build[propid]
     for k, v in pairs(prop.Cond) do
         local class, mode, lv = unpack(v)
         if "OR" == class or "AND" == class then
-            local pre_propid = _getLogicalBuilding(self, unpack(v))
+            local pre_propid = _getLogicalBuilding(self, priority, unpack(v))
             if nil ~= pre_propid then
                 return pre_propid
             end
         else
-            local pre_propid = _getCondBuilding(self, class, mode, lv)
+            local pre_propid = _getCondBuilding(self, priority, class, mode, lv)
             if nil ~= pre_propid then
                 return pre_propid
             end
@@ -216,8 +217,9 @@ end
 function BuildManager:_getMaxLvBuild(propid)
     local build
     local max_level = 0
+    local prop = resmng.prop_build[propid]
     for k, v in pairs(self.player._build or {}) do
-        local build build_prop = resmng.prop_build[v.propid]
+        local build_prop = resmng.prop_build[v.propid]
         if build_prop.Class == prop.Class and build_prop.Mode == prop.Mode then
             if max_level < build_prop.Lv then
                 build = v
@@ -290,24 +292,27 @@ end
 
 local WaitJob = makeState({})
 function WaitJob:onEnter()
+    INFO("[Autobot|BuildManager|%d] waiting job", self.host.player.pid)
     self.host.eventJobAccepted:add(newFunctor(self, self._onJobAccepted))
     self.host.eventUpgradingBuildCompleted:add(newFunctor(self, self._onBuildingCompleted))
+    self.host.eventWakeUp:add(newFunctor(self, self._onWakeUp))
 end
 
 function WaitJob:onExit()
     self.host.eventJobAccepted:del(newFunctor(self, self._onJobAccepted))
     self.host.eventUpgradingBuildCompleted:del(newFunctor(self, self._onBuildingCompleted))
+    self.host.eventWakeUp:del(newFunctor(self, self._onWakeUp))
 end
 
 function WaitJob:_onJobAccepted(propid)
-    if self.host:_hasActiveBuildQueue() then
-        self:translate("Initiator")
-    else
-        self:translate("WaitBuildQueue")
-    end
+    self:_onWakeUp()
 end
 
 function WaitJob:_onBuildingCompleted(build)
+    self:_onWakeUp()
+end
+
+function WaitJob:_onWakeUp()
     if self.host:_hasActiveBuildQueue() then
         self:translate("Initiator")
     else
@@ -317,6 +322,7 @@ end
 
 local WaitBuildQueue = makeState({})
 function WaitBuildQueue:onEnter()
+    INFO("[Autobot|BuildManager|%d] waiting build queue", self.host.player.pid)
     self.host.eventActiveBuildQueue:add(newFunctor(self, self._onActiveBuildQueue))
 end
 
@@ -332,6 +338,7 @@ end
 
 local Initiator = makeState({})
 function Initiator:onEnter()
+    INFO("[Autobot|BuildManager|%d] Ready to construct/upgrade build", self.host.player.pid)
     local queue_index, remain = self.host:_getBuildQueueInfo()
     if nil == queue_index then
         self:translate("WaitBuildQueue")
@@ -360,7 +367,7 @@ function Initiator:onEnter()
         if max_seq > 1 then
             x = find_enabled_pos(self.host.player)
         end
-        INFO("[Autobot|BuildManager|%d] Construct building %d", self.host.player.pid, propid)
+        INFO("[Autobot|BuildManager|%d] Construct building %d[x:%d, field:%d]", self.host.player.pid, propid, x, self.host.player.field)
         Rpc:construct(self.host.player, x, 0, prop.ID)
         if dura <= 0 then
             -- 直接完成的建筑，需要等待建筑状态处理完成（从Create变更为WAIT或WORK）
@@ -429,7 +436,7 @@ function Upgrade:onExit()
 end
 
 function Upgrade:_onDeactiveBuildQueue(index)
-    --INFO("[Autobot|BuildManager|%d] upgrade building build queue marked", self.host.player.pid)
+    INFO("[Autobot|BuildManager|%d] upgrade building build queue marked", self.host.player.pid)
     self.queue_flag = true
     self:_tryTranslate()
 end
@@ -441,7 +448,7 @@ function Upgrade:_onBuildUpdated(player, build)
     if build.state ~= BUILD_STATE.UPGRADE then
         return
     end
-    --INFO("[Autobot|BuildManager|%d] upgrade build state", self.host.player.pid)
+    INFO("[Autobot|BuildManager|%d] upgrade build state", self.host.player.pid)
     self.upgrade_flag = true
     self:_tryTranslate()
 end
@@ -467,11 +474,13 @@ end
 
 local Rest = makeState({})
 function Rest:onEnter()
-    AutobotTimer:addTimer(function() self:translate("Initiator") end, 1)
-    --action(function()
-    --    sync(self.host.player)
-    --    self:translate("Initiator")
-    --end)
+    INFO("[Autobot|BuildManager|%d] Rest a moment", self.host.player.pid)
+    self.timer_id = AutobotTimer:addTimer(function() self:translate("Initiator") end, REST_TIME)
+end
+
+function Rest:onExit()
+    AutobotTimer:delTimer(self.timer_id)
+    self.timer_id = nil
 end
 
 local SecConstruct = makeState({})
@@ -489,11 +498,21 @@ function SecConstruct:onExit()
     self.host.player.eventBuildUpdated:del(newFunctor(self, self._onUpdateBuilding))
 end
 
+local STATE_DESC = 
+{
+    [BUILD_STATE.DESTROY] = "Destroy",
+    [BUILD_STATE.CREATE] = "Create",
+    [BUILD_STATE.WAIT] = "Wait",
+    [BUILD_STATE.WORK] = "Work",
+    [BUILD_STATE.UPGRADE] = "Upgrade",
+    [BUILD_STATE.FIX] = "Fix",
+}
+
 function SecConstruct:_onConstructBuilding(player, build)
     if build.state ~= BUILD_STATE.CREATE or build.propid ~= self.propid then
         return
     end
-    INFO("[Autobot|BuildManager|%d] wait the completion of build %d", self.host.player.pid, build.idx)
+    INFO("[Autobot|BuildManager|%d] wait the completion of build %d|%s", self.host.player.pid, build.idx, STATE_DESC[build.state])
     self.build_idx = build.idx
 end
 
@@ -545,6 +564,13 @@ function BuildManager:_initBuildQueue()
     runner:start()
 
     self.build_queue_runner = runner
+end
+
+function BuildManager:_uninitBuildQueue()
+    if nil ~= self.build_queue_runner then
+        self.build_queue_runner:stop()
+        self.build_queue_runner = nil
+    end
 end
 
 function BuildManager:activeBuildQueue(index)

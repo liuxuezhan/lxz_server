@@ -13,22 +13,19 @@ end
 function BuildQueueMachine:_onBuildQueueUpdated(player, build_queue)
     local last_idx = self.build_idx
     self.build_idx = build_queue[self.queue_index] or 0
+    --INFO("[Autobot|BuildQueue|%d|%d] Build queue state: %d->%d", player.pid, self.queue_index, last_idx, self.build_idx)
     if last_idx == self.build_idx then
         return
     end
     local current_state = self:getCurrentState()
-    local state = 0
     if 0 == self.build_idx then
-        state = state + 10
-        if "Idle" ~= current_state.name then
-            self:translate("Idle")
-            state = state + 1
-        end
+        self:translate("Idle")
     else
-        state = state + 1000
-        if "Idle" == current_state.name then
+        if 0 == last_idx then
             self:translate("Working")
-            state = state + 100
+        else
+            self:translate("Idle")
+            self:translate("Working")
         end
     end
 end

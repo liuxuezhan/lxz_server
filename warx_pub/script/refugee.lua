@@ -1,11 +1,11 @@
 module("refugee", package.seeall)
 
 distrib = distrib or {}
+grabbing_refugee = grabbing_refugee or {}
 scan_id = scan_id or 0
 act_state = act_state or 0
 
-module_class("refugee",
-{ 
+module_class("refugee", { 
     _id = 0,
     x = 0,
     y = 0,
@@ -18,10 +18,9 @@ module_class("refugee",
     end_time = 0,
     my_troop_id = 0,
     size = 0,
-    timers = {},
+    timers = 0,
     extra = {},
-}
-)
+})
 
 function checkin(m)
     local zx = math.floor(m.x / 16)
@@ -140,12 +139,10 @@ function test()
     end
 end
 
-
 function mark(m)
     m.marktm = gTime
     gPendingInsert.refugee[ m.eid ] = m
 end
-
 
 function load_from_db()
     local db = dbmng:getOne()
@@ -164,54 +161,87 @@ function load_from_db()
 end
 
 function get_my_troop(self)
-    local tr = troop_mng.get_troop(self.my_troop_id)
-    return tr
+    return troop_mng.get_troop(self.my_troop_id)
 end
 
-function after_fight(ackTroop, defenseTroop)
-
-    local city = get_ety(ackTroop.target_eid) 
-
-    local extra = city.extra or {}   -- deal old dominator
-
-    local ply = getPlayer(city.pid)  
-    if ply then
-        local refugee_info = ply.refugee_info or {}
-        if refugee_info[city.eid] then
-            refugee_info[city.eid] = nil
-        end
-        ply.refugee_info = refugee_info
-    else
-        if extra.ply_gs_id then
-            Rpc:callAgent(extra.ply_gs_id, "refugee_change", city.pid, 0, {eid = eid})
-        else
-            WARN("did not find where is ply who occupied refugee")
-        end
+function calc_grab(self)
+    local troop = self:get_my_troop()
+    if not troop then
+        return
     end
 
-    new_defender_state(city)
-    union_hall_t.battle_room_update_ety(OPERATOR.UPDATE, city)
+    local extra = self.extra or {}
+    local speed, count = troop:get_refugee_power()
+    extra.speed = speed
+    extra.count = count
+    self.extra = extra
+end
 
-
-    local atk_ply = getPlayer(ackTroop.owner_pid)
-    if atk_ply then
-        extra.ply_gs_id = atk_ply.map_id 
-        city.my_troop_id = ackTroop._id
-        city.pid = atk_ply.pid
-        city.uid = atk_ply.uid
-        city.extra = extra
-        refugee_info[city.eid] = {eid = city.eid, tm_over = city.end_time, map_id = gMapID}
-        atk_ply.refugee_info = refugee_info
+function start_grab(self, troop)
+    self.my_troop_id = troop._id
+    local player = getPlayer(troop.owner_pid)
+    if player then
+        self.pid = player.pid
+        self.uid = player.uid
     else
+        self.pid = 0
+        self.uid = 0
         WARN("did not find ply who occupied refugee")
     end
 
-    etypipe.add(city)
+    self:calc_grab()
+    self:new_defender_state()
+    union_hall_t.battle_room_update_ety(OPERATOR.UPDATE, self)
+
+    etypipe.add(self)
+    grabbing_refugee[self.eid] = self.eid
+end
+
+function stop_grab(self)
+    self:clear_timer()
+
+    grabbing_refugee[self.eid] = nil
+
+    local gain = math.ceil((self.extra.speed or 0) * (gTime - (self.extra.start or gTime)))
+    if gain > self.val then
+        gain = self.val
+    end
+    self.val = self.val - gain
+
+    local player = getPlayer(self.pid)
+    if player then
+        Rpc:callAgent(gCenterID, "upload_refugee_score", player.map, player.pid, gain)
+    end
+
+    self.pid = 0
+    self.uid = 0
+    self.my_troop_id = 0
+    self.extra = {}
+    if self.val < 2 then
+        local zx = mail.floor(self.x / 16)
+        local zy = mail.floor(self.y / 16)
+        local idx = zy * 80 + zx
+        local node = distrib[idx]
+        local new_node = {}
+        for k, eid in pairs(node or {}) do
+            if eid ~= self.eid then
+                rem_ety(self.eid)
+            else
+                table.insert(new_node, eid)
+            end
+        end
+        distrib[idx] = new_node
+
+        respawn(math.floor(self.x / 16), math.floor(self.y / 16))
+    else
+        etypipe.add(self)
+        self:mark()
+    end
 end
 
 function new_defender_state(self)
-    clear_timer(self)
-    set_timer(1, self)
+    self:clear_timer()
+    self:set_timer(1)
     self.start_time = gTime
     local time = resmng.prop_world_unit[self.propid].Spantime
     -- to do
@@ -219,46 +249,69 @@ function new_defender_state(self)
 end
 
 function clear_timer(self)
-    if self then
+    if self.timers then
         timer.del(self.timers)
-        self.timers = nil
+        self.timers = 0
     end
+    if self.extra.gift_timer then
+        timer.del(self.extra.gift_timer)
+        self.extra.gift_timer = nil
+    end
+    self.state = 0
     self.start_time = 0
     self.end_time = 0
 end
 
-function set_timer(state, self)
-    if state == nil then state = self.state end
-    -- to do
-    local time = 0
-    if self then
-        time = resmng.prop_world_unit[self.propid].Spantime
+function set_timer(self, state)
+    if state == nil then
+        state = self.state
     end
-    if self then
-        local timerId = 0
-        timerId = timer.new("refugee", time, state, self.eid)
-        self.timers= timerId
+
+    local troop = self:get_my_troop()
+    if not troop then
+        return
     end
+    self:calc_grab()
+
+    local dura = math.ceil(self.extra.count / self.extra.speed)
+    local timer_id = timer.new("refugee", dura, state, self.eid)
+    self.timers = timer_id
+
+    timer_id = timer.cycle("refugee_gift", 10 * 60, state, self.eid, self.pid)
+    self.extra.gift_timer = timer_id
+    self.extra.gift_count = 0
 end
 
-function finish_grap(self)
-    clear_timer(self)
-    local tr = self:get_my_troop()
-    if tr then
-        tr:back()
+function finish_grab(self)
+    if 0 == self.state then
+        return
     end
-    local zx = mail.floor(self.x / 16)
-    local zy = mail.floor(self.y / 16)
-    local node = distrib[ zy * 80 + zx]
-    local news = {}
-    for k, eid in pairs(node or {}) do
-        if eid ~= self.eid then
-            rem_ety(self.eid)
-        else
-            table.insert(news, eid)
-        end
+
+    local troop = self:get_my_troop()
+    if troop then
+        troop:back()
     end
-    distrib[idx] = news
+
+    self:stop_grab()
+end
+
+function refugee_gift(self, pid)
+    if self.pid ~= pid then
+        return
+    end
+
+    local player = getPlayer(self.pid)
+    if not player then
+        return
+    end
+    local item_id = SETTLE_REFUGEE_GIFT
+    if check_ply_cross(player) then
+        item_id = ENSLAVE_REFUGEE_GIFT
+    end
+    player:add_bonus("mutex_award", {{"item", item_id, 1, 10000}}, VALUE_CHANGE_REASON.REASON_CROSS_PERSONAL_AWARD)
+
+    self.extra.gift_count = self.extra.gift_count + 1
+    return 1
 end
 
 function post_refugee_score(pid, eid, propid)
@@ -287,11 +340,44 @@ function clear_all_refugee()
         local node = distrib[i]
         if node then
             for k, v in pairs(node) do
+                v:stop_grab()
                 rem_ety(v)
             end
         end
         distrib[i] = nil
     end
     distrib = {}
+end
+
+function send_refugee_info(player)
+    info = {}
+    for _, eid in pairs(grabbing_refugee) do
+        local ety = get_ety(eid)
+        if ety then
+            local data = {
+                gid = gMapID,
+                x = ety.x,
+                y = ety.y,
+                propid = ety.propid,
+                gift_count = ety.extra.gift_count,
+                mode = 0,
+            }
+            if check_ply_cross(player) then
+                data.mode = 1
+            end
+            local tm = timer.get(ety.timers)
+            if tm then
+                data.start = tm.start
+                data.over = tm.over
+            end
+            tm = timer.get(ety.extra.gift_timer)
+            if tm then
+                data.gift_start = tm.start
+                data.gift_over = tm.over
+            end
+            table.insert(info, data)
+        end
+    end
+    Rpc:cross_refugee_info_ack(player, cross_act.tm_over, info)
 end
 

@@ -196,7 +196,10 @@ function mongo.recvReply(sock)
     if id then
         --LOG("get_reply, reply_id = %d", id)
         local co, extra = getCoroPend("db", id)
-        if co then gCoroBad[ co ] = true end
+
+        local node = gCoroMark[ co ]
+        if node then node.nest = (node.nest or 0) + 1 end
+
         local doc = nil
         if extra and extra.cmd == "find" then
             doc = extra.cmd_data.doc
@@ -214,7 +217,30 @@ function mongo.recvReply(sock)
     end
 end
 
-gMarkBsonDecode = gMarkBsonDecode or ( setmetatable( {}, {__mode="k"} ) )
+function mongo.do_recv_data( reply )
+    local code, id = getReplyID(reply)
+    if id then
+        local co, extra = getCoroPend("db", id)
+        local node = gCoroMark[ co ]
+        if node then
+            node.nest = (node.nest or 0) + 1
+        else
+            WARN( "not mark this coro %s", co )
+        end
+
+        local doc = nil
+        if extra and extra.cmd == "find" then
+            doc = extra.cmd_data.doc
+        end
+        local succ, reply_id, doc, cursor = driver.reply(reply, doc)
+        if co then
+            coroutine.resume(co, reply, succ, reply_id, doc, cursor)
+        end
+    else
+        WARN("error, recvReply")
+    end
+end
+
 
 function mongo_db:runCommand(cmd,cmd_v,...)
 	local request_id = self.connection:genId()
@@ -240,7 +266,6 @@ function mongo_db:runCommand(cmd,cmd_v,...)
 	assert(request_id == reply_id, "Reply from mongod error")
 	-- todo: check succ
     local info = bson_decode( doc )
-    gMarkBsonDecode[ info ] = 1
 
     return info
 end
@@ -373,6 +398,8 @@ function mongo_collection:find(query, selector)
 		__cursor = nil,
 		__document = {},
 		__flags = 0,
+        __skip = 0,
+        __limit = 0,
 	} , cursor_meta)
 end
 
@@ -386,10 +413,10 @@ function mongo_cursor:hasNext()
 		local sock = conn.__sock
 		local pack
 		if self.__data == nil then
-			pack = driver.query(request_id, self.__flags, self.__collection.full_name,0,0,self.__query,self.__selector)
+			pack = driver.query(request_id, self.__flags, self.__collection.full_name, self.__skip, self.__limit, self.__query, self.__selector)
 		else
 			if self.__cursor then
-				pack = driver.more(request_id, self.__collection.full_name,0,self.__cursor)
+				pack = driver.more(request_id, self.__collection.full_name, self.__limit, self.__cursor)
 			else
 				-- no more
 				self.__document = nil

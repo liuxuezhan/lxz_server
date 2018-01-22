@@ -32,6 +32,10 @@ function packet:ReadString()
     return pullString()
 end
 
+function packet:ReadBString()
+    return pullBString()
+end
+
 function packet:ReadPack()
     return pullPack()
 end
@@ -62,6 +66,11 @@ end
 
 function packet:WriteString(v)
     pushString(v)
+end
+
+
+function packet:WriteBString(v)
+    pushBString(v)
 end
 
 function packet:WritePack(v)

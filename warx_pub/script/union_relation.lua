@@ -42,8 +42,13 @@ function list(u)
                 if d then
                     check(u,d) 
                     local t = d:get_info() 
-                    t.relation = copyTab(v) --todo, no need copy
-                    table.insert(l.list,t)
+                    if t then
+                        t.relation = copyTab(v) --todo, no need copy
+                        table.insert(l.list,t)
+                    end
+                else
+                    u.relation[k] = nil
+                    dbmng:getOne().union_relation:update( {_id=u.uid}, { ["$unset"]={ [k]='', } }, false,true )
                 end
             end
         end

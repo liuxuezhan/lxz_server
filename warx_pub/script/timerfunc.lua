@@ -1,6 +1,5 @@
 module("timer")
 
-local min = 0
 _funs["cron"] = function(sn)
     timer.cron_base_func()
 
@@ -10,6 +9,8 @@ _funs["cron"] = function(sn)
 
             else
                 local co = coroutine.create( global_saver )
+                coro_mark_create( co, "global_saver" )
+                coro_mark( co, "outpool" )
                 coroutine.resume( co )
             end	
         end
@@ -39,44 +40,69 @@ _funs["cron"] = function(sn)
 
     local db = dbmng:tryOne()
     local total = 0
-    local tlog_onlines = { }
     local onlines = gOnlines
     local gone = {}
+
+    --local tlog_onlines = { }
+    --for k, v in pairs( config.GameAppIDs ) do
+    --    tlog_onlines[ k ] = { [0] = 0, [1] = 0 }
+    --end
+
     for pid, node in pairs( onlines ) do
-        local offset = gTime - node[2]
         local p = getPlayer( pid ) 
-        if offset < 300 then
-            total = total + 1
-            if p and p.vGameAppid and p.PlatID then
-                if not tlog_onlines[p.vGameAppid] then tlog_onlines[p.vGameAppid] = {} end
-                tlog_onlines[p.vGameAppid][p.PlatID] = (tlog_onlines[p.vGameAppid][p.PlatID] or 0) + 1 
-            end
-        elseif offset < 400 then
-            total = total + 1
-            if p then 
-                Rpc:ping( p ) 
-                if p.vGameAppid and p.PlatID then
-                    if not tlog_onlines[p.vGameAppid] then tlog_onlines[p.vGameAppid] = {} end
-                    tlog_onlines[p.vGameAppid][p.PlatID] = (tlog_onlines[p.vGameAppid][p.PlatID] or 0) + 1 
-                end
+        if p and p.map == gMapID then
+            local offset = gTime - node[2]
+            --local gameappid = p.gameappid 
+            --local platid = p.PlatID 
+            --if platid ~= 0 and platid ~= 1 then platid = 0 end
+
+            --if offset < 300 then
+            if offset < 60 then
+                total = total + 1
+                --if not tlog_onlines[ gameappid ] then tlog_onlines[ gameappid ] = {} end
+                --tlog_onlines[ gameappid ][ platid ] = ( tlog_onlines[ gameappid ][ platid ] or 0 ) + 1
+            --elseif offset < 400 then
+            elseif offset < 120 then
+                total = total + 1
+                --if not tlog_onlines[ gameappid ] then tlog_onlines[ gameappid ] = {} end
+                --tlog_onlines[ gameappid ][ platid ] = ( tlog_onlines[ gameappid ][ platid ] or 0 ) + 1
+                Rpc:ping( p, gMapID )
+            else
+                table.insert( gone, pid )
+                break_player( pid )
+                player_t.onBreak( p, p.sockid or 0 ) 
             end
         else
-            if p then player_t.onBreak( p, p.sockid or 0 ) end
+            table.insert( gone, pid )
         end
-        player_t.g_online_num = total
     end
+    if player_t.g_online_num ~= total then
+        player_t.g_online_num = total
+        c_set_online( total )
+    end
+
     for _, pid in pairs( gone ) do onlines[ pid ] = nil end
 
     INFO( "[Online], %d", player_t.g_online_num )
     player_t.pre_tlog(nil,"GameSvrState",config.GameHost,(player_t.g_online_num or 0),(get_sys_status("start") or 0) ,0 )
 
-    min = min + 1
-    for k, v in pairs( tlog_onlines or {} ) do
-        player_t.tlog_ten(nil,"onlinecnt",tms2str(), k, gTime, config.Country, gMapID, 0, v[0] or 0 , v[1] or 0 )
-    end
-    if (min%5) == 0 then player_t.tlog_ten(nil,"GameSvrState" ) end
-end
 
+    --min = min + 1
+    --for k, v in pairs( tlog_onlines or {} ) do
+    --    player_t.tlog_ten(nil,"onlinecnt",tms2str(), k, gTime, config.Country, gMapID, gMapID, v[0] or 0 , v[1] or 0 )
+    --    player_t.tlog_ten2(nil,"OnlineCount",gMapID,tms2str(), k, gMapID, v[0] or 0, 0 )
+    --    player_t.tlog_ten2(nil,"OnlineCount",gMapID,tms2str(), k, gMapID, v[1] or 0, 1 )
+    --    --local node = { timekey=gTime, gsid=gMapID, zoneareaid=gMapID, gameappid=k }
+    --    --node.onlinecntios = v[0] or 0
+    --    --node.onlinecntandroid = v[1] or 0
+    --    --insert_global( "onlinecnt", string.format( "%s_%s_%d", gMapID, k, gTime ), node )
+    --end
+
+    --if (min%5) == 0 then 
+    --    player_t.tlog_ten(nil,"GameSvrState" ) 
+    --    player_t.tlog_ten2(nil,"GameSvrState" ) 
+    --end
+end
 
 
 _funs["cure"] = function(sn, pid)
@@ -131,18 +157,45 @@ _funs["hero_task"] = function(sn, pid, tr_id, task_id)
     local p = getPlayer( pid )
     local tr = troop_mng.get_troop(tr_id)
     if tr then
-        tr:back()
+        tr:home()
     end
-    local prop = resmng.get_conf("prop_hero_task_detail", task_id)
-    if p and tr and prop then
+    if p and tr then
         local task = p:get_hero_task(HERO_TASK_MODE.CUR_LIST, task_id)
         if task then
+            local prop = resmng.get_conf("prop_hero_task_detail", task.task_id)
+            if not prop then
+                return
+            end
             if task.status == TASK_STATUS.TASK_STATUS_DOING then
                 if prop.EventCondition then
-                    task.do_event = player_t.check_event_condition(task, prop.EventCondition)
+                    local do_event = player_t.check_event_condition(task, prop.EventCondition)
+                    if task.task_type == 2 then
+                        do_event = do_event and (get_table_valid_count(task.task_plys or {}) == 3)
+                    end
+                    task.do_event = do_event
                 end
-                task.status = TASK_STATUS.TASK_STATUS_CAN_FINISH
+                if task.do_event == true then
+                    task.status = TASK_STATUS.TASK_STATUS_CAN_EVENT
+                else
+                    task.status = TASK_STATUS.TASK_STATUS_CAN_FINISH
+                end
+                for _, ply in pairs(task.task_plys or {}) do
+                    ply.status = task.status
+                    --ply.status = TASK_STATUS.TASK_STATUS_CAN_EVENT 
+                end
+                for _, task_ply in pairs(task.task_plys or {}) do
+                    for _, hero in pairs(task_ply.heros or {}) do
+                        local h =  heromng.get_hero_by_uniq_id(hero._id)
+                        if h then
+                            h.hero_task_status = HERO_STATUS_TYPE.FREE
+                        end
+                    end
+                end
+                 --task.status = TASK_STATUS.TASK_STATUS_CAN_EVENT
                 p:set_hero_task2(HERO_TASK_MODE.CUR_LIST, task_id, task)
+                union_help.del(p,sn)
+                --Rpc:update_hero_task_ack(p, task)
+                player_t.update_hero_task(task)
             end
         end
     end
@@ -195,11 +248,28 @@ _funs["npc_city"] = function(sn, eid, state)
 
 end
 
+_funs["tw_stage"] = function(sn, stage, tm)
+    if stage == TW_STATE.DECLARE then
+        npc_city.start_tw(tm)
+    elseif stage == TW_STATE.PACE then
+        npc_city.end_tw()
+    end
+end
+
 _funs["refugee"] = function(sn, state, eid)
     if eid then
         local refugee = get_ety(eid)
         if refugee then
-            refugee.finish_grap(refugee)
+            refugee:finish_grab()
+        end
+    end
+end
+
+_funs["refugee_gift"] = function(sn, state, eid, pid)
+    if eid then
+        local refugee = get_ety(eid)
+        if refugee then
+           refugee:refugee_gift(pid)
         end
     end
 end
@@ -283,10 +353,10 @@ end
 
 
 _funs["build"] = function(sn, pid, build_idx, ...)
-        local p = getPlayer(pid)
-        union_help.del(p,sn)
-        p:doTimerBuild(sn, build_idx, ...)
-    end
+    local p = getPlayer(pid)
+    union_help.del(p,sn)
+    p:doTimerBuild(sn, build_idx, ...)
+end
 
 _funs["mass"] = function(sn, uid, idx)
     local union = unionmng.get_union(uid)
@@ -304,44 +374,27 @@ _funs["test"] = function(sn, uid, idx)
     local ts = p:get_item()
 end
 
-_funs["release_prisoner"] = function(sn, pid, hero_id)
-    local p = getPlayer(pid)
-    if p then
-        p:release_prisoner(hero_id, sn)
-    else
-        ERROR("[timerfunc.release_prisoner]: get player failed. pid = %d, hero_id = %d.", pid, hero_id)
-    end
-end
-
 _funs.expiry = function(sn, pid, heroid, over)
     local ply = getPlayer(pid)
     if ply then
+        if ply:get_cross_state() == PLAYER_CROSS_STATE.IN_OTHER_SERVER then
+            return
+        end
         local jail = ply:get_prison()
         if jail then
             local h = jail:release(heroid, over)
             if h then
                 ply:release(h)
+
+                local B = getPlayer( h.pid )
+                if B then
+                    local uname = ""
+                    local Bunion = unionmng.get_union( B.uid )
+                    if Bunion then uname = string.format( "(%s)", Bunion.alias) end
+                    ply:send_system_notice( resmng.MAIL_10078, {}, {uname, B.name, h.name} )
+                end
             end
         end
-    end
-end
-
-
-_funs["delete_kill_buff"] = function(sn, pid, buff_id)
-    local p = getPlayer(pid)
-    if p then
-        p:update_kill_buff(buff_id)
-    end
-end
-
-_funs["destroy_dead_hero"] = function(sn, pid, hero_id)
-    local hero = heromng.get_hero_by_uniq_id(hero_id)
-    if hero and hero.status ~= HERO_STATUS_TYPE.DEAD then
-        heromng.destroy_hero(hero_id)
-    end
-    local p = getPlayer( pid )
-    if p then
-        p:add_count( resmng.ACH_COUNT_KILL_HERO, 1 )
     end
 end
 
@@ -415,6 +468,9 @@ end
 _funs["buf"] = function(sn, pid, bufid, tmOver)
     local p = getPlayer( pid )
     if p then
+        if p:get_cross_state() == PLAYER_CROSS_STATE.IN_OTHER_SERVER then
+            return
+        end
         p:rem_buf( bufid, tmOver )
         p:clear_one()
     end
@@ -425,6 +481,9 @@ end
 _funs["rem_buf_build"] = function(sn, pid, idx, bufid, tmOver)
     local ply = getPlayer(pid)
     if ply then
+        if ply:get_cross_state() == PLAYER_CROSS_STATE.IN_OTHER_SERVER then
+            return
+        end
         local build = ply:get_build(idx)
         if build then
             for k, v in pairs(build.bufs) do
@@ -464,45 +523,6 @@ _funs["tlog"] = function(sn, tid)
     g_log_idx = g_log_idx + 1
 end
 
-_funs["check"] = function(sn, pid)
-    local ply = getPlayer( pid )
-    if not ply then return end
-    if ply.tm_check ~= sn then return end
-
-    local offset = gTime - ( ply.tick or 0 )
-    LOG( "[check], pid=%d, offset=%d", pid, offset )
-    ply:initEffect()
-
-    if offset < 120 then
-        ply.tm_check = timer.new( "check", 2400, pid )
-
-    elseif offset < 1200 then
-        ply.tm_check = timer.new( "check", 2400, pid )
-        if ply.tm_logout < ply.tm_login and ply.tm_login > gBootTime then
-            player_t.onBreak( ply )
-        end
-
-    else
-        LOG( "[check], pid=%d, off", pid )
-        ply._mail = nil
-        ply._build = nil
-        ply._item = nil
-        ply.tm_check = nil
-        ply:clear_task()
-
-        local home = troop_mng.get_troop( ply.my_troop_id )
-        if home then
-            for pid, arm in pairs( home.arms or {} ) do
-                local info = {}
-                info.live_soldier = arm.live_soldier
-                info.pid = pid
-                home.arms[ pid ] = info
-            end
-        end
-        ply:clear_one()
-    end
-end
-
 
 _funs["check_frame"] = function(sn, idx)
     if idx <= 100 then
@@ -526,11 +546,6 @@ _funs["cross_act_notify"] = function(sn, notify_id, time)
     cross_mng_c.cross_act_notify(notify_id, time)
 end
 
-_funs["make_group_ntf"] = function(sn, notify_id, time)
-    time = time or 0
-    cross_mng_c.make_group_ntf(notify_id)
-end
-
 _funs["cross_act"] = function(sn, state)
     if state == CROSS_STATE.FIGHT then
         cross_mng_c.cross_act_fight()
@@ -545,6 +560,9 @@ end
 _funs["remove_state"] = function(sn, pid, state)
     local ply = getPlayer( pid )
     if ply then
+        if ply:get_cross_state() == PLAYER_CROSS_STATE.IN_OTHER_SERVER then
+            return
+        end
         ply:rem_state( state )
     end
 end
@@ -552,6 +570,13 @@ end
 
 _funs["world_event"] = function(sn, id)
     world_event.check_time(sn, id)
+end
+
+_funs["cross_migrate_back"] = function(sn, pid)
+    local player = getPlayer(pid)
+    if player then
+        player:cross_migrate_back(-1, -1)
+    end
 end
 
 

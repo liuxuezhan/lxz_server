@@ -89,7 +89,7 @@ function StateMachine:update()
     state:update()
 end
 
-function StateMachine:start()
+function StateMachine:start(...)
     if self.onStart then
         self:onStart()
     end
@@ -99,7 +99,7 @@ function StateMachine:start()
     assert(nil ~= state, "state machine can't start because the initState doesn't exist")
     self.prevState = nil
     self.currentState = state
-    self.currentState:enter()
+    self.currentState:enter(...)
 end
 
 function StateMachine:stop()
@@ -185,6 +185,8 @@ local function createState(self, fsm, name)
 end
 
 function makeState(module)
+    module = module or {}
+
     module.createInstance = createState
     module.__index = module
 

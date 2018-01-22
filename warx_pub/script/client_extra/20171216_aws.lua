@@ -1,0 +1,287 @@
+--
+--player_t.gClientExtra = [[
+--Net.is_connected = true
+--Net.onConnect = function()
+--	Net.is_connected = true
+--
+--	print("Lua Net.onConnect") 
+--	Analytics:svr_connected()
+--	if Net.enter_main then
+--    	print("enter_main is true")
+--    	local open_id = SDK:get_open_id()
+--    	local zone_id = SDK:get_zoneid()
+--    	local pid     = SDK:get_pid()
+--    	print(string.format("open_id=%s, zone_id=%s, pid=%s", open_id,zone_id,pid))
+--    	login_net.send_join_game( zone_id, open_id, pid, 0)
+--	end
+--	Proxy:distribute(MSG_TYPE.NET_CONNECT_SUCCESS)     
+--end
+--
+--Net.onDisconnect = function()
+--	if not Net.is_connected then return end
+--	Net.is_connected=false
+--	print("Lua Net.onDisconnect")
+--	Proxy:distribute(MSG_TYPE.NET_DISCONNECT)
+--end
+--
+--Net.onReconnect = function()
+--	Net.is_connected = true
+--	print("onReconnect")
+--end
+--
+--Net.onConnectError = function()
+--	if not Net.is_connected then return end
+--	Net.is_connected=false
+--	print("onConnectError")
+--	Proxy:distribute(MSG_TYPE.NET_CONNECT_ERROR)
+--end
+--
+--Net.NetEvent = {
+--	UNKOWN = 0,
+--	CONNECT = 1,
+--	DISCONNECT = 2,
+--	RECONNECT = 3,
+--	CONNECT_ERROR = 4,
+--	RECEIVE_ERROR = 5,
+--	SEND_ERROR = 6,
+--}
+--
+--Net.netEventHandler = {
+--	[Net.NetEvent.UNKOWN] = Net.onUnkownError,
+--	[Net.NetEvent.CONNECT] = Net.onConnect,
+--	[Net.NetEvent.DISCONNECT] = Net.onDisconnect,
+--	[Net.NetEvent.RECONNECT] = Net.onReconnect,
+--	[Net.NetEvent.CONNECT_ERROR] = Net.onConnectError,
+--	[Net.NetEvent.RECEIVE_ERROR] = Net.onDisconnect,
+--	[Net.NetEvent.SEND_ERROR] = Net.onDisconnect,
+--}
+--
+--Net.netHandler = function(packet)
+--	local ptype = packet:Type()
+--	if ptype < 100 then
+--		local func = Net.netEventHandler[ptype]
+--		if func then
+--			func()
+--			return true
+--		end
+--	end
+--
+--	local dealed, pname = Rpc:parseRpc(packet)
+--	if dealed then
+--	end
+--	return dealed
+--end
+--
+--WarNet.main.luaNetHandler = Net.netHandler
+--
+--
+--local _resmng = resmng
+--local data = _resmng.prop_guideData
+--data[_resmng.GUIDE_STEP_13][20] = nil
+--data[_resmng.GUIDE_STEP_14][20] = nil
+--data[_resmng.GUIDE_STEP_15][20] = nil
+--data[_resmng.GUIDE_STEP_16][20] = nil
+--data[_resmng.GUIDE_STEP_30][20] = nil
+--data[_resmng.GUIDE_STEP_50][20] = 170
+--data[_resmng.GUIDE_STEP_87][20] = 90
+--data[_resmng.GUIDE_STEP_91][20] = 100
+--data[_resmng.GUIDE_STEP_93][20] = nil
+--data[_resmng.GUIDE_STEP_94][20] = nil
+--data[_resmng.GUIDE_STEP_103][20] = 30
+--data[_resmng.GUIDE_STEP_104][20] = 40
+--data[_resmng.GUIDE_STEP_111][20] = 10
+--data[_resmng.GUIDE_STEP_112][20] = 20
+--data[_resmng.GUIDE_STEP_120][20] = 110
+--data[_resmng.GUIDE_STEP_122][20] = 160
+--data[_resmng.GUIDE_STEP_126][20] = 120
+--data[_resmng.GUIDE_STEP_130][20] = 130
+--data[_resmng.GUIDE_STEP_131][20] = 140
+--data[_resmng.GUIDE_STEP_133][20] = 150
+--
+--
+--
+--
+--function utils.on_pay(buy_id, pay_result)
+--	local buy_config = resmng.prop_buyById(buy_id)
+--	if  SDK:is_sqsdk() then
+--        local id = buy_config.ID
+--		local data = {}
+--		data.appid = AppID
+--		data.pid = id
+--		local sign = utils.create_http_sign(data)
+--		data.sig = sign
+--		local param = json.encode(data)
+--		local server_id = SDK:get_zoneid()
+--		local pid = SDK:get_pid()
+--		local outOrderID = server_id.."_"..pid.."_"..timekit.get_server_time()
+--		local gold = buy_config.Gold
+--		if buy_config.ExtraGold then
+--            gold = gold+buy_config.ExtraGold
+--        end
+--        Analytics:wishlist(id)
+--
+--        local function pay_callback(ret)
+--		-- body
+--			Analytics:purchase_success(id)
+--			if type(ret.data) == "string" then
+--				local msg = ret.data
+--				ret.data = {}
+--				ret.data.msg = string.format("%s(%s)", msg, ret.code)
+--			elseif type(data.data) == "table" then
+--				ret.data.msg = string.format("%s(%s)", ret.data.msg or "", ret.code) 
+--			end
+--
+--			if pay_result then
+--				pay_result(ret)
+--			else
+--				if tonumber(ret.code) ~= 1 then
+--					local tip = get_value(resmng.PAY_FAIL)
+--					if ret.data.msg then
+--						tip = string.format("%s[%s]", tip, ret.data.msg)
+--					end
+--					GlobalFunction.show_alert_notice(tip)
+--				end 
+--			end
+--		end
+--		SDK:pay(buy_config.AppleBuyID,
+--			buy_config.NewPrice_US,
+--			server_id,
+--			pid,
+--			Model.get_pro("name"),
+--			Model.get_pro("lv") or 1,
+--			gold,
+--			outOrderID,
+--			param,
+--			pay_callback)
+--		return 
+--	end
+--end
+--
+--local clientlan = UnityEngine.PlayerPrefs.GetInt(PLAYER_PREFS_KEY.LANGUAGE,UnityEngine.Application.systemLanguage)
+--if 6 == clientlan then clientlan = 40 end
+--if clientlan ~= 40 then
+--	resmng.propLang[resmng.YUEKA_LABLE_NAME_101] = "Speedup"
+--	resmng.propLang[resmng.YUEKA_LABLE_NAME_102] = "Resource"
+--	resmng.propLang[resmng.YUEKA_LABLE_NAME_103] = "Hero"
+--	resmng.propLang[resmng.YUEKA_LABLE_NAME_104] = "Buff"
+--end
+--
+--local first_buy = LuaItemManager:get_item_object("first_buy")
+--
+--function first_buy.pay_cb( result )
+--	local self = first_buy
+--	self.lock_buy = false
+--	
+--	if SDK:is_sqsdk() then 
+--		if tonumber(result.code) == 1 then
+--			self:remove_from_state()	
+--			popupmgr.queue_show()
+--		else 
+--			local tip = get_value(resmng.PAY_FAIL)
+--			if result.data.msg then
+--				tip = tip..result.data.msg
+--			end
+--			GlobalFunction.show_alert_notice(tip)
+--		end
+--	else
+--		if result == "purchaseSucceededEvent" then	
+--			self:remove_from_state()
+--			popupmgr.queue_show()
+--		end
+--	end
+--end
+--
+--function first_buy:on_click(obj,arg)
+--	local _cmd =obj.name
+--	if "close_btn" == _cmd then
+--		self:remove_from_state()
+--	elseif "buy_btn" == _cmd then
+--		if self.lock_buy then
+--			GlobalFunction.show_alert_notice(get_value(resmng.BUYING_TIPS))
+--			return
+--		end
+--		self.lock_buy = true
+--
+--		utils.on_pay(self.data.ID, self.pay_cb)
+--	elseif "icon_skill" == _cmd then
+--		local config = resmng.prop_hero_basicById(14)
+--		if config then
+--			local prop_skill = resmng.prop_skillById(config.TalentSkill)
+--			GlobalFunction.show_click_tips(prop_skill.Detail)
+--		end
+--    end
+--end
+--
+--
+---- fix task arrow 
+--local hero_road_quick = LuaItemManager:get_item_object("hero_road_quick")
+--function hero_road_quick.task_update()
+--	local self = hero_road_quick
+--	self:update_status()
+--	if self.cur_id == 130061021 or self.cur_id == 130062021 or 
+--		self.cur_id == 130063021 or self.cur_id == 130064021 then
+--		local task_data = Model._heroroad_task[self.cur_id]
+--		if task_data then
+--			if task_data.task_status == TASK_STATUS.TASK_STATUS_CAN_FINISH then
+--				self.first_finish:SetActive(true)
+--			end
+--		end
+--	end
+--
+--	if self.need_show_arrow then
+--		self.need_show_arrow= false
+--		self.first_finish:SetActive(true)
+--	end
+--end
+--
+--function hero_road_quick:on_state_showed()
+--	self.task_update()
+--	if StateManager:get_current_state() == StateManager.worldmaploading then
+--		Proxy:distribute(MSG_TYPE.UI_OPEN_EVENT,{uiname = "worldmaproot"})
+--	end
+--end
+--
+--local guide = LuaItemManager:get_item_object("guide")
+--resmng.prop_guideData[resmng.GUIDE_STEP_42] = {resmng.GUIDE_STEP_42, 1, 1, 0, "", {"ui_hero_expup_use_btn" }, {rotateZ=270}, nil, nil, nil, 1, {on_click="use_btn"}, {on_click=".+(_mask)"}, nil, nil, nil, {"set_herolist_set_exp_book=9", "force_guide_to_task"}, nil, nil, nil, }
+--function guide:force_guide_to_task()
+--  hero_road_quick.need_show_arrow = true
+--end
+----end fix task arrow 
+--
+--]]
+--
+--
+--resmng.prop_item[ 2019015 ].Param = {{"mutex_award",{{"respicked",2,272000,10000},{"respicked",1,272000,10000},{"respicked",3,54400,10000},{"respicked",4,13600,10000}}}}
+--resmng.prop_item[ 2019016 ].Param = {{"mutex_award",{{"respicked",2,300000,10000},{"respicked",1,300000,10000},{"respicked",3,60000,10000},{"respicked",4,15000,10000}}}}
+--resmng.prop_item[ 2019017 ].Param = {{"mutex_award",{{"respicked",2,330000,10000},{"respicked",1,330000,10000},{"respicked",3,66000,10000},{"respicked",4,16500,10000}}}}
+--resmng.prop_item[ 2019018 ].Param = {{"mutex_award",{{"respicked",2,363000,10000},{"respicked",1,363000,10000},{"respicked",3,72600,10000},{"respicked",4,18150,10000}}}}
+--resmng.prop_item[ 2019019 ].Param = {{"mutex_award",{{"respicked",2,400000,10000},{"respicked",1,400000,10000},{"respicked",3,80000,10000},{"respicked",4,20000,10000}}}}
+--resmng.prop_item[ 2019020 ].Param = {{"mutex_award",{{"respicked",2,440000,10000},{"respicked",1,440000,10000},{"respicked",3,88000,10000},{"respicked",4,22000,10000}}}}
+--resmng.prop_item[ 2019021 ].Param = {{"mutex_award",{{"respicked",2,490000,10000},{"respicked",1,490000,10000},{"respicked",3,98000,10000},{"respicked",4,24500,10000}}}}
+--resmng.prop_item[ 2019022 ].Param = {{"mutex_award",{{"respicked",2,540000,10000},{"respicked",1,540000,10000},{"respicked",3,108000,10000},{"respicked",4,27000,10000}}}}
+--resmng.prop_item[ 2019023 ].Param = {{"mutex_award",{{"respicked",2,600000,10000},{"respicked",1,600000,10000},{"respicked",3,120000,10000},{"respicked",4,30000,10000}}}}
+--resmng.prop_item[ 2019024 ].Param = {{"mutex_award",{{"respicked",2,660000,10000},{"respicked",1,660000,10000},{"respicked",3,132000,10000},{"respicked",4,33000,10000}}}}
+--resmng.prop_item[ 2019025 ].Param = {{"mutex_award",{{"respicked",2,730000,10000},{"respicked",1,730000,10000},{"respicked",3,146000,10000},{"respicked",4,36500,10000}}}}
+--resmng.prop_item[ 2019026 ].Param = {{"mutex_award",{{"respicked",2,810000,10000},{"respicked",1,810000,10000},{"respicked",3,162000,10000},{"respicked",4,40500,10000}}}}
+--resmng.prop_item[ 2019027 ].Param = {{"mutex_award",{{"respicked",2,900000,10000},{"respicked",1,900000,10000},{"respicked",3,180000,10000},{"respicked",4,45000,10000}}}}
+--resmng.prop_item[ 2019028 ].Param = {{"mutex_award",{{"respicked",2,990000,10000},{"respicked",1,990000,10000},{"respicked",3,198000,10000},{"respicked",4,49500,10000}}}}
+--resmng.prop_item[ 2019029 ].Param = {{"mutex_award",{{"respicked",2,1100000,10000},{"respicked",1,1100000,10000},{"respicked",3,220000,10000},{"respicked",4,55000,10000}}}}
+--resmng.prop_item[ 2019030 ].Param = {{"mutex_award",{{"respicked",2,1300000,10000},{"respicked",1,1300000,10000},{"respicked",3,260000,10000},{"respicked",4,65000,10000}}}}
+--
+--do_load("player/player_hero") 
+--do_load("player/player_build") 
+--do_load("heromng") 
+--do_load("player/player_hero") 
+--do_load("watch_tower")  
+--
+--
+resmng.prop_world_unit[2301003].Arms = {{9003001,4500}}
+resmng.prop_world_unit[2301004].Arms = {{9003002,5019}}
+resmng.prop_world_unit[2301010].Arms = {{9003004,15174}}
+resmng.prop_world_unit[2301013].Arms = {{9001005,10134},{9002005,10134}}
+resmng.prop_world_unit[2301015].Arms = {{9002005,16843},{9003005,16843}}
+
+
+
+INFO( "doExtra---------, about field boss" )
+

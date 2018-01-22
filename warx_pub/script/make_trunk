@@ -1,0 +1,33 @@
+#!/bin/bash
+path=$(date +%Y-%m-%d_%H-%M)
+mkdir -p ${path}
+cd ${path}
+svn co http://svn.dev.tapenjoy.com/slg/branch_aws/code/server/script
+svn co http://svn.yx.com/slg/trunk/code/server/bin
+
+mkdir -p ${path}
+svn info  http://svn.dev.tapenjoy.com/slg/trunk/code/server/script >> ${path}/version.info
+svn info  http://svn.dev.tapenjoy.com/slg/trunk/code/server/bin >> ${path}/version.info
+svn info  http://svn.dev.tapenjoy.com/slg/engine/misc >> ${path}/version.info
+svn info  http://svn.dev.tapenjoy.com/slg/engine/net  >> ${path}/version.info
+svn info  http://svn.dev.tapenjoy.com/slg/engine/game >> ${path}/version.info
+echo ${path} >> ${path}/version.info
+
+cp -R script ${path}/
+cd ${path}/script
+cp ../version.info ./
+rm -rf .svn
+rm -rf robot
+rm -rf client
+rm -rf forqc
+compile.sh
+cd ../../
+
+mkdir -p ${path}/bin
+cp bin/game ${path}/bin/
+cp bin/gate ${path}/bin/
+cp bin/tran ${path}/bin/
+
+tar -czvf ${path}.tar.gz ${path}
+mv ${path}.tar.gz ../
+

@@ -32,6 +32,11 @@ function use_item(self, idx, num)
             ack( self, "use_item", resmng.E_CONSUME_FAIL )
             return 
         end
+        for k, v in pairs(prop_tab.Check or {}) do
+            if v[1] == "gold" then
+                self:dec_gold( v[2], VALUE_CHANGE_REASON.REASON_LV_ITEM_GOLD )
+            end
+        end
         use_item_logic[prop_tab.Action](self, prop_tab.ID, num, prop_tab)
     end
     reply_ok(self, "use_item" )
@@ -57,6 +62,11 @@ use_item_check.castle = function(player, lv)
 	if player:get_castle_lv() < lv then
 		return false
 	end
+	return true
+end
+
+use_item_check.gold = function(p, num)
+	if p.gold < num then return false end
 	return true
 end
 
@@ -180,6 +190,12 @@ use_item_logic.AddBonus = function(player, id, num, prop_item)
         local tab = info[2]
         if num > 1 then
 
+            local msg_notify = player_t.gPendingBonus[ player.pid ]
+            if not msg_notify then
+                msg_notify = {}
+                player_t.gPendingBonus[ player.pid ] = msg_notify
+            end
+
             local totals = {}
             local step = math.floor(num / turn)
             local remain = num - step * turn
@@ -197,14 +213,13 @@ use_item_logic.AddBonus = function(player, id, num, prop_item)
                 end
             end
 
-            local msg_notify = {}
             for class, v in pairs(totals) do
                 for id, num in pairs(v) do
                     player:do_add_bonus(class, id, num, 1, VALUE_CHANGE_REASON.USE_ITEM, false)
                     table.insert(msg_notify, {class, id, num})
                 end
             end
-            Rpc:notify_bonus(player, msg_notify)
+            --Rpc:notify_bonus(player, msg_notify)
 
         elseif num == 1 then
             player:add_bonus(policy, tab, VALUE_CHANGE_REASON.USE_ITEM)
@@ -231,6 +246,20 @@ use_item_logic.UseHeroCard = function(player, id, num, prop_item)
     local hero_id = prop_item.Param
     for i = 1, num, 1 do 
         player:make_hero(hero_id)
+    end
+end
+
+--英雄装备
+use_item_logic.HeroEquip = function(player, id, num, prop_item)
+    local equip_id = prop_item.Param[1]
+    local use_num = prop_item.Param[2] 
+    local send_num = prop_item.Param[3]  
+    if num < use_num then
+        return false
+    end
+
+    for i=1, send_num, 1 do
+        player:hero_equip_add(equip_id, VALUE_CHANGE_REASON.USE_ITEM)
     end
 end
 
@@ -285,10 +314,21 @@ use_item_logic.Compound = function(player, id, num, prop_item)
     if id and num_put and num_get then
         local target = resmng.get_conf( "prop_item", id )
         if target then
-            player:add_bonus("mutex_award", {{"item", id, num_get, 10000}}, VALUE_CHANGE_REASON.COMPOUND, 1)
-            if num_put > 1 then
-                player:dec_item_by_item_id( prop_item.ID, num_put - 1, VALUE_CHANGE_REASON.USE_ITEM )
+            --if num_put > 1 then
+            --    player:dec_item_by_item_id( prop_item.ID, num_put - 1, VALUE_CHANGE_REASON.USE_ITEM )
+            --end
+
+            local diff = num_put - num
+            if diff > 0 then
+                player:dec_item_by_item_id( prop_item.ID, diff, VALUE_CHANGE_REASON.USE_ITEM )
+
+            elseif diff < 0 then
+                diff = -diff
+                player:inc_item( prop_item.ID, diff, VALUE_CHANGE_REASON.USE_ITEM )
+
             end
+
+            player:add_bonus("mutex_award", {{"item", id, num_get, 10000}}, VALUE_CHANGE_REASON.COMPOUND, 1)
         end
     end
 end
