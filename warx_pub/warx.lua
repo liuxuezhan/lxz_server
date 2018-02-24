@@ -35,7 +35,7 @@ local function accept(fd, addr)
         if msg then
             local d = lualib_serializable.unpack(copyTab(msg))
             if d then
-                lxz(d.f)
+                lxz(d.f,d.args)
                 if d.f == "firstPacket2" then
                     d.args[1]=fd
                     local p = player_t.firstPacket2(_G.gAgent, unpack(d.args)  ) 

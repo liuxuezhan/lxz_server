@@ -222,7 +222,7 @@ function make_action()
             else
                 if op == 1 then
                     LOG( "[DB] insert, %s, %s", tab, id )
-                    lxz(chgs)
+                    --lxz(chgs)
                     db[ tab ]:update({_id=id}, chgs , true)
                     --table.insert( docs_upd, { q={_id=id}, u=chgs, upsert=true, multi=false })
                     if #docs_upd > 900 then

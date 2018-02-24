@@ -256,3 +256,5 @@ end
 function c_encode_base64( ... )
     return ""
 end
+function c_rem_ety(eid)
+end

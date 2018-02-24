@@ -24,6 +24,7 @@ end
 
 function union_select(self, uid,what)
     --uid = self.uid
+    pause()
     local union = unionmng.get_union(uid)
 
     local result = {
