@@ -352,6 +352,18 @@ function can_finish_task( self, task_id )
     end
 end
 
+function mark_task( p, task_id )
+    local info = p:get_task_by_id(task_id)
+    if not info then return end
+    if info.task_status == TASK_STATUS.TASK_STATUS_ACCEPTED then
+        if can_finish_task( p, task_id ) then
+            info.task_status = TASK_STATUS.TASK_STATUS_CAN_FINISH
+            info._id = p.pid .. "_" .. task_id
+            gPendingSave.task[ info._id ].task_sttus = TASK_STATUS.TASK_STATUS_CAN_FINISH
+        end
+    end
+end
+
 function finish_task(p, task_id)
     local info = p:get_task_by_id(task_id)
     if not info then return end

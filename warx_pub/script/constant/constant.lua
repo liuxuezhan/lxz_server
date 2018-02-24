@@ -1,4 +1,4 @@
-﻿SECONDS_ONE_HOUR = 3600
+SECONDS_ONE_HOUR = 3600
 SECONDS_ONE_DAY = 86400
 SECONDS_ONE_WEEK = 86400 * 7
 
@@ -152,16 +152,14 @@ SPEED_GATHER = {
 
 -- 难民营采集速度
 SPEED_REFUGEE = {
-    40320,
-    45360,
-    50400,
-    55440,
-    60480,
+    250,
+    2000,
+    7500,
 }
-CROSS_REFUGEE_MUL = 1.2
-REFUGEE_WEIGHT = 5
-SETTLE_REFUGEE_GIFT = 1001001
-ENSLAVE_REFUGEE_GIFT = 1001002
+
+CROSS_REFUGEE_MUL = 1.5
+REFUGEE_WEIGHT = 14
+
 
 MassTime = {
     Level1 = 300,
@@ -298,24 +296,24 @@ SKILL_BOOK_DECOMPOSE = {
 -- 背包排序规则
 BAG_SORT_CLASS = {[15] = 1, [13] = 2, [3] = 3, [10] = 4, [1] = 5, [2] = 6, [6] = 7, [4] = 8, [5] = 9, [8] = 10, [7] = 11, [11] = 12, [12] = 13, [9] = 14, [20] = 15}
 
----游戏中输入字符长度限制
+---游戏中输入字符长度限制索引
 CHA_LIMIT = 
 {
-    Union_Notice        = {1,150},              --军团公告
-    Union_Words_Topic   = {1,30},               --军团留言-主题
-    Union_Words_Content = {1,600},              --军团留言-正文
-    Union_Title_Grant   = {0,18},               --授予头衔
-    Union_Set_RankName  = {1,18},               --修改阶级称谓
-    Union_Name          = {6,12},               --创建军团名称
-    Union_Alias         = {3,3},                --创建军团简称
-    Union_Recruit       = {1,150},              --招募设置-输入
-	Mail_LordName       = {1,18},               --邮件-收件人
-    Mail_Content        = {1,600},              --军团邮件-正文
-    Union_Name_Fac      = {1,18},               --军团设施命名
-    Lord_Name           = {1,18},               --角色名输入
-    Mark_Favorite       = {1,18},               --收藏夹备注
-    Chat_Content        = {1,240},              --聊天框输入
-	Server_Name			= {1,18},				--服务器名输入
+    Union_Notice        = 1,              --军团公告
+    Union_Words_Topic   = 2,               --军团留言-主题
+    Union_Words_Content = 3,              --军团留言-正文
+    Union_Title_Grant   = 4,               --授予头衔
+    Union_Set_RankName  = 5,               --修改阶级称谓
+    Union_Name          = 6,               --创建军团名称
+    Union_Alias         = 7,                --创建军团简称
+    Union_Recruit       = 8,              --招募设置-输入
+	Mail_LordName       = 9,               --邮件-收件人
+    Mail_Content        = 10,              --军团邮件-正文
+    Union_Name_Fac      = 11,               --军团设施命名
+    Lord_Name           = 12,               --角色名输入
+    Mark_Favorite       = 13,               --收藏夹备注
+    Chat_Content        = 14,              --聊天框输入
+	Server_Name			= 15,				--服务器名输入
 }
 
 FORBID_SIGNS = 

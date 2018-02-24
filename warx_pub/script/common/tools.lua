@@ -1,4 +1,4 @@
-﻿-- Hx@2015-11-25 : common functions
+-- Hx@2015-11-25 : common functions
 
 function string.split(str, delimiter)
     if str == nil or str == "" or delimiter == nil then
@@ -30,8 +30,8 @@ end
 ---按照给定的长度对传入的字符串做字节长度检测，返回布尔值：可用与否
 function is_inputlen_avaliable(a_str,a_cfg_len)
     if not a_str then return false end
-    if not a_cfg_len then return true end    
-    return string.len(a_str) >= a_cfg_len[1] and string.len(a_str) <= a_cfg_len[2] 
+    if not a_cfg_len then return true end   
+    return string.utf8_len(a_str) >= a_cfg_len[1] and string.utf8_len(a_str) <= a_cfg_len[2] 
 end
 
 function string.contains_sign(str,...)
@@ -1784,10 +1784,10 @@ end
 ------------------------
 ------------------------
 ------------------------------------------------------------------------------
-function check_name_avalible(str)
+function check_name_avalible(str,c)
     if str == "" then
         return false, resmng.LORD_NAME_INPUT_EMPTY
-    elseif not is_inputlen_avaliable(str,CHA_LIMIT.Lord_Name) then            
+    elseif not is_inputlen_avaliable(str,(c or {})[CHA_LIMIT.Lord_Name]) then            
         return false, resmng.LORD_NAME_INPUT_TOOLONG
     elseif not check_signs_valid(str) then
         return false, resmng.LORD_NAME_CHARACTOR_FORBID
@@ -1941,5 +1941,34 @@ function ref_mng_test()
     do_ref()
     ins:print()
     do_ref()
+end
+
+function spin_zones(spin_count)
+    local spin_info =
+    {
+        {-1, -1, 1, 0},
+        {1, -1, 0, 1},
+        {1, 1, -1, 0},
+        {-1, 1, 0, -1},
+    }
+    local function spin(layer)
+        for k, v in ipairs(spin_info) do
+            local start_x = layer * v[1]
+            local start_y = layer * v[2]
+            local count = layer * 2
+            for i = 1, count do
+                coroutine.yield(start_x + v[3] * i, start_y + v[4] * i)
+            end
+        end
+    end
+
+    local function _zones()
+        coroutine.yield(0, 0)
+        for i = 1, spin_count do
+            spin(i)
+        end
+    end
+
+    return coroutine.wrap(_zones)
 end
 

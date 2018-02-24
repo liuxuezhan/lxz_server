@@ -237,7 +237,9 @@ function construct(self, x, y, build_propid)
                 end
             end
 
-            local dura = math.ceil( node.Dura / ( 1 + self:get_num( "SpeedBuild_R" ) * 0.0001 ) )
+            local dura = math.ceil( ( node.Dura / ( 1 + self:get_num( "SpeedBuild_R" ) * 0.0001 ) ) - self:get_val( "BuildFreeTime" ) )
+            if dura < 0 then dura = 0 end
+
             if node.Dura > 0 then
                 if not self:check_build_queue( dura ) then return end
             end
@@ -475,7 +477,7 @@ function one_key_upgrade_build(self, build_idx)
                 return
             end
 
-            local dura = dst.Dura - self:get_val( "BuildFreeTime" )
+            local dura = math.ceil( ( dst.Dura / ( 1 + self:get_num( "SpeedBuild_R" ) * 0.0001 ) ) - self:get_val( "BuildFreeTime" ) )
             if dura < 0 then dura = 0 end
 
             local gold_need = calc_cons_value(cons_need_buy) + calc_acc_gold(dura)
@@ -1039,6 +1041,10 @@ function train(self, idx, armid, num, quick)
         for k, v in pairs( anode.Cons ) do
             table.insert( cons, { v[1], v[2], v[3] * num } )
         end
+
+        local speedb, speedm, speeda = get_nums_by("SpeedTrain", self._ef, build:get_ef())
+        local new_speed = 1 * (1 + speedm * 0.0001) + speeda
+        dura = math.ceil(dura / new_speed)
 
         if self:do_consume_quick( cons, dura, VALUE_CHANGE_REASON.TRAIN ) then
             self:add_soldier( armid, num )

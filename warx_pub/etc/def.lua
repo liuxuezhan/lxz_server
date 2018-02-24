@@ -140,7 +140,7 @@ function pullNext()
 end
 
 function llog(...)
---lxz(...)
+lxz(...)
 end
 
 function linfo(...)

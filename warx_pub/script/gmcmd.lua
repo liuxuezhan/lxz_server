@@ -709,6 +709,25 @@ function move_player( pids, oid )
     return { code = 1, msg = "success" }
 end
 
+function hold_player( pid )
+	local p = getPlayer( pid )
+	if p then
+		local account = p.account
+		local node = gAccounts[ account ]
+		if node then
+			for pid, _ in pairs( node ) do
+				local p = getPlayer( pid )
+				if p then
+					p.account = "holder"
+					gPendingSave.player[ pid ].account = "holder"
+					gPendingSave.player[ pid ].open_id = account
+				end
+			end
+			gAccounts[ account ] = {}
+		end
+	end
+end
+
 
 
 function add_buf(pids, id, count)

@@ -1329,13 +1329,22 @@ function get_refugee_power(self)
         return
     end
 
-    local lv = c_get_zone_lv(math.floor(self.dx / 16), math.floor(self.dy / 16))
-    if lv > 5 then lv = 5 end
-    if lv < 1 then lv = 1 end
-    local speed = SPEED_REFUGEE[lv]
-    if check_ply_cross(player) then
-        speed = speed * CROSS_REFUGEE_MUL
+    local dest = get_ety(self.target_eid)
+    if not dest then
+        return
     end
+    local refugee_prop = resmng.prop_world_unit[dest.propid]
+    if not refugee_prop then
+        return
+    end
+
+    local speed = SPEED_REFUGEE[refugee_prop.Lv]
+    local mul = REFUGEE_WEIGHT
+    local div = 3600            -- one hour
+    if check_ply_cross(player) then
+        speed = CROSS_REFUGEE_MUL
+    end
+    speed = speed / div
 
     local count_gather = 0
     for _, arm in pairs(self.arms) do
@@ -1347,7 +1356,7 @@ function get_refugee_power(self)
         end
     end
 
-    return speed, count_gather / REFUGEE_WEIGHT
+    return speed, count_gather / mul, speed
 end
 
 function add_goods(self, goods, reason)
@@ -1765,6 +1774,22 @@ function recalc(self)
         self:set_extra("speedb", speedb)
         --return gain
         return cache
+    elseif self:is_action(TroopAction.Refugee) then
+        local start = self:get_extra("start") or gTime
+        local speed = self:get_extra("speed") or 0
+        local cache = self:get_extra("cache") or 0
+
+        local gain = math.floor((gTime - start) * speed)
+        local cache = cache + gain
+
+        local speed, count, speedb = self:get_refugee_power()
+
+        self:set_extra("count", count) -- 负重
+        self:set_extra("start", gTime)
+        self:set_extra("cache", cache)
+        self:set_extra("speed", speed)
+        self:set_extra("speedb", speedb)
+        return cache
     end
 end
 
@@ -1882,6 +1907,44 @@ function gather_stop(troop)
         --瞭望塔
         watch_tower.building_def_clear(dp, troop)
     end
+end
+
+function refugee_gain(self, dest)
+    local gain = math.ceil((self:get_extra("speed") or 0) * (gTime - (self:get_extra("start") or gTime)))
+    gain = gain + self:get_extra("cache")
+
+    if is_refugee(dest) then
+        if gain > dest.val then
+            gain = dest.val
+        end
+        dest.val = dest.val - gain
+    end
+
+    local player = getPlayer(self.owner_pid)
+    if player then
+        Rpc:callAgent(gCenterID, "upload_refugee_score", player.emap, player.pid, gain)
+    end
+
+    return gain
+end
+
+function refugee_stop(self)
+    local count = self:get_extra("cache") or 0
+    local dest = get_ety(self.target_eid)
+    if dest then
+        dest:on_refugee_stop()
+        count = self:refugee_gain(dest)
+        if dest.val < 2 then
+            dest:on_exhaust()
+        else
+            dest.pid = 0
+            dest.uid = 0
+            dest.my_troop_id = 0
+            dest.extra = {}
+            etypipe.add(dest)
+        end
+    end
+    watch_tower.building_def_clear(dest, troop)
 end
 
 function flush_data( troop )

@@ -1978,4 +1978,17 @@ function remote_god_add_exp(self, map_id, id, pid, num)
     union_god.add_exp(player, num)
 end
 
+function is_active( self )
+    local func_rank = player_t.get_rank
+    local func_tick = player_t.get_last_access
+    for _, A in pairs(self._members or {}) do
+        if func_rank( A )>= resmng.UNION_RANK_4 then 
+            if gTime - func_tick( A ) < 86400 * 2 then
+                return true
+            end
+        end
+    end
+    return false
+end
+
 

@@ -7,6 +7,8 @@ gPriority = gPriority or {}
 g_online_num = g_online_num  or 0
 
 gClientExtra = gClientExtra or false
+gClientExtras = gClientExtras or false
+
 gClientExtraPost = gClientExtraPost or false
 gIpPermit = gIpPermit or false
 gSysOption = gSysOption or {} -- system wide, client should known these
@@ -16,6 +18,7 @@ gSwapState = gSwapState or 0
 gTotalMarkL = 18000
 gTotalMarkH = 20000
 
+gUnionOpening = gUnionOpening or {}
 
 gPendingChat = gPendingChat or {}
 
@@ -880,7 +883,7 @@ end
 ---------------------------------------------------
 
 function firstPacket2(self, sockid, server_id, info, ip)
-    dumpTab( info, "loginInfo", 100, true)
+    --dumpTab( info, "loginInfo", 100, true)
     local from_map = info.server_id
     local cival = info.cival
     local pid = info.pid
@@ -893,7 +896,13 @@ function firstPacket2(self, sockid, server_id, info, ip)
     local version = info.version
     local device = string.gsub( info.device or "unknown", ",", "_")
     local os = string.gsub(info.os or "unknown", ",", "_")
+    os = string.gsub(os,"|"," ") 
+    os = string.sub(os,1,64) 
+    device = string.gsub(device,"|"," ") 
+    device = string.sub(device,1,64) 
+    local batterylv = tostring( info.batteryLevel or "-1" )
 
+    
     if config.IsEnableGm == 1 and info.debug then
         debug_login_with_pid(sockid, pid, from_map)
         return
@@ -910,8 +919,8 @@ function firstPacket2(self, sockid, server_id, info, ip)
         return
     end
 
-    INFO( "firstPacket2, from=%s, sockid=%d, ip=%s, open_id=%s, pid=%d, did=%s, cival=%d, signature=%s, time=%s, toke=%s, token_expire=%s, version=%s, extra=%s",
-    from_map, sockid , ip, open_id, pid, info.did, cival, signature,  time, token,  token_expire, version, extra )
+    INFO( "firstPacket2, from,%s, sockid,%d, ip,%s, open_id,%s, pid,%d, did,%s, cival,%d, signature,%s, time,%s, token,%s, token_expire,%s, version,%s, os,%s, device,%s, batterylv,%s, extra,%s",
+    from_map, sockid , ip, open_id, pid, info.did, cival, signature,  time, token,  token_expire, version, os, device, batterylv, extra )
 
     if is_block_account( open_id ) then
         Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.BLOCK_ACCOUNT)
@@ -950,6 +959,23 @@ function firstPacket2(self, sockid, server_id, info, ip)
     end
     --]]
 
+
+    if pid == -2 then
+        pushHead(_G.GateSid, 0, 21)  -- NET_SET_IN_QUEUE
+        pushInt(sockid)
+        pushInt(gMapID)
+        pushOver()
+        return
+    end
+
+
+    --local gameappid = info.info.vGameAppid
+    --if not config.GameAppIDs[ gameappid ] then
+    --    Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.TOKEN_INVAILD)
+    --    WARN( "firstPacket2, gameappid_invalid, from=%s, sockid=0x%08x, civil=%d, pid=%d, token=%s, time=%d, open_id=%s, did=%s, signature = %s, token=%s, gameappid=%s", from_map,  sockid , cival, pid, token, time, open_id, info.did or "unknonw", signature, token, gameappid or "NULL" )
+    --    return
+    --end
+
     local pack = {}
     table.insert(pack, sockid)
     table.insert(pack,  pid)
@@ -962,11 +988,12 @@ function firstPacket2(self, sockid, server_id, info, ip)
     table.insert(pack,  info.info)
     table.insert(pack,  device )
     table.insert(pack,  os )
+    table.insert(pack,  batterylv )
     return handle_login_from_queue(table.unpack(pack))
     
 end
 
-function handle_login_from_queue(sockid, pid, open_id, ip, cival, token, from_map, did, client, device, os )
+function handle_login_from_queue(sockid, pid, open_id, ip, cival, token, from_map, did, client, device, os, batterylv )
     if not client then
         --WARN( "%s, %s, %s, %s, %s, %s, %s, %s", open_id, ip, cival, token, from_map, did, client or "unknown" )
         --print( sockid, pid, open_id, ip, cival, token, from_map, did, client )
@@ -1016,7 +1043,7 @@ function handle_login_from_queue(sockid, pid, open_id, ip, cival, token, from_ma
         end
 
         if pid == 0 then
-            INFO( "firstPacket2, TimeMark,%d, create_account, open_id,%s, pid,0, did,%s, ip,%s, device,%s, os,%s", gTime, open_id, did or "unknown", ip or "unknown", device, os )
+            INFO( "firstPacket2, TimeMark,%d, create_account, open_id,%s, pid,0, did,%s, ip,%s, device,%s, os,%s, batterylv,%s", gTime, open_id, did or "unknown", ip or "unknown", device, os, batterylv )
             Rpc:sendToSock(sockid, "first_packet_ack", LOGIN_ERROR.NO_CHARACTER)
             return
         else
@@ -1077,17 +1104,19 @@ function handle_login_from_queue(sockid, pid, open_id, ip, cival, token, from_ma
                 return
             end
 
+            
+            --gPendingInsert.online[ pid ] = { online = 0, pid=pid, uid=open_id, did=did, create=gTime, ip=ip} 
+            gTotalCreate = gTotalCreate + 1
+            p:add_bonus("mutex_award", {{"item", 2025001, 1, 10000}}, VALUE_CHANGE_REASON.REASON_LV_ITEM)
+            p:add_bonus("mutex_award", {{"item", 2026001, 1, 10000}}, VALUE_CHANGE_REASON.REASON_LV_ITEM_GOLD)
+
+            send_system_notice( p, 10106 )
             if p.tm_create - act_mng.start_act_tm >= 3 * 86400 then
                 local prop = resmng.get_conf("prop_mail", 10105)
                 if prop then
                     p:send_system_notice(10105, {}, {})
                 end
             end
-
-            --gPendingInsert.online[ pid ] = { online = 0, pid=pid, uid=open_id, did=did, create=gTime, ip=ip} 
-            gTotalCreate = gTotalCreate + 1
-            p:add_bonus("mutex_award", {{"item", 2025001, 1, 10000}}, VALUE_CHANGE_REASON.REASON_LV_ITEM)
-            p:add_bonus("mutex_award", {{"item", 2026001, 1, 10000}}, VALUE_CHANGE_REASON.REASON_LV_ITEM_GOLD)
 
             INFO( "[TotalCreate], %d", gTotalCreate )
             --todo, for xuezhan
@@ -1111,7 +1140,7 @@ function handle_login_from_queue(sockid, pid, open_id, ip, cival, token, from_ma
                     p[k] = v 
                 end
             end
-            p:pre_tlog("PlayerRegister","iphone6","ios","oper","wifi","800","600",2000)
+            p:pre_tlog("PlayerRegister",device,os,"oper","wifi","800","600",2000)
 
             --p:tlog_ten("PlayerRegister",
             --            p.ClientVersion or "NULL", p.SystemSoftware or "NULL", p.SystemHardware or "NULL",
@@ -1128,7 +1157,8 @@ function handle_login_from_queue(sockid, pid, open_id, ip, cival, token, from_ma
             --            p.GLRender or "NULL", p.GLVersion or "NULL", p.DeviceId or "NULL", 
             --            p.ip or "0.0.0.0" )
 
-            INFO( "firstPacket2, TimeMark,%d, create_character, open_id,%s, pid,%s, did,%s, ip,%s, device,%s, os,%s, idx,%d, cival,%d, %s", gTime, open_id, pid, did or "unknown", ip, device, os, count+1, cival, p.ClientVersion or "NULL" )
+            INFO( "firstPacket2, TimeMark,%d, create_character, open_id,%s, pid,%s, did,%s, ip,%s, device,%s, os,%s, batterylv,%s, idx,%d, cival,%d, %s", gTime, open_id, pid, did or "unknown", ip, device, os, batterylv, count+1, cival, p.ClientVersion or "NULL" )
+            --p.sockid = sockid
         end
     end
 
@@ -1153,7 +1183,7 @@ function handle_login_from_queue(sockid, pid, open_id, ip, cival, token, from_ma
         gPendingSave.player[ p.pid ].token = token
     end
 
-    INFO( "firstPacket2, TimeMark,%d, login, open_id,%s, pid,%d, did,%s, ip,%s, device,%s, os,%s, lv,%d, tmcreate,%d", gTime, open_id, p.pid, did or "unknown", ip or "unknown", device, os, (p.propid or 1001)%1000, p.tm_create )
+    INFO( "firstPacket2, TimeMark,%d, login, open_id,%s, pid,%d, did,%s, ip,%s, device,%s, os,%s, batterylv,%s, lv,%d, tmcreate,%d", gTime, open_id, p.pid, did or "unknown", ip or "unknown", device, os, batterylv, (p.propid or 1001)%1000, p.tm_create )
 
     p:upload_user_info()
 
@@ -1226,9 +1256,9 @@ function handle_login_from_queue(sockid, pid, open_id, ip, cival, token, from_ma
             rawset(p, k, v)
         end
     end
-    
-    p:pre_tlog("PlayerLogin",p.gold,0,"iphone6","ios","oper","wifi","800","600",2000)
+    p:pre_tlog("PlayerLogin",p.gold,0,device,os,"oper","wifi","800","600",2000)
     return p
+
     --p:tlog_ten("PlayerLogin",p:get_castle_lv(),0,
     --                    p.ClientVersion or "NULL", p.SystemSoftware or "NULL", p.SystemHardware or "NULL",
     --                    p.TelecomOper or "NULL", p.Network or "NULL", 
@@ -1294,6 +1324,10 @@ function login(self, pid)
         local pay_token = get_pay_token(self)
         Rpc:onLogin(p, p.pid, p.name)
 
+        local last_access = math.max( p.tm_create, p.tm_login )
+        last_access = math.max( last_access, p.tm_logout )
+        if gTime - last_access >= 1800 then initEffect( p ) end
+
         if p.tm_logout == gTime then p.tm_logout = gTime - 1 end
         if p.tm_login > p.tm_logout and p.tm_login > gBootTime then
             WARN( "double login, maybe duplicate, pid=%d", pid )
@@ -1325,6 +1359,13 @@ function login(self, pid)
         if self.foodUse == 0 then self:recalc_food_consume() end
 
         if gClientExtra then Rpc:do_string( p, gClientExtra ) end
+        if gClientExtras then
+            for _, v in ipairs( gClientExtras ) do
+                Rpc:do_string( p, v )
+            end
+        end
+
+        mail_compensate( p )
 
         return
     end
@@ -1857,7 +1898,14 @@ function check_pending()
                     if can_swap_out( p ) == 1 then
                         table.insert( gSwapOutQueue, p.pid )
                     end
+                else
+                    if not is_online( p ) then
+
+                    end
                 end
+            else
+                INFO( "[GhostInvite], check, routing, %d,%s", p.pid, p.name )
+                check_union_active( p )
             end
         end
 
@@ -1866,7 +1914,9 @@ function check_pending()
             local p = getPlayer( pid )
             if p then
                 if not is_online( p ) then
-                    swap_out( p )
+                    if can_swap_out( p ) == 1 then
+                        swap_out( p )
+                    end
                 end
             end
         end
@@ -2534,12 +2584,8 @@ function add_bonus(self, bonus_policy, tab, reason, ratio,cost )
     ratio = ratio or 1
     local get_tab = player_t.bonus_func[bonus_policy](self, tab)
     if get_tab and #get_tab > 0 then
-        local msg_notify = gPendingBonus[ self.pid ]
-        if not msg_notify then
-            msg_notify = {}
-            gPendingBonus[ self.pid ] = msg_notify
-        end
 
+        local msg_notify = {}
         for k, v in pairs(get_tab) do
             self:do_add_bonus(v[1], v[2], v[3], ratio, reason,cost)
             v[3] = v[3] * ratio
@@ -2551,6 +2597,18 @@ function add_bonus(self, bonus_policy, tab, reason, ratio,cost )
                 end
             end
         end
+
+        if #msg_notify > 0 then
+            local node = gPendingBonus[ self.pid ]
+            if not node then
+                gPendingBonus[ self.pid ] = msg_notify
+            else
+                for _, v in pairs( msg_notify ) do
+                    table.insert( node, v )
+                end
+            end
+        end
+
         --Rpc:notify_bonus(self, msg_notify)
     end
     return true
@@ -3392,6 +3450,7 @@ function gm_user(self, cmd)
         world_event.reinit_world_event()
         weekly_activity.reinit_weekly_activity()
         operate_activity.reinit_operate_activity()
+        daily_activity.reinit_daily_activity()
 
     elseif choose == "swapout" then
         local pid = tonumber(get_parm(1))
@@ -3734,32 +3793,47 @@ function ply_change_server(self, map_id, x, y)
 end
 
 function cross_migrate(self, map_id, x, y)
-    if #self.busy_troop_ids > 0 then return ack(self, "migrate", resmng.E_TROOP_BUSY, 0) end
+    if #self.busy_troop_ids > 0 then
+        WARN("[CrossWar]busy troop %d", self.pid)
+        return ack(self, "migrate", resmng.E_TROOP_BUSY, 0)
+    end
 
-    if not self:can_move_to(x, y)  then return self:add_debug("can not move by castle lv") end
+    if not self:can_move_to(x, y)  then
+        WARN("[CrossWar]can't move to  %d|%d|%d", self.pid, x, y)
+        return self:add_debug("can not move by castle lv")
+    end
 
-    if self.emap == map_id then return end
+    if self.emap == map_id then
+        WARN("[CrossWar]the target server is the current server  %d|%d", self.pid, map_id)
+        return
+    end
     if check_ply_cross(self) then
         -- 跨服时，不能再跳转到其他服务器
+        WARN("[CrossWar]player is local player  %d", self.pid)
         return
     end
     if not cross_act.is_fighting() then
+        WARN("[CrossWar]the server is not in the cross war  %d", self.pid)
         return
     end
     if not cross_act.is_in_group(map_id) then
+        WARN("[CrossWar]the server is not in the cross war group %d", self.pid)
         return
     end
 
     if map_id ~= gMapID then
-        if self:get_item_num(CROSS_MIGRATE_ITEM) < 1 then
+        if self:get_item_num(CROSS_MIGRATE_ITEM) < 1 and self.gold < MIGRATE_GOLD then
+            WARN("[CrossWar]player has no cross migrate item %d", self.pid)
             return
         end
 
         local u = self:get_union()
         if not u then
+            WARN("[CrossWar]player has no union %d", self.pid)
             return 
         end
         if u:is_new() then
+            WARN("[CrossWar]player's union is new %d", self.pid)
             return
         end
 
@@ -3826,7 +3900,11 @@ function cross_migrate_back(self, x, y)
 end
 
 function on_cross_migrate(self)
-    self:dec_item_by_item_id(CROSS_MIGRATE_ITEM, 1, VALUE_CHANGE_REASON.MIGRATE)
+    if self:get_item_num(CROSS_MIGRATE_ITEM) < 1 then
+        self:dec_gold(MIGRATE_GOLD, VALUE_CHANGE_REASON.MIGRATE )
+    else
+        self:dec_item_by_item_id(CROSS_MIGRATE_ITEM, 1, VALUE_CHANGE_REASON.MIGRATE)
+    end
     local timer_id, tm = timer.new("cross_migrate_back", 4 * 3600, self.pid)
     action(function() self:set_mark("cross_migrate_back", timer_id) end)
     local info = {
@@ -3915,14 +3993,22 @@ end
 
 
 function say(self, saying, i)
-    INFO("[SAY], pid,%d, tm,%d, lv,%d, say,%s, ", self.pid, gTime - self.tm_create, self.propid % 1000, saying )
-    if (gTime - self.tm_create) > 10*60 then return  end
-    local t = {}
-    for v in string.gmatch(saying,'[^,]+') do
-        table.insert(t,v)
-    end
+    if (gTime - self.tm_create) > 1800 then return  end
+    LOG("[SAY], pid,%d, tm,%d, lv,%d, say,%s, ", self.pid, gTime - self.tm_create, self.propid % 1000, saying )
 
+    --local t = {}
+    --for v in string.gmatch(saying,'[^,]+') do
+    --    table.insert(t,v)
+    --end
     --Rpc:say1(self, saying, i)
+end
+
+function say1( self, saying, i )
+    if i == 1 then
+        INFO( "[ClientSpecial], pid,%d, say,%s, i,%d, ip,%s, name,%s", self.pid, saying, i, self.ip or "",  self.name  )
+    elseif i == 0 then
+        Rpc:say1( self, saying, i )
+    end
 end
 
 
@@ -4429,8 +4515,9 @@ end
 
 function add_debug(self, val, ...)
     if ... then val = string.format( val, ... ) end
-    Rpc:notify_server(self, val)
-    player_t.add_chat(self, 0, 0, {pid=0},  val, 0, {} )
+    INFO( "[DEBUG], pid,%d, %s", self.pid, val ) 
+    --Rpc:notify_server(self, val)
+    --player_t.add_chat(self, 0, 0, {pid=0},  val, 0, {} )
     return false
 end
 
@@ -5177,77 +5264,78 @@ function is_sys_name( name )
 end
 
 
-function change_name(self, name)
-    local old = self.name
+function change_name(p, name)
+    local old = p.name
 
     --if not is_valid_name(name) then
-    --    ack(self, "change_name", resmng.E_DISALLOWED )
-    --    INFO("[ChangeName], code=%d, pid=%d, old=%s, new=%s", 1, self.pid, old, name )
+    --    ack(p, "change_name", resmng.E_DISALLOWED )
+    --    INFO("[ChangeName], code=%d, pid=%d, old=%s, new=%s", 1, p.pid, old, name )
     --    return
     --end
 
     --if not is_inputlen_avaliable( name, CHA_LIMIT.Lord_Name ) then 
-    --    ack(self, "change_name", resmng.E_DISALLOWED )
-    --    INFO("[ChangeName], code=%d, pid=%d, old=%s, new=%s", 2, self.pid, old, name )
+    --    ack(p, "change_name", resmng.E_DISALLOWED )
+    --    INFO("[ChangeName], code=%d, pid=%d, old=%s, new=%s", 2, p.pid, old, name )
     --    return 
     --end
 
     ----包含屏蔽字
     --if is_include_filter_server(name) == true then
-    --    ack(self, "change_name", resmng.E_DISALLOWED )
-    --    INFO("[ChangeName], code=%d, pid=%d, old=%s, new=%s", 3, self.pid, old, name )
+    --    ack(p, "change_name", resmng.E_DISALLOWED )
+    --    INFO("[ChangeName], code=%d, pid=%d, old=%s, new=%s", 3, p.pid, old, name )
     --    return
     --end
 
 
-    local flag, code = check_name_avalible( name )
+    local c = (resmng.prop_language_cfg[p.language] or {}).Limit
+    local flag, code = check_name_avalible( name,c )
     if flag ~= true then
-        ack(self, "change_name", resmng.E_DISALLOWED )
-        INFO("[ChangeName], code=%s, pid=%d, old=%s, new=%s", code, self.pid, old, name )
+        ack(p, "change_name", resmng.E_DISALLOWED )
+        INFO("[ChangeName], code=%s, pid=%d, old=%s, new=%s", code, p.pid, old, name )
     end
 
     if is_sys_name( name ) then 
-        ack(self, "change_name", resmng.E_DISALLOWED )
-        INFO("[ChangeName], code=%d, pid=%d, old=%s, new=%s", 4, self.pid, old, name )
+        ack(p, "change_name", resmng.E_DISALLOWED )
+        INFO("[ChangeName], code=%d, pid=%d, old=%s, new=%s", 4, p.pid, old, name )
         return
     end
 
     for k, v in pairs(gPlys) do
         if v.name == name then
-            ack(self, "change_name", resmng.E_DUP_NAME)
-            INFO("[ChangeName], code=%d, pid=%d, old=%s, new=%s", 5, self.pid, old, name )
+            ack(p, "change_name", resmng.E_DUP_NAME)
+            INFO("[ChangeName], code=%d, pid=%d, old=%s, new=%s", 5, p.pid, old, name )
             return
         end
     end
 
-    local old = self.name
-    local code = want_insert_unique_name( "name_ply", name, { pid=self.pid, account=self.account, map=gMapID, time=gTime, action="change"} )
+    local old = p.name
+    local code = want_insert_unique_name( "name_ply", name, { pid=p.pid, account=p.account, map=gMapID, time=gTime, action="change"} )
     if code ~= 0 then
-        ack(self, "change_name", resmng.E_DUP_NAME)
-        INFO("[ChangeName], code=%d, pid=%d, old=%s, new=%s", code, self.pid, old, name )
+        ack(p, "change_name", resmng.E_DUP_NAME)
+        INFO("[ChangeName], code=%d, pid=%d, old=%s, new=%s", code, p.pid, old, name )
         return
     end
  
     local db = dbmng:getGlobal()
     if db then db.name_ply:delete( {_id=old} ) end
 
-    if not self:dec_item_by_item_id( resmng.ITEM_CHANGE_NAME, 1, VALUE_CHANGE_REASON.CHANGE_NAME ) then
+    if not p:dec_item_by_item_id( resmng.ITEM_CHANGE_NAME, 1, VALUE_CHANGE_REASON.CHANGE_NAME ) then
         local price = get_item_price( resmng.ITEM_CHANGE_NAME )
-        if self.gold < price then return end
-        self:dec_gold( price, VALUE_CHANGE_REASON.CHANGE_NAME )
+        if p.gold < price then return end
+        p:dec_gold( price, VALUE_CHANGE_REASON.CHANGE_NAME )
     end
 
-    self.name = name
-    etypipe.add(self)
-    rank_mng.update_info_player( self.pid )
+    p.name = name
+    etypipe.add(p)
+    rank_mng.update_info_player( p.pid )
 
-    update_global_player_info( self )
+    update_global_player_info( p )
 
-    INFO("[ChangeName], code=%d, pid=%d, old=%s, new=%s", 0, self.pid, old, name )
+    INFO("[ChangeName], code=%d, pid=%d, old=%s, new=%s", 0, p.pid, old, name )
 
-    for _, tid in pairs( self.busy_troop_ids or {} ) do
+    for _, tid in pairs( p.busy_troop_ids or {} ) do
         local troop = troop_mng.get_troop( tid )
-        if troop and troop.owner_pid == self.pid and troop.action == TroopAction.Camp + 200 then
+        if troop and troop.owner_pid == p.pid and troop.action == TroopAction.Camp + 200 then
             local camp = get_ety( troop.target_eid )
             if camp and is_camp( camp ) then
                 camp.name = name
@@ -5257,15 +5345,15 @@ function change_name(self, name)
         end
     end
 
-    --task_logic_t.process_task(self, TASK_ACTION.LORD_RENAME, 1)
-    --rank_mng.change_name( 1, self.pid, name )
-    --rank_mng.change_name( 2, self.pid, name )
-    --rank_mng.change_name( 3, self.pid, name )
-    --rank_mng.change_name( 4, self.pid, name )
+    --task_logic_t.process_task(p, TASK_ACTION.LORD_RENAME, 1)
+    --rank_mng.change_name( 1, p.pid, name )
+    --rank_mng.change_name( 2, p.pid, name )
+    --rank_mng.change_name( 3, p.pid, name )
+    --rank_mng.change_name( 4, p.pid, name )
 
-    local u  = unionmng.get_union(self.uid)
+    local u  = unionmng.get_union(p.uid)
     if u then
-        u:notifyall(resmng.UNION_EVENT.MEMBER, resmng.UNION_MODE.UPDATE, {pid=self.pid,uid=self.uid,name=self.name})
+        u:notifyall(resmng.UNION_EVENT.MEMBER, resmng.UNION_MODE.UPDATE, {pid=p.pid,uid=p.uid,name=p.name})
         u.donate_rank={}
     end
 end
@@ -7069,7 +7157,7 @@ function get_farms(self)
                 local build_idx = self:calc_build_idx(class, mode, seq)
                 local build = self:get_build(build_idx)
                 if not build then break end
-                if build.state == BUILD_STATE.WAIT then
+                if build.state == BUILD_STATE.WORK then
                     if gTime - build.tmStart > 600 then
                         build.mode = mode
                         table.insert(bs, build)
@@ -7083,6 +7171,9 @@ end
 
 function qry_troop_info(self, tid)
     local troop = troop_mng.get_troop(tid)
+    if troop == nil then
+        return
+    end
     local info = troop:get_info()
     info.extra = troop.extra
     Rpc:ack_troop_info(self, info)
@@ -8282,16 +8373,24 @@ function world_chat_task(self)
     task_logic_t.process_task(self, TASK_ACTION.WORLD_CHAT, 1)
 end
 
-function cross_npc_info_req(self)
-    Rpc:callAgent(gCenterID, "cross_npc_info_req", self.pid)
+function cross_npc_info_req(self, gid)
+    Rpc:callAgent(gCenterID, "cross_npc_info_req", gid, self.pid)
 end
 
 function cross_rank_info(self, mode, version)
     Rpc:callAgent(gCenterID, "cross_rank_info_req", self.pid, self.uid, self.emap, mode, version)
 end
 
-function cross_refugee_rank_info(self, version)
-    Rpc:callAgent(gCenterID, "cross_refugee_rank_info", self.pid, self.emap, version)
+function cross_refugee_rank_info(self)
+    Rpc:callAgent(gCenterID, "cross_refugee_rank_info_req", self.pid, self.emap)
+end
+
+function cross_refugee_rank_list(self, version)
+    Rpc:callAgent(gCenterID, "cross_refugee_rank_list_req", self.pid, self.emap, version)
+end
+
+function cross_royalty_servers_req(self)
+    Rpc:callAgent(gCenterID, "cross_royalty_servers_req", self.pid)
 end
 
 function cross_claim_score_award(self, phase)
@@ -9195,7 +9294,7 @@ function rebuild_funcs.cross_migrate_back(player, dura, pid)
 end
 
 function cross_rebuild_timer(self, timers)
-    for _, v in pairs(timers) do
+    for _, v in pairs(timers or {}) do
         local func = rebuild_funcs[v.what]
         if func then
             func(self, v.over - gTime, unpack(v.param))
@@ -9224,6 +9323,8 @@ end
 
 function operate_dice_query( self )
     if gOperateDiceTime == 0 then
+        Rpc:operate_dice_query( self, 0,0 )
+    elseif gOperateDiceTime - gTime > 345600 then
         Rpc:operate_dice_query( self, 0,0 )
     else
         Rpc:operate_dice_query( self, gOperateDiceTime, gOperateDiceIdx )
@@ -9256,8 +9357,9 @@ function operate_dice_action( self, isTen )
                     local msg_notify = gPendingBonus[ self.pid ]
                     gPendingBonus[ self.pid ] = pending
 
-                    Rpc:operate_dice_action( self, msg_notify )
-
+                    if msg_notify then
+                        Rpc:operate_dice_action( self, msg_notify )
+                    end
                 end
             end
         end
@@ -9330,6 +9432,119 @@ function local_execute(self, func, ...)
         return self[func](self, ...)
     end
 end
+
+function get_last_access( p )
+    local last_access = math.max( p.tm_create, p.tm_login )
+    local slap = gTime - math.max( last_access, p.tm_logout )
+    return math.min( slap, gTime - ( p.tick or 0 ) )
+end
+
+function make_ghost_invite( self )
+    local tm = rawget( self, "_tm_ghost_invite" ) or 0
+    if gTime - tm < 3600 * 24 then return end
+
+    if #gUnionOpening < 1 then return end
+
+    local first = table.remove( gUnionOpening, 1 )
+    table.insert( gUnionOpening, first )
+
+    local lang = self.language
+    local lang_en = resmng.LANGUAGE_DEF_10
+    local u_en = {}
+
+    for k, uid in ipairs( gUnionOpening ) do
+        local u = unionmng.get_union( uid )
+        if u then
+            if u.membercount > 49 then
+                table.remove( gUnionOpening, k )
+                return
+            end
+            if u.language == lang then
+                if union_enlist_check( self, uid ) then
+                    local leader = getPlayer( u.leader )
+                    if leader then
+                        INFO( "[GhostInvite], add_invite, union,%s, invite,%s, language,%d,%d", u.name, self.name, u.language, self.language )
+                        self:send_system_union_invite( 30001, leader.pid, {uid=uid}, { leader.name, u.alias, u.name } )
+                        rawset( self, "_tm_ghost_invite", gTime )
+                        return
+                    end
+                end
+            elseif u.language == lang_en then
+                table.insert( u_en, u )
+            end
+        end
+    end
+
+    if #u_en > 0 then
+        for _, u in pairs( u_en ) do
+            if union_enlist_check( self, u.uid ) then
+                local leader = getPlayer( u.leader )
+                if leader then
+                    INFO( "[GhostInvite], add_invite, union,%s, invite,%s, language,%d,%d", u.name, self.name, u.language, self.language )
+                    self:send_system_union_invite( 30001, leader.pid, {uid=u.uid}, { leader.name, u.alias, u.name } )
+                    rawset( self, "_tm_ghost_invite", gTime )
+                    return
+                end
+            end
+        end
+    end
+
+    for k, uid in ipairs( gUnionOpening ) do
+        local u = unionmng.get_union( uid )
+        if u then
+            if union_enlist_check( self, uid ) then
+                local leader = getPlayer( u.leader )
+                if leader then
+                    INFO( "[GhostInvite], add_invite, union,%s, invite,%s, language,%d,%d", u.name, self.name, u.language, self.language )
+                    self:send_system_union_invite( 30001, leader.pid, {uid=uid}, { leader.name, u.alias, u.name } )
+                    rawset( self, "_tm_ghost_invite", gTime )
+                    return
+                end
+            end
+        end
+    end
+end
+
+function check_union_active( self )
+    if self.emap ~= gMapID then return end
+    local uid = self.uid
+    if uid ~= 0 then
+        local u = unionmng.get_union( uid )
+        if u then
+            if u.leader == self.pid then
+                if u.enlist and u.enlist.check == 0 then
+                    local members = u._members 
+                    local number = 0
+                    local active = 0
+                    for _, A in pairs( members or {} ) do
+                        number = number + 1
+                        if get_last_access( A ) < 86400 then
+                            active = active + 1
+                        end
+                    end
+                    if number < 45 and active > 5 then
+                        table.insert( gUnionOpening, uid )
+
+                        if #gUnionOpening > 40 then
+                            table.remove( gUnionOpening, 1 )
+                        end
+                        INFO( "[GhostInvite], active_union, union,%s, leader,%s, language,%d, count,%d", u.name, self.name, u.language, #gUnionOpening )
+                    end
+                end
+            else
+                --local A = getPlayer( u.leader )
+                --if A and get_last_access( A ) < 86400 then
+
+                --else
+                --    --make_ghost_invite( self )
+                --end
+            end
+        end
+    else
+        if get_castle_lv( self ) > 5 then make_ghost_invite( self ) end
+    end
+end
+
 
 _G.handle_login_from_queue = player_t.handle_login_from_queue
 

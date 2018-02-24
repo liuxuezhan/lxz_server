@@ -232,6 +232,19 @@ function get_range(rank_id, start, tail)
     return skiplist.get_range(rank.index, start, tail)
 end
 
+function get_range_with_score(rank_id, start, tail)
+    local rank = ranks[rank_id]
+    if not rank then
+        WARN("[CustomRank] Rank %d hasn't been created, get range failed.", rank_id)
+        return
+    end
+    local info = skiplist.get_range_with_score(rank.index, start, tail)
+    if not info then
+        return
+    end
+    return info
+end
+
 function get_score(rank_id, key)
     local rank = ranks[rank_id]
     if not rank then

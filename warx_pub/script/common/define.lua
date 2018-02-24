@@ -1,4 +1,4 @@
-﻿--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 
 --时区偏移数值 秒
 TIME_ZONE = 0
@@ -191,16 +191,16 @@ VALUE_CHANGE_REASON = {
     REASON_DEC_ITEM_OPERATE_EXCHANGE= 4005,          --兑换活动
 
     --英雄任务
-    REFRESH_HERO_TASK = 5000,
-    ACC_HERO_TASK = 5001,
-    HERO_TASK_NORMAL = 5002,
-    HERO_TASK_EVENT = 5003,
+    REFRESH_HERO_TASK = 5000,                        --刷新英雄任务
+    ACC_HERO_TASK = 5001,                            --英雄任务加速
+    HERO_TASK_NORMAL = 5002,                         --完成英雄任务
+    HERO_TASK_EVENT = 5003,                          --完成英雄任务时间
 
     --hero equip
-    HERO_EQUIP_STAR_UP = 6000,
-    HERO_EQUIP_LV_UP = 6001,
-    HERO_EQUIP_MAKE = 6002,
-    HERO_EQUIP_DECOMPOSE = 6003,
+    HERO_EQUIP_STAR_UP = 6000,                       --英雄装备升星
+    HERO_EQUIP_LV_UP = 6001,                         --英雄装备升级
+    HERO_EQUIP_MAKE = 6002,                          --合成英雄装备
+    HERO_EQUIP_DECOMPOSE = 6003,                     --分解英雄装备
 }
 
 
@@ -234,7 +234,8 @@ resmng.CLASS_HERO_EQUIP_GRAGE = 24  --英雄装备
 resmng.CLASS_HERO_EQUIP = 25        --英雄装备
 resmng.CLASS_TASK_FINISH_ARRAY = 26 --需要完成做这个主线任务 (任务ID组: 满足其中一个即可)
 resmng.CLASS_BRANTCHTASK_FINISH = 27 --需要完成这个支线任务
-
+resmng.CLASS_HAS_HERO = 28           --自己有这个英雄
+resmng.CLASS_HERO_HAS_STAR = 29      --自己是否有可以升星的英雄
 
 UNION_TASK =      ---军团悬赏任务类型
 {
@@ -297,7 +298,7 @@ CLASS_UNIT = {
     UnionBuild = 10,
     Troop = 11,
     CLOWN = 12,
-
+    Refugee = 14,
     DIG = 16,
 }
 
@@ -401,6 +402,7 @@ CROSS_STATE =
     PEACE = 3,
 }
 CROSS_MIGRATE_ITEM = resmng.ITEM_10006001
+MIGRATE_GOLD = 2000
 
 ROYAL_STATE =
 {
@@ -526,6 +528,7 @@ MOVE_CITY_MODE = {
     RANDOM = 2, --随机迁城
     GRADING = 4, --资源带迁城
     UNION = 5,  --军团迁城
+    CROSS = 6,  --跨服迁城
 }
 
 -- Hx@2015-12-04 : union state in player eye
@@ -1590,6 +1593,24 @@ g_operate_activity_relation = {
     ["union_power"]             = OPERATE_ACTIVITY_ACTION.UNION_POWER,              --军团战力
 }
 
+COMMON_JUMP_ACTION = {
+    STATE_WORLDMAP = 1,
+    STATE_BUILD_LIST = 2,
+    STATE_ACADEMY = 3,
+    STATE_QUICK_TRAIN = 4,
+    STATE_BLACKMARKET = 5,
+    STATE_GACHA = 6,
+}
+
+g_common_jump_relation = {
+    ["state_worldmap"] = COMMON_JUMP_ACTION.STATE_WORLDMAP,
+    ["state_build_list"] = COMMON_JUMP_ACTION.STATE_BUILD_LIST,
+    ["state_academy"] = COMMON_JUMP_ACTION.STATE_ACADEMY,
+    ["state_quick_train"] = COMMON_JUMP_ACTION.STATE_QUICK_TRAIN,
+    ["state_blackmarket"] = COMMON_JUMP_ACTION.STATE_BLACKMARKET,
+    ["state_gacha"] = COMMON_JUMP_ACTION.STATE_GACHA,
+}
+
 -------------------------------------------------------------------------------------
 
 
@@ -1876,7 +1897,7 @@ PLAYER_INIT = {
 
     language = 10000,
     nation = 0,  -- 国家
-    show_nation = 0,  -- 国家
+    show_nation = 1,  -- 国家
 
     gacha_yinbi_num = 0,  --银币抽卡次数,
     gacha_yinbi_free_num = 0,  --银币抽卡免费次数,
@@ -1909,7 +1930,7 @@ PLAYER_INIT = {
     nospeak_time = 0,
     nologin_time = 0,
 
-    pay_state = {}, -- 玩家充值的相关状态
+    --pay_state = {}, -- 玩家充值的相关状态  已状态不使用了
 
     tm_yueka_cur = 0,       --加速月卡当前领取天数
     tm_yueka_start = 0,     --加速月卡开始天数

@@ -4,13 +4,13 @@ function toGate(host, port)
     local mt = {
         onClose = function (self)
             self.state = 0
-            LOG("connect Gate %s:%d be close", self.host, self.port)
+            LOG("connect to Gate %s:%d be close", self.host, self.port)
             timer.new("toGate", 2, self.host, self.port)
             gConns[ self.sid ] = nil
         end,
 
         onConnectOk = function (self)
-            WARN( "connecting to Gate, done")
+            WARN( "connect to Gate, %s:%d done", self.host, self.port)
             self.state = 1
             pushHead(self.sid, 0, gNetPt.NET_SET_MAP_ID)
             pushInt(gMapID)
@@ -21,7 +21,7 @@ function toGate(host, port)
         end,
 
         onConnectFail = function (self) 
-            LOG("connect Gate %s:%d fail", self.host, self.port)
+            LOG("connect to Gate %s:%d fail", self.host, self.port)
             timer.new("toGate", 5, self.host, self.port, self.sid)
             gConns[ self.sid ] = nil
         end,
@@ -39,12 +39,13 @@ function toMongo(host, port, db, user, pwd, mechanism, tips, is_reconnect)
     local mt = {
         onClose = function (self)
             self.state = 0
-            LOG("connect Mongo %s:%d be close", self.host, self.port)
+            LOG("connect to Mongo %s:%d be close", self.host, self.port)
             dbmng:conn_close(self.sid)
             gConns[ self.sid ] = nil
         end,
 
         onConnectOk = function (self)
+            WARN( "connect to Mongo, %s:%d done", self.host, self.port)
             --self.state = 1
             local t = mongo.client2(self.host, self.port, self.sid, self.tips == "Global")
             dbmng:conn_new(self.host, self.port, self.db, self.user, self.pwd, self.mechanism, self.sid, t[ self.db ], self.tips)
@@ -54,7 +55,7 @@ function toMongo(host, port, db, user, pwd, mechanism, tips, is_reconnect)
         end,
 
         onConnectFail = function (self) 
-            LOG("connect Mongo  %s:%d fail", self.host, self.port)
+            LOG("connect to Mongo  %s:%d fail", self.host, self.port)
             timer.new("toMongo", 5, self.host, self.port, self.db, self.user, self.pwd, self.mechanism, self.tips, self.is_reconnect)
             gConns[ self.sid ] = nil
         end,

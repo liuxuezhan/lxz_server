@@ -1,6 +1,6 @@
 module( "cross_act", package.seeall ) 
 
-act_state = act_state or 0
+act_state = act_state or CROSS_STATE.LOCK
 act_season = act_season or 0
 
 refugee_state = refugee_state  or 0
@@ -22,6 +22,13 @@ function rec_cross_act_st(act_st)
         end
     end
     WARN("[CrossWar] The war enter state %d", act_state)
+    if last_st == CROSS_STATE.LOCK then
+        if act_state == CROSS_STATE.FIGHT or act_state == CROSS_STATE.PREPARE then
+            WARN("[CrossWar] upload royal city info during the server's boot time")
+            upload_royal_city_info()
+        end
+        return
+    end
 
     if act_state == CROSS_STATE.PREPARE then
         --for k, player in pairs(gPlys) do
@@ -48,6 +55,7 @@ function rec_cross_act_st(act_st)
     if act_state == CROSS_STATE.FIGHT and last_st ~= CROSS_STATE.FIGHT then
         npc_city.update_royal_data()
         king_city.update_royal_data()
+        upload_royal_city_info()
     end
 end
 
@@ -56,7 +64,11 @@ function rec_group_info(servers)
 end
 
 function load_data()
---    Rpc:callAgent(gCenterID, "cross_act_st_req", 1)
+end
+
+function init_game_data()
+    crontab.upload_gs_info()
+    Rpc:callAgent(gCenterID, "cross_act_st_req")
 end
 
 function get_cross_act_st()
@@ -72,6 +84,25 @@ function get_cross_act_st()
     pack[ACT_NAME.REFUGEE] = act
 
     return pack
+end
+
+function upload_royal_city_info()
+    local cities = {}
+    -- king city
+    local king = king_city.get_king()
+    if king and king.royal ~= ROYAL_STATE.NO_ROYAL then
+        table.insert(cities, npc_city.pack_royal_city_info(king, king.uid))
+    end
+    -- npc city
+    for k, v in pairs(npc_city.citys) do
+        local city = get_ety(v)
+        if city and city.royal ~= ROYAL_STATE.NO_ROYAL then
+            table.insert(cities, city:pack_royal_city_info(city.uid))
+        end
+    end
+    if #cities > 0 then
+        Rpc:callAgent(gCenterID, "cross_royal_city_info", cities)
+    end
 end
 
 function cross_act_st_req(ply)

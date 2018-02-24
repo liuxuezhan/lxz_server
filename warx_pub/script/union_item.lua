@@ -18,7 +18,7 @@ function load_db(pid)
 end
 
 
-function add(p,propid,src,d_propid,pid)--加入军团礼物
+function add(p, propid, src, d_propid, pid)--加入军团礼物
     if check_ply_cross(p) then
         remote_cast(p.emap, "add", {"union_item", p.pid, propid, src, d_propid, pid})
         return
@@ -36,15 +36,27 @@ function add(p,propid,src,d_propid,pid)--加入军团礼物
                 propid=propid,
                 tm=gTime,
                 src=src,
-                d_propid=d_propid,
-                s_pid =pid }
+                d_propid = d_propid or 0,
+                s_pid = pid or 0 }
     p.union_item[d.idx] =  d  
+    
     gPendingSave.union_item[d._id] = d 
     for k, d in pairs(p.union_item ) do
         if gTime > d.tm+_tm+_tm2 then
             gPendingDelete.union_item[d._id] = 1 
             p.union_item[k] =  nil  
         end
+    end
+
+    if player_t.is_online( p ) then
+        local s = {idx=d.idx, propid=d.propid,src=d.src ,tmOver = (d.tm + _tm ), d_propid=d.d_propid}
+        if pid and pid >= 10000 then
+            local p = getPlayer(pid)
+            if p  then s.name = p.name end
+        elseif src == UNION_ITEM.BOSS then
+            s.name = p.name
+        end
+        Rpc:union_gift_add( p, s )
     end
 end
 
@@ -60,10 +72,16 @@ function show(p)--获取军团礼物列表
     local l = {}
     if not p.union_item then load_db(p.pid) end
     for _, v in pairs(p.union_item or {}) do
-        local s = {idx=v.idx, propid=v.propid,src=v.src ,tmOver = (v.tm + _tm )}
+        local s = {idx=v.idx, propid=v.propid,src=v.src ,tmOver = (v.tm + _tm ), d_propid=v.d_propid}
         local p = getPlayer(v.s_pid)
-        if p  then s.name = p.name end
-        s.d_propid = v.d_propid
+        if p  then 
+            s.name = p.name 
+        elseif v.src == UNION_ITEM.BOSS then
+            local ply = getPlayer(v.pid)
+            if ply then
+                s.name = ply.name
+            end
+        end
         table.insert(l,s )
     end
     return l 

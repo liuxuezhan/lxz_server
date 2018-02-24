@@ -51,6 +51,15 @@ function init_data()
     end
 end
 
+function clear_player_rank(gid, info)
+    for k, v in pairs(PERIODIC_ACTIVITY) do
+        local main_activity = m_main_activities[v]
+        if main_activity then
+            main_activity:clear_player_rank(gid, info[v])
+        end
+    end
+end
+
 function sync_all_data()
     if not is_center_server() then
         return
@@ -111,6 +120,6 @@ function get_my_rank(mode, gid, pid, rank_lv)
     if main_activity then
         return main_activity:get_my_rank(gid, pid, rank_lv)
     end
-    return 0
+    return 0, 0
 end
 

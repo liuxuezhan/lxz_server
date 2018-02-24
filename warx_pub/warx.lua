@@ -63,6 +63,8 @@ end
 local  function save_db()
     skynet.timeout(3*100, function() 
        check_pending()
+       make_ready()
+       make_action()
        save_db()
     end)
 end
@@ -90,6 +92,7 @@ skynet.start(function()
     save_db()
     require "warx_pub/script/frame/frame"
     init(os.time(),os.time())
+    if not get_sys_status("start")  then  set_sys_status("start", os.time()) end
     while g_beg do
         g_beg = nil
         main_loop(os.time(), os.time(), 0, 0, 0, 0)

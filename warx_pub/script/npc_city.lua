@@ -161,8 +161,8 @@ function load_npc_city()
         etypipe.add(m)
     end
 
-    init_npc_citys(have)
     load_tw_state()
+    init_npc_citys(have)
     --init_redis_list()
    --test_npc()
 end
@@ -540,7 +540,6 @@ end
 function try_start_tw()
     local id = actState
     local prop = resmng.prop_tw_open[id]
-           -- LOG("ffffffffffffffffffffffffkkkkkkkkkkkkkkkkkkkkkkk tw1 %s %s %s", act_mng.start_act_tm, gTime, actState)
     if  actState == 0 then
         season = 0
         if gTime < act_mng.start_act_tm then
@@ -550,8 +549,7 @@ function try_start_tw()
             rank_end_tm = act_mng.start_act_tm + prop.Awardtm
         else
             local tm = act_mng.start_act_tm + prop.Span - gTime
-           -- LOG("ffffffffffffffffffffffffkkkkkkkkkkkkkkkkkkkkkkk tw %s, %s ", act_mng.start_act_tm, tm)
-            if tm < 0 then
+            if tm <= 0 then
                 start_tw(act_mng.start_act_tm + prop.Span)
             else
                 actState = TW_STATE.PACE
@@ -565,6 +563,7 @@ function try_start_tw()
             local city = get_ety(v)
             if city then
                 city:init_npc_state()
+                etypipe.add(city)
             end
         end
     else
@@ -1908,6 +1907,14 @@ function post_change(propid, map_id, tag)
     Rpc:callAgent(gCenterID, "post_npc_change", propid, map_id, tag)
 end
 
+function upload_royal_city_info(self, uid)
+    local info = npc_city.pack_royal_city_info(self, uid)
+    if not info then
+        return
+    end
+    Rpc:callAgent(gCenterID, "cross_royal_city_info", {[info.propid] = info})
+end
+
 function first_pre_boss_atk_city()
     npc_city.monster_declares = nil
     npc_city.cur_declares = nil
@@ -2123,6 +2130,8 @@ function change_city_uid(self, uid)
     INFO("[ACT] change city uid last = %d, new = %d", self.uid, uid)
     self.uid = uid
     union_hall_t.ety_add_def(self)
+
+    npc_city.upload_royal_city_info(self, uid)
 end
 
 function change_city_state(self, state)
@@ -2252,6 +2261,36 @@ function clear_royal_data()
             etypipe.add(city)
         end
     end
+end
+
+function pack_royal_city_info(self, uid)
+    if self.royal == ROYAL_STATE.NO_ROYAL then
+        return
+    end
+    local info = {
+        propid = self.propid
+    }
+    local prop = resmng.prop_world_unit[self.propid]
+    local royalty_id = get_royalty_by_class_lv(prop.Class, prop.Lv)
+
+    info.propid = self.propid
+    info.royalty_id = royalty_id
+    info.royal = self.royal
+
+    local union = unionmng.get_union(uid)
+    if union then
+        local union_info = {}
+        union_info.gid = union.map_id or gMapID
+        union_info.uid = union.uid
+        union_info.name = union.name
+        union_info.flag = union.flag
+        union_info.alias = union.alias
+        union_info.leader = union.leader
+
+        info.union = union_info
+    end
+
+    return info
 end
 
 function dump_royal_city()

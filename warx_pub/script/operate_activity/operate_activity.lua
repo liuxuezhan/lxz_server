@@ -98,7 +98,7 @@ end
 function heart_beat()
 	for k, v in pairs(OpActivityData) do
 		local prop_tab = resmng.get_conf("prop_operate_activity", v.activity_id)
-		if prop_tab ~= nil and prop_tab.Open == 1 then
+		if prop_tab ~= nil and prop_tab.Open == 1 and prop_tab.Type ~= OPERATE_ACTIVITY_TYPE.PERSON then
 			if v:tick() == true then
 				save_operate_activity(v)
 			end
@@ -158,7 +158,7 @@ function packet_activity_list(p)
     local op_datas = p:get_op_activity_data()
 	for k, v in pairs(op_datas or {}) do
 		local prop_tab = resmng.get_conf("prop_operate_activity", k)
-		if prop_tab and prop_tab.Open == 1 and v.is_end == 0 then
+		if prop_tab and prop_tab.Open == 1 and v.is_end == 0 and gTime < v.end_time then
 			v:first_start(p)
 			local unit = {}
 			unit.id = v.activity_id
@@ -174,11 +174,13 @@ function packet_activity_list(p)
 
     -- hardcode operate_activity
     if _G.gOperateDiceTime > 0 then
-        local unit = {}
-        unit.id = resmng.OPERATE_ACTIVITY_10
-        unit.start_time = _G.gOperateDiceTime
-        unit.end_time = _G.gOperateDiceTime + 72 * 3600
-        table.insert( msg, unit )
+        if _G.gOperateDiceTime - gTime < 345600 then
+            local unit = {}
+            unit.id = resmng.OPERATE_ACTIVITY_10
+            unit.start_time = _G.gOperateDiceTime
+            unit.end_time = _G.gOperateDiceTime + 72 * 3600
+            table.insert( msg, unit )
+        end
     end
 
     local datas = p:get_operate_activity()

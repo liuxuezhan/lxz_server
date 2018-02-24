@@ -1529,25 +1529,29 @@ function rage(troop, D)
                     end
 
                     if need > 0 then
-                        while #farms > 0 and need > 0 do
-                            local farm = farms[1] 
-                            local hmode = farm.mode
-                            local hnum = need * erate[ nmode ][ hmode ]
-                            if a_castle >= rage_lv[ hmode ] and d_castle >= rage_lv[ hmode ] then
-                                local get = farm:res_reap_some(hnum)
-                                if get > 0 then
-                                    if get >= hnum then
-                                        rages[ hmode ] = rages[ hmode ] + hum
-                                        need = 0
-                                        break
+                        for i = 1, 20, 1 do
+                            if #farms > 0 and need > 0 then
+                                local farm = farms[1] 
+                                local hmode = farm.mode
+                                local hnum = need * erate[ nmode ][ hmode ]
+                                if a_castle >= rage_lv[ hmode ] and d_castle >= rage_lv[ hmode ] then
+                                    local get = farm:res_reap_some(hnum)
+                                    if get > 0 then
+                                        if get >= hnum then
+                                            rages[ hmode ] = rages[ hmode ] + hnum
+                                            need = 0
+                                            break
+                                        else
+                                            rages[ hmode ] = rages[ hmode ] + get
+                                            need = need - get * erate[ hmode ][ nmode ]
+                                            table.remove(farms, 1)
+                                        end
                                     else
-                                        rages[ hmode ] = rages[ hmode ] + get
-                                        need = need - get * erate[ hmode ][ nmode ]
                                         table.remove(farms, 1)
                                     end
-                                else
-                                    table.remove(farms, 1)
                                 end
+                            else
+                                break
                             end
                         end
                     end

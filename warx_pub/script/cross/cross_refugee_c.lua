@@ -8,11 +8,11 @@ function cast_refugee_st()
     act.state = act_state
     pack[ACT_NAME.REFUGEE] = act
 
-    cross_mng_c.send_all_gs("cross_act_st_cast", pack)
+    cross_mng_c.send_to_all_group("cross_act_st_cast", pack)
 end
 
 function cast_refugee_end()
-    cross_mng_c.send_all_gs("refugee_end")
+    cross_mng_c.send_to_all_group("refugee_end")
 end
 
 function load_data()
@@ -37,3 +37,4 @@ function cross_refugee_end()
     gPendingSave.status["cross_act"].refugee_state = act_state
     cast_refugee_end()
 end
+

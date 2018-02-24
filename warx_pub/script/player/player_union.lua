@@ -90,13 +90,15 @@ function union_select(self, uid,what)
         local info = {}
         if union_t.is_legal(self, "Invite") then
             for k, v in pairs(union.applys) do
-                local A  = getPlayer(v.pid)
-                if gTime > v.tm + 60*60*24*2 or A.uid ~= 0 then
-                    union:remove_apply( v.pid)
-                else
-                    local data = A:get_union_info()
-                    data.rank = 0
-                    table.insert(info, data)
+                local p1  = getPlayer(v.pid)
+                if p1 then
+                    if gTime > v.tm + 60*60*24*2 or p1.uid ~= 0 then
+                        union:remove_apply( v.pid)
+                    else
+                        local data = p1:get_union_info()
+                        data.rank = 0
+                        table.insert(info, data)
+                    end
                 end
             end
         end
@@ -149,15 +151,16 @@ function union_select(self, uid,what)
     return result
 end
 
-function union_search(self, what)
+function union_search(p, what)
     local d = {}
     local d2 = {}
     local num = 50
-    local u = unionmng.get_union(self:get_uid())
+    local u = unionmng.get_union(p:get_uid())
     if not u then  return end
 
     if what ~= "" then
-        local code = check_name_avalible( what )
+        local c = (resmng.prop_language_cfg[p.language] or {}).Limit
+        local code = check_name_avalible( what,c )
         if code ~= true then return end
         if is_sys_name( what ) then return end
 
@@ -176,8 +179,8 @@ function union_search(self, what)
         for _,v in pairs(gPlys or {}) do
             if v.pid >= 10000 and v.uid==0 and (not u:get_invite(v.pid)) 
                 and (not u:has_member(v)) and (not u:get_apply(v.pid)) then
-                if language==v.language then
-                    d[v.pid]={pid=v.pid,name=v.name,language=v.language,photo=v.photo, pow=v:get_pow(), nation = v.nation}
+                if p.language==v.language and v:is_online() then
+                    d[v.pid]={pid=v.pid,online = 1,name=v.name,language=v.language,photo=v.photo, pow=v:get_pow(), nation = v.nation}
                     num = num - 1
                     if num == 0  then break end
                 else 
@@ -188,13 +191,15 @@ function union_search(self, what)
 
         if num > 0 then
             for _,v in pairs(d2 or {})  do
-                d[v.pid]={pid=v.pid,name=v.name,language=v.language,photo=v.photo, pow=v:get_pow(), nation = v.nation}
+                local online = 0 
+                if v:is_online() then online = 1 end
+                d[v.pid]={pid=v.pid,online=online,name=v.name,language=v.language,photo=v.photo, pow=v:get_pow(), nation = v.nation}
                 num = num - 1
                 if num == 0 then break end
             end
         end
     end
-    Rpc:union_search(self,what,d)
+    Rpc:union_search(p,what,d)
 end
 
 function union_relation_set(self,uid,val)
@@ -246,8 +251,15 @@ function get_build_list(union)
 end
 
 function union_create(p, name, alias, language, mars)
-    if not is_inputlen_avaliable(name,CHA_LIMIT.Union_Name) then return end 
-    if not is_inputlen_avaliable(alias,CHA_LIMIT.Union_Alias) then return end 
+    local c = (resmng.prop_language_cfg[p.language] or {}).Limit
+    if not is_inputlen_avaliable(name,(c or {})[CHA_LIMIT.Union_Name]) then 
+        WARN( "[UNION]pid=%d,uid=%d,union_create name is limit", p.pid,p.uid )
+        return 
+    end 
+    if not is_inputlen_avaliable(alias,(c or {})[CHA_LIMIT.Union_Alias]) then 
+        WARN( "[UNION]pid=%d,uid=%d,union_create alias is limit", p.pid,p.uid )
+        return 
+    end 
 
     if check_ply_cross(p) then
         ack(p, "union_create", resmng.E_DISALLOWED) return
@@ -537,15 +549,19 @@ function union_reject(self, pid)
     end
 end
 
-function union_enlist_set(self, check,text,lv,pow)
+function union_enlist_set(p, check,text,lv,pow)
 
-    if not is_inputlen_avaliable(text,CHA_LIMIT.Union_Recruit) then return end 
+    local c = (resmng.prop_language_cfg[p.language] or {}).Limit
+    if not is_inputlen_avaliable(text,(c or {})[CHA_LIMIT.Union_Recruit]) then 
+        WARN( "[UNION]pid=%d,uid=%d,union_enlist_set text is limit", p.pid,p.uid )
+        return 
+    end 
 
-    if check_ply_cross(self) then
-        ack(self, "union_enlist_set", resmng.E_DISALLOWED) return
+    if check_ply_cross(p) then
+        ack(p, "union_enlist_set", resmng.E_DISALLOWED) return
     end
 
-    local u = unionmng.get_union(self:get_uid())
+    local u = unionmng.get_union(p:get_uid())
     u.enlist = {check = check ,text=text,lv=lv, pow=pow}
 end
 
@@ -589,12 +605,12 @@ function union_first_item(p)
     Rpc:union_first_item(p, c.AddBonus or {} )
 end
 
-function union_list(self,name)
+function union_list(p,name)
 
-    if check_ply_cross(self) then
-        local u = unionmng.get_union(self.uid)
+    if check_ply_cross(p) then
+        local u = unionmng.get_union(p.uid)
         if u then
-            remote_cast(u.map_id, "union_list", {"player", self.pid, name})
+            remote_cast(u.map_id, "union_list", {"player", p.pid, name})
             return
         end
     end
@@ -602,45 +618,65 @@ function union_list(self,name)
 
     local ret = {name = name,list={}}
     if name ~= "" then
-        local num = 0
-        local code = check_name_avalible( name )
+        local c = (resmng.prop_language_cfg[p.language] or {}).Limit
+        local code = check_name_avalible( name,c )
         if code ~= true then return end
         if is_sys_name( name ) then return end
 
         for _, u in pairs( unionmng._us or {}  ) do
             if u and not check_union_cross(u) and u:check() and string.find(u.name,name) then
-                local info = sort_info(self,u)
+                local info = sort_info(p,u)
                 if info then 
                     ret.list[u.uid]=info 
-                    num = num + 1
+                    max = max - 1
                 end
-                if num == max  then break end
+                if 0 == max  then break end
             end
         end
 
-        for _, u in pairs( unionmng._us or {}  ) do
-            if u and not check_union_cross(u) and u:check() and string.find(u.alias,name) then
-                local info = sort_info(self,u)
-                if info then 
-                    ret.list[u.uid]=info 
-                    num = num + 1
+        if max > 0 then
+            for _, u in pairs( unionmng._us or {}  ) do
+                if u and not check_union_cross(u) and u:check() and string.find(u.alias,name) then
+                    local info = sort_info(p,u)
+                    if info then 
+                        ret.list[u.uid]=info 
+                        max = max - 1
+                    end
+                    if 0 == max  then break end
                 end
-                if num == max  then break end
             end
         end
+        
     else
         local us = rank_mng.get_range(5,1,max)
+        local num = 0
         for k, uid in pairs( us or {}  ) do
             local u = unionmng.get_union(uid)
             if u and not check_union_cross(u) and u:check() and (not check_union_cross(u) )then
-                local info = sort_info(self,u)
-                if info then ret.list[u.uid]=info end
+                if p:union_enlist_check(uid) then 
+                    local info = sort_info(p,u)
+                    if info then ret.list[u.uid]=info end
+                    num = num -  1
+                    if 0 == num  then break end
+                end
+            end
+        end
+        if num > 0  then
+            local us = rank_mng.get_range(5,max+1,max+num)
+            for k, uid in pairs( us or {}  ) do
+                local u = unionmng.get_union(uid)
+                if u and not check_union_cross(u) and u:check() and (not check_union_cross(u) )then
+                    local info = sort_info(p,u)
+                    if info then ret.list[u.uid]=info end
+                    num = num -  1
+                    if 0 == num  then break end
+                end
             end
         end
     end
 
     --lxz(ret.list)
-    Rpc:union_list(self,ret.name,ret.list)
+    Rpc:union_list(p,ret.name,ret.list)
 end
 
 function union_invite(self, pid)
@@ -786,29 +822,33 @@ function union_member_rank(self, pid, r)
     end
 end
 
-function union_member_title(self, pid, t)
-    if not is_inputlen_avaliable(t,CHA_LIMIT.Union_Title_Grant) then return end
-    if check_ply_cross(self) then
-        ack(self, "union_member_title", resmng.E_DISALLOWED) return
+function union_member_title(p, pid, t)
+    local c = (resmng.prop_language_cfg[p.language] or {}).Limit
+    if not is_inputlen_avaliable(t,(c or {})[CHA_LIMIT.Union_Title_Grant]) then 
+        WARN( "[UNION]pid=%d,uid=%d,union_member_title text is limit", p.pid,p.uid )
+        return 
+    end
+    if check_ply_cross(p) then
+        ack(p, "union_member_title", resmng.E_DISALLOWED) return
     end
 
     local B = getPlayer(pid)
     if not B then
-        ack(self, "union_member_title", resmng.E_NO_PLAYER) return
+        ack(p, "union_member_title", resmng.E_NO_PLAYER) return
     end
     if B:get_cross_state() ~= PLAYER_CROSS_STATE.IN_LOCAL_SERVER then
-        ack(self, "union_member_title", resmng.E_DISALLOWED)
+        ack(p, "union_member_title", resmng.E_DISALLOWED)
         return
     end
-    local u = unionmng.get_union(self:get_uid())
+    local u = unionmng.get_union(p:get_uid())
     if not u then
-        ack(self, "union_member_title", resmng.E_NO_UNION) return
+        ack(p, "union_member_title", resmng.E_NO_UNION) return
     end
 
-    if not u:has_member(self, B) then return resmng.E_FAIL end
+    if not u:has_member(p, B) then return resmng.E_FAIL end
 
-    if not union_t.is_legal(self, "MemMark") then
-        INFO("[UNION] union_member_title legal pid=%d uid=%d",self.pid,self.uid)
+    if not union_t.is_legal(p, "MemMark") then
+        INFO("[UNION] union_member_title legal pid=%d uid=%d",p.pid,p.uid)
         return
     end
 
@@ -1179,20 +1219,24 @@ function union_log(self, sn, mode)
 end
 --}}}
 
-function union_set_note_in(self, what)
+function union_set_note_in(p, what)
 
-    if not is_inputlen_avaliable(what,CHA_LIMIT.Union_Notice) then return end
-
-    if check_ply_cross(self) then
-        ack(self, "union_set_note_in", resmng.E_DISALLOWED) return
+    local c = (resmng.prop_language_cfg[p.language] or {}).Limit
+    if not is_inputlen_avaliable(what,(c or {})[CHA_LIMIT.Union_Notice]) then 
+        WARN( "[UNION]pid=%d,uid=%d,union_set_note_in what is limit", p.pid,p.uid )
+        return 
     end
 
-    local union = unionmng.get_union(self:get_uid())
+    if check_ply_cross(p) then
+        ack(p, "union_set_note_in", resmng.E_DISALLOWED) return
+    end
+
+    local union = unionmng.get_union(p:get_uid())
     if not union then
-        ack(self, "union_set_note_in", resmng.E_NO_UNION) return
+        ack(p, "union_set_note_in", resmng.E_NO_UNION) return
     end
 
-    union:set_note_in(self.pid,what)
+    union:set_note_in(p.pid,what)
 end
 
 function union_task_get(self )--发布悬赏任务
@@ -1298,22 +1342,26 @@ function union_buildlv_donate(self, mode)
     end
 end
 
-function union_build_setup(self, idx, propid, x, y,name)
-    if not is_inputlen_avaliable(name,CHA_LIMIT.Union_Name_Fac) then return end
-    if check_ply_cross(self) then
-        ack(self, "union_build_setup", resmng.E_DISALLOWED) return
+function union_build_setup(p, idx, propid, x, y,name)
+    local c = (resmng.prop_language_cfg[p.language] or {}).Limit
+    if not is_inputlen_avaliable(name,(c or {})[CHA_LIMIT.Union_Name_Fac]) then 
+        WARN( "[UNION]pid=%d,uid=%d,union_build name is limit", p.pid,p.uid )
+        return 
+    end
+    if check_ply_cross(p) then
+        ack(p, "union_build_setup", resmng.E_DISALLOWED) return
     end
 
-    local u = self:union()
+    local u = p:union()
     if not u then return end
 
-    if not union_t.is_legal(self, "BuildPlace") then return end
+    if not union_t.is_legal(p, "BuildPlace") then return end
 
-    local ret = union_build_t.create(self.uid, idx, propid, x, y,name)
+    local ret = union_build_t.create(p.uid, idx, propid, x, y,name)
     if ret then
-      INFO( "[UNION] build pid=%d, uid=%d, propid=%d, x=%d, y = %d", self.pid, self.uid,propid,x,y )
+      INFO( "[UNION] build pid=%d, uid=%d, propid=%d, x=%d, y = %d", p.pid, p.uid,propid,x,y )
     else
-      Rpc:tips(self, 3,resmng.WORLDMAP_TIPS_QIJI_NOBUILDED ,{})
+      Rpc:tips(p, 3,resmng.WORLDMAP_TIPS_QIJI_NOBUILDED ,{})
     end
 end
 
@@ -2178,18 +2226,25 @@ function union_word_update(self,wid,title,word)
     union_word.update(self,wid,title,word)
 end
 
-function union_word_add(self,uid,title,word,top)
-    if not is_inputlen_avaliable(title,CHA_LIMIT.Union_Words_Topic) then return end 
-    if not is_inputlen_avaliable(word,CHA_LIMIT.Union_Words_Content) then return end 
+function union_word_add(p,uid,title,word,top)
+    local c = (resmng.prop_language_cfg[p.language] or {}).Limit
+    if not is_inputlen_avaliable(title,(c or {})[CHA_LIMIT.Union_Words_Topic]) then 
+        WARN( "[UNION]pid=%d,uid=%d,union_word title is limit", p.pid,uid )
+        return 
+    end 
+    if not is_inputlen_avaliable(word,(c or {})[CHA_LIMIT.Union_Words_Content]) then 
+        WARN( "[UNION]pid=%d,uid=%d,union_word word is limit", p.pid,uid )
+        return 
+    end 
 
-    local d = union_word.add(self,uid,title,word)
+    local d = union_word.add(p,uid,title,word)
 
     if top == 1 then
-        d = union_word.top(self,d.wid,top)
-        local p = getPlayer(d.pid)
-        if p then d.name = p.name end
+        d = union_word.top(p,d.wid,top)
+        local ply = getPlayer(d.pid)
+        if ply then d.name = ply.name end
     end
-    Rpc:union_word_add(self, d)
+    Rpc:union_word_add(p, d)
 end
 
 function union_word_get(p,uid,wid)

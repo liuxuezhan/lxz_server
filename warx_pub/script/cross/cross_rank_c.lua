@@ -122,6 +122,15 @@ function get_refugee_rank(gs_id, pid)
     return custom_rank_mng.get_rank(rank_id, pid)
 end
 
+function get_refugee_rank_score(gs_id, pid)
+    local gs = cross_mng_c.get_gs_info(gs_id)
+    if not gs or 0 == gs.group then
+        return 0
+    end
+    local rank_id = get_refugee_rank_id(gs.group)
+    return custom_rank_mng.get_score(rank_id, pid)
+end
+
 local ServerAwardKey =
 {
     [2] = "Award_2",

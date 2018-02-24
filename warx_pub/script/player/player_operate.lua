@@ -27,7 +27,7 @@ function change_operate_activity()--转档
             end
             p._pro.operate_activity = nil
             rawset( p, "_operate_activity", as )
-            WARN( "update %d operate_activity", p.pid )
+            --WARN( "update %d operate_activity", p.pid )
         end
     end
 
@@ -46,6 +46,23 @@ function do_load_operate_activity( self )
         local info = db.operate_activity:find({pid=self.pid})
         while info:hasNext() do
             local b = info:next()
+            if b then
+                if b.activity_id == "_op_data" then
+                    b.activity_id = "op_data"
+                end
+                if b.activity_id == "op_data" then
+                    for k, v in pairs(b or {}) do
+                        local val = v
+                        if type(k) == "number" then
+                            local prop_tab = resmng.get_conf("prop_operate_activity", k)
+                            if prop_tab then
+                                val = operate_activity.get_obj_by_type(prop_tab.Type, v)
+                            end
+                        end
+                        b[k] = val
+                    end
+                end
+            end
             bs[ b.activity_id ] = b
         end
         if not self._operate_activity then rawset(self, "_operate_activity", bs) end
@@ -84,7 +101,7 @@ function get_single_op_data(self, activity_id)
         if prop_tab.Type ==  OPERATE_ACTIVITY_TYPE.PERSON then
             local datas = self:get_operate_activity()
             if datas["op_data"] == nil then
-                datas["op_data"] = {_id=self.pid.."_op_data", pid=self.pid, activity_id="_op_data"}
+                datas["op_data"] = {_id=self.pid.."_op_data", pid=self.pid, activity_id="op_data"}
                 gPendingSave.operate_activity[datas.op_data._id] = datas["op_data"]
             end
             if datas["op_data"][activity_id] == nil then
@@ -139,18 +156,34 @@ function get_operate_info(p, activity_id, class)
     return d[class]
 end
 
+function on_check_pending_oparate_activity(db, id, chgs)
+    local list = string.split(id, "_")
+    local ply = getPlayer(tonumber(list[1]))
+    if ply then
+        if list[2] == "op" then
+            list[2] = "op_data"
+        else
+            list[2] = tonumber(list[2])
+        end
+        local d = ply:get_operate_activity(list[2])
+        if d then
+            Rpc:operate_activity_update_data(ply, { d } )
+        end
+    end
+end
+
+registe_update_callback("operate_activity", player_t.on_check_pending_oparate_activity)
+
 function set_operate_version(p, activity_id, version)
     local d = get_operate_activity(p,activity_id)
     d[OPERATE_PLAYER_DATA.VERSION] = version
     gPendingSave.operate_activity[d._id][OPERATE_PLAYER_DATA.VERSION]  = version 
-    if p then Rpc:operate_activity_update_data(p, { d } ) end
 end
 
 function set_operate_first_flag(p, activity_id)
     local d = get_operate_activity(p,activity_id)
     d[OPERATE_PLAYER_DATA.FIRST_FLAG] = true
     gPendingSave.operate_activity[d._id][OPERATE_PLAYER_DATA.FIRST_FLAG]  = true 
-    if p then Rpc:operate_activity_update_data(p, { d } ) end
 end
 
 function get_operate_first_flag(p, activity_id)
@@ -172,7 +205,8 @@ function set_operate_info(p, activity_id, class, key, value)
         end
     end
     gPendingSave.operate_activity[d._id][class]  = d[class] 
-    if p then Rpc:operate_activity_update_data(p, { d } ) end
+
+
 end
 
 function update_operate_info(p, activity_id, class, key, value)
@@ -190,7 +224,6 @@ function update_operate_info(p, activity_id, class, key, value)
     end
     p._operate_activity[activity_id] = d
     gPendingSave.operate_activity[d._id][class]  = d[class] 
-    if p then Rpc:operate_activity_update_data(p, { d } ) end
 end
 
 --rpc
@@ -242,7 +275,6 @@ function operate_on_day_pass(p)
             end
         end
     end
-    if p then Rpc:operate_activity_update_data(p, upds ) end
 end
 
 function operate_check_all_version(p)
@@ -256,7 +288,6 @@ function operate_check_all_version(p)
                         local t = {_id=p.pid.."_"..id,pid=p.pid,activity_id=id,[OPERATE_PLAYER_DATA.VERSION] = activity.version,}
                         oas[ id ] = t
                         gPendingInsert.operate_activity[t._id] = t  
-                        Rpc:operate_activity_update_data( p, { t } )
                     end
                 end
             end
@@ -274,7 +305,6 @@ function operate_check_version(p, activity)
             local t = {_id=p.pid.."_"..id,pid=p.pid,activity_id=id,[OPERATE_PLAYER_DATA.VERSION] = activity.version,}
             p._operate_activity[id] = t 
             gPendingInsert.operate_activity[t._id] = t  
-            Rpc:operate_activity_update_data( p, { t } )
         end
     end
 end

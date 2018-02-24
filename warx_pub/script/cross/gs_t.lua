@@ -11,7 +11,6 @@ module_class("gs_t",
     king_u_name = "",
     king_language = -1,
     group = 0,
-    last_group = 0,
     left_npc = {},
     occu_npc = {},
 }

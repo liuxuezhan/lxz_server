@@ -239,7 +239,13 @@ function operate_dice()
         WARN( "OperateDice, nweek,%d, idx,%d", nweek, idx )
     end
 
-    Rpc:operate_dice_query( {pid=-1,gid=_G.GateSid}, start, idx )
+    if start - gTime > 345600 then
+        WARN( "OperateDice, broadcast, %s, %s", 0, 0 )
+        Rpc:operate_dice_query( {pid=-1,gid=_G.GateSid}, 0, 0 )
+    else
+        WARN( "OperateDice, broadcast, %s, %s", start, idx )
+        Rpc:operate_dice_query( {pid=-1,gid=_G.GateSid}, start, idx )
+    end
 
     local t = os.date( "*t", _G.gOperateDiceTime )
     for k, v in pairs( t ) do

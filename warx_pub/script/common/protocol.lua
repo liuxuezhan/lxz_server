@@ -1,4 +1,4 @@
-﻿module("Protocol")
+module("Protocol")
 Server = {
 
     agent_test_struct = "int id, array struct UnionMember mems, string name",
@@ -205,12 +205,15 @@ Server = {
     agent_syn_call = "int id, string func, pack arg",
     agent_syn_call_ack = "int id, pack ret",
     agent_login = "int pid, pack info",
+    cross_ask_game_info = "",
     cross_act_ntf = "int ntf_id, pack param1, pack param2",
-    cross_npc_info_req = "int pid",  -- gs to cross mng
-    cross_npc_info_ack = "pack info",  -- cross mng  to game
+    cross_npc_info_req = "int gid, int pid",  -- gs to cross mng
+    cross_npc_info_ack = "int gid, pack info",  -- cross mng  to game
     cross_rank_info = "int mode, int version",                                  -- client to game
     cross_rank_info_req = "int pid, int uid, int gs_id, int mode, int version", -- game to cross
     cross_rank_info_ack = "int pid, pack info",                                 -- cross to game
+    cross_royalty_servers_req = "int pid",
+    cross_royalty_servers_ack = "int pid, pack servers",
     cross_claim_score_award = "int phase",                                      -- client to game
     cross_act_st_cast = "pack info",
     cross_group_info = "pack info",
@@ -218,13 +221,13 @@ Server = {
     cross_release_hero_ack = "int ret, int pid, string hero_id",
     cross_kill_hero = "int pid, int hero_id",
     cross_royalty_reward = "pack items",
+    cross_royal_city_info = "pack info",
     --cross act
     upload_gs_info = "pack info",
     --upload_union_info = "pack info",
     cross_gm = "pack info",
     refugee_occu_change = "int pid, int mode, pack info",
     refugee_end = "", -- refugee act end
-    post_cross_score = "pack info",
     cross_act_st_req = "",
     cross_act_group_req = "",
     upload_act_score = "int action, int gs_id, int val, pack info",
@@ -235,9 +238,12 @@ Server = {
     claim_player_cross_award = "int pid",
     claim_player_cross_award_ack = "int pid, pack awards",
     cross_refugee_info_req = "",
-    cross_refugee_rank_info = "int version",
-    cross_refugee_rank_info_req = "int pid, int gs_id, int version",
+    cross_refugee_rank_info = "",
+    cross_refugee_rank_info_req = "int pid, int gs_id",
     cross_refugee_rank_info_ack = "int pid, pack info",
+    cross_refugee_rank_list = "int version",
+    cross_refugee_rank_list_req = "int pid, int gs_id, int version",
+    cross_refugee_rank_list_ack = "int pid, pack info",
     -- cross periodic_activity
     periodic_activity_get_activity_data = "",
     periodic_activity_sync_data = "int mode, int group_id, int sn, int start_time, int end_time",
@@ -245,8 +251,9 @@ Server = {
     periodic_activity_upload_score = "int mode, int sn, int gid, int pid, int rank_lv, int score, int time",
     periodic_activity_upload_score_ack = "int mode, int sn, int pid",
     periodic_activity_get_my_rank = "int mode, int gid, int pid, int rank_lv",
-    periodic_activity_get_my_rank_ack = "int mode, int pid, int rank_pos",
+    periodic_activity_get_my_rank_ack = "int mode, int pid, int rank_pos, int ahead_score",
     periodic_activity_gm_refresh_activity = "int mode, int index",
+    periodic_activity_reinit_data = "pack info",
 
     -- allience
     -- tech = {info={{idx,id,exp,tmOver},{...}},mark={idx,idx}}
@@ -404,6 +411,8 @@ Server = {
     --task
     finish_task = "int task_id",     --完成任务获得奖励
     accept_task = "pack task_id_array",     --接任务
+    mark_task = "int task_id",
+
     finish_open_ui = "int ui_id",  --完成打开UI的任务
     refresh_daily_task = "",  --刷新每日任务
     daily_task_activity = "",  --得到每日任务活跃度
@@ -743,10 +752,12 @@ Client = {
     agent_syn_call = "int map, int id, string func, pack arg",
     agent_syn_call_ack = "int id, pack ret",
     cross_auto_migrate_back_info = "pack info",
-    cross_npc_info_ack = "pack info",          -- game to client
+    cross_npc_info_ack = "int gid, pack info",          -- game to client
     cross_rank_info = "int mode, int version, int my_rank, pack rank_list, pack extra",         -- game to client
     cross_claim_score_award = "int ret",
-    cross_refugee_rank_info = "int version, int my_rank, pack rank_list, pack extra",
+    cross_refugee_rank_info = "int my_rank, int my_score, int end_time",
+    cross_refugee_rank_list = "int version, int my_rank, pack rank_list, pack extra",
+    cross_royalty_servers_ack = "pack servers",
     --cross act
     cross_act_st_ack = "pack info",
     cross_act_group_ack = "pack info",
@@ -815,6 +826,7 @@ Client = {
 
     union_word_add = "pack info",--军团留言
     union_word_get = "pack info",--获取军团留言内容
+    union_gift_add = "pack info", 
 
     --援助目标统计
     --{max,cur,mine,}
@@ -995,7 +1007,7 @@ Client = {
     rank_pos = "int idx, int pos",
     load_my_rank_score = "int idx",
     load_my_rank_pos= "int pos",
-    get_my_periodic_rank = "int mode, int pos",
+    get_my_periodic_rank = "int mode, int pos, int ahead_score",
     -- achievement
     ache_info_ack = "pack info",
     set_ache = "int key, int val",

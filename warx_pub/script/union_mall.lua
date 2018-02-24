@@ -60,10 +60,11 @@ end
 
 
 function clear(uid)--删除军团时清除数据
-    dbmng:getOne().union_mall_mark:delete({uid=uid})
-    dbmng:getOne().union_mall_add:delete({uid=uid})
-    dbmng:getOne().union_mall_buy:delete({uid=uid})
-    dbmng:getOne().union_mall_item:delete({uid=uid})
+    local db = dbmng:getOne()
+    db.union_mall_mark:delete({uid=uid})
+    db.union_mall_add:delete({uid=uid})
+    db.union_mall_buy:delete({uid=uid})
+    db.union_mall_item:delete({uid=uid})
 end
 
 

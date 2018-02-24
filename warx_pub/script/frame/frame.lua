@@ -644,6 +644,13 @@ end
 function main_loop(sec, msec, fpk, ftimer, froi, signal)
     gFrame = gFrame + 1
     --LOG("gFrame = %d, fpk=%d, ftimer=%d, froi=%d, deb=%d, gInit=%s", gFrame, fpk, ftimer, froi, deb, gInit or "unknown")
+    -- local what ="NewPlayerNode|wxa7bea2601a2b9495|202|1|2018-01-24 15:58:48|1516780728|2018-01-24 15:52:25|1516780345|2018-01-24 15:52:25|1516780345|2018-01-24 15:52:25|1516780345|8|ios|6915efa80e66ec5045eb6d23f47847f3|null|null|null|null|null|null|null|null|null|10000145|0.0.0.0|CN|oc09tw-uoTn9JahdJv9FUnb0Nt9w|55754||3|6|0|202|55754|0|chinese|1790|null|null|null|null|null|null|null|null|null|null" 
+    -- for i=1,100 do
+    --     if  config.TlogSwitch then 
+    --         c_tlog("map_"..gMapID.."|frame_"..gFrame.."_"..i.."|"..what) 
+    --     end
+    -- end
+    -- begJob()
 
     local t1 = c_msec()
 
@@ -722,6 +729,17 @@ function main_loop(sec, msec, fpk, ftimer, froi, signal)
             action( crontab.initBoot )
 
         elseif gInit == "InitCronBootDone" then
+            gInit = "InitGateConn"
+
+            if config.Game == "my" then
+                WARN( "warx, connect to gate already" )
+                gInit = "InitGateConnDone"
+            else
+                conn.toGate(config.GateHost, config.GatePort)
+                action( wait_connect_complete )
+            end
+
+        elseif gInit == "InitGateConnDone" then
             --crontab.initBoot()
             clean_replay() --清理战斗录像
 
@@ -1381,21 +1399,10 @@ function init(sec, msec)
 
     gEids = {}
     gEtys = {}
-
-    --gEids = {}
-    --setmetatable( gEids, { __mode="v" } )
-    --setmetatable( gEtys,
-    --    { __newindex=function( tab, eid, obj)
-    --            rawset(tab, eid, obj)
-    --            local idx = math.floor( eid / 4096 )
-    --            gEids[ idx ] = obj
-    --        end
-    --    }
-    --)
-
+    
     loadMod()
 
-    if config.Game ~= "warx" then
+    if config.Game == "warx" then
         gPendingSave = {}
         gPendingDelete = {}
         gPendingInsert = {}
@@ -1427,6 +1434,11 @@ function init(sec, msec)
 
     if config.Tips then
         c_init_log(config.Tips)
+    end
+
+    if name == "warx" then
+        WARN( "warx, connect to gate first" )
+        conn.toGate(config.GateHost, config.GatePort)
     end
 
     begJob()

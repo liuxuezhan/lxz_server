@@ -426,6 +426,10 @@ gTroopActionTrigger[TroopAction.SiegePlayer] = function(troop)
         return
     end
 
+    if config.AutoCure then
+        player_t.auto_cure( dest )
+    end
+
     local defense_troop = dest:get_defense_troop()
     local win, total_round = fight.pvp(TroopAction.SiegePlayer, troop, defense_troop)
 
@@ -1462,15 +1466,18 @@ gTroopActionTrigger[TroopAction.Refugee] = function(troop)
                         dest.val = prop.Count
                     end
                     dest:start_grab(troop)
+                    watch_tower.building_def_clear(dest, dtroop)
                 else
                     troop:back()
                 end
                 player_t.generate_fight_mail(TroopAction.Refugee, troop, dtroop, atk_win)
+                watch_tower.building_recalc(dest)
                 return
             end
         end
     end
     dest:start_grab(troop)
+    watch_tower.building_recalc(dest)
 end
 
 gTroopActionTrigger[TroopAction.SiegeCamp] = function(troop)
@@ -1725,6 +1732,10 @@ function spy_castle(player, dest_obj, content)
     if spied_ply:get_buf_remain( resmng.BUFF_ANTI_SPY ) > 0 then
         player:send_fight_fail_mail( resmng.MAIL_10021 )
         return false
+    end
+
+    if config.AutoCure then
+        player_t.auto_cure( spied_ply )
     end
 
     generate_spy_report(player, spied_ply, spied_ply:get_defense_troop(), content)
@@ -3904,7 +3915,8 @@ function troop_timer(tsn, tid)
         local action = troop:get_base_action()
         if action == TroopAction.Gather then 
             troop:gather_stop() 
-
+        elseif action == TroopAction.Refugee then
+            troop:refugee_stop()
         elseif action == TroopAction.Dig then
             local dest = get_ety( troop.target_eid )
             if dest then

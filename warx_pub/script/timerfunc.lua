@@ -256,20 +256,11 @@ _funs["tw_stage"] = function(sn, stage, tm)
     end
 end
 
-_funs["refugee"] = function(sn, state, eid)
+_funs["refugee_gift"] = function(sn, eid, pid)
     if eid then
         local refugee = get_ety(eid)
         if refugee then
-            refugee:finish_grab()
-        end
-    end
-end
-
-_funs["refugee_gift"] = function(sn, state, eid, pid)
-    if eid then
-        local refugee = get_ety(eid)
-        if refugee then
-           refugee:refugee_gift(pid)
+           return refugee:refugee_gift(pid)
         end
     end
 end

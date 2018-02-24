@@ -408,6 +408,8 @@ function use_equip_req(self, hero_idx, idx, equip_id)
         return
     end
 
+    self:rem_equip_req(hero_idx, idx)
+
     if hero:try_use_equip(idx, equip_id) then
         Rpc:update_hero_equip_ack(self, equip._pro)
     end

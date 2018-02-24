@@ -157,6 +157,19 @@ function do_reload()
     do_load("cross_activities/periodic_main_activity")
     do_load("cross_activities/periodic_activity")
 
+    -- for k, v in pairs( Rpc.localF ) do
+    --     if type( k ) == "number" then
+    --         INFO( "RpcNameR, %d, %s", k, v.name )
+    --     end
+    -- end
+
+    -- for k, v in pairs( Rpc.remoteF ) do
+    --     if type( k ) == "number" then
+    --         INFO( "RpcNameS, %d, %s", k, v.name )
+    --     end
+    -- end
+
+    refugee.on_reload()
     --gTimeReload = c_get_time()
 end
 
@@ -206,7 +219,7 @@ function do_roi_msg(msg, d0, d1, d2, d3, eids )
     if msg == ROI_MSG.NTY_NO_RES then
         farm.do_check(d0, d1)
         monster.do_check(d0, d1)
-        refugee.do_check(d0, d1)
+        --refugee.do_check(d0, d1)
 
     elseif msg == ROI_MSG.TRIGGERS_ARRIVE then
         -- x, y, eid , eid is actor
@@ -538,10 +551,12 @@ end
 
 
 function test(id)
-    local p = getPlayer( 1540004 )
-    if p then
-        p:operate_dice_action( 1 )
-    end
+    c_tlog_start( "../etc/tlog.xml" )
+
+    --local p = getPlayer( 1750000 )
+    --if p then
+    --    p:swap_out()
+    --end
 end
 
 function test4()
@@ -738,8 +753,10 @@ function init_game_data()
 
     if gMapID ~= gCenterID then
         daily_activity.init_daily_activity()
+        cross_act.init_game_data()
     else
         periodic_activity_manager.sync_all_data()
+        cross_mng_c.init_game_data()
     end
 end
 

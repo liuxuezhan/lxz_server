@@ -107,7 +107,13 @@ function update()
     if _last_update_time ~= gTime then
         -- update必须先于init，不然玩家的pos不对
         if next( _change_cache ) then 
-            _notify_queue_update(_change_cache)
+            -- add by zhoujy 20180131
+            -- 为了不给没有在登录排队流程中的玩家发送update消息，所以加入下面的if
+            -- 基于：update消息只应该发给在排队队列中的，如果_login_queue没有玩家
+            --      则说明就算此玩家之前在排队，那么马上就要进入游戏了
+            if #_login_queue > 0 then
+                _notify_queue_update(_change_cache)
+            end
             _change_cache = {}
         end
 

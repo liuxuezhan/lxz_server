@@ -505,6 +505,13 @@ end
 
 
 ---cross act
+function cross_ask_game_info(self)
+    if self.pid ~= gCenterID then
+        return
+    end
+    crontab.upload_gs_info()
+    cross_act.upload_royal_city_info()
+end
 
 function cross_act_ntf(self, ntf_id, ...)
     local arg = { ... } or {}
@@ -560,10 +567,7 @@ function cross_gm(self, pack)
         cross_mng_c.cross_act_end()
     end
     if pack[2] == "4" then
-        cross_refugee_c.cross_refugee_start()
-    end
-    if pack[2] == "5" then
-        cross_refugee_c.cross_refugee_end()
+        cross_mng_c.cross_act_fight()
     end
     if pack[2] == "debug" then
         cross_mng_c.debug_tag = cross_mng_c.debug_tag * -1
@@ -587,25 +591,44 @@ function refugee_change(self, pid, mode, info)
     ply.refugee_info = refugee_info
 end
 
-function cross_npc_info_req(self, pid)
-    local gs_id = self.pid
-    local gs = cross_mng_c.gs_pool[gs_id]
+function cross_royal_city_info(self, info)
+    cross_mng_c.update_royal_city_info(self.pid, info)
+end
+
+function cross_npc_info_req(self, gid, pid)
+    local gs = cross_mng_c.gs_pool[gid]
     local pack = {}
     if gs then
         local info = {}
         info.left_npc = gs.left_npc
         info.occu_npc = gs.occu_npc
+        info.cities = gs.royal_cities
         pack.pid = pid
         pack.info = info
 
-        Rpc:callAgent(gs_id, "cross_npc_info_ack", pack)
+        Rpc:callAgent(self.pid, "cross_npc_info_ack", gid, pack)
     end
 end
 
-function cross_npc_info_ack(self, pack)
+function cross_npc_info_ack(self, gid, pack)
     local ply = getPlayer(pack.pid)
     if ply then
-        Rpc:cross_npc_info_ack(ply, pack.info)
+        Rpc:cross_npc_info_ack(ply, gid, pack.info)
+    end
+end
+
+function cross_royalty_servers_req(self, pid)
+    local gs = cross_mng_c.get_gs_info(self.pid)
+    if not gs or 0 == gs.group then
+        return
+    end
+    Rpc:callAgent(self.pid, "cross_royalty_servers_ack", pid, cross_mng_c.pack_royalty_servers(gs.group))
+end
+
+function cross_royalty_servers_ack(self, pid, servers)
+    local player = getPlayer(pid)
+    if player then
+        Rpc:cross_royalty_servers_ack(player, servers)
     end
 end
 
@@ -655,23 +678,38 @@ function upload_refugee_score(self, gs_id, pid, score)
     cross_rank_c.add_refugee_score(gs_id, pid, score)
 end
 
-function cross_refugee_rank_info_req(self, pid, gs_id, version)
-    local rank_version, rank_list = cross_rank_c.get_refugee_rank_info(gs_id)
+function cross_refugee_rank_info_req(self, pid, gs_id)
     local info = {}
-    info.version = rank_version
     info.my_rank = cross_rank_c.get_refugee_rank(gs_id, pid)
-    info.rank_list = rank_list
-    info.extra = {
-        countdown = cross_mng_c.get_end_time()
-    }
+    info.my_score = cross_rank_c.get_refugee_rank_score(gs_id, pid)
+    info.end_time = cross_mng_c.get_end_time()
 
     Rpc:callAgent(self.pid, "cross_refugee_rank_info_ack", pid, info)
 end
 
-function cross_refugee_rank_info_ack(self, pid, pack)
+function cross_refugee_rank_info_ack(self, pid, info)
     local player = getPlayer(pid)
     if player then
-        Rpc:cross_refugee_rank_info(player, info.version, info.my_rank, info.rank_list, info.extra)
+        Rpc:cross_refugee_rank_info(player, info.my_rank, info.my_score, info.end_time)
+    end
+end
+
+function cross_refugee_rank_list_req(self, pid, gs_id)
+    local rank_version, rank_list = cross_rank_c.get_refugee_rank_info(gs_id)
+    local info = {}
+    info.version = rank_version
+    info.rank_list = rank_list
+    info.my_rank = cross_rank_c.get_refugee_rank(gs_id, pid)
+    info.extra = {
+        countdown = cross_mng_c.get_end_time(),
+    }
+    Rpc:callAgent(self.pid, "cross_refugee_rank_list_ack", pid, info)
+end
+
+function cross_refugee_rank_list_ack(self, pid, info)
+    local player = getPlayer(pid)
+    if player then
+        Rpc:cross_refugee_rank_list(player, info.version, info.my_rank, info.rank_list, info.extra)
     end
 end
 
@@ -732,7 +770,7 @@ function claim_player_cross_award_ack(self, pid, awards)
     end
     for k, v in pairs(awards) do
         player:send_system_notice(v[2], {}, v[4], v[3])
-        WARN("[Cross|RankAward] Player %d claimed award %d", pid, v[1])
+        INFO("[Cross|RankAward] Player %d claimed award %d", pid, v[1])
     end
 end
 
@@ -952,7 +990,7 @@ do_gm_cmd["senditem"] = function(param)
     end
     local title = param.title or "欢迎来到铁血帝国"
     local content = param.content or "这是文明的荣耀，这是战争的喷张"
-    local mail_id = tonumber(param.mail_id) or 10001
+    local mail_id = tonumber(param.mail_id) or 10031
 
     if mail_id == 10032 then   --- 10001 默认  10031 %s 10032%z
         title = tonumber(title)
@@ -1080,20 +1118,22 @@ function periodic_activity_upload_score_ack(self, mode, sn, pid)
 end
 
 function periodic_activity_get_my_rank(self, mode, gid, pid, rank_lv)
-    local rank_pos = periodic_activity_manager.get_my_rank(mode, gid, pid, rank_lv)
-    print("periodic_activity_get_my_rank", rank_pos)
-    Rpc:callAgent(self.pid, "periodic_activity_get_my_rank_ack", mode, pid, rank_pos)
+    local rank_pos, ahead_score = periodic_activity_manager.get_my_rank(mode, gid, pid, rank_lv)
+    Rpc:callAgent(self.pid, "periodic_activity_get_my_rank_ack", mode, pid, rank_pos, ahead_score)
 end
 
-function periodic_activity_get_my_rank_ack(self, mode, pid, rank_pos)
+function periodic_activity_get_my_rank_ack(self, mode, pid, rank_pos, ahead_score)
     local player = getPlayer(pid)
-    print("periodic_activity_get_my_rank_ack", player, pid, mode, rank_pos)
     if player then
-        Rpc:get_my_periodic_rank(player, mode, rank_pos)
+        Rpc:get_my_periodic_rank(player, mode, rank_pos, ahead_score)
     end
 end
 
 function periodic_activity_gm_refresh_activity(self, mode, index)
     periodic_activity_manager.refresh_activity(mode, index)
+end
+
+function periodic_activity_reinit_data(self, info)
+    periodic_activity_manager.clear_player_rank(self.pid, info)
 end
 

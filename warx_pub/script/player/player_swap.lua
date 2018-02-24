@@ -11,16 +11,11 @@ function can_swap_out( self, urgent )
     local clv = self.propid % 1000
     if clv > 5 then return end
     local clv2loss = {
-        [1] = 3600, -- 1 hour
-        [2] = 7200, -- 2 hour
+        [1] = 14400, -- 1 hour
+        [2] = 14400, -- 2 hour
         [3] = 14400,-- 4 hour
         [4] = 28800, -- 8 hour
         [5] = 57600, -- 16 hour
-        -- [1] = 5, -- 1 hour
-        -- [2] = 5, -- 2 hour
-        -- [3] = 5,-- 4 hour
-        -- [4] = 5, -- 8 hour
-        -- [5] = 5, -- 16 hour
     }
 
     local offtm = gTime - math.max( math.max( self.tm_login, self.tm_logout ), self.tm_create )
@@ -70,6 +65,7 @@ function swap_out( self )
     rem_ety( self.eid )
     gPlys[ pid ] = nil
 
+    local eid = self.eid
     self.eid = 0
     gPendingSave.player[ pid ].eid = 0
     rank_mng.rem_person_data( pid )
@@ -78,7 +74,7 @@ function swap_out( self )
     local acc = gAccounts[ self.account ]
     if acc then acc[ pid ].tm_swap = gTime end
 
-    WARN( "[SWAP], out, pid,%d, total,%d", pid, gTotalCreate )
+    WARN( "[SWAP], out, pid,%d, openid,%s, eid,%d, lv,%d, total,%d", pid, self.account, eid, self.propid%1000, gTotalCreate )
 
     return 1
 end
@@ -120,16 +116,17 @@ function swap_in( pid )
         local eid = get_eid()
         local p = player_t.wrap( info )
 
+        p._pro.eid = eid
+        gPendingSave.player[ pid ].eid = eid
+
         local acc = gAccounts[ p.account ]
         if acc then acc[ pid ].tm_swap = gTime end
-
+        
         rawset(p, "eid", eid)
         rawset(p, "pid", pid)
         rawset(p, "size", 4)
         rawset(p, "uname", "")
         restore_home_troop( p )
-
-        --load union_item
 
         gEtys[ p.eid ] = p
         gPlys[ p.pid ] = p
@@ -143,7 +140,7 @@ function swap_in( pid )
             p.y = y
             etypipe.add( p )
             gTotalCreate = gTotalCreate + 1
-            WARN( "[SWAP], in, pid,%d, total,%d", p.pid, gTotalCreate )
+            WARN( "[SWAP], in, pid,%d, openid,%s, eid,%d, lv,%d, total,%d", p.pid, p.account, eid, p.propid%1000, gTotalCreate )
             return p
 
         else
@@ -151,7 +148,7 @@ function swap_in( pid )
             gPlys[ p.pid ] = nil
             p.eid = 0
             gPendingSave.player[ p.pid ].eid = 0
-            WARN( "[SWAP], in, pid,%d, fail", p.pid )
+            WARN( "[SWAP], in, pid,%d, openid,%s, eid,%d, lv,%d, total,%d, fail", p.pid, p.account, eid, p.propid%1000, gTotalCreate )
         end
     end
 end

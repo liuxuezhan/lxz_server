@@ -129,6 +129,19 @@ function check_arm(self, arm, action)
 
     local hsgo = {0,0,0,0}
     local hs = arm.heros or {}
+
+    for i = 1, 4, 1 do
+        local idx = hs[ i ]
+        if idx and idx ~= 0 then
+            for j = i+1, 4, 1 do
+                if idx == hs[ j ] then
+                    INFO( "[CheckArm], duplicate_hero, pid=%d, name=%s, action=%s, {%d,%d,%d,%d}", self.pid, self.name, action, hs[1] or 0, hs[2] or 0, hs[3] or 0, hs[4] or 0 )
+                    return
+                end
+            end
+        end
+    end
+
     for i = 1, 4, 1 do
         local idx = hs[ i ]
         if idx and idx ~= 0 and valid_pos[i] then
@@ -1113,7 +1126,6 @@ function union_mass_join(self, dest_eid, dest_troop_id, arm)
         --任务
         task_logic_t.process_task(self, TASK_ACTION.TROOP_TO_KING_CITY, 1)
     elseif is_monster_city(dest_tr_target) then
-        action = TroopAction.AtkMC
         if not can_ply_join_act[ACT_TYPE.MC](self) then
           --  self:add_debug( "can not play level limit" )
             if not debug_tag then
@@ -1818,7 +1830,7 @@ function troop_recall(self, dest_troop_id, force)
             return troop
         elseif action == TroopAction.Refugee then
             troop:back()
-            dest:stop_grab()
+            troop:refugee_stop()
             return troop
         elseif action == TroopAction.HeroTask then
             local task_id = troop:get_extra("hero_task_id")
@@ -2203,6 +2215,101 @@ function calc_cure_pow(arm)
         end
     end
     return pow
+end
+
+
+function do_auto_cure( self )
+    local hurts = {}
+    local prop = resmng.prop_arm
+    for k, v in pairs( self.hurts or {} ) do
+        if v > 0 then
+            if prop[ k ] then
+                table.insert( hurts, { prop[k], v } )
+            end
+        end
+    end
+    if #hurts > 0 then
+        local farms = get_farms( self )
+        local res = {0,0,0,0}
+        local prop = resmng.prop_build
+        for _, b in pairs( farms ) do
+            local conf = prop[ b.propid ]
+            if conf then
+                res[ conf.Mode ] = res[ conf.Mode ] + conf.Speed * 10
+            end
+        end
+        table.sort( hurts, function (A,B) 
+            local lva = A[1].Lv
+            local lvb = B[1].Lv
+            if lva ~= lvb then return lva > lvb end
+            return A[1].ID > B[1].ID
+        end
+        )
+
+        local arms = {}
+        local incpow = 0
+        for _, v in ipairs( hurts ) do
+            local armid = v[1].ID
+            local cons = v[1].Cons
+            local num = v[2]
+            local count = 0
+            local needs = {0,0,0,0}
+            for _, c in pairs( cons ) do
+                local mode = c[2]
+                local need = c[3] * 0.5
+                needs[ mode ] = need
+                local can = math.floor(res[ mode ] / need)
+                if count == 0 or can < count then
+                    count = can
+                end
+            end
+            if count > 0 then
+                if count > num then count = num end
+                for mode, need in pairs( needs ) do
+                    res[ mode ] = res[ mode ] - need * count
+                end
+                INFO( "autocure, pid,%d, armid,%d, count,%d", self.pid, armid, count )
+                arms[ armid ] = count
+                incpow = incpow + v[1].Pow * count
+            end
+            if res[1] < 60 then break end
+        end
+
+        if next( arms ) then
+            local hurts = self.hurts
+            for k, v in pairs( arms ) do
+                hurts[ k ] = hurts[ k ] - v
+                if hurts[ k ] <= 0 then
+                    hurts[ k ] = nil
+                end
+            end
+            self.hurts = hurts
+        end
+
+        local troop = get_my_troop(self)
+        if troop then
+            troop:add_soldiers( arms )
+            troop:save()
+        end
+
+        incpow = math.floor( incpow )
+        self.pow_arm = (self.pow_arm or 0) + incpow
+        self.pow = (self.pow or 0) + incpow
+    end
+end
+
+function auto_cure( self )
+    if not is_online( self ) then
+        if self:get_castle_lv() >= 4 then
+            local TwoDay = 172800
+            if gTime - math.max( self.tm_login, self.tm_logout ) > TwoDay then
+                if gTime - (rawget( self, "_tm_auto_cure" ) or 0) > TwoDay then
+                    rawset( self, "_tm_auto_cure", gTime )
+                    do_auto_cure( self )
+                end
+            end
+        end
+    end
 end
 
 

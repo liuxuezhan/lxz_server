@@ -172,7 +172,7 @@ function mail_load( self, sn )
             end
         end
     end
-    if num > 0 then Rpc:mail_load( self, ms ) end
+    if #ms > 0 then Rpc:mail_load( self, ms ) end
     Rpc:mail_load(self, {})
 end
 
@@ -213,20 +213,26 @@ function mail_load_by_idx( self, ids )
     end
     local max_idx = self.mail_max
 
+    local mails = rawget( self, "_mail" )
     for idx, _ in pairs( needs ) do
         if idx <= max_idx then
-            local m = { _id=string.format("%d_%d", idx, pid ), idx=idx, tm=-1}
-            table.insert( ms, m )
-            num = num + 1
-            if num >= 50 then
-                Rpc:mail_load(self, ms)
-                num = 0
-                ms = {}
+            local _id = string.format( "%d_%d", idx, pid )
+            if mails and mails[ _id ] then
+                table.insert( ms, mails[ _id ] )
+            else
+                local m = { _id=string.format("%d_%d", idx, pid ), idx=idx, tm=-1}
+                table.insert( ms, m )
+                num = num + 1
+                if num >= 50 then
+                    Rpc:mail_load(self, ms)
+                    num = 0
+                    ms = {}
+                end
             end
         end
     end
 
-    if num > 0 then Rpc:mail_load( self, ms ) end
+    if #ms > 0 then Rpc:mail_load( self, ms ) end
     Rpc:mail_load(self, {})
 end
 
@@ -286,9 +292,8 @@ function mail_new(self, v, is_compensate)
     
     gPendingInsert.mail[ v._id ] = v
 
-    if self._mail then
-        self._mail[ v._id ] = v
-    end
+    if not rawget( self, "_mail" ) then rawset( self, "_mail", {} ) end
+    self._mail[ v._id ] = v
 
     if self:is_online() then
         Rpc:mail_notify( self, {v} )

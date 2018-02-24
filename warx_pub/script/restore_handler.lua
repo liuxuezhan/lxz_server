@@ -391,11 +391,6 @@ function post_init()
     daily_task_filter.init_filter()
     INFO("-- init odaily task filter done  ---")
 
-    --[[
-    INFO("-- init daily activity ---------")
-    daily_activity.init_daily_activity()
-    INFO("-- init daily activity done  ---")
-    --]]
     INFO("-- init daily activity manager ---------")
     periodic_activity_manager.init_data()
     INFO("-- init daily activity manager done  ---")
@@ -448,12 +443,6 @@ function action()
     INFO("-- load_operate_activity done --------")
     --monitoring(MONITOR_TYPE.LOADDATA, "load_operate_activity")
 
-    --[[
-    INFO("-- load_daily_activity -------------")
-    daily_activity.load_daily_activity()
-    INFO("-- load_daily_activity done --------")
-    --monitoring(MONITOR_TYPE.LOADDATA, "load_daily_activity")
-    --]]
     INFO("-- load_periodic_activity_manager -------------")
     periodic_activity_manager.load_data()
     INFO("-- load_periodic_activity_manager done --------")

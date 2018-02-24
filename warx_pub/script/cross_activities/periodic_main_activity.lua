@@ -46,6 +46,17 @@ function init_data(self)
     PERIODIC_TIMER[self.mode](self)
 end
 
+function clear_player_rank(self, gid, info)
+    local activity = self:get_activity_by_gid(gid)
+    if nil == activity then
+        WARN("[PeriodicActivity|MainActivity|%d] Server %d has no activity when clear player rank", self.mode, gid)
+        return
+    end
+    for k, v in pairs(info or {}) do
+        activity:clear_rank(v[1], v[2])
+    end
+end
+
 PERIODIC_TIMER = {}
 PERIODIC_TIMER[PERIODIC_ACTIVITY.DAILY] = function(self) end
 
@@ -199,7 +210,7 @@ function get_my_rank(self, gid, pid, rank_lv)
     local activity = self:get_activity_by_gid(gid)
     if nil == activity then
         WARN("[PeriodicActivity|MainActivity|%d] Server %d has no activity when get player rank|%d", self.mode, gid, pid)
-        return 0
+        return 0, 0
     end
     return activity:get_my_rank(pid, rank_lv)
 end

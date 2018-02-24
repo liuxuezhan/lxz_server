@@ -85,7 +85,21 @@ end
 
 function get_my_rank(self, pid, rank_lv)
     local rank_id = self:get_rank_id(rank_lv)
-    return custom_rank_mng.get_rank(rank_id, pid)
+    local rank_pos = custom_rank_mng.get_rank(rank_id, pid)
+    if rank_pos <= 1 then
+        return rank_pos, 0
+    end
+    local info = custom_rank_mng.get_range_with_score(rank_id, rank_pos - 1, rank_pos)
+    local score_with_prev = 0
+    if info then
+        score_with_prev = info[2] - info[4]
+    end
+    return rank_pos, score_with_prev
+end
+
+function clear_rank(self, pid, rank_lv)
+    local rank_id = self:get_rank_id(rank_lv)
+    return custom_rank_mng.rem_data(rank_id, pid)
 end
 
 function sync_data_to_server(self, gs_id)
@@ -99,8 +113,7 @@ function get_act_id(self)
     return ActivitySelector[self.mode](self)
 end
 
-ActivitySelector = {}
-ActivitySelector[PERIODIC_ACTIVITY.DAILY] = function(activity)
+local function _random_selector(activity)
     local pool = {}
     local total_ratio = 0
     for _, v in pairs(resmng[activity:get_config("PROP_GROUP")]) do
@@ -120,9 +133,14 @@ ActivitySelector[PERIODIC_ACTIVITY.DAILY] = function(activity)
     return pool[1][1]
 end
 
-ActivitySelector[PERIODIC_ACTIVITY.BIHOURLY] = function(activity)
+local function _sequence_selector(activity)
     local props = resmng[activity:get_config("PROP_GROUP")]
     local count = #props
     return (activity.group_id % count) + 1
 end
+
+ActivitySelector = {
+    [PERIODIC_ACTIVITY.DAILY] = _random_selector,
+    [PERIODIC_ACTIVITY.BIHOURLY] = _random_selector,
+}
 

@@ -32,7 +32,7 @@ end
 function get_pay_state(self, key)
     if not self._pay_state then do_load_pay_state(self) end
     if key then
-        local node = self._pay_state[key] or {}
+        local node = self._pay_state[key] 
         if not node then
             node = {_id = self.pid.."_"..key, pid = self.pid}
             self._pay_state[key] = node
@@ -302,29 +302,32 @@ function gen_normal_buy_list(self, pay_state)
     self:set_pay_state1("normal_buy_list", pay_state.normal_buy_list)
 end
 
-function check_can_buy( self, product_id) --查看是否有高优先级的存在
+function check_can_buy( self, product_id, do_pay) --查看是否有高优先级的存在
     local prop = resmng.prop_buy[product_id]
     if prop then
         if prop.pre_id then
             if self:check_can_buy(prop.pre_id) then
                 return false
             else
-                return self:check_cond(prop.Limited)
+                return self:check_cond(prop.Limited, do_pay)
             end
         else
-            return self:check_cond(prop.Limited)
+            return self:check_cond(prop.Limited, do_pay)
         end
     end
     return false
 end
 
-function check_cond(self, conditions)
+function check_cond(self, conditions, do_pay)
     local ret = true
+    local list = {["lv_build"] = 1, ["lv_ply"] = 1}
     for k, condition in pairs(conditions or {}) do
         if check_each_cond[condition[1]] then
-            ret = ret and check_each_cond[condition[1]](self, unpack(condition))
-            if ret == false then
-                return flase
+            if not (do_pay == true and list[condition[1]] )then
+                ret = ret and check_each_cond[condition[1]](self, unpack(condition))
+                if ret == false then
+                    return flase
+                end
             end
         end
     end
@@ -380,7 +383,7 @@ check_each_cond["lv_build"] = function(ply, mode, action, con_lv)
 end
 
 check_each_cond["lv_ply"] = function(ply, mode, action, con_lv)
-    local lv = ply:get_castle_lv()
+    local lv = ply.lv
     return compare(lv, con_lv, action)
 end
 
@@ -425,7 +428,7 @@ function on_pay( self, product_id, real, force)
     if real or ( not config.Release ) then
         local prop = resmng.prop_buy[product_id]
         if prop then
-            WARN( "[pay], pid,%d, openid,%s, product_id,%d, price,%s, lv,%d, ip,%s", self.pid, self.account, product_id, prop.NewPrice_US or "0",  self.propid % 1000,  self.ip or "0.0.0.0" )
+            WARN( "[pay], pay check pid,%d, openid,%s, product_id,%d, price,%s, lv,%d, ip,%s", self.pid, self.account, product_id, prop.NewPrice_US or "0",  self.propid % 1000,  self.ip or "0.0.0.0" )
 
             if prop.Class == 2 then
                 self:set_yueka(product_id)
@@ -436,7 +439,7 @@ function on_pay( self, product_id, real, force)
                     return {code = 1, msg = "success"}
                 end
 
-                if not self:check_can_buy(product_id) then
+                if not self:check_can_buy(product_id, true) then
                     WARN("GM CMD PAY product id buy limited, pid %d, product_id %d ", self.pid, product_id)
                     return {code = 0, msg = "product buy limited"}
                 end
@@ -446,6 +449,7 @@ function on_pay( self, product_id, real, force)
                     return {code = 0, msg = "product did not in buy list"}
                 end
                 self:do_pay(prop)
+                WARN( "[pay], pay finish pid,%d, openid,%s, product_id,%d, price,%s, lv,%d, ip,%s", self.pid, self.account, product_id, prop.NewPrice_US or "0",  self.propid % 1000,  self.ip or "0.0.0.0" )
             end
 
             self:process_order(product_id)

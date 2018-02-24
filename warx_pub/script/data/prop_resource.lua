@@ -26,4 +26,5 @@ prop_resource = {
 	[DEF_RES_AT_GOLD] = { ID = DEF_RES_AT_GOLD, CodeKey = "relic_gold", Name = LG_RESOURCE_NAME_124100018, Mul = nil, Open = nil, Desc = LG_RESOURCE_DESC_124200018, Color = 3,},
 	[DEF_RES_SNAMAN_STONE] = { ID = DEF_RES_SNAMAN_STONE, CodeKey = "snaman_stone", Name = LG_RESOURCE_NAME_124100019, Mul = nil, Open = nil, Desc = LG_RESOURCE_DESC_124200019, Color = 3,},
 	[DEF_RES_CRS_GOLD] = { ID = DEF_RES_CRS_GOLD, CodeKey = "cross_gold", Name = LG_RESOURCE_NAME_124100020, Mul = nil, Open = nil, Desc = LG_RESOURCE_DESC_124200020, Color = 4,},
+	[DEF_RES_REFUGEE] = { ID = DEF_RES_REFUGEE, CodeKey = "refugee", Name = LG_RESOURCE_NAME_124100021, Mul = 14, Open = nil, Desc = LG_RESOURCE_DESC_124200021, Color = 3,},
 }

@@ -27,11 +27,37 @@ g_activity_info = {
     },
 }
 
+g_default_activity_data = {
+    activity_num = 0,
+    rank_lv = 1,
+    score = {},
+    award_tag = 0,
+}
+
 function init_daily_activity()
     Rpc:callAgent(gCenterID, "periodic_activity_get_activity_data")
 end
 
 function reinit_daily_activity()
+    local info = {
+        [PERIODIC_ACTIVITY.DAILY] = {},
+        [PERIODIC_ACTIVITY.BIHOURLY] = {},
+    }
+    for _, ply in pairs(gPlys or {}) do
+        if 0 ~= ply.daily_activity_info.activity_num then
+            if ply.daily_activity_info.activity_num == g_daily_activity_data.activity_num and ply.daily_activity_info.award_tag >= 3 then
+                table.insert(info[PERIODIC_ACTIVITY.DAILY], {ply.pid, ply.daily_activity_info.rank_lv})
+            end
+            ply.daily_activity_info = copyTab(g_default_activity_data)
+        end
+        if 0 ~= ply.bihourly_activity_info.activity_num then
+            if ply.bihourly_activity_info.activity_num == g_bihourly_activity_data.activity_num and ply.bihourly_activity_info.award_tag >= 3 then
+                table.insert(info[PERIODIC_ACTIVITY.BIHOURLY], {ply.pid, ply.bihourly_activity_info.rank_lv})
+            end
+            ply.bihourly_activity_info = copyTab(g_default_activity_data)
+        end
+    end
+    Rpc:callAgent(gCenterID, "periodic_activity_reinit_data", info)
 end
 
 function update_data(mode, group_id, sn, start_time, end_time)
@@ -261,11 +287,17 @@ function pack_activity(player, mode)
 end
 
 function _pack_activity(player, mode, activity_data)
-    if gTime < activity_data.start_time then
-        return
-    end
-
     check_player_data(player, mode)
+
+    if gTime < activity_data.start_time or gTime > activity_data.end_time then
+        return {
+            group_id = 0,
+            start_time = 0,
+            end_time = 0,
+            award_ratio = get_ratio(),
+            activity_num = 0,
+        }
+    end
 
     local msg = {}
     msg.group_id = activity_data.current_index

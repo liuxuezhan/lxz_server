@@ -26,7 +26,7 @@ function init_act()
     end
 
     local now = os.date("*t", gTime)
-    if now.hour < 6 then
+    if now.hour < 16 then
         start_act_tm = get_zero_tm(gTime)
     else
         start_act_tm = get_zero_tm(gTime) + 24 * 3600
